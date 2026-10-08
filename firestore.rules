@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Función de ayuda para saber si el usuario está autenticado
+    function isAuth() {
+      return request.auth != null;
+    }
+    
+    // Función de ayuda para saber si el usuario tiene rol de RH o Admin
+    function esRH() {
+      let r = get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol;
+      return r == 'rh' || r == 'admin';
+    }
+    
+    // Reglas específicas para la colección "solicitudes"
+    match /solicitudes/{solId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      
+      // Regla de actualización:
+      allow update: if isAuth() && (
+        esRH() || 
+        (
+          resource.data.creadoPor == request.auth.uid &&
+          (resource.data.estatus == 'pendiente' || resource.data.estatus == 'aprobada') &&
+          (request.resource.data.estatus == 'pendiente' || request.resource.data.estatus == 'cancelada')
+        )
+      );
+      
+      allow delete: if esRH();
+      
+      // Reglas para la subcolección "pasajeros"
+      match /pasajeros/{pasId} {
+        allow read: if isAuth();
+        allow create: if isAuth();
+        
+        // El superintendente puede modificar pasajeros solo si es dueño de la solicitud 
+        // y su estado se lo permite (pendiente o aprobada).
+        allow update, delete: if isAuth() && (
+          esRH() || 
+          (
+            get(/databases/$(database)/documents/solicitudes/$(solId)).data.creadoPor == request.auth.uid &&
+            (
+              get(/databases/$(database)/documents/solicitudes/$(solId)).data.estatus == 'pendiente' || 
+              get(/databases/$(database)/documents/solicitudes/$(solId)).data.estatus == 'aprobada'
+            )
+          )
+        );
+      }
+    }
+    
+    // Regla global por defecto para las demás colecciones (usuarios, catalogos, etc.)
+    // ADVERTENCIA: Ajustar según la configuración de seguridad deseada del proyecto.
+    match /{document=**} {
+      allow read, write: if isAuth();
+    }
+  }
+}

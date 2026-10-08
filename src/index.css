@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* Identidad Century Mold: Rojo */
+  --cm-red: #C8102E;
+  --cm-red-hover: #A50D26;
+  --cm-red-light: #FBE9EC;
+  --cm-red-dark: #8B0018;
+
+  /* Identidad Century Mold: Grises */
+  --cm-dark: #1F2328;
+  --cm-gray-700: #3D434A;
+  --cm-gray-500: #6B7280;
+  --cm-border: #D1D5DB;
+  --cm-light: #F3F4F6;
+  --cm-white: #FFFFFF;
+
+  /* Variables semánticas - Modo claro */
+  --bg-app: #F3F4F6;
+  --bg-surface: #FFFFFF;
+  --bg-surface-secondary: #F8FAFC;
+  --bg-surface-hover: #F3F4F6;
+  --bg-sidebar: #FFFFFF;
+  --border-color: #D1D5DB;
+  --border-subtle: #E5E7EB;
+
+  --text-main: #1F2328;
+  --text-secondary: #6B7280;
+  --text-muted: #9CA3AF;
+
+  /* Estados - Modo claro */
+  --status-success-text: #166534;
+  --status-success-bg: #DCFCE7;
+  --status-success-border: #BBF7D0;
+
+  --status-warning-text: #854D0E;
+  --status-warning-bg: #FEF9C3;
+  --status-warning-border: #FEF08A;
+
+  --status-error-text: #8B0018;
+  --status-error-bg: #FEE2E2;
+  --status-error-border: #FECACA;
+}
+
+.dark {
+  /* Variables semánticas - Modo oscuro */
+  --bg-app: #16181D;
+  --bg-surface: #1F2328;
+  --bg-surface-secondary: #1A1D22;
+  --bg-surface-hover: #272C33;
+  --bg-sidebar: #1F2328;
+  --border-color: #3D434A;
+  --border-subtle: #2D333B;
+
+  --text-main: #F3F4F6;
+  --text-secondary: #9CA3AF;
+  --text-muted: #6B7280;
+
+  /* Rojo en modo oscuro (ajuste de contraste para fondos tenues) */
+  --cm-red: #C8102E;
+  --cm-red-hover: #D91837;
+  --cm-red-light: rgba(200, 16, 46, 0.18);
+  --cm-red-dark: #FF6B81;
+
+  /* Estados - Modo oscuro */
+  --status-success-text: #4ADE80;
+  --status-success-bg: rgba(22, 101, 52, 0.25);
+  --status-success-border: rgba(34, 197, 94, 0.3);
+
+  --status-warning-text: #FACC15;
+  --status-warning-bg: rgba(161, 98, 7, 0.25);
+  --status-warning-border: rgba(234, 179, 8, 0.3);
+
+  --status-error-text: #F87171;
+  --status-error-bg: rgba(139, 0, 24, 0.25);
+  --status-error-border: rgba(239, 68, 68, 0.3);
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-color: var(--bg-app);
+    color: var(--text-main);
+    margin: 0;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  /* Barras de desplazamiento sobrias */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--cm-border);
+    border-radius: 4px;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background-color: var(--cm-gray-700);
+  }
+}
