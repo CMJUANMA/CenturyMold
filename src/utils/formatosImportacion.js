@@ -1,6 +1,6 @@
 /**
  * formatosImportacion.js
- * Formatos en blanco (ExcelJS) y lectura (SheetJS) de los archivos de importación
+ * Formatos en blanco y lectura de los archivos de importación (todo con ExcelJS; solo .xlsx)
  * de empleados y directorio. Sin dependencias del navegador, para poder probarlo en Node.
  *
  * Cada formato tiene 3 hojas: "Instrucciones", la hoja de datos y "Ejemplo".
@@ -8,7 +8,6 @@
  * El archivo es un documento: aquí se usan colores fijos, no tokens de la UI.
  */
 import ExcelJS from 'exceljs';
-import * as XLSX from 'xlsx';
 import { buscarCoincidencias, normalizarPuesto } from './puestos.js';
 import { esActivo } from './activo.js';
 import { slugify } from './comparacionImportacion.js';
@@ -387,12 +386,37 @@ const norm = (v) => String(v ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
  * Lee solo la hoja de datos (ignora "Instrucciones" y "Ejemplo") y valida encabezados.
  * Devuelve las filas de datos con su número de fila de Excel; omite filas vacías.
  */
-function leerHojaDatos(buffer, nombreHoja, headers) {
-  const wb = XLSX.read(buffer, { type: 'array' });
-  const ws = wb.Sheets[nombreHoja];
+/** Valor de una celda de ExcelJS como texto (números, fórmulas, texto con formato, hipervínculos) */
+function textoCelda(cell) {
+  const v = cell.value;
+  if (v == null) return '';
+  if (typeof v === 'object') {
+    if (v instanceof Date) return v.toISOString();
+    if (Array.isArray(v.richText)) return v.richText.map(t => t.text).join('');
+    if ('result' in v) return v.result == null ? '' : String(v.result);
+    if (v.text != null) return String(v.text);
+    return '';
+  }
+  return String(v);
+}
+
+async function leerHojaDatos(buffer, nombreHoja, headers) {
+  const wb = new ExcelJS.Workbook();
+  try {
+    await wb.xlsx.load(buffer);
+  } catch {
+    throw new Error('No se pudo leer el archivo. Verifique que sea un .xlsx válido.');
+  }
+  const ws = wb.getWorksheet(nombreHoja);
   if (!ws) throw new Error(`No se encontro la hoja "${nombreHoja}".`);
-  const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-  if (!raw.length) throw new Error(`La hoja "${nombreHoja}" esta vacia.`);
+  const total = ws.rowCount;
+  if (!total) throw new Error(`La hoja "${nombreHoja}" esta vacia.`);
+  // raw[i] = valores de la fila i+1 de Excel, solo las columnas esperadas
+  const raw = [];
+  for (let n = 1; n <= total; n++) {
+    const row = ws.getRow(n);
+    raw.push(headers.map((_, ci) => textoCelda(row.getCell(ci + 1))));
+  }
   const enc = raw[0].map(h => norm(h));
   headers.forEach((h, i) => {
     if (enc[i] !== h) {
@@ -408,9 +432,9 @@ function leerHojaDatos(buffer, nombreHoja, headers) {
   return filas;
 }
 
-export function leerDirectorio(buffer) {
+export async function leerDirectorio(buffer) {
   const clavesSeen = new Map();
-  return leerHojaDatos(buffer, HOJA_DIR, DIR_HEADERS).map(({ filaExcel, valores }) => {
+  return (await leerHojaDatos(buffer, HOJA_DIR, DIR_HEADERS)).map(({ filaExcel, valores }) => {
     const [ruta, comunidad, puntoReunion, clave] = valores.map(norm);
     const datos = { RUTA: ruta, COMUNIDAD: comunidad, 'PUNTO DE REUNION': puntoReunion, CLAVE: clave };
     const errores = [];
@@ -430,9 +454,9 @@ export function leerDirectorio(buffer) {
   });
 }
 
-export function leerEmpleados(buffer, puntosReunionMap, puestosExistentes = []) {
+export async function leerEmpleados(buffer, puntosReunionMap, puestosExistentes = []) {
   const nominasSeen = new Map();
-  const filasTmp = leerHojaDatos(buffer, HOJA_EMP, EMP_HEADERS).map(({ filaExcel, valores }) => {
+  const filasTmp = (await leerHojaDatos(buffer, HOJA_EMP, EMP_HEADERS)).map(({ filaExcel, valores }) => {
     const nomina = norm(valores[0]); const nombre = norm(valores[1]);
     const puesto = normalizarPuesto(valores[2]); const claveParada = norm(valores[3]);
     const datos = { NOMINA: nomina, NOMBRE: nombre, PUESTO: puesto, 'CLAVE PARADA': claveParada };

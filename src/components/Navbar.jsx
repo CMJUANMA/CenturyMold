@@ -8,28 +8,23 @@ import {
   Home, FilePlus, ClipboardList, Layers, Users, Database,
   ShieldCheck, User, LogOut, Menu, X, Sun, Moon,
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ROLES_RH } from '../utils/roles';
+import { ROLES, ESTATUS_SOLICITUD, ROL_LABELS_CORTOS } from '../utils/constantes';
 
 const NAV_ITEMS = [
-  { path: '/', label: 'Inicio', icon: Home, roles: ['admin', 'rh', 'superintendente'], end: true },
-  { path: '/solicitud/nueva', label: 'Nueva solicitud', icon: FilePlus, roles: ['admin', 'rh', 'superintendente'] },
-  { path: '/mis-solicitudes', label: 'Mis solicitudes', icon: ClipboardList, roles: ['admin', 'rh', 'superintendente'] },
+  { path: '/', label: 'Inicio', icon: Home, roles: [ROLES.ADMIN, ROLES.RH, ROLES.SUPERINTENDENTE], end: true },
+  { path: '/solicitud/nueva', label: 'Nueva solicitud', icon: FilePlus, roles: [ROLES.ADMIN, ROLES.RH, ROLES.SUPERINTENDENTE] },
+  { path: '/mis-solicitudes', label: 'Mis solicitudes', icon: ClipboardList, roles: [ROLES.ADMIN, ROLES.RH, ROLES.SUPERINTENDENTE] },
   { section: 'Gestión y control', roles: ROLES_RH },
   { path: '/rh/solicitudes', label: 'Todas las solicitudes', icon: Layers, roles: ROLES_RH },
   { path: '/rh/empleados', label: 'Padrón de empleados', icon: Users, roles: ROLES_RH },
   { path: '/rh/catalogos', label: 'Catálogos del sistema', icon: Database, roles: ROLES_RH },
   { path: '/rh/usuarios', label: 'Usuarios y accesos', icon: ShieldCheck, roles: ROLES_RH },
 ];
-
-const ROL_LABELS = {
-  admin: 'Administrador',
-  rh: 'Recursos Humanos',
-  superintendente: 'Superintendente',
-};
 
 export default function Navbar() {
   const { usuario, cerrarSesion } = useAuth();
@@ -44,7 +39,7 @@ export default function Navbar() {
     if (!usuario) return;
     let unsub1, unsub2;
     if (ROLES_RH.includes(usuario.rol)) {
-      unsub1 = onSnapshot(query(collection(db, 'solicitudes'), where('estatus', '==', 'pendiente')), snap => {
+      unsub1 = onSnapshot(query(collection(db, 'solicitudes'), where('estatus', '==', ESTATUS_SOLICITUD.PENDIENTE)), snap => {
         setPendientesRh(snap.size);
       });
     }
@@ -154,7 +149,7 @@ export default function Navbar() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold text-[var(--text-main)] leading-tight text-xs">{usuario?.nombre ?? 'Usuario'}</p>
-              <p className="truncate text-[10px] text-[var(--text-secondary)]">{ROL_LABELS[rol] ?? rol}</p>
+              <p className="truncate text-[10px] text-[var(--text-secondary)]">{ROL_LABELS_CORTOS[rol] ?? rol}</p>
             </div>
           </NavLink>
           <button type="button" id="btn-cerrar-sesion" onClick={handleCerrarSesion}

@@ -10,15 +10,18 @@ import {
 } from 'lucide-react';
 import { collection, doc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 import { slugify } from '../../utils/comparacionImportacion';
 import { esActivo } from '../../utils/activo';
 import RevisarColecciones from './RevisarColecciones';
-import { useRecargarCatalogos } from '../../context/CatalogosContext';
+import { useRecargarCatalogos } from '../../hooks/useCatalogos';
 
 // Importación masiva (arrastra exceljs y xlsx): se descarga solo al abrir el modal
 const ModalImportacion = lazy(() => import('./ModalImportacion'));
 import Modal from '../../components/Modal';
+import { ROLES } from '../../utils/constantes';
+import { useConfirmar } from '../../hooks/useConfirmar';
+import { useToast } from '../../hooks/useToast';
 
 const TABS = [
   { id: 'rutas',        label: 'Rutas',            icon: Navigation },
@@ -72,6 +75,8 @@ function EmptyState({ icon: Icon, msg }) {
 
 // ── Tab Rutas ─────────────────────────────────────────────────────────────
 function TabRutas({ rutas, comunidades, puntos, reload }) {
+  const confirmar = useConfirmar();
+  const toast = useToast();
   const [busqueda, setBusqueda] = useState('');
   const [modal, setModal] = useState(null); // null | { modo: 'crear'|'editar', ruta? }
   const [form, setForm] = useState({ nombre: '' });
@@ -110,9 +115,13 @@ function TabRutas({ rutas, comunidades, puntos, reload }) {
     const accion = r.activo !== false ? 'desactivar' : 'activar';
     let msg = `¿Deseas ${accion} la ruta "${r.nombre}"?`;
     if (r.activo !== false && (comsDep || ptosDep)) msg += ` Dependen de ella ${comsDep} comunidad(es) y ${ptosDep} punto(s).`;
-    if (!confirm(msg)) return;
-    await updateDoc(doc(db, 'rutas', r.id), { activo: r.activo === false });
-    reload();
+    if (!await confirmar({ titulo: `${r.activo !== false ? 'Desactivar' : 'Activar'} ruta`, mensaje: msg, textoConfirmar: accion.charAt(0).toUpperCase() + accion.slice(1), peligroso: r.activo !== false })) return;
+    try {
+      await updateDoc(doc(db, 'rutas', r.id), { activo: r.activo === false });
+      reload();
+    } catch (err) {
+      toast.error('No se pudo actualizar la ruta: ' + err.message);
+    }
   };
 
   return (
@@ -200,6 +209,8 @@ function TabRutas({ rutas, comunidades, puntos, reload }) {
 
 // ── Tab Comunidades ───────────────────────────────────────────────────────
 function TabComunidades({ comunidades, rutas, puntos, reload }) {
+  const confirmar = useConfirmar();
+  const toast = useToast();
   const [busqueda, setBusqueda] = useState('');
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({ nombre: '', rutaId: '' });
@@ -238,9 +249,13 @@ function TabComunidades({ comunidades, rutas, puntos, reload }) {
   const toggleActivo = async (c) => {
     const accion = c.activo !== false ? 'desactivar' : 'activar';
     const rutaNombre = rutas.find(r => r.id === c.rutaId)?.nombre ?? c.rutaId;
-    if (!confirm(`¿${accion} la comunidad "${c.nombre}" de ruta "${rutaNombre}"?`)) return;
-    await updateDoc(doc(db, 'comunidades', c.id), { activo: c.activo === false });
-    reload();
+    if (!await confirmar({ titulo: `${c.activo !== false ? 'Desactivar' : 'Activar'} comunidad`, mensaje: `¿${accion} la comunidad "${c.nombre}" de ruta "${rutaNombre}"?`, textoConfirmar: accion.charAt(0).toUpperCase() + accion.slice(1), peligroso: c.activo !== false })) return;
+    try {
+      await updateDoc(doc(db, 'comunidades', c.id), { activo: c.activo === false });
+      reload();
+    } catch (err) {
+      toast.error('No se pudo actualizar la comunidad: ' + err.message);
+    }
   };
 
   return (
@@ -338,6 +353,8 @@ function TabComunidades({ comunidades, rutas, puntos, reload }) {
 
 // ── Tab Puntos ────────────────────────────────────────────────────────────
 function TabPuntos({ puntos, comunidades, rutas, reload }) {
+  const confirmar = useConfirmar();
+  const toast = useToast();
   const [busqueda, setBusqueda] = useState('');
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({ nombre: '', rutaId: '', comunidadId: '', clave: '' });
@@ -396,9 +413,13 @@ function TabPuntos({ puntos, comunidades, rutas, reload }) {
 
   const toggleActivo = async (p) => {
     const accion = p.activo !== false ? 'desactivar' : 'activar';
-    if (!confirm(`¿${accion} el punto "${p.nombre}" (clave: ${p.clave})?`)) return;
-    await updateDoc(doc(db, 'puntosReunion', p.id), { activo: p.activo === false });
-    reload();
+    if (!await confirmar({ titulo: `${p.activo !== false ? 'Desactivar' : 'Activar'} punto de reunión`, mensaje: `¿${accion} el punto "${p.nombre}" (clave: ${p.clave})?`, textoConfirmar: accion.charAt(0).toUpperCase() + accion.slice(1), peligroso: p.activo !== false })) return;
+    try {
+      await updateDoc(doc(db, 'puntosReunion', p.id), { activo: p.activo === false });
+      reload();
+    } catch (err) {
+      toast.error('No se pudo actualizar el punto: ' + err.message);
+    }
   };
 
   return (
@@ -527,10 +548,9 @@ export default function RhCatalogos() {
 
   const recargarCompartidos = useRecargarCatalogos();
   // Además de releer esta pantalla, invalida los catálogos compartidos (Nueva/Editar solicitud)
-  const reload = () => { setRev(v => v + 1); recargarCompartidos(); };
+  const reload = () => { setCargando(true); setErrorCarga(''); setRev(v => v + 1); recargarCompartidos(); };
 
   useEffect(() => {
-    setCargando(true); setErrorCarga('');
     Promise.all([
       getDocs(collection(db, 'rutas')),
       getDocs(collection(db, 'comunidades')),
@@ -545,7 +565,7 @@ export default function RhCatalogos() {
       .finally(() => setCargando(false));
   }, [rev]);
 
-  const puedeCargarMasivo = usuario?.rol === 'admin' || usuario?.rol === 'rh';
+  const puedeCargarMasivo = usuario?.rol === ROLES.ADMIN || usuario?.rol === ROLES.RH;
 
   return (
     <div className="space-y-6">

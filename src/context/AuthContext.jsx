@@ -11,7 +11,7 @@
  * se desactiva o se borra su documento se cierra la sesión; si cambia el rol, la interfaz
  * se actualiza sin recargar.
  */
-import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -22,13 +22,12 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import { AuthContext } from './authStore';
 
-const AuthContext = createContext(null);
-
-export const MSG_DESACTIVADO = 'Tu usuario fue desactivado. Contacta a RH.';
+const MSG_DESACTIVADO = 'Tu usuario fue desactivado. Contacta a RH.';
 
 // ── Constante de dominio ficticio ─────────────────────────────────────────
-export const nominaToEmail = (nomina) => `${nomina.trim()}@rutas.app`;
+const nominaToEmail = (nomina) => `${nomina.trim()}@rutas.app`;
 
 // ── Provider ──────────────────────────────────────────────────────────────
 export function AuthProvider({ children }) {
@@ -182,7 +181,3 @@ export function AuthProvider({ children }) {
   );
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
-export function useAuth() {
-  return useContext(AuthContext);
-}

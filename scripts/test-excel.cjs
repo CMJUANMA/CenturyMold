@@ -1,5 +1,6 @@
 const ExcelJS = require('exceljs');
 const fs = require('fs');
+const path = require('path');
 
 async function testExport() {
   const catalogos = {
@@ -62,7 +63,7 @@ async function testExport() {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'CenturyMold Test';
 
-  for (const [key, data] of Object.entries(hojasData)) {
+  for (const data of Object.values(hojasData)) {
     const { fechaServicio, turnoName, pasajeros } = data;
     let sheetName = turnoName;
     
@@ -241,8 +242,11 @@ async function testExport() {
     if (colBWidth + colCWidth < maxSolNameLen + 3) ws.getColumn(3).width = (maxSolNameLen + 3) - colBWidth;
   }
 
-  await workbook.xlsx.writeFile('test-solicitudes.xlsx');
-  console.log('test-solicitudes.xlsx generated successfully');
+  const salida = path.join(__dirname, 'salida');
+  fs.mkdirSync(salida, { recursive: true });
+  const archivo = path.join(salida, 'test-solicitudes.xlsx');
+  await workbook.xlsx.writeFile(archivo);
+  console.log(`${archivo} generado correctamente`);
 }
 
 testExport().catch(console.error);

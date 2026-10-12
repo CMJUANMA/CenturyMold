@@ -7,7 +7,7 @@
  */
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import Spinner from './Spinner';
 
 const RUTA_CAMBIAR_PASSWORD = '/cambiar-password';

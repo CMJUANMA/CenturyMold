@@ -23,6 +23,7 @@ const RhCatalogos = lazy(() => import('./pages/rh/RhCatalogos'));
 const RhUsuarios = lazy(() => import('./pages/rh/RhUsuarios'));
 import { ROLES_RH } from './utils/roles';
 import { ToastProvider } from './components/Toast';
+import { ConfirmarProvider } from './context/ConfirmarContext';
 
 const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
@@ -58,7 +59,9 @@ export default function App() {
       <AuthProvider>
         <CatalogosProvider>
           <ToastProvider>
-            <RouterProvider router={router} />
+            <ConfirmarProvider>
+              <RouterProvider router={router} />
+            </ConfirmarProvider>
           </ToastProvider>
         </CatalogosProvider>
       </AuthProvider>

@@ -15,35 +15,16 @@ import {
   FilePlus,
   Layers,
   ArrowRight,
-  Info,
   CheckCircle2,
   Loader2
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { useToast } from '../components/Toast';
+import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../hooks/useToast';
 import { mismoMes, fechaLocal, fmtFecha, ymd } from '../utils/fechas';
-import { useCatalogos } from '../context/CatalogosContext';
+import { useCatalogos } from '../hooks/useCatalogos';
+import BadgeEstatus from '../components/BadgeEstatus';
+import { ROL_LABELS, ROLES, ESTATUS_SOLICITUD } from '../utils/constantes';
 
-const ROL_LABELS = {
-  admin: 'Administrador del sistema',
-  rh: 'Recursos Humanos',
-  superintendente: 'Superintendente de area',
-};
-
-// ── Badge de estatus (reutilizado)
-const ESTATUS_MAP = {
-  pendiente: { label: 'Pendiente', cls: 'bg-[var(--status-warning-bg)] text-[var(--status-warning-text)] border-[var(--status-warning-border)]  ' },
-  aprobada: { label: 'Aprobada', cls: 'bg-[var(--status-success-bg)] text-[var(--status-success-text)] border-[var(--status-success-border)]  ' },
-  rechazada: { label: 'Rechazada', cls: 'bg-[var(--status-error-bg)] text-[var(--status-error-text)] border-[var(--status-error-border)]  ' },
-};
-function BadgeEstatus({ estatus }) {
-  const cfg = ESTATUS_MAP[estatus] ?? { label: estatus, cls: 'bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] border-[var(--border-color)]' };
-  return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${cfg.cls}`}>
-      {cfg.label}
-    </span>
-  );
-}
 
 // fechaServicio es "YYYY-MM-DD": se lee como fecha local para no desfasar un día
 const formatFecha = (ymd) => fmtFecha(fechaLocal(ymd));
@@ -53,7 +34,7 @@ export default function Inicio() {
   const toast = useToast();
   const hora = new Date().getHours();
   const saludo = hora < 12 ? 'Buenos dias' : hora < 19 ? 'Buenas tardes' : 'Buenas noches';
-  const esAdminORh = usuario?.rol === 'admin' || usuario?.rol === 'rh';
+  const esAdminORh = usuario?.rol === ROLES.ADMIN || usuario?.rol === ROLES.RH;
 
   const [cargandoSol, setCargandoSol] = useState(true);
   const [statsSol, setStatsSol] = useState({ pendientes: 0, delMes: 0 });
@@ -91,7 +72,7 @@ export default function Inicio() {
         let pend = 0;
         let mesActual = 0;
         lista.forEach(val => {
-          if (val.estatus === 'pendiente') pend++;
+          if (val.estatus === ESTATUS_SOLICITUD.PENDIENTE) pend++;
           if (mismoMes(val.fechaSolicitud, hoy)) mesActual++;
         });
         // Ordenar por fechaServicio ascendente y tomar las proximas 5 (que sean de hoy en adelante)
@@ -124,7 +105,7 @@ export default function Inicio() {
         // fechaSolicitud es Timestamp en las solicitudes nuevas y string ISO en las viejas:
         // cada tipo se cuenta por separado (una consulta de rango no mezcla tipos) y se suman.
         const [pend, mesTs, mesIso] = await Promise.all([
-          getCountFromServer(query(col, where('estatus', '==', 'pendiente'))),
+          getCountFromServer(query(col, where('estatus', '==', ESTATUS_SOLICITUD.PENDIENTE))),
           getCountFromServer(query(col, where('fechaSolicitud', '>=', Timestamp.fromDate(ini)), where('fechaSolicitud', '<', Timestamp.fromDate(fin)))),
           getCountFromServer(query(col, where('fechaSolicitud', '>=', ini.toISOString()), where('fechaSolicitud', '<', fin.toISOString()))),
         ]);

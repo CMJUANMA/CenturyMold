@@ -2,26 +2,25 @@
  * MisSolicitudes.jsx — Vista de superintendente
  */
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, doc, updateDoc, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { useAuth } from '../context/AuthContext';
-import { Layers, Loader2, Eye, XCircle, Info, BellRing, Edit, MessageSquareWarning } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
+import { Layers, Loader2, Eye, XCircle, BellRing, Edit, MessageSquareWarning } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { arrayUnion } from 'firebase/firestore';
 import Modal from '../components/Modal';
-import { fmtFechaHora } from '../utils/fechas';
-
-const ESTATUS_MAP = {
-  pendiente: { label: 'Pendiente', cls: 'bg-[var(--status-warning-bg)] text-[var(--status-warning-text)] border-[var(--status-warning-border)]' },
-  aprobada: { label: 'Aprobada', cls: 'bg-[var(--status-success-bg)] text-[var(--status-success-text)] border-[var(--status-success-border)]' },
-  rechazada: { label: 'Rechazada', cls: 'bg-[var(--status-error-bg)] text-[var(--status-error-text)] border-[var(--status-error-border)]' },
-  cancelada: { label: 'Cancelada', cls: 'bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] border-[var(--border-color)]' },
-  'enviada al proveedor': { label: 'Enviada al proveedor', cls: 'bg-purple-100 text-purple-800 border-purple-200' },
-};
+import BadgeEstatus from '../components/BadgeEstatus';
+import { useToast } from '../hooks/useToast';
+import { useConfirmar } from '../hooks/useConfirmar';
+import { fmtFechaHora, ymd } from '../utils/fechas';
+import { ESTATUS_SOLICITUD } from '../utils/constantes';
 
 export default function MisSolicitudes() {
   const { usuario } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
+  const [hoy] = useState(() => ymd()); // YYYY-MM-DD local, fijo mientras la pantalla esté abierta
+  const confirmar = useConfirmar();
   const [solicitudes, setSolicitudes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [detalle, setDetalle] = useState(null);
@@ -35,7 +34,7 @@ export default function MisSolicitudes() {
     const unsub = onSnapshot(q, snap => {
       let sols = snap.docs.map(d => {
         const data = d.data();
-        return { id: d.id, ...data, estatus: data.estatus?.toLowerCase() || 'pendiente' };
+        return { id: d.id, ...data, estatus: data.estatus?.toLowerCase() || ESTATUS_SOLICITUD.PENDIENTE };
       });
       // Sort client-side avoiding composite index errors
       sols.sort((a,b) => (b.fechaServicio||'').localeCompare(a.fechaServicio||''));
@@ -43,11 +42,11 @@ export default function MisSolicitudes() {
       setCargando(false);
     }, err => {
       console.error('MisSolicitudes:', err);
-      alert('No se pudieron cargar tus solicitudes: ' + err.message);
+      toast.error('No se pudieron cargar tus solicitudes: ' + err.message);
       setCargando(false);
     });
     return () => unsub();
-  }, [usuario]);
+  }, [usuario, toast]);
 
   const abrirDetalle = async (sol) => {
     setDetalle(sol);
@@ -58,26 +57,31 @@ export default function MisSolicitudes() {
 
   const confirmarCancelacion = async (e) => {
     e.preventDefault();
-    if (!motivoCancelacion.trim()) return alert('Debes escribir un motivo corto.');
+    if (!motivoCancelacion.trim()) return toast.warning('Debes escribir un motivo corto.');
     try {
       await updateDoc(doc(db, 'solicitudes', modalCancelar.id), { 
-        estatus: 'cancelada',
+        estatus: ESTATUS_SOLICITUD.CANCELADA,
         historial: arrayUnion({
           fecha: new Date().toISOString(),
           usuario: usuario?.nombre || '',
-          accion: 'cancelada',
+          accion: ESTATUS_SOLICITUD.CANCELADA,
           comentario: motivoCancelacion.trim()
         })
       });
       setModalCancelar(null);
       setMotivoCancelacion('');
     } catch (err) {
-      alert('Error al cancelar: ' + err.message);
+      toast.error('Error al cancelar: ' + err.message);
     }
   };
 
   const avisarARH = async (sol) => {
-    const nota = prompt('Escribe tu mensaje para RH:');
+    const nota = await confirmar({
+      titulo: 'Avisar a RH',
+      mensaje: 'Escribe tu mensaje para RH; quedará en el historial de la solicitud.',
+      textoConfirmar: 'Enviar aviso',
+      campo: { etiqueta: 'Mensaje', placeholder: 'Ej. Cambió el horario de entrada...', multilinea: true, minLength: 3 },
+    });
     if (!nota) return;
     try {
       await updateDoc(doc(db, 'solicitudes', sol.id), {
@@ -85,19 +89,14 @@ export default function MisSolicitudes() {
           fecha: new Date().toISOString(),
           usuario: usuario?.nombre || '',
           accion: 'nota',
-          comentario: nota.trim(),
+          comentario: nota,
           esAviso: true
         })
       });
-      alert('Aviso enviado a RH.');
+      toast.success('Aviso enviado a RH.');
     } catch (err) {
-      alert('Error al enviar aviso: ' + err.message);
+      toast.error('Error al enviar aviso: ' + err.message);
     }
-  };
-
-  const getTodayStr = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
 
   return (
@@ -129,21 +128,19 @@ export default function MisSolicitudes() {
                 <td className="px-4 py-3 font-bold">{sol.fechaServicio}</td>
                 <td className="px-4 py-3">{sol.totalPasajeros}</td>
                 <td className="px-4 py-3">
-                  <span className={`inline-flex px-2 py-1 rounded-full text-[10px] font-bold border ${ESTATUS_MAP[sol.estatus]?.cls}`}>
-                    {ESTATUS_MAP[sol.estatus]?.label}
-                  </span>
-                  {sol.estatus === 'rechazada' && <p className="text-[9px] text-[var(--status-error-text)] mt-1 max-w-[150px] truncate">{sol.motivoRechazo}</p>}
+                  <BadgeEstatus estatus={sol.estatus} />
+                  {sol.estatus === ESTATUS_SOLICITUD.RECHAZADA && <p className="text-[9px] text-[var(--status-error-text)] mt-1 max-w-[150px] truncate">{sol.motivoRechazo}</p>}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <button onClick={()=>abrirDetalle(sol)} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-main)] mr-2" title="Ver Detalle"><Eye className="h-4 w-4"/></button>
                   
-                  {sol.estatus === 'enviada al proveedor' ? (
+                  {sol.estatus === ESTATUS_SOLICITUD.ENVIADA_PROVEEDOR ? (
                     <div className="mt-1 flex flex-col items-end gap-1">
                       <span className="text-[9px] text-[var(--text-muted)] max-w-[120px]">Ya fue enviada al proveedor.</span>
                       <button onClick={()=>avisarARH(sol)} className="inline-flex items-center gap-1 text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"><MessageSquareWarning className="h-3 w-3"/> Avisar a RH</button>
                     </div>
                   ) : (
-                    (sol.estatus === 'pendiente' || sol.estatus === 'aprobada') && sol.fechaServicio >= getTodayStr() && (
+                    (sol.estatus === ESTATUS_SOLICITUD.PENDIENTE || sol.estatus === ESTATUS_SOLICITUD.APROBADA) && sol.fechaServicio >= hoy && (
                       <div className="inline-flex">
                         <button onClick={()=>navigate(`/solicitud/editar/${sol.id}`)} className="p-1 text-blue-600 hover:text-blue-800" title="Editar"><Edit className="h-4 w-4"/></button>
                         <button onClick={()=>setModalCancelar(sol)} className="p-1 text-[var(--status-error-text)] hover:opacity-80" title="Cancelar"><XCircle className="h-4 w-4"/></button>
@@ -161,10 +158,10 @@ export default function MisSolicitudes() {
         {detalle && (
           <>
             <div className="grid grid-cols-2 text-sm gap-2 mb-4 p-4 border border-[var(--border-color)] rounded bg-[var(--bg-surface-secondary)]">
-              <p><strong>Estatus:</strong> <span className={`px-2 py-0.5 rounded-full text-[10px] ${ESTATUS_MAP[detalle.estatus]?.cls}`}>{ESTATUS_MAP[detalle.estatus]?.label}</span></p>
+              <p><strong>Estatus:</strong> <BadgeEstatus estatus={detalle.estatus} /></p>
               <p><strong>Fecha Servicio:</strong> {detalle.fechaServicio}</p>
               <p><strong>Total Pasajeros:</strong> {detalle.totalPasajeros}</p>
-              {detalle.estatus === 'rechazada' && <p className="col-span-2 text-[var(--status-error-text)]"><strong>Motivo de rechazo:</strong> {detalle.motivoRechazo}</p>}
+              {detalle.estatus === ESTATUS_SOLICITUD.RECHAZADA && <p className="col-span-2 text-[var(--status-error-text)]"><strong>Motivo de rechazo:</strong> {detalle.motivoRechazo}</p>}
             </div>
             
             <h3 className="font-bold text-sm mb-2 text-[var(--text-main)]">Historial</h3>

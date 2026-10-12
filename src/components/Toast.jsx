@@ -3,10 +3,10 @@
  * Uso: const { toast, ToastContainer } = useToast();
  *      toast.success('Mensaje'); toast.error('Error');
  */
-import { useState, useCallback, useEffect, createContext, useContext } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { CheckCircle2, AlertTriangle, Info, X } from 'lucide-react';
 
-const ToastContext = createContext(null);
+import { ToastContext } from '../context/toastStore';
 
 let uid = 0;
 
@@ -21,12 +21,12 @@ export function ToastProvider({ children }) {
 
   const remove = useCallback((id) => setToasts(prev => prev.filter(t => t.id !== id)), []);
 
-  const toast = {
+  const toast = useMemo(() => ({
     success: (msg, dur) => addToast(msg, 'success', dur),
     error:   (msg, dur) => addToast(msg, 'error', dur),
     info:    (msg, dur) => addToast(msg, 'info', dur),
     warning: (msg, dur) => addToast(msg, 'warning', dur),
-  };
+  }), [addToast]);
 
   return (
     <ToastContext.Provider value={toast}>
@@ -37,12 +37,6 @@ export function ToastProvider({ children }) {
       </div>
     </ToastContext.Provider>
   );
-}
-
-export function useToast() {
-  const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error('useToast must be inside ToastProvider');
-  return ctx;
 }
 
 const STYLES = {

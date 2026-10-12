@@ -1,12 +1,42 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { useRecargarCatalogos } from '../../context/CatalogosContext';
-import { Database, AlertTriangle, CheckCircle2, Loader2, ArrowRightLeft } from 'lucide-react';
+import { useRecargarCatalogos } from '../../hooks/useCatalogos';
+import { useConfirmar } from '../../hooks/useConfirmar';
+import { Database, AlertTriangle, Loader2, ArrowRightLeft } from 'lucide-react';
+
+const COLECCIONES = ['areas', 'rutas', 'comunidades', 'puntosReunion', 'PuntosReunion', 'empleados', 'solicitudes', 'usuarios'];
+
+/** Cuenta los documentos de cada colección y busca puntos cuya comunidad ya no existe */
+async function consultar() {
+  const resultados = {};
+  for (const col of COLECCIONES) {
+    try {
+      const snap = await getDocs(collection(db, col));
+      resultados[col] = snap.size;
+    } catch {
+      resultados[col] = 'Error/No existe';
+    }
+  }
+
+  let huerfanos = [];
+  try {
+    const comSnap = await getDocs(collection(db, 'comunidades'));
+    const puntosSnap = await getDocs(collection(db, 'puntosReunion'));
+    const validComIds = new Set(comSnap.docs.map(d => d.id));
+    huerfanos = puntosSnap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(p => !validComIds.has(p.comunidadId));
+  } catch (e) {
+    console.error('Error checking orphans', e);
+  }
+  return { resultados, huerfanos };
+}
 
 export default function RevisarColecciones() {
   const recargarCompartidos = useRecargarCatalogos();
-  const [cargando, setCargando] = useState(false);
+  const confirmar = useConfirmar();
+  const [cargando, setCargando] = useState(true);
   const [migrando, setMigrando] = useState(false);
   const [conteos, setConteos] = useState(null);
   const [error, setError] = useState('');
@@ -17,32 +47,9 @@ export default function RevisarColecciones() {
     setCargando(true);
     setError('');
     try {
-      const colecciones = ['areas', 'rutas', 'comunidades', 'puntosReunion', 'PuntosReunion', 'empleados', 'solicitudes', 'usuarios'];
-      const resultados = {};
-      
-      for (const col of colecciones) {
-        try {
-          const snap = await getDocs(collection(db, col));
-          resultados[col] = snap.size;
-        } catch (e) {
-          resultados[col] = 'Error/No existe';
-        }
-      }
-      setConteos(resultados);
-
-      // Check orphans
-      try {
-        const comSnap = await getDocs(collection(db, 'comunidades'));
-        const puntosSnap = await getDocs(collection(db, 'puntosReunion'));
-        const validComIds = new Set(comSnap.docs.map(d => d.id));
-        const orphanPuntos = puntosSnap.docs
-          .map(d => ({ id: d.id, ...d.data() }))
-          .filter(p => !validComIds.has(p.comunidadId));
-        
-        setHuerfanos(orphanPuntos);
-      } catch(e) {
-        console.error("Error checking orphans", e);
-      }
+      const r = await consultar();
+      setConteos(r.resultados);
+      setHuerfanos(r.huerfanos);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -50,12 +57,18 @@ export default function RevisarColecciones() {
     }
   };
 
+  // Carga inicial: solo actualiza el estado cuando llega la respuesta (y si la pantalla sigue montada)
   useEffect(() => {
-    revisar();
+    let vigente = true;
+    consultar()
+      .then(r => { if (vigente) { setConteos(r.resultados); setHuerfanos(r.huerfanos); } })
+      .catch(err => { if (vigente) setError(err.message); })
+      .finally(() => { if (vigente) setCargando(false); });
+    return () => { vigente = false; };
   }, []);
 
   const migrarPuntos = async () => {
-    if (!confirm('¿Seguro que deseas migrar los documentos de "PuntosReunion" a "puntosReunion"?')) return;
+    if (!await confirmar({ titulo: 'Migrar puntos de reunión', mensaje: '¿Seguro que deseas migrar los documentos de "PuntosReunion" a "puntosReunion"?', textoConfirmar: 'Migrar' })) return;
     
     setMigrando(true);
     setError('');

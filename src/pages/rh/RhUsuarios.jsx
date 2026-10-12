@@ -9,17 +9,20 @@ import { db } from '../../firebase';
 import { authSecundaria } from '../../firebaseSecundario';
 import {
   ShieldCheck, UserPlus, Search, Loader2, Pencil,
-  ToggleLeft, ToggleRight, X, CheckCircle2, Info, AlertTriangle,
+  ToggleLeft, ToggleRight, CheckCircle2, Info, AlertTriangle,
 } from 'lucide-react';
 import Modal from '../../components/Modal';
+import { ROLES } from '../../utils/constantes';
+import { useConfirmar } from '../../hooks/useConfirmar';
+import { useToast } from '../../hooks/useToast';
 
-const ROLES = [
-  { value: 'superintendente', label: 'Superintendente' },
-  { value: 'rh', label: 'Recursos Humanos' },
-  { value: 'admin', label: 'Administrador' },
+const OPCIONES_ROL = [
+  { value: ROLES.SUPERINTENDENTE, label: 'Superintendente' },
+  { value: ROLES.RH, label: 'Recursos Humanos' },
+  { value: ROLES.ADMIN, label: 'Administrador' },
 ];
-const rolLabel = r => ROLES.find(x => x.value === r)?.label ?? r;
-const formVacio = { nomina: '', nombre: '', password: '', rol: 'superintendente', areaIds: [] };
+const rolLabel = r => OPCIONES_ROL.find(x => x.value === r)?.label ?? r;
+const formVacio = { nomina: '', nombre: '', password: '', rol: ROLES.SUPERINTENDENTE, areaIds: [] };
 
 const inputCls = 'w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 text-xs focus:border-[var(--cm-red)] focus:outline-none focus:ring-1 focus:ring-[var(--cm-red)]';
 const btnPrimary = 'inline-flex items-center gap-1.5 rounded-md bg-[var(--cm-red)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--cm-red-hover)] active:scale-95 transition-all disabled:opacity-50 cursor-pointer';
@@ -27,6 +30,8 @@ const btnSecondary = 'inline-flex items-center gap-1.5 rounded-md border border-
 const btnIcon = 'rounded p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-surface-secondary)] hover:text-[var(--text-main)] active:scale-95 transition-all cursor-pointer';
 
 export default function RhUsuarios() {
+  const confirmar = useConfirmar();
+  const toast = useToast();
   const [usuarios, setUsuarios] = useState([]);
   const [areas, setAreas] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -139,12 +144,13 @@ export default function RhUsuarios() {
   };
 
   const toggleActivo = async (u) => {
-    if (!confirm(`¿Deseas ${u.activo !== false ? 'desactivar' : 'activar'} a ${u.nombre}?`)) return;
+    const desactivar = u.activo !== false;
+    if (!await confirmar({ titulo: desactivar ? 'Desactivar usuario' : 'Activar usuario', mensaje: `¿Deseas ${desactivar ? 'desactivar' : 'activar'} a ${u.nombre}?`, textoConfirmar: desactivar ? 'Desactivar' : 'Activar', peligroso: desactivar })) return;
     try {
       await updateDoc(doc(db, 'usuarios', u.uid), { activo: u.activo === false });
       setUsuarios(prev => prev.map(x => x.uid === u.uid ? { ...x, activo: x.activo === false } : x));
     } catch (err) {
-      alert('Error: ' + err.message);
+      toast.error('No se pudo actualizar el usuario: ' + err.message);
     }
   };
 
@@ -192,7 +198,7 @@ export default function RhUsuarios() {
         <select value={filtroRol} onChange={e => setFiltroRol(e.target.value)}
           className="rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]">
           <option value="">Todos los roles</option>
-          {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+          {OPCIONES_ROL.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
         </select>
         <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
           className="rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]">
@@ -296,7 +302,7 @@ export default function RhUsuarios() {
           <div>
             <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Rol</label>
             <select required value={form.rol} onChange={e => setForm(f => ({ ...f, rol: e.target.value }))} className={inputCls}>
-              {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+              {OPCIONES_ROL.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
           </div>
           {areas.length > 0 && (

@@ -7,20 +7,20 @@
  * Se guardan completos (incluye inactivos, que EditarSolicitud necesita para mostrar valores
  * ya guardados) y se exponen también los activos ya filtrados.
  *
- * Uso: const { rutasActivas, empleadosActivos, cargando, recargar } = useCatalogos();
- *      useCatalogos({ empleados: false }) si la pantalla no necesita empleados.
+ * Se consume con el hook useCatalogos() de hooks/useCatalogos.js.
  *
  * recargar(): invalida la caché. Si hay pantallas usando el grupo lo relee de inmediato; si no,
  * se relee la próxima vez que alguien lo pida (así guardar en RH no cuesta lecturas de más).
  * parchearEmpleados(): actualiza empleados en memoria sin releer (p. ej. tras confirmar su ruta).
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
-import { useAuth } from './AuthContext';
+import { useAuth } from '../hooks/useAuth';
+import { CatalogosContext } from './catalogosStore';
 import { esActivo } from '../utils/activo';
 
-const CatalogosContext = createContext(null);
+
 
 const VACIO = { uid: null, rutas: [], comunidades: [], puntos: [], empleados: [] };
 const leer = (nombre) => getDocs(collection(db, nombre))
@@ -119,25 +119,4 @@ export function CatalogosProvider({ children }) {
   }), [vigentes, uid, listoG, cargandoG, errorG, registrar, recargar, parchearEmpleados]);
 
   return <CatalogosContext.Provider value={valor}>{children}</CatalogosContext.Provider>;
-}
-
-// eslint-disable-next-line react-refresh/only-export-components
-export function useCatalogos({ empleados = true } = {}) {
-  const ctx = useContext(CatalogosContext);
-  const { registrar } = ctx;
-
-  useEffect(() => registrar('cat'), [registrar]);
-  useEffect(() => (empleados ? registrar('emp') : undefined), [empleados, registrar]);
-
-  // Cargando también antes de que arranque la primera carga (evita un destello de listas vacías)
-  const pendiente = (g) => !!ctx.uid && ctx.listoG[g] !== ctx.uid && !ctx.errorG[g];
-  const cargando = pendiente('cat') || ctx.cargandoG.cat || (empleados && (pendiente('emp') || ctx.cargandoG.emp));
-  const error = ctx.errorG.cat || (empleados ? ctx.errorG.emp : null);
-  return { ...ctx, cargando, error };
-}
-
-/** Solo la función recargar(), sin registrar la pantalla como consumidora (no dispara cargas). */
-// eslint-disable-next-line react-refresh/only-export-components
-export function useRecargarCatalogos() {
-  return useContext(CatalogosContext).recargar;
 }

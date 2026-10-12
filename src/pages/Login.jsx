@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { Eye, EyeOff, AlertCircle, Sun, Moon } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 
 // Mismo mensaje para nómina inexistente y contraseña incorrecta (no revela qué nóminas existen)

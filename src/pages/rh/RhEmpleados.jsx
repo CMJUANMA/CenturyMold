@@ -5,8 +5,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { collection, getDocs, getDoc, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Search, Plus, Filter, Pencil, Loader2, Trash2 } from 'lucide-react';
-import { useToast } from '../../components/Toast';
-import { useRecargarCatalogos } from '../../context/CatalogosContext';
+import { useToast } from '../../hooks/useToast';
+import { useRecargarCatalogos } from '../../hooks/useCatalogos';
 import Modal from '../../components/Modal';
 import PuestoCombobox from '../../components/PuestoCombobox';
 import { derivarPuestos, canonizarPuesto } from '../../utils/puestos';
@@ -42,23 +42,26 @@ export default function RhEmpleados() {
   // Puestos unicos derivados del padron, ordenados alfabeticamente
   const puestosExistentes = useMemo(() => derivarPuestos(empleados), [empleados]);
 
-  const cargar = async () => {
-    setCargando(true);
-    try {
-      const [empS, rutS, comS, ptS] = await Promise.all([
-        getDocs(collection(db, 'empleados')),
-        getDocs(collection(db, 'rutas')),
-        getDocs(collection(db, 'comunidades')),
-        getDocs(collection(db, 'puntosReunion')),
-      ]);
-      setEmpleados(empS.docs.map(d => ({ nomina: d.id, ...d.data() })));
-      setRutas(rutS.docs.map(d => ({ id: d.id, ...d.data() })));
-      setComunidades(comS.docs.map(d => ({ id: d.id, ...d.data() })));
-      setPuntos(ptS.docs.map(d => ({ id: d.id, ...d.data() })));
-    } catch (e) { console.error(e); }
-    finally { setCargando(false); }
-  };
-  useEffect(() => { cargar(); }, []);
+  // Carga inicial: solo actualiza el estado cuando llega la respuesta (y si la pantalla sigue montada)
+  useEffect(() => {
+    let vigente = true;
+    Promise.all([
+      getDocs(collection(db, 'empleados')),
+      getDocs(collection(db, 'rutas')),
+      getDocs(collection(db, 'comunidades')),
+      getDocs(collection(db, 'puntosReunion')),
+    ])
+      .then(([empS, rutS, comS, ptS]) => {
+        if (!vigente) return;
+        setEmpleados(empS.docs.map(d => ({ nomina: d.id, ...d.data() })));
+        setRutas(rutS.docs.map(d => ({ id: d.id, ...d.data() })));
+        setComunidades(comS.docs.map(d => ({ id: d.id, ...d.data() })));
+        setPuntos(ptS.docs.map(d => ({ id: d.id, ...d.data() })));
+      })
+      .catch(e => { console.error(e); })
+      .finally(() => { if (vigente) setCargando(false); });
+    return () => { vigente = false; };
+  }, []);
 
   const filtrados = empleados.filter(e => {
     const q = busqueda.toLowerCase();

@@ -12,7 +12,7 @@ import {
   collection, doc, writeBatch, getDocs, serverTimestamp, deleteField,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 import { derivarPuestos } from '../../utils/puestos';
 import {
   construirFormatoDirectorio, construirFormatoEmpleados, construirReporteImportacion,
@@ -257,7 +257,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
     try {
       const buffer = await file.arrayBuffer();
       const puntosMap = new Map(base.puntos.map(p => [p.id, { clave: p.id, ...p }]));
-      const leidas = esDir ? leerDirectorio(buffer) : leerEmpleados(buffer, puntosMap, puestosExistentes);
+      const leidas = esDir ? await leerDirectorio(buffer) : await leerEmpleados(buffer, puntosMap, puestosExistentes);
       if (leidas.length === 0) {
         setFilas([]); setPaso('inicio');
         setErrorParse(`El archivo no tiene registros: capture los datos en la hoja "${nombreHoja}" a partir de la fila 2.`);

@@ -8,7 +8,6 @@
 import { useState } from 'react';
 import {
   User,
-  Shield,
   KeyRound,
   CheckCircle2,
   AlertCircle,
@@ -17,14 +16,9 @@ import {
   Sun,
   Moon,
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
-
-const ROL_LABELS = {
-  admin: 'Administrador del sistema',
-  rh: 'Recursos Humanos',
-  superintendente: 'Superintendente de área',
-};
+import { ROL_LABELS } from '../utils/constantes';
 
 const ERRORES_PASS = {
   'auth/wrong-password':

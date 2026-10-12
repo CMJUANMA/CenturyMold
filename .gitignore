@@ -28,3 +28,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Archivos de prueba generados por scripts/ (pueden contener datos)
+test-solicitudes.xlsx
+scripts/salida/
