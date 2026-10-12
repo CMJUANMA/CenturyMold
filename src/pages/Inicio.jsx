@@ -5,7 +5,7 @@
  */
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, onSnapshot, getCountFromServer, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
   Clock,
@@ -21,7 +21,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
-import { esActivo } from '../utils/activo';
+import { mismoMes, fechaLocal, fmtFecha, ymd } from '../utils/fechas';
+import { useCatalogos } from '../context/CatalogosContext';
 
 const ROL_LABELS = {
   admin: 'Administrador del sistema',
@@ -44,11 +45,8 @@ function BadgeEstatus({ estatus }) {
   );
 }
 
-function formatFecha(iso) {
-  if (!iso) return '—';
-  try { return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }); }
-  catch { return iso; }
-}
+// fechaServicio es "YYYY-MM-DD": se lee como fecha local para no desfasar un día
+const formatFecha = (ymd) => fmtFecha(fechaLocal(ymd));
 
 export default function Inicio() {
   const { usuario } = useAuth();
@@ -57,64 +55,90 @@ export default function Inicio() {
   const saludo = hora < 12 ? 'Buenos dias' : hora < 19 ? 'Buenas tardes' : 'Buenas noches';
   const esAdminORh = usuario?.rol === 'admin' || usuario?.rol === 'rh';
 
-  const [cargando, setCargando] = useState(true);
-  const [stats, setStats] = useState({ pendientes: 0, empleados: 0, rutas: 0, delMes: 0 });
+  const [cargandoSol, setCargandoSol] = useState(true);
+  const [statsSol, setStatsSol] = useState({ pendientes: 0, delMes: 0 });
   const [recientes, setRecientes] = useState([]);
 
+  // Rutas y empleados activos: catálogos compartidos (una lectura por sesión)
+  const { rutasActivas, empleadosActivos, cargando: cargandoCat, error: errorCat } = useCatalogos();
+  const stats = { ...statsSol, empleados: empleadosActivos.length, rutas: rutasActivas.length };
+  const cargando = cargandoSol || cargandoCat;
+
   useEffect(() => {
-    if (!usuario?.uid) return;
-    
-    let unsub = () => {};
-    const cargar = async () => {
-      try {
-        const [snapRutas, snapEmp] = await Promise.all([
-          getDocs(collection(db, 'rutas')),
-          getDocs(collection(db, 'empleados'))
-        ]);
-        const countRutas = snapRutas.docs.filter(d => esActivo(d.data())).length;
-        const countEmp = snapEmp.docs.filter(d => esActivo(d.data())).length;
+    if (errorCat) toast.error('Error cargando catálogos: ' + errorCat.message);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [errorCat]);
 
-        const qSols = esAdminORh 
-          ? collection(db, 'solicitudes') 
-          : query(collection(db, 'solicitudes'), where('creadoPor', '==', usuario.uid));
+  const uid = usuario?.uid;
 
-        unsub = onSnapshot(qSols, (snap) => {
-          let pend = 0;
-          let mesActual = 0;
-          let lista = [];
-          const hoy = new Date();
-          
-          snap.forEach(d => {
-            const val = d.data();
-            lista.push({ id: d.id, ...val });
-            if (val.estatus === 'pendiente') pend++;
-            if (val.fechaSolicitud && new Date(val.fechaSolicitud).getMonth() === hoy.getMonth()) {
-              mesActual++;
-            }
-          });
-          
-          // Ordenar por fechaServicio ascendente y tomar las proximas 5 (que sean de hoy en adelante)
-          lista.sort((a, b) => new Date(a.fechaServicio) - new Date(b.fechaServicio));
-          const inicioDeHoy = new Date(hoy.setHours(0,0,0,0));
-          const proximas = lista.filter(x => new Date(x.fechaServicio) >= inicioDeHoy).slice(0, 5);
-          
-          setStats({ pendientes: pend, empleados: countEmp, rutas: countRutas, delMes: mesActual });
-          setRecientes(proximas);
-          setCargando(false);
-        }, (err) => {
-          console.error('Error en solicitudes:', err);
-          toast.error('No se pudieron cargar las solicitudes: ' + err.message);
-          setCargando(false);
+  // Solicitudes en vivo. La suscripción se crea y se cancela de forma síncrona (sin fugas).
+  //  - RH: solo las próximas 5 (consulta con límite); los conteos se piden aparte al servidor.
+  //  - Superintendente: sus propias solicitudes (filtradas por creadoPor).
+  useEffect(() => {
+    if (!uid) return;
+    const col = collection(db, 'solicitudes');
+    const qSols = esAdminORh
+      ? query(col, where('fechaServicio', '>=', ymd()), orderBy('fechaServicio'), limit(5))
+      : query(col, where('creadoPor', '==', uid));
+
+    const unsub = onSnapshot(qSols, (snap) => {
+      const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const hoy = new Date();
+
+      if (esAdminORh) {
+        setRecientes(lista);
+      } else {
+        let pend = 0;
+        let mesActual = 0;
+        lista.forEach(val => {
+          if (val.estatus === 'pendiente') pend++;
+          if (mismoMes(val.fechaSolicitud, hoy)) mesActual++;
         });
-      } catch (err) {
-        console.error("Error cargando dashboard:", err);
-        toast.error('Error cargando el dashboard: ' + err.message);
-        setCargando(false);
+        // Ordenar por fechaServicio ascendente y tomar las proximas 5 (que sean de hoy en adelante)
+        lista.sort((a, b) => (fechaLocal(a.fechaServicio) ?? 0) - (fechaLocal(b.fechaServicio) ?? 0));
+        const inicioDeHoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+        setRecientes(lista.filter(x => fechaLocal(x.fechaServicio) >= inicioDeHoy).slice(0, 5));
+        setStatsSol({ pendientes: pend, delMes: mesActual });
       }
-    };
-    cargar();
-    return () => unsub();
-  }, [usuario, esAdminORh]);
+      setCargandoSol(false);
+    }, (err) => {
+      console.error('Error en solicitudes:', err);
+      toast.error('No se pudieron cargar las solicitudes: ' + err.message);
+      setCargandoSol(false);
+    });
+    return unsub;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid, esAdminORh]);
+
+  // RH: conteos directos en el servidor (1 lectura por cada 1000 documentos contados),
+  // en vez de descargar todas las solicitudes.
+  useEffect(() => {
+    if (!uid || !esAdminORh) return;
+    let cancelado = false;
+    (async () => {
+      try {
+        const col = collection(db, 'solicitudes');
+        const hoy = new Date();
+        const ini = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+        const fin = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
+        // fechaSolicitud es Timestamp en las solicitudes nuevas y string ISO en las viejas:
+        // cada tipo se cuenta por separado (una consulta de rango no mezcla tipos) y se suman.
+        const [pend, mesTs, mesIso] = await Promise.all([
+          getCountFromServer(query(col, where('estatus', '==', 'pendiente'))),
+          getCountFromServer(query(col, where('fechaSolicitud', '>=', Timestamp.fromDate(ini)), where('fechaSolicitud', '<', Timestamp.fromDate(fin)))),
+          getCountFromServer(query(col, where('fechaSolicitud', '>=', ini.toISOString()), where('fechaSolicitud', '<', fin.toISOString()))),
+        ]);
+        if (cancelado) return;
+        setStatsSol({ pendientes: pend.data().count, delMes: mesTs.data().count + mesIso.data().count });
+      } catch (err) {
+        if (cancelado) return;
+        console.error('Error contando solicitudes:', err);
+        toast.error('No se pudieron calcular los indicadores: ' + err.message);
+      }
+    })();
+    return () => { cancelado = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid, esAdminORh]);
 
   return (
     <div className="space-y-6">

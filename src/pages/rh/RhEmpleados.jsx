@@ -6,6 +6,7 @@ import { collection, getDocs, getDoc, doc, updateDoc, setDoc, deleteDoc } from '
 import { db } from '../../firebase';
 import { Search, Plus, Filter, Pencil, Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '../../components/Toast';
+import { useRecargarCatalogos } from '../../context/CatalogosContext';
 import Modal from '../../components/Modal';
 import PuestoCombobox from '../../components/PuestoCombobox';
 import { derivarPuestos, canonizarPuesto } from '../../utils/puestos';
@@ -22,6 +23,7 @@ const AYUDA_RUTA = 'Si no la asigna, se pedirá al solicitar transporte';
 
 export default function RhEmpleados() {
   const toast = useToast();
+  const recargarCompartidos = useRecargarCatalogos();
   const [empleados, setEmpleados] = useState([]);
   const [rutas, setRutas] = useState([]);
   const [comunidades, setComunidades] = useState([]);
@@ -101,10 +103,12 @@ export default function RhEmpleados() {
         }
         await setDoc(ref, data);
         setEmpleados(prev => [...prev, data]);
+        recargarCompartidos();
         toast.success('Empleado creado.');
       } else {
         await updateDoc(ref, data);
         setEmpleados(prev => prev.map(emp => emp.nomina === nomina ? { ...emp, ...data } : emp));
+        recargarCompartidos();
         toast.success('Empleado actualizado.');
       }
       setModal(null);
@@ -121,6 +125,7 @@ export default function RhEmpleados() {
     try {
       await deleteDoc(doc(db, 'empleados', modalEliminar.nomina));
       setEmpleados(prev => prev.filter(e => e.nomina !== modalEliminar.nomina));
+      recargarCompartidos();
       toast.success('Empleado eliminado permanentemente.');
       setModalEliminar(null);
     } catch (err) {

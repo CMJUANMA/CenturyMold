@@ -2,7 +2,7 @@
  * RhCatalogos.jsx — Catálogos de transporte con CRUD y carga masiva
  * Acceso: roles rh y admin (esPersonalRH)
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import {
   Database, MapPin, Navigation, Upload, Loader2,
   Users, CheckCircle2, AlertTriangle,
@@ -14,7 +14,10 @@ import { useAuth } from '../../context/AuthContext';
 import { slugify } from '../../utils/comparacionImportacion';
 import { esActivo } from '../../utils/activo';
 import RevisarColecciones from './RevisarColecciones';
-import ModalImportacion from './ModalImportacion';
+import { useRecargarCatalogos } from '../../context/CatalogosContext';
+
+// Importación masiva (arrastra exceljs y xlsx): se descarga solo al abrir el modal
+const ModalImportacion = lazy(() => import('./ModalImportacion'));
 import Modal from '../../components/Modal';
 
 const TABS = [
@@ -522,7 +525,9 @@ export default function RhCatalogos() {
   const [errorCarga, setErrorCarga] = useState('');
   const [rev, setRev] = useState(0); // fuerza recarga
 
-  const reload = () => setRev(v => v + 1);
+  const recargarCompartidos = useRecargarCatalogos();
+  // Además de releer esta pantalla, invalida los catálogos compartidos (Nueva/Editar solicitud)
+  const reload = () => { setRev(v => v + 1); recargarCompartidos(); };
 
   useEffect(() => {
     setCargando(true); setErrorCarga('');
@@ -599,7 +604,11 @@ export default function RhCatalogos() {
       </div>
 
       {/* Modal importacion */}
-      {modalTipo && <ModalImportacion tipo={modalTipo} onClose={() => { setModalTipo(null); reload(); }} onImportado={reload} />}
+      {modalTipo && (
+        <Suspense fallback={null}>
+          <ModalImportacion tipo={modalTipo} onClose={() => { setModalTipo(null); reload(); }} onImportado={reload} />
+        </Suspense>
+      )}
     </div>
   );
 }

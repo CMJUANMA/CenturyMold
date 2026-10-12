@@ -4,8 +4,10 @@
  * Estructura principal de la aplicación: barra lateral y contenedor de contenido.
  * Diseñado con aspecto corporativo y responsivo.
  */
+import { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import Spinner from '../components/Spinner';
 
 export default function Layout() {
   return (
@@ -13,7 +15,9 @@ export default function Layout() {
       <Navbar />
       <main className="min-h-screen pt-14 lg:pt-0 lg:ml-64">
         <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
-          <Outlet />
+          <Suspense fallback={<Spinner />}>
+            <Outlet />
+          </Suspense>
         </div>
       </main>
     </div>

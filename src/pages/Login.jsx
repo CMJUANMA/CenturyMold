@@ -11,13 +11,15 @@ import { Eye, EyeOff, AlertCircle, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
+// Mismo mensaje para nómina inexistente y contraseña incorrecta (no revela qué nóminas existen)
+const MSG_CREDENCIALES = 'Nómina o contraseña incorrecta';
 const ERRORES = {
-  'auth/invalid-credential':
-    'Número de nómina o contraseña incorrectos.',
-  'auth/user-not-found':
-    'No existe un usuario registrado con ese número de nómina.',
-  'auth/wrong-password':
-    'Contraseña incorrecta. Verifique sus datos e intente de nuevo.',
+  'auth/invalid-credential': MSG_CREDENCIALES,
+  'auth/user-not-found': MSG_CREDENCIALES,
+  'auth/wrong-password': MSG_CREDENCIALES,
+  'auth/invalid-email': MSG_CREDENCIALES,
+  'app/inactivo':
+    'Tu usuario está desactivado. Contacta a RH',
   'auth/too-many-requests':
     'Demasiados intentos fallidos. Espere unos minutos antes de reintentar.',
   'auth/user-disabled':
@@ -33,7 +35,7 @@ function traducirError(code) {
 }
 
 export default function Login() {
-  const { login, usuario, cargando } = useAuth();
+  const { login, usuario, cargando, mensajeSesion } = useAuth();
   const { esOscuro, alternarTema } = useTheme();
   const navigate = useNavigate();
 
@@ -120,6 +122,15 @@ export default function Login() {
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-6 shadow-sm">
           <form id="form-login" onSubmit={handleSubmit} noValidate className="space-y-4">
             {/* Mensaje de error sobrio */}
+            {!error && mensajeSesion && (
+              <div
+                role="status"
+                className="flex items-start gap-2.5 rounded-md border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-3 text-xs text-[var(--status-warning-text)] leading-relaxed"
+              >
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>{mensajeSesion}</span>
+              </div>
+            )}
             {error && (
               <div
                 role="alert"

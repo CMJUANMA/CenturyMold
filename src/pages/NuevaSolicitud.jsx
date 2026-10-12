@@ -4,10 +4,10 @@
  * Cabecera: solo Fecha de Servicio y Solicitante (locked para superintendente).
  * Por pasajero: Área/Puesto, Turno, Entrada, Salida, Alimentos, Ruta, Comunidad, Punto.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
+import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
   FilePlus, Plus, Trash2, CheckCircle2, AlertCircle,
@@ -15,8 +15,10 @@ import {
 } from 'lucide-react';
 import PuestoCombobox from '../components/PuestoCombobox';
 import { derivarPuestos, existePuesto, canonizarPuesto } from '../utils/puestos';
-import { esActivo, rutaVigente } from '../utils/activo';
+import { rutaVigente } from '../utils/activo';
 import { useToast } from '../components/Toast';
+import { useCatalogos } from '../context/CatalogosContext';
+import { MAX_PASAJEROS, MSG_MAX_PASAJEROS, resumenPasajeros } from '../utils/solicitudes';
 
 // Calcula la fecha mínima = hoy en formato YYYY-MM-DD (local, sin desfase TZ)
 function fechaMinima() {
@@ -54,15 +56,19 @@ export default function NuevaSolicitud() {
   const toast = useToast();
   const navigate = useNavigate();
 
-  const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [rutas, setRutas]       = useState([]);
-  const [comunidades, setComunidades] = useState([]);
-  const [puntos, setPuntos]     = useState([]);
-  const [empleados, setEmpleados] = useState([]);
-  // Lista de puestos unicos derivada del padron — se actualiza al agregar uno nuevo
-  const [puestosLista, setPuestosLista] = useState([]);
+  // Catálogos compartidos (una lectura por sesión); aquí solo elementos activos del directorio
+  const {
+    rutasActivas: rutas, comunidadesActivas: comunidades, puntosActivos: puntos, empleadosActivos: empleados,
+    cargando: isLoadingData, error: errorCat, parchearEmpleados,
+  } = useCatalogos();
+  // Puestos únicos derivados del padrón, más los nuevos que se creen en el combobox
+  const [puestosNuevos, setPuestosNuevos] = useState([]);
+  const puestosLista = useMemo(
+    () => [...derivarPuestos(empleados), ...puestosNuevos].sort((a, b) => a.localeCompare(b, 'es')),
+    [empleados, puestosNuevos]
+  );
 
   const [fechaServicio, setFechaServicio] = useState('');
   const [solicitanteNombre, setSolicitanteNombre] = useState(usuario?.nombre || '');
@@ -74,32 +80,15 @@ export default function NuevaSolicitud() {
     if (usuario?.nombre && !solicitanteNombre) setSolicitanteNombre(usuario.nombre);
   }, [usuario?.nombre]);
 
-  // Carga catálogos
   useEffect(() => {
-    async function fetchData() {
-      const safe = async (col) => {
-        try { return await getDocs(collection(db, col)); }
-        catch (err) {
-          toast.error(err.code === 'permission-denied' ? `Sin permiso para leer ${col}.` : `Error al leer ${col}: ${err.message}`);
-          return { docs: [] };
-        }
-      };
-      const [sRutas, sComs, sPuntos, sEmp] = await Promise.all([
-        safe('rutas'), safe('comunidades'), safe('puntosReunion'), safe('empleados'),
-      ]);
-      const listaEmp = sEmp.docs.map(d => ({ id: d.id, ...d.data() })).filter(esActivo);
-      setEmpleados(listaEmp);
-      setPuestosLista(derivarPuestos(listaEmp));
-      // Solo elementos activos del directorio
-      setRutas(sRutas.docs.map(d => ({ id: d.id, ...d.data() })).filter(esActivo));
-      setComunidades(sComs.docs.map(d => ({ id: d.id, ...d.data() })).filter(esActivo));
-      setPuntos(sPuntos.docs.map(d => ({ id: d.id, ...d.data() })).filter(esActivo));
-      setIsLoadingData(false);
-    }
-    fetchData();
-  }, []);
+    if (errorCat) toast.error('Error al leer catálogos: ' + errorCat.message);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [errorCat]);
 
-  const addPasajero = () => setPasajeros(prev => [...prev, pasViejo()]);
+  const addPasajero = () => {
+    if (pasajeros.length >= MAX_PASAJEROS) return toast.error(MSG_MAX_PASAJEROS);
+    setPasajeros(prev => [...prev, pasViejo()]);
+  };
   const removePasajero = (id) => { if (pasajeros.length > 1) setPasajeros(prev => prev.filter(p => p.id !== id)); };
 
   const updatePas = (index, fields) =>
@@ -139,13 +128,14 @@ export default function NuevaSolicitud() {
   const handlePuestoChange = (index, nuevoPuesto) => {
     updatePas(index, { puesto: nuevoPuesto });
     if (nuevoPuesto && !existePuesto(nuevoPuesto, puestosLista)) {
-      setPuestosLista(prev => [...prev, nuevoPuesto].sort((a, b) => a.localeCompare(b, 'es')));
+      setPuestosNuevos(prev => [...prev, nuevoPuesto]);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!fechaServicio) return alert('Selecciona la fecha del servicio.');
+    if (pasajeros.length > MAX_PASAJEROS) return alert(MSG_MAX_PASAJEROS);
 
     const invalido = pasajeros.find(p =>
       !p.empleadoSeleccionado ||
@@ -163,18 +153,19 @@ export default function NuevaSolicitud() {
     try {
       setIsSubmitting(true);
       const batch = writeBatch(db);
+      const cambiosEmp = {};
 
       const solId  = doc(collection(db, 'solicitudes')).id;
       const solRef = doc(db, 'solicitudes', solId);
 
       // Documento padre — mínimo
       const solDoc = {
-        fechaSolicitud:   new Date().toISOString(),
+        fechaSolicitud:   serverTimestamp(),
         fechaServicio,
         solicitanteNombre: solicitanteNombre || usuario?.nombre || '',
         creadoPor:         usuario?.uid,
         estatus:           'pendiente',
-        totalPasajeros:    pasajeros.length,
+        ...resumenPasajeros(pasajeros.map(p => ({ turno: p.turno, puesto: canonizarPuesto(p.puesto, puestosLista), alimentos: p.alimentos }))),
         historial: [{
           fecha: new Date().toISOString(),
           usuario: usuario?.nombre || '',
@@ -204,15 +195,18 @@ export default function NuevaSolicitud() {
         // Guardar en el padrón la ruta confirmada, solo si cambió
         const emp = p.empleadoSeleccionado;
         if (emp.rutaId !== p.rutaId || emp.comunidadId !== p.comunidadId || emp.puntoReunionId !== p.puntoReunionId) {
-          batch.update(doc(db, 'empleados', emp.id), {
+          const cambios = {
             rutaId:         p.rutaId         || '',
             comunidadId:    p.comunidadId    || '',
             puntoReunionId: p.puntoReunionId || '',
-          });
+          };
+          batch.update(doc(db, 'empleados', emp.id), cambios);
+          cambiosEmp[emp.id] = cambios;
         }
       }
 
       await batch.commit();
+      parchearEmpleados(cambiosEmp);
       alert('Solicitud registrada correctamente.');
       navigate('/mis-solicitudes');
     } catch (err) {

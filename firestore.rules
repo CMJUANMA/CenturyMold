@@ -26,7 +26,12 @@ service cloud.firestore {
       allow create: if esAdmin() || (esRH() && request.resource.data.rol != 'admin');
       // RH edita a cualquiera (incluido sí mismo) salvo admins, y no puede asignar 'admin'
       allow update: if esAdmin()
-        || (esRH() && resource.data.rol != 'admin' && request.resource.data.rol != 'admin');
+        || (esRH() && resource.data.rol != 'admin' && request.resource.data.rol != 'admin')
+        // Primer acceso: el propio usuario solo puede bajar debeCambiarPassword de true a false (nunca al revés)
+        || (activo() && request.auth.uid == uid
+            && soloCambia(['debeCambiarPassword'])
+            && resource.data.get('debeCambiarPassword', false) == true
+            && request.resource.data.debeCambiarPassword == false);
       allow delete: if esAdmin();
     }
 
@@ -56,12 +61,15 @@ service cloud.firestore {
         && request.resource.data.creadoPor == request.auth.uid
         && request.resource.data.estatus == 'pendiente';
       allow update: if esRH()
-        // Dueño: cancelar o editar (una aprobada vuelve a pendiente)
+        // Dueño: cancelar o editar (una aprobada vuelve a pendiente). Lista blanca de campos:
+        // lo que escribe EditarSolicitud (fechaServicio, solicitanteNombre, el resumen de pasajeros:
+        // totalPasajeros/totalAlimentos/conteoTurnos/conteoPuestos, estatus, modificada, historial) y la cancelación (estatus, historial). creadoPor, fechaSolicitud y
+        // los campos de revisión de RH quedan fuera.
         || (puedeSolicitar() && esDueno()
             && resource.data.estatus in ['pendiente', 'aprobada']
-            && request.resource.data.creadoPor == request.auth.uid
             && request.resource.data.estatus in ['pendiente', 'cancelada']
-            && !cambia(['revisadoPor', 'revisadoPorNombre', 'fechaRevision', 'motivoRechazo']))
+            && soloCambia(['fechaServicio', 'solicitanteNombre', 'totalPasajeros', 'totalAlimentos', 'conteoTurnos', 'conteoPuestos',
+                        'estatus', 'modificada', 'historial']))
         // Dueño: marcar como vista y avisar a RH, en cualquier estatus
         || (puedeSolicitar() && esDueno()
             && soloCambia(['vistoPorSolicitante', 'historial']));

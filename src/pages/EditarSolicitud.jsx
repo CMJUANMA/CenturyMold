@@ -2,10 +2,10 @@
  * EditarSolicitud.jsx
  * Permite editar una solicitud existente.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { collection, getDocs, doc, getDoc, writeBatch, arrayUnion } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, runTransaction, arrayUnion } from 'firebase/firestore';
 import { db } from '../firebase';
 import { FileEdit, Plus, Trash2, CheckCircle2, AlertCircle, Save, Loader2, Info } from 'lucide-react';
 import { ROLES_RH } from '../utils/roles';
@@ -13,6 +13,11 @@ import PuestoCombobox from '../components/PuestoCombobox';
 import { derivarPuestos, existePuesto, canonizarPuesto } from '../utils/puestos';
 import { esActivo, opcionesVigentes, rutaVigente } from '../utils/activo';
 import { useToast } from '../components/Toast';
+import { useCatalogos } from '../context/CatalogosContext';
+import { MAX_PASAJEROS, MSG_MAX_PASAJEROS, resumenPasajeros } from '../utils/solicitudes';
+
+// Error de negocio detectado dentro de la transacción: aborta sin guardar nada
+const conflicto = (msg) => Object.assign(new Error(msg), { code: 'app/conflicto' });
 
 /** Nombre para un <option>, marcando si ya está inactivo */
 const etiqueta = (x) => (esActivo(x) ? x.nombre : `${x.nombre} (inactivo)`);
@@ -58,11 +63,13 @@ export default function EditarSolicitud() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [puestos, setPuestos]   = useState([]);
-  const [rutas, setRutas]       = useState([]);
-  const [comunidades, setComunidades] = useState([]);
-  const [puntos, setPuntos]     = useState([]);
-  const [empleados, setEmpleados] = useState([]);
+  // Catálogos compartidos (completos: los selects muestran activos más el valor ya guardado)
+  const { rutas, comunidades, puntos, empleados, cargando: cargandoCat, error: errorCat, parchearEmpleados } = useCatalogos();
+  const [puestosNuevos, setPuestosNuevos] = useState([]);
+  const puestos = useMemo(
+    () => [...derivarPuestos(empleados), ...puestosNuevos].sort((a, b) => a.localeCompare(b, 'es')),
+    [empleados, puestosNuevos]
+  );
 
   const [solicitud, setSolicitud] = useState(null);
   const [fechaServicio, setFechaServicio] = useState('');
@@ -74,24 +81,6 @@ export default function EditarSolicitud() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const safe = async (col) => {
-          try { return await getDocs(collection(db, col)); }
-          catch (err) {
-            toast.error(err.code === 'permission-denied' ? `Sin permiso para leer ${col}.` : `Error al leer ${col}: ${err.message}`);
-            return { docs: [] };
-          }
-        };
-        const [sRutas, sComs, sPuntos, sEmp] = await Promise.all([
-          safe('rutas'), safe('comunidades'), safe('puntosReunion'), safe('empleados'),
-        ]);
-        const listaEmp = sEmp.docs.map(d => ({ id: d.id, ...d.data() }));
-        setEmpleados(listaEmp);
-        setPuestos(derivarPuestos(listaEmp));
-        // Se cargan todos: los selects muestran solo activos, más el valor ya guardado del pasajero
-        setRutas(sRutas.docs.map(d => ({ id: d.id, ...d.data() })));
-        setComunidades(sComs.docs.map(d => ({ id: d.id, ...d.data() })));
-        setPuntos(sPuntos.docs.map(d => ({ id: d.id, ...d.data() })));
-
         // Cargar Solicitud
         const docSnap = await getDoc(doc(db, 'solicitudes', id));
         if (!docSnap.exists()) {
@@ -128,7 +117,7 @@ export default function EditarSolicitud() {
         const pasSnap = await getDocs(collection(db, `solicitudes/${id}/pasajeros`));
         const pasData = pasSnap.docs.map(d => {
           const pd = d.data();
-          const emp = listaEmp.find(e => e.nomina === pd.nomina) || { nomina: pd.nomina, nombre: pd.nombre };
+          const emp = empleados.find(e => e.nomina === pd.nomina) || { nomina: pd.nomina, nombre: pd.nombre };
           return {
             id: pd.nomina,
             searchQuery: `${pd.nomina} - ${pd.nombre}`,
@@ -158,10 +147,21 @@ export default function EditarSolicitud() {
         setIsLoadingData(false);
       }
     }
-    if (usuario?.uid) fetchData();
-  }, [id, usuario, navigate, esRH]);
+    // Espera a que los catálogos compartidos estén listos; no se vuelve a ejecutar si cambian después
+    // (eso borraría lo que el usuario ya editó en el formulario)
+    if (usuario?.uid && !cargandoCat) fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, usuario?.uid, navigate, esRH, cargandoCat]);
 
-  const addPasajero = () => setPasajeros(prev => [...prev, pasViejo()]);
+  useEffect(() => {
+    if (errorCat) toast.error('Error al leer catálogos: ' + errorCat.message);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [errorCat]);
+
+  const addPasajero = () => {
+    if (pasajeros.length >= MAX_PASAJEROS) return toast.error(MSG_MAX_PASAJEROS);
+    setPasajeros(prev => [...prev, pasViejo()]);
+  };
   const removePasajero = (pId) => { if (pasajeros.length > 1) setPasajeros(prev => prev.filter(p => p.id !== pId)); };
 
   const updatePas = (index, fields) => setPasajeros(prev => prev.map((p, i) => i === index ? { ...p, ...fields } : p));
@@ -195,7 +195,7 @@ export default function EditarSolicitud() {
   const handlePuestoChange = (index, nuevoPuesto) => {
     updatePas(index, { puesto: nuevoPuesto });
     if (nuevoPuesto && !existePuesto(nuevoPuesto, puestos)) {
-      setPuestos(prev => [...prev, nuevoPuesto].sort((a, b) => a.localeCompare(b, 'es')));
+      setPuestosNuevos(prev => [...prev, nuevoPuesto]);
     }
   };
 
@@ -210,72 +210,110 @@ export default function EditarSolicitud() {
     const invalido = pasajeros.find(p => !p.empleadoSeleccionado || !p.puesto || !p.turno || !p.horaEntrada || !p.horaSalida || !p.rutaId || !p.comunidadId || !p.puntoReunionId || (p.needsConfirmation && !p.isConfirmed));
     if (invalido) return alert('Completa todos los campos de cada pasajero.');
 
+    if (pasajeros.length > MAX_PASAJEROS) return alert(MSG_MAX_PASAJEROS);
+
+    const estatusAlAbrir = (solicitud.estatus || 'pendiente').toLowerCase();
+
     try {
       setIsSubmitting(true);
-      const batch = writeBatch(db);
       const solRef = doc(db, 'solicitudes', id);
 
-      let nuevoEstatus = solicitud.estatus;
-      if (solicitud.estatus === 'aprobada') nuevoEstatus = 'pendiente';
-      if (esRH && solicitud.estatus === 'enviada al proveedor') nuevoEstatus = 'pendiente'; // Pide reenvío
+      // Los ids de pasajero son la nómina. Se juntan los ids que hay ahora en Firestore (lectura fuera
+      // de la transacción: el SDK web no permite consultas dentro) para borrar los que ya no estén.
+      const pasSnapActual = await getDocs(collection(db, `solicitudes/${id}/pasajeros`));
+      const idsNuevos = new Set(pasajeros.map(p => p.empleadoSeleccionado.nomina));
+      const idsABorrar = pasSnapActual.docs.map(d => d.id).filter(pid => !idsNuevos.has(pid));
 
-      const updateData = {
-        fechaServicio,
-        solicitanteNombre: solicitanteNombre || usuario?.nombre || '',
-        totalPasajeros: pasajeros.length,
-        estatus: nuevoEstatus,
-        modificada: true,
-        historial: arrayUnion({
-          fecha: new Date().toISOString(),
-          usuario: usuario?.nombre || '',
-          accion: 'editada',
-          comentario: comentario.trim() || 'Modificación general'
-        })
-      };
-
-      batch.update(solRef, updateData);
-
-      // Limpiar pasajeros anteriores
-      const oldPasSnap = await getDocs(collection(db, `solicitudes/${id}/pasajeros`));
-      oldPasSnap.forEach(d => {
-         batch.delete(d.ref);
-      });
-
-      // Insertar nuevos pasajeros
+      // Empleados cuya ruta confirmada cambió respecto al padrón
+      const cambiosEmp = {};
       for (const p of pasajeros) {
-        const pasObj = {
-          nomina:         p.empleadoSeleccionado.nomina,
-          nombre:         p.empleadoSeleccionado.nombre,
-          puesto:         canonizarPuesto(p.puesto, puestos),
-          turno:          p.turno          || '',
-          horaEntrada:    p.horaEntrada    || '',
-          horaSalida:     p.horaSalida     || '',
-          alimentos:      !!p.alimentos,
-          rutaId:         p.rutaId         || '',
-          comunidadId:    p.comunidadId    || '',
-          puntoReunionId: p.puntoReunionId || '',
-          actualizadoPor: usuario?.uid,
-        };
-        const pasRef = doc(db, `solicitudes/${id}/pasajeros`, p.empleadoSeleccionado.nomina);
-        batch.set(pasRef, pasObj);
-
-        // Guardar en el padrón la ruta confirmada (si el empleado sigue existiendo y cambió)
         const emp = p.empleadoSeleccionado;
         if (emp.id && (emp.rutaId !== p.rutaId || emp.comunidadId !== p.comunidadId || emp.puntoReunionId !== p.puntoReunionId)) {
-          batch.update(doc(db, 'empleados', emp.id), {
+          cambiosEmp[emp.id] = { rutaId: p.rutaId || '', comunidadId: p.comunidadId || '', puntoReunionId: p.puntoReunionId || '' };
+        }
+      }
+      const resumen = resumenPasajeros(pasajeros.map(p => ({ turno: p.turno, puesto: canonizarPuesto(p.puesto, puestos), alimentos: p.alimentos })));
+
+      // 1 (solicitud) + borrados + pasajeros + empleados
+      if (1 + idsABorrar.length + pasajeros.length + Object.keys(cambiosEmp).length > 500) {
+        throw new Error('La edición supera el límite de operaciones de Firestore. Divide la solicitud en dos.');
+      }
+
+      await runTransaction(db, async (t) => {
+        // ── Lecturas (todas antes de cualquier escritura) ──────────────────
+        const solSnap = await t.get(solRef);
+        if (!solSnap.exists()) throw conflicto('La solicitud ya no existe.');
+        const actual = solSnap.data();
+        const estatusActual = (actual.estatus || 'pendiente').toLowerCase();
+
+        // Regla de negocio sobre el estatus leído AQUÍ, no el de cuando se abrió la página
+        if (estatusActual !== estatusAlAbrir) {
+          const respondidoRH = ['aprobada', 'rechazada', 'enviada al proveedor'].includes(estatusActual);
+          throw conflicto(respondidoRH
+            ? 'RH ya respondió esta solicitud mientras la editabas. Recarga para ver el estado actual.'
+            : `La solicitud cambió a "${estatusActual}" mientras la editabas. Recarga para ver el estado actual.`);
+        }
+        if (!esRH) {
+          if (actual.creadoPor !== usuario.uid) throw conflicto('No tienes permiso para editar esta solicitud.');
+          if (!['pendiente', 'aprobada'].includes(estatusActual)) {
+            throw conflicto(`No puedes editar una solicitud que está ${estatusActual}.`);
+          }
+        }
+
+        let nuevoEstatus = estatusActual;
+        if (estatusActual === 'aprobada') nuevoEstatus = 'pendiente';
+        if (esRH && estatusActual === 'enviada al proveedor') nuevoEstatus = 'pendiente'; // Pide reenvío
+
+        // ── Escrituras ─────────────────────────────────────────────────────
+        t.update(solRef, {
+          fechaServicio,
+          solicitanteNombre: solicitanteNombre || usuario?.nombre || '',
+          ...resumen,
+          estatus: nuevoEstatus,
+          modificada: true,
+          historial: arrayUnion({
+            fecha: new Date().toISOString(),
+            usuario: usuario?.nombre || '',
+            accion: 'editada',
+            comentario: comentario.trim() || 'Modificación general'
+          })
+        });
+
+        for (const pid of idsABorrar) {
+          t.delete(doc(db, `solicitudes/${id}/pasajeros`, pid));
+        }
+
+        for (const p of pasajeros) {
+          const pasObj = {
+            nomina:         p.empleadoSeleccionado.nomina,
+            nombre:         p.empleadoSeleccionado.nombre,
+            puesto:         canonizarPuesto(p.puesto, puestos),
+            turno:          p.turno          || '',
+            horaEntrada:    p.horaEntrada    || '',
+            horaSalida:     p.horaSalida     || '',
+            alimentos:      !!p.alimentos,
             rutaId:         p.rutaId         || '',
             comunidadId:    p.comunidadId    || '',
             puntoReunionId: p.puntoReunionId || '',
-          });
+            actualizadoPor: usuario?.uid,
+          };
+          t.set(doc(db, `solicitudes/${id}/pasajeros`, p.empleadoSeleccionado.nomina), pasObj);
         }
-      }
 
-      await batch.commit();
+        // Guardar en el padrón la ruta confirmada (si el empleado sigue existiendo y cambió)
+        for (const [empId, cambios] of Object.entries(cambiosEmp)) {
+          t.update(doc(db, 'empleados', empId), cambios);
+        }
+      });
+
+      parchearEmpleados(cambiosEmp);
+
       alert('Solicitud actualizada correctamente.');
       navigate(-1);
     } catch (err) {
       console.error(err);
-      alert('Error al guardar: ' + err.message);
+      if (err.code === 'app/conflicto') toast.error(err.message, 8000);
+      else alert('Error al guardar: ' + err.message);
     } finally {
       setIsSubmitting(false);
     }

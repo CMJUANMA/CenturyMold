@@ -1,9 +1,11 @@
 /**
  * App.jsx — Router principal
  */
+import { lazy } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
+import { CatalogosProvider } from './context/CatalogosContext';
 import RutaProtegida from './components/RutaProtegida';
 import RutaRol from './components/RutaRol';
 import Layout from './pages/Layout';
@@ -13,10 +15,12 @@ import NuevaSolicitud from './pages/NuevaSolicitud';
 import MisSolicitudes from './pages/MisSolicitudes';
 import EditarSolicitud from './pages/EditarSolicitud';
 import Perfil from './pages/Perfil';
-import RhSolicitudes from './pages/rh/RhSolicitudes';
-import RhEmpleados from './pages/rh/RhEmpleados';
-import RhCatalogos from './pages/rh/RhCatalogos';
-import RhUsuarios from './pages/rh/RhUsuarios';
+import CambiarPassword from './pages/CambiarPassword';
+// Las pantallas de RH se descargan solo cuando se visitan (no pesan en el bundle inicial)
+const RhSolicitudes = lazy(() => import('./pages/rh/RhSolicitudes'));
+const RhEmpleados = lazy(() => import('./pages/rh/RhEmpleados'));
+const RhCatalogos = lazy(() => import('./pages/rh/RhCatalogos'));
+const RhUsuarios = lazy(() => import('./pages/rh/RhUsuarios'));
 import { ROLES_RH } from './utils/roles';
 import { ToastProvider } from './components/Toast';
 
@@ -24,7 +28,9 @@ const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
   {
     element: <RutaProtegida />,
-    children: [{
+    children: [
+    { path: '/cambiar-password', element: <CambiarPassword /> },
+    {
       element: <Layout />,
       children: [
         { path: '/', element: <Inicio /> },
@@ -50,9 +56,11 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <ToastProvider>
-          <RouterProvider router={router} />
-        </ToastProvider>
+        <CatalogosProvider>
+          <ToastProvider>
+            <RouterProvider router={router} />
+          </ToastProvider>
+        </CatalogosProvider>
       </AuthProvider>
     </ThemeProvider>
   );

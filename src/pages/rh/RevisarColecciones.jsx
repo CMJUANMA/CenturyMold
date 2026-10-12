@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { useRecargarCatalogos } from '../../context/CatalogosContext';
 import { Database, AlertTriangle, CheckCircle2, Loader2, ArrowRightLeft } from 'lucide-react';
 
 export default function RevisarColecciones() {
+  const recargarCompartidos = useRecargarCatalogos();
   const [cargando, setCargando] = useState(false);
   const [migrando, setMigrando] = useState(false);
   const [conteos, setConteos] = useState(null);
@@ -82,6 +84,7 @@ export default function RevisarColecciones() {
       }
 
       setExito(true);
+      recargarCompartidos();
       await revisar();
     } catch (err) {
       setError(err.message);

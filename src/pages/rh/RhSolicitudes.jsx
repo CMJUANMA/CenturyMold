@@ -1,13 +1,11 @@
 /**
  * RhSolicitudes.jsx
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
-  collection, getDocs, doc, updateDoc, query, onSnapshot,
+  collection, getDocs, doc, query, where, onSnapshot,
   runTransaction, serverTimestamp,
 } from 'firebase/firestore';
-import ExcelJS from 'exceljs';
-import * as XLSX from 'xlsx';
 import { db } from '../../firebase';
 import { useToast } from '../../components/Toast';
 import { useAuth } from '../../context/AuthContext';
@@ -17,13 +15,13 @@ import {
   Clock, Eye, RefreshCw, Users, FileDown, CalendarDays, Undo2, Edit, AlertTriangle, X
 } from 'lucide-react';
 import Modal from '../../components/Modal';
+import { toDate, fmtFecha, fmtFechaHora, ymd, sumarDias, rangoSemana } from '../../utils/fechas';
+import { resumenPasajeros, textoConteo } from '../../utils/solicitudes';
+import { useCatalogos } from '../../context/CatalogosContext';
 
 // Helpers
-function fmtIso(iso) {
-  if (!iso) return '—';
-  try { return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }); }
-  catch { return iso; }
-}
+// fechaSolicitud puede ser Timestamp (nuevas) o string ISO (viejas)
+const fmtIso = fmtFecha;
 function fmtFechaStr(str) {
   if (!str) return '—';
   const [yyyy, mm, dd] = str.split('-');
@@ -56,12 +54,18 @@ const inputCls = 'rounded-md border border-[var(--border-color)] bg-[var(--bg-su
 async function exportarExcelData(solicitudesExport, catalogos, toast, fileName) {
   if (solicitudesExport.length === 0) return toast.error('No hay solicitudes para exportar.');
 
-  // 1. Fetch empleados para fallback
+  // exceljs pesa mucho: se descarga solo cuando se exporta
+  const ExcelJS = (await import('exceljs')).default;
+
+  // 1. Empleados para completar el puesto: solo se leen si algún pasajero no lo trae
   let empList = [];
-  try {
-    const empSnap = await getDocs(collection(db, 'empleados'));
-    empList = empSnap.docs.map(d => d.data());
-  } catch (e) { console.error("Error al obtener empleados", e); }
+  const faltaPuesto = solicitudesExport.some(sol => (sol.pasajeros || []).some(p => !p.puesto));
+  if (faltaPuesto) {
+    try {
+      const empSnap = await getDocs(collection(db, 'empleados'));
+      empList = empSnap.docs.map(d => d.data());
+    } catch (e) { console.error("Error al obtener empleados", e); }
+  }
   const getEmpFallback = (nomina) => empList.find(e => e.nomina === nomina) || {};
 
   const nombreRuta  = id => catalogos.rutas.find(r => r.id === id)?.nombre || '';
@@ -411,10 +415,39 @@ function getLocalDates() {
 }
 
 
+// Normaliza un documento de solicitud: fechaSolicitud a ISO (Timestamp o string viejo), estatus en
+// minúsculas y textos de turno/puesto tomados del resumen guardado en la solicitud.
+// Las solicitudes viejas sin resumen muestran '—' (se calcula al abrir el detalle).
+function normalizarSol(d) {
+  const data = d.data();
+  return {
+    id: d.id,
+    ...data,
+    fechaSolicitud: toDate(data.fechaSolicitud)?.toISOString() || '',
+    estatus: data.estatus?.toLowerCase() || 'pendiente',
+    _turnosStr: data.conteoTurnos ? textoConteo(data.conteoTurnos) : (data.turno || '—'),
+    _puestosStr: data.conteoPuestos ? textoConteo(data.conteoPuestos) : (data.puesto || '—'),
+  };
+}
+
+function ordenarSols(sols) {
+  return sols.sort((a, b) => {
+    const fsA = a.fechaServicio || ''; const fsB = b.fechaServicio || '';
+    if (fsA !== fsB) return fsB.localeCompare(fsA); // Descendente por fecha servicio
+    return (b.fechaSolicitud || '').localeCompare(a.fechaSolicitud || '');
+  });
+}
+
+const btnRango = 'rounded-md border px-2.5 py-1.5 text-xs font-semibold transition-colors';
+
 export default function RhSolicitudes() {
   const { usuario } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+  // Solo catálogos (nombres de ruta/comunidad/punto); los empleados no se necesitan aquí
+  const { rutas, comunidades, puntos } = useCatalogos({ empleados: false });
+  const catalogos = useMemo(() => ({ rutas, comunidades, puntos }), [rutas, comunidades, puntos]);
+
   const [solicitudes, setSolicitudes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
@@ -422,17 +455,27 @@ export default function RhSolicitudes() {
 
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstatus, setFiltroEstatus] = useState('');
-  const [fechaConsulta, setFechaConsulta] = useState(''); // Por defecto sin filtro
+
+  // Rango de fechaServicio que se escucha en Firestore (por defecto: hace 7 días → dentro de 30)
+  // o modo 'pendientes' (todas las pendientes, sin importar la fecha)
+  const [modo, setModo] = useState('rango');
+  const [desde, setDesde] = useState(() => sumarDias(ymd(), -7));
+  const [hasta, setHasta] = useState(() => sumarDias(ymd(), 30));
+  const rangoValido = modo === 'pendientes' || (!!desde && !!hasta && desde <= hasta);
+
+  const aplicarRango = (d, h) => {
+    setModo('rango'); setDesde(d); setHasta(h);
+    setCargando(!!d && !!h && d <= h);
+  };
+  const verPendientes = () => { setModo('pendientes'); setCargando(true); };
 
   const [detalle, setDetalle] = useState(null);
   const [procesando, setProcesando] = useState(null);
-  
+
   // Modals de aprobación/rechazo
   const [modalAprobar, setModalAprobar] = useState(null);
   const [modalRechazar, setModalRechazar] = useState(null);
   const [motivoRechazo, setMotivoRechazo] = useState('');
-
-  const [catalogos, setCatalogos] = useState({ rutas: [], comunidades: [], puntos: [] });
 
   // Estado para Modal de Exportación
   const [modalExportar, setModalExportar] = useState(false);
@@ -450,7 +493,31 @@ export default function RhSolicitudes() {
   const expRangoDesde = expEsRango && expTipoFecha === 'elegir' ? expDesde : (expTipoFecha === 'elegir' ? expElegida : expFechaAplicar);
   const expRangoHasta = expEsRango && expTipoFecha === 'elegir' ? expHasta : (expTipoFecha === 'elegir' ? expElegida : expFechaAplicar);
 
-  const solsParaExportar = solicitudes.filter(s => {
+  // La exportación no depende de la lista: si su rango cae dentro de lo que ya está cargado se reutiliza
+  // (0 lecturas); si no, se consulta ese rango. La bandera 'vigente' ignora respuestas de rangos viejos.
+  const expValido = !!expRangoDesde && !!expRangoHasta && expRangoDesde <= expRangoHasta;
+  const expEnMemoria = expValido && modo === 'rango' && rangoValido && expRangoDesde >= desde && expRangoHasta <= hasta;
+  const expClave = `${expRangoDesde}|${expRangoHasta}`;
+  const [expCand, setExpCand] = useState({ clave: '', lista: [] });
+
+  useEffect(() => {
+    if (!modalExportar || !expValido || expEnMemoria) return;
+    let vigente = true;
+    getDocs(query(collection(db, 'solicitudes'), where('fechaServicio', '>=', expRangoDesde), where('fechaServicio', '<=', expRangoHasta)))
+      .then(snap => { if (vigente) setExpCand({ clave: expClave, lista: snap.docs.map(normalizarSol) }); })
+      .catch(err => {
+        if (!vigente) return;
+        toast.error('No se pudieron consultar las solicitudes a exportar: ' + err.message);
+        setExpCand({ clave: expClave, lista: [] });
+      });
+    return () => { vigente = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modalExportar, expValido, expEnMemoria, expClave]);
+
+  const expCargando = modalExportar && expValido && !expEnMemoria && expCand.clave !== expClave;
+  const candidatas = expEnMemoria ? solicitudes : (expCand.clave === expClave ? expCand.lista : []);
+
+  const solsParaExportar = candidatas.filter(s => {
     if (!expAprobadas && s.estatus === 'aprobada') return false;
     if (!expPendientes && s.estatus === 'pendiente') return false;
     if (s.estatus !== 'aprobada' && s.estatus !== 'pendiente') return false;
@@ -461,78 +528,74 @@ export default function RhSolicitudes() {
   });
 
   const pasExportCount = solsParaExportar.reduce((acc, s) => acc + (s.totalPasajeros || 0), 0);
-  const rutasExportSet = new Set();
-  solsParaExportar.forEach(s => {
-    (s.pasajeros || []).forEach(p => { if (p.rutaId) rutasExportSet.add(p.rutaId); });
-  });
 
-  const btnExportarModalClick = () => {
+  // Los pasajeros se leen solo al exportar (en tandas para no saturar la red)
+  const btnExportarModalClick = async () => {
     const suffix = (expEsRango && expTipoFecha === 'elegir') ? `${expDesde}_a_${expHasta}` : expRangoDesde;
     const fileName = `Transporte_${suffix}.xlsx`;
-    exportarExcelData(solsParaExportar, catalogos, toast, fileName);
-    setModalExportar(false);
+    setExportando(true);
+    try {
+      const conPasajeros = [];
+      for (let i = 0; i < solsParaExportar.length; i += 20) {
+        const tanda = await Promise.all(solsParaExportar.slice(i, i + 20).map(async (sol) => {
+          const ps = await getDocs(collection(db, `solicitudes/${sol.id}/pasajeros`));
+          return { ...sol, pasajeros: ps.docs.map(d => d.data()) };
+        }));
+        conPasajeros.push(...tanda);
+      }
+      await exportarExcelData(conPasajeros, catalogos, toast, fileName);
+      setModalExportar(false);
+    } catch (err) {
+      console.error(err);
+      toast.error('No se pudo exportar: ' + err.message);
+    } finally {
+      setExportando(false);
+    }
   };
 
-
+  // Solicitudes en tiempo real SOLO del rango elegido. No se lee la subcolección pasajeros al listar.
+  // El callback es síncrono y cancelar la suscripción descarta cualquier snapshot viejo.
   useEffect(() => {
-    async function loadCatalogos() {
-      try {
-        const [r, c, p] = await Promise.all([ getDocs(collection(db, 'rutas')), getDocs(collection(db, 'comunidades')), getDocs(collection(db, 'puntosReunion')) ]);
-        setCatalogos({ rutas: r.docs.map(d=>({id:d.id,...d.data()})), comunidades: c.docs.map(d=>({id:d.id,...d.data()})), puntos: p.docs.map(d=>({id:d.id,...d.data()})) });
-      } catch (err) { console.error(err); }
-    }
-    loadCatalogos();
+    if (!rangoValido) return;
+    const col = collection(db, 'solicitudes');
+    const q = modo === 'pendientes'
+      ? query(col, where('estatus', '==', 'pendiente'))
+      : query(col, where('fechaServicio', '>=', desde), where('fechaServicio', '<=', hasta));
 
-    // Tiempo Real SIN filtros de 'creadoPor'
-    const unsub = onSnapshot(collection(db, 'solicitudes'), async (snap) => {
-      try {
-        setErrorMsg('');
-        const sols = snap.docs.map(d => {
-          const data = d.data();
-          return { id: d.id, ...data, estatus: data.estatus?.toLowerCase() || 'pendiente' };
-        });
-
-        // Ordenar en cliente
-        sols.sort((a, b) => {
-          const fsA = a.fechaServicio || ''; const fsB = b.fechaServicio || '';
-          if (fsA !== fsB) return fsB.localeCompare(fsA); // Descendente por fecha servicio
-          const fA = a.fechaSolicitud || ''; const fB = b.fechaSolicitud || '';
-          return fB.localeCompare(fA);
-        });
-
-        // Enriquecer pasajeros
-        const conPas = await Promise.all(sols.map(async sol => {
-          try {
-            const psnap = await getDocs(collection(db, `solicitudes/${sol.id}/pasajeros`));
-            const pas = psnap.docs.map(d => d.data());
-            const t = [...new Set(pas.map(x=>x.turno).filter(Boolean))];
-            const p = [...new Set(pas.map(x=>x.puesto).filter(Boolean))];
-            return {
-              ...sol,
-              pasajeros: pas,
-              _turnosStr: t.length > 0 ? t.join(', ') : (sol.turno||'—'),
-              _puestosStr: p.length > 0 ? p.join(', ') : (sol.puesto||'—')
-            };
-          } catch {
-            return { ...sol, pasajeros: [], _turnosStr: sol.turno||'—', _puestosStr: sol.puesto||'—' };
-          }
-        }));
-        
-        setSolicitudes(conPas);
-        setCargando(false);
-      } catch (err) {
-        console.error('Error onSnapshot:', err);
-        setErrorMsg(err.message);
-        setCargando(false);
-      }
+    const unsub = onSnapshot(q, (snap) => {
+      setErrorMsg('');
+      setSolicitudes(ordenarSols(snap.docs.map(normalizarSol)));
+      setCargando(false);
     }, (err) => {
       console.error('Snapshot Error:', err);
       setErrorMsg('Error de permisos o red: ' + err.message);
       setCargando(false);
     });
+    return unsub;
+  }, [modo, desde, hasta, rangoValido]);
 
-    return () => unsub();
-  }, []);
+  // Detalle: los pasajeros se leen solo aquí. 'detalleReq' descarta respuestas de detalles ya cerrados
+  // o reemplazados por otro.
+  const detalleReq = useRef(0);
+  const abrirDetalle = async (sol) => {
+    const req = ++detalleReq.current;
+    setDetalle({ ...sol, pasajeros: null });
+    try {
+      const ps = await getDocs(collection(db, `solicitudes/${sol.id}/pasajeros`));
+      if (req !== detalleReq.current) return;
+      const pasajeros = ps.docs.map(d => d.data());
+      const resumen = resumenPasajeros(pasajeros); // también cubre las solicitudes viejas sin resumen
+      setDetalle(prev => (prev && prev.id === sol.id ? {
+        ...prev, pasajeros, totalAlimentos: resumen.totalAlimentos,
+        _turnosStr: textoConteo(resumen.conteoTurnos), _puestosStr: textoConteo(resumen.conteoPuestos),
+      } : prev));
+    } catch (err) {
+      if (req !== detalleReq.current) return;
+      toast.error('No se pudieron cargar los pasajeros: ' + err.message);
+      setDetalle(prev => (prev && prev.id === sol.id ? { ...prev, pasajeros: [] } : prev));
+    }
+  };
+  const cerrarDetalle = () => { detalleReq.current++; setDetalle(null); };
 
   const handleTransaccion = async (sol, nuevoEstatus, motivo = '') => {
     setProcesando(sol.id);
@@ -572,7 +635,7 @@ export default function RhSolicitudes() {
         t.update(ref, updateData);
       });
       toast.success(`Solicitud ${nuevoEstatus} con éxito.`);
-      if (detalle?.sol.id === sol.id) setDetalle(null);
+      if (detalle?.id === sol.id) cerrarDetalle();
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -592,7 +655,6 @@ export default function RhSolicitudes() {
   const filtradas = solicitudes.filter(s => {
     const q = busqueda.toLowerCase();
     const okBusq = !q || (s.solicitanteNombre||'').toLowerCase().includes(q) || s.id.toLowerCase().includes(q);
-    const okFecha = !fechaConsulta || s.fechaServicio === fechaConsulta;
     
     // Si no se está filtrando explícitamente por 'cancelada', oculta las canceladas.
     let okEst = false;
@@ -604,7 +666,7 @@ export default function RhSolicitudes() {
       okEst = s.estatus === filtroEstatus;
     }
     
-    return okBusq && okEst && okFecha;
+    return okBusq && okEst;
   });
 
   return (
@@ -626,7 +688,25 @@ export default function RhSolicitudes() {
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-3 text-xs">
         <Filter className="h-4 w-4 text-[var(--text-muted)]" />
-        <input type="date" value={fechaConsulta} onChange={e=>setFechaConsulta(e.target.value)} className={inputCls} title="Fecha Servicio" />
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1 text-[var(--text-secondary)]">Del
+            <input type="date" value={desde} onChange={e=>aplicarRango(e.target.value, hasta)} className={inputCls} title="Fecha de servicio desde" />
+          </label>
+          <label className="flex items-center gap-1 text-[var(--text-secondary)]">al
+            <input type="date" value={hasta} onChange={e=>aplicarRango(desde, e.target.value)} className={inputCls} title="Fecha de servicio hasta" />
+          </label>
+          {[
+            ['Hoy', () => aplicarRango(ymd(), ymd())],
+            ['Esta semana', () => { const r = rangoSemana(ymd(), 0); aplicarRango(r.desde, r.hasta); }],
+            ['Próxima semana', () => { const r = rangoSemana(ymd(), 1); aplicarRango(r.desde, r.hasta); }],
+          ].map(([texto, fn]) => (
+            <button key={texto} type="button" onClick={fn}
+              className={`${btnRango} border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]`}>{texto}</button>
+          ))}
+          <button type="button" onClick={verPendientes}
+            className={`${btnRango} ${modo === 'pendientes' ? 'border-[var(--cm-red)] bg-[var(--cm-red)] text-white' : 'border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]'}`}
+            title="Todas las pendientes, sin importar la fecha de servicio">Todas las pendientes</button>
+        </div>
         <select value={filtroEstatus} onChange={e=>setFiltroEstatus(e.target.value)} className={inputCls}>
           <option value="">Todos los estados</option>
           <option value="pendiente">Pendientes</option>
@@ -642,6 +722,10 @@ export default function RhSolicitudes() {
           </button>
         </div>
       </div>
+
+      {!rangoValido && (
+        <div className="rounded-md border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-3 text-xs text-[var(--status-warning-text)]">Elige un rango de fechas válido (la fecha inicial no puede ser posterior a la final).</div>
+      )}
 
       {/* Tabla */}
       <div className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
@@ -671,7 +755,7 @@ export default function RhSolicitudes() {
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="inline-flex gap-1">
-                    <button onClick={()=>setDetalle(sol)} className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)]" title="Ver Detalle"><Eye className="h-4 w-4"/></button>
+                    <button onClick={()=>abrirDetalle(sol)} className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)]" title="Ver Detalle"><Eye className="h-4 w-4"/></button>
                     <button onClick={()=>navigate(`/solicitud/editar/${sol.id}`)} className="p-1.5 text-blue-600 hover:text-blue-800" title="Editar (RH)"><Edit className="h-4 w-4"/></button>
                     {sol.estatus === 'pendiente' && (
                       <>
@@ -746,13 +830,14 @@ export default function RhSolicitudes() {
 
             {/* Resumen */}
             <div className="mt-4 border border-[var(--border-subtle)] rounded-md p-3 text-sm text-[var(--text-main)] bg-[var(--bg-surface-secondary)]">
-              {solsParaExportar.length === 0 ? (
+              {expCargando ? (
+                <div className="flex items-center gap-2 text-[var(--text-secondary)]"><Loader2 className="h-4 w-4 animate-spin"/> Buscando solicitudes...</div>
+              ) : solsParaExportar.length === 0 ? (
                 <div className="text-[var(--status-error-text)] font-semibold flex items-center gap-1.5"><XCircle className="h-4 w-4"/> No hay solicitudes aprobadas para esta fecha.</div>
               ) : (
                 <ul className="space-y-1">
                   <li className="font-semibold">{solsParaExportar.length} solicitudes encontradas</li>
                   <li>{pasExportCount} pasajeros en total</li>
-                  <li>{rutasExportSet.size} rutas distintas</li>
                   {expPendientes && solsParaExportar.some(s=>s.estatus==='pendiente') && (
                     <li className="text-[var(--status-warning-text)] text-xs font-semibold mt-1">Atención: Hay pendientes incluidas.</li>
                   )}
@@ -763,8 +848,8 @@ export default function RhSolicitudes() {
 
           <div className="flex justify-end gap-2 pt-4 border-t border-[var(--border-color)] mt-4">
             <button onClick={()=>setModalExportar(false)} className="px-4 py-2 text-xs font-semibold border border-[var(--border-color)] text-[var(--text-main)] rounded-md hover:bg-[var(--bg-surface-hover)] transition-colors">Cancelar</button>
-            <button onClick={btnExportarModalClick} disabled={solsParaExportar.length === 0} className="px-4 py-2 text-xs font-semibold bg-[var(--status-success-text)] text-white rounded-md flex items-center gap-1.5 hover:opacity-90 disabled:opacity-50 transition-opacity">
-              <FileDown className="h-3.5 w-3.5"/> Descargar Excel
+            <button onClick={btnExportarModalClick} disabled={solsParaExportar.length === 0 || expCargando || exportando} className="px-4 py-2 text-xs font-semibold bg-[var(--status-success-text)] text-white rounded-md flex items-center gap-1.5 hover:opacity-90 disabled:opacity-50 transition-opacity">
+              {exportando ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <FileDown className="h-3.5 w-3.5"/>} {exportando ? 'Generando...' : 'Descargar Excel'}
             </button>
           </div>
         </div>
@@ -798,7 +883,7 @@ export default function RhSolicitudes() {
         )}
       </Modal>
 
-      <Modal isOpen={!!detalle} onClose={() => setDetalle(null)} title="" maxWidth="max-w-5xl" className="!p-0">
+      <Modal isOpen={!!detalle} onClose={cerrarDetalle} title="" maxWidth="max-w-5xl" className="!p-0">
         {detalle && (
           <div className="-m-5">
             <div className="border border-[var(--border-color)] mx-5 my-5">
@@ -831,6 +916,9 @@ export default function RhSolicitudes() {
                     </tr>
                   </thead>
                   <tbody>
+                    {detalle.pasajeros === null && (
+                      <tr><td colSpan={9} className="p-6 text-center text-[var(--text-muted)]"><Loader2 className="h-5 w-5 animate-spin mx-auto"/></td></tr>
+                    )}
                     {(detalle.pasajeros || []).map((p, idx) => {
                       const bgCls = idx % 2 === 0 ? 'bg-[var(--bg-surface)]' : 'bg-[var(--bg-surface-secondary)]';
                       const nameR = catalogos.rutas.find(r => r.id === p.rutaId)?.nombre || '';
@@ -857,8 +945,8 @@ export default function RhSolicitudes() {
               {/* Conteos */}
               <div className="bg-[var(--bg-surface-secondary)] text-[var(--text-main)] p-3 border-t border-[var(--border-color)] flex flex-wrap gap-6 text-sm">
                 <p><strong>Pasajeros:</strong> {detalle.totalPasajeros}</p>
-                <p><strong>Con alimentos:</strong> {(detalle.pasajeros||[]).filter(p=>p.alimentos).length}</p>
-                <p><strong>Sin alimentos:</strong> {(detalle.pasajeros||[]).filter(p=>!p.alimentos).length}</p>
+                <p><strong>Con alimentos:</strong> {detalle.pasajeros ? detalle.pasajeros.filter(p=>p.alimentos).length : (detalle.totalAlimentos ?? '—')}</p>
+                <p><strong>Sin alimentos:</strong> {detalle.pasajeros ? detalle.pasajeros.filter(p=>!p.alimentos).length : (detalle.totalAlimentos != null ? (detalle.totalPasajeros || 0) - detalle.totalAlimentos : '—')}</p>
               </div>
             </div>
 
@@ -870,7 +958,7 @@ export default function RhSolicitudes() {
                   <div key={i} className={`p-3 rounded-md border text-sm ${h.esAviso ? 'bg-[var(--status-success-bg)] border-[var(--status-success-border)] text-[var(--status-success-text)]' : 'bg-[var(--bg-surface-secondary)] border-[var(--border-color)] text-[var(--text-main)]'}`}>
                     <div className="flex justify-between items-start mb-1">
                       <span className="font-bold">{h.usuario}</span>
-                      <span className="text-xs text-[var(--text-muted)]">{new Date(h.fecha).toLocaleString()}</span>
+                      <span className="text-xs text-[var(--text-muted)]">{fmtFechaHora(h.fecha)}</span>
                     </div>
                     <span className="uppercase text-[10px] font-bold text-[var(--text-secondary)] bg-[var(--border-color)] px-1.5 py-0.5 rounded">{h.accion}</span>
                     <p className="mt-2 text-[var(--text-main)]">{h.comentario}</p>

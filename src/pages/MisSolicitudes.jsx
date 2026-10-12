@@ -9,6 +9,7 @@ import { Layers, Loader2, Eye, XCircle, Info, BellRing, Edit, MessageSquareWarni
 import { useNavigate } from 'react-router-dom';
 import { arrayUnion } from 'firebase/firestore';
 import Modal from '../components/Modal';
+import { fmtFechaHora } from '../utils/fechas';
 
 const ESTATUS_MAP = {
   pendiente: { label: 'Pendiente', cls: 'bg-[var(--status-warning-bg)] text-[var(--status-warning-text)] border-[var(--status-warning-border)]' },
@@ -170,7 +171,7 @@ export default function MisSolicitudes() {
             <div className="space-y-2">
               {(detalle.historial || []).map((h, i) => (
                 <div key={i} className={`p-2 rounded text-xs border ${h.esAviso ? 'bg-[var(--status-success-bg)] border-[var(--status-success-border)] text-[var(--status-success-text)]' : 'bg-[var(--bg-surface-secondary)] border-[var(--border-subtle)]'}`}>
-                  <span className="font-bold text-[var(--text-main)]">{h.usuario}</span> <span className="text-[var(--text-secondary)]">el {new Date(h.fecha).toLocaleString()}</span> — <span className="uppercase font-semibold text-[var(--text-main)]">{h.accion}</span>
+                  <span className="font-bold text-[var(--text-main)]">{h.usuario}</span> <span className="text-[var(--text-secondary)]">el {fmtFechaHora(h.fecha)}</span> — <span className="uppercase font-semibold text-[var(--text-main)]">{h.accion}</span>
                   <p className="mt-1 text-[var(--text-main)]">{h.comentario}</p>
                 </div>
               ))}

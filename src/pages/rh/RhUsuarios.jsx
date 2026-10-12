@@ -4,7 +4,7 @@
  */
 import { useState, useEffect } from 'react';
 import { collection, getDocs, doc, setDoc, updateDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, deleteUser, signOut } from 'firebase/auth';
 import { db } from '../../firebase';
 import { authSecundaria } from '../../firebaseSecundario';
 import {
@@ -98,23 +98,41 @@ export default function RhUsuarios() {
         const email = `${form.nomina.trim()}@rutas.app`;
         const cred = await createUserWithEmailAndPassword(authSecundaria, email, form.password);
         const { uid } = cred.user;
-        const perfilData = { nomina: form.nomina.trim(), nombre: form.nombre.trim(), rol: form.rol, areaIds: form.areaIds, activo: true };
+        const perfilData = { nomina: form.nomina.trim(), nombre: form.nombre.trim(), rol: form.rol, areaIds: form.areaIds, activo: true, debeCambiarPassword: true };
         try {
           // setDoc con el db principal (sesión de RH); la app secundaria solo crea la cuenta de Auth
           await setDoc(doc(db, 'usuarios', uid), perfilData);
+        } catch (errPerfil) {
+          // El perfil no se pudo guardar: borrar la cuenta recién creada (la sesión sigue en la app secundaria)
+          try {
+            await deleteUser(cred.user);
+          } catch (errBorrar) {
+            console.error('No se pudo borrar la cuenta huérfana:', errBorrar);
+            errPerfil.cuentaHuerfana = true;
+          }
+          throw errPerfil;
         } finally {
-          await signOut(authSecundaria);
+          await signOut(authSecundaria).catch(() => {});
         }
         setUsuarios(prev => [...prev, { uid, ...perfilData }]);
         setFormExito('Usuario creado correctamente.');
         setTimeout(() => { cerrarModal(); setFormExito(''); }, 1000);
       }
     } catch (err) {
-      const msgs = {
-        'auth/email-already-in-use': 'Ya existe un usuario con esa nomina.',
-        'auth/weak-password': 'La contrasena debe tener al menos 6 caracteres.',
-      };
-      setFormError(msgs[err.code] ?? `Error: ${err.message}`);
+      if (err.code === 'auth/email-already-in-use') {
+        const tienePerfil = usuarios.some(u => String(u.nomina) === form.nomina.trim());
+        setFormError(tienePerfil
+          ? 'Ya existe un usuario con esa nómina.'
+          : 'Esa nómina tiene una cuenta de acceso sin perfil (cuenta huérfana, normalmente de un alta que falló). ' +
+            'Bórrala en Firebase Console > Authentication (busca ' + form.nomina.trim() + '@rutas.app) y vuelve a crear el usuario.');
+      } else if (err.code === 'auth/weak-password') {
+        setFormError('La contraseña debe tener al menos 6 caracteres.');
+      } else if (err.cuentaHuerfana) {
+        setFormError(`No se pudo guardar el perfil (${err.message}) y tampoco se pudo borrar la cuenta creada. ` +
+          'Bórrala en Firebase Console > Authentication (' + form.nomina.trim() + '@rutas.app) antes de reintentar.');
+      } else {
+        setFormError(`Error: ${err.message}`);
+      }
     } finally {
       setGuardando(false);
     }
@@ -124,7 +142,7 @@ export default function RhUsuarios() {
     if (!confirm(`¿Deseas ${u.activo !== false ? 'desactivar' : 'activar'} a ${u.nombre}?`)) return;
     try {
       await updateDoc(doc(db, 'usuarios', u.uid), { activo: u.activo === false });
-      setUsuarios(prev => prev.map(x => x.uid === u.uid ? { ...x, activo: !x.activo } : x));
+      setUsuarios(prev => prev.map(x => x.uid === u.uid ? { ...x, activo: x.activo === false } : x));
     } catch (err) {
       alert('Error: ' + err.message);
     }
