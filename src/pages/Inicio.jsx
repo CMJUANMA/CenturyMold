@@ -20,6 +20,8 @@ import {
   Loader2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../components/Toast';
+import { esActivo } from '../utils/activo';
 
 const ROL_LABELS = {
   admin: 'Administrador del sistema',
@@ -50,6 +52,7 @@ function formatFecha(iso) {
 
 export default function Inicio() {
   const { usuario } = useAuth();
+  const toast = useToast();
   const hora = new Date().getHours();
   const saludo = hora < 12 ? 'Buenos dias' : hora < 19 ? 'Buenas tardes' : 'Buenas noches';
   const esAdminORh = usuario?.rol === 'admin' || usuario?.rol === 'rh';
@@ -59,7 +62,7 @@ export default function Inicio() {
   const [recientes, setRecientes] = useState([]);
 
   useEffect(() => {
-    if (!usuario?.nombre) return;
+    if (!usuario?.uid) return;
     
     let unsub = () => {};
     const cargar = async () => {
@@ -68,12 +71,12 @@ export default function Inicio() {
           getDocs(collection(db, 'rutas')),
           getDocs(collection(db, 'empleados'))
         ]);
-        const countRutas = snapRutas.docs.filter(d => d.data().activa !== false).length;
-        const countEmp = snapEmp.docs.filter(d => d.data().activo !== false).length;
+        const countRutas = snapRutas.docs.filter(d => esActivo(d.data())).length;
+        const countEmp = snapEmp.docs.filter(d => esActivo(d.data())).length;
 
         const qSols = esAdminORh 
           ? collection(db, 'solicitudes') 
-          : query(collection(db, 'solicitudes'), where('solicitanteNombre', '==', usuario.nombre));
+          : query(collection(db, 'solicitudes'), where('creadoPor', '==', usuario.uid));
 
         unsub = onSnapshot(qSols, (snap) => {
           let pend = 0;
@@ -98,9 +101,14 @@ export default function Inicio() {
           setStats({ pendientes: pend, empleados: countEmp, rutas: countRutas, delMes: mesActual });
           setRecientes(proximas);
           setCargando(false);
+        }, (err) => {
+          console.error('Error en solicitudes:', err);
+          toast.error('No se pudieron cargar las solicitudes: ' + err.message);
+          setCargando(false);
         });
       } catch (err) {
         console.error("Error cargando dashboard:", err);
+        toast.error('Error cargando el dashboard: ' + err.message);
         setCargando(false);
       }
     };

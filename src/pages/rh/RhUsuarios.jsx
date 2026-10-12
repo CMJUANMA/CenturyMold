@@ -99,8 +99,12 @@ export default function RhUsuarios() {
         const cred = await createUserWithEmailAndPassword(authSecundaria, email, form.password);
         const { uid } = cred.user;
         const perfilData = { nomina: form.nomina.trim(), nombre: form.nombre.trim(), rol: form.rol, areaIds: form.areaIds, activo: true };
-        await setDoc(doc(db, 'usuarios', uid), perfilData);
-        await signOut(authSecundaria);
+        try {
+          // setDoc con el db principal (sesión de RH); la app secundaria solo crea la cuenta de Auth
+          await setDoc(doc(db, 'usuarios', uid), perfilData);
+        } finally {
+          await signOut(authSecundaria);
+        }
         setUsuarios(prev => [...prev, { uid, ...perfilData }]);
         setFormExito('Usuario creado correctamente.');
         setTimeout(() => { cerrarModal(); setFormExito(''); }, 1000);

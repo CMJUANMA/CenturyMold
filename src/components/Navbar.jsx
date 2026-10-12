@@ -51,7 +51,7 @@ export default function Navbar() {
     if (usuario.uid) {
       unsub2 = onSnapshot(query(collection(db, 'solicitudes'), where('creadoPor', '==', usuario.uid), where('vistoPorSolicitante', '==', false)), snap => {
         setNovedadesUser(snap.size);
-      });
+      }, err => console.error('Navbar novedades:', err));
     }
     return () => { if (unsub1) unsub1(); if (unsub2) unsub2(); };
   }, [usuario]);

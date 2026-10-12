@@ -1,59 +1,85 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Función de ayuda para saber si el usuario está autenticado
-    function isAuth() {
-      return request.auth != null;
+
+    // ---------- Helpers ----------
+    function isAuth()      { return request.auth != null; }
+    function perfilPath()  { return /databases/$(database)/documents/usuarios/$(request.auth.uid); }
+    function tienePerfil() { return isAuth() && exists(perfilPath()); }
+    function perfil()      { return get(perfilPath()).data; }
+    function activo()      { return tienePerfil() && perfil().get('activo', true) != false; }
+    function rol()         { return perfil().get('rol', ''); }
+
+    // Roles: cuando entre tiempo extra (jefe_area, supervisor_planta) se agregan AQUÍ
+    function esAdmin()        { return activo() && rol() == 'admin'; }
+    function esRH()           { return activo() && rol() in ['rh', 'admin']; }
+    function puedeSolicitar() { return activo() && rol() in ['superintendente', 'rh', 'admin']; }
+
+    function cambia(campos)     { return request.resource.data.diff(resource.data).affectedKeys().hasAny(campos); }
+    function soloCambia(campos) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos); }
+
+    // ---------- Usuarios ----------
+    match /usuarios/{uid} {
+      // Cada quien lee su propio perfil (AuthContext); RH lee todos
+      allow read: if (isAuth() && request.auth.uid == uid) || esRH();
+      // RH crea usuarios normales; solo admin crea admins
+      allow create: if esAdmin() || (esRH() && request.resource.data.rol != 'admin');
+      // RH edita a cualquiera (incluido sí mismo) salvo admins, y no puede asignar 'admin'
+      allow update: if esAdmin()
+        || (esRH() && resource.data.rol != 'admin' && request.resource.data.rol != 'admin');
+      allow delete: if esAdmin();
     }
-    
-    // Función de ayuda para saber si el usuario tiene rol de RH o Admin
-    function esRH() {
-      let r = get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol;
-      return r == 'rh' || r == 'admin';
-    }
-    
-    // Reglas específicas para la colección "solicitudes"
-    match /solicitudes/{solId} {
-      allow read: if isAuth();
-      allow create: if isAuth();
-      
-      // Regla de actualización:
-      allow update: if isAuth() && (
-        esRH() || 
-        (
-          resource.data.creadoPor == request.auth.uid &&
-          (resource.data.estatus == 'pendiente' || resource.data.estatus == 'aprobada') &&
-          (request.resource.data.estatus == 'pendiente' || request.resource.data.estatus == 'cancelada')
-        )
-      );
-      
+
+    // ---------- Catálogos ----------
+    match /areas/{id}         { allow read: if activo(); allow write: if esRH(); }
+    match /rutas/{id}         { allow read: if activo(); allow write: if esRH(); }
+    match /comunidades/{id}   { allow read: if activo(); allow write: if esRH(); }
+    match /puntosReunion/{id} { allow read: if activo(); allow write: if esRH(); }
+    // Colección heredada (mayúscula) usada solo por Diagnóstico/migración de RH
+    match /PuntosReunion/{id} { allow read, write: if esRH(); }
+
+    // ---------- Empleados ----------
+    match /empleados/{id} {
+      allow read: if puedeSolicitar();
+      allow create: if esRH();
+      allow update: if esRH()
+        || (puedeSolicitar() && soloCambia(['rutaId', 'comunidadId', 'puntoReunionId']));
       allow delete: if esRH();
-      
-      // Reglas para la subcolección "pasajeros"
+    }
+
+    // ---------- Solicitudes ----------
+    match /solicitudes/{solId} {
+      function esDueno() { return resource.data.creadoPor == request.auth.uid; }
+
+      allow read: if esRH() || (puedeSolicitar() && esDueno());
+      allow create: if puedeSolicitar()
+        && request.resource.data.creadoPor == request.auth.uid
+        && request.resource.data.estatus == 'pendiente';
+      allow update: if esRH()
+        // Dueño: cancelar o editar (una aprobada vuelve a pendiente)
+        || (puedeSolicitar() && esDueno()
+            && resource.data.estatus in ['pendiente', 'aprobada']
+            && request.resource.data.creadoPor == request.auth.uid
+            && request.resource.data.estatus in ['pendiente', 'cancelada']
+            && !cambia(['revisadoPor', 'revisadoPorNombre', 'fechaRevision', 'motivoRechazo']))
+        // Dueño: marcar como vista y avisar a RH, en cualquier estatus
+        || (puedeSolicitar() && esDueno()
+            && soloCambia(['vistoPorSolicitante', 'historial']));
+      allow delete: if esAdmin();
+
       match /pasajeros/{pasId} {
-        allow read: if isAuth();
-        allow create: if isAuth();
-        
-        // El superintendente puede modificar pasajeros solo si es dueño de la solicitud 
-        // y su estado se lo permite (pendiente o aprobada).
-        allow update, delete: if isAuth() && (
-          esRH() || 
-          (
-            get(/databases/$(database)/documents/solicitudes/$(solId)).data.creadoPor == request.auth.uid &&
-            (
-              get(/databases/$(database)/documents/solicitudes/$(solId)).data.estatus == 'pendiente' || 
-              get(/databases/$(database)/documents/solicitudes/$(solId)).data.estatus == 'aprobada'
-            )
-          )
-        );
+        function padreAntes()   { return get(/databases/$(database)/documents/solicitudes/$(solId)).data; }
+        // getAfter: en el batch de creación la solicitud padre aún no existe en el estado "antes"
+        function padreDespues() { return getAfter(/databases/$(database)/documents/solicitudes/$(solId)).data; }
+
+        allow read: if esRH() || (puedeSolicitar() && padreAntes().creadoPor == request.auth.uid);
+        allow write: if esRH()
+          || (puedeSolicitar()
+              && padreDespues().creadoPor == request.auth.uid
+              && padreDespues().estatus == 'pendiente');
       }
     }
-    
-    // Regla global por defecto para las demás colecciones (usuarios, catalogos, etc.)
-    // ADVERTENCIA: Ajustar según la configuración de seguridad deseada del proyecto.
-    match /{document=**} {
-      allow read, write: if isAuth();
-    }
+
+    // Sin regla general: todo lo que no esté listado arriba queda denegado.
   }
 }

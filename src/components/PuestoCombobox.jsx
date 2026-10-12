@@ -3,56 +3,22 @@
  * Combobox reutilizable para capturar puestos de trabajo.
  *
  * Props:
- *   puestosExistentes  string[]   Lista de puestos ya registrados.
- *   value              string     Valor actual del campo.
- *   onChange           fn         Callback cuando el valor cambia.
+ *   puestosExistentes  string[]   Lista de puestos ya registrados (derivarPuestos).
+ *   value              string     Valor actual del campo ('' = sin puesto).
+ *   onChange           fn         Callback con el puesto elegido/confirmado.
  *   disabled           boolean    Deshabilita el control.
  *   required           boolean    Marca el campo como requerido.
  *   inputCls           string     Clases extra para el input.
+ *
+ * El valor solo se emite cuando el puesto está decidido: al elegir de la lista,
+ * al confirmar "Otro" sin coincidencias, o tras responder "¿Quisiste decir...?".
  */
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { ChevronDown, ChevronUp, AlertTriangle, Check } from 'lucide-react';
-
-// ── Helpers de normalizacion ────────────────────────────────────────────────
-export function normalizarTexto(s) {
-  return String(s).trim().replace(/\s+/g, ' ').toUpperCase();
-}
-
-function sinAcentos(s) {
-  return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-
-function levenshtein(a, b) {
-  if (Math.abs(a.length - b.length) > 2) return 99;
-  const m = a.length, n = b.length;
-  const dp = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      dp[i][j] = a[i - 1] === b[j - 1]
-        ? dp[i - 1][j - 1]
-        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-    }
-  }
-  return dp[m][n];
-}
-
-export function buscarCoincidencias(texto, puestosExistentes) {
-  const norm = sinAcentos(texto);
-  let exacto = null;
-  const similares = [];
-  for (const p of puestosExistentes) {
-    const pNorm = sinAcentos(p);
-    if (pNorm === norm) {
-      exacto = p;
-    } else if (levenshtein(pNorm, norm) <= 2 && pNorm !== norm) {
-      similares.push(p);
-    }
-  }
-  return { exacto, similares };
-}
+import { useState, useRef, useEffect } from 'react';
+import { ChevronDown, ChevronUp, AlertTriangle, Check, Sparkles } from 'lucide-react';
+import { normalizarPuesto, clavePuesto, buscarCoincidencias, existePuesto } from '../utils/puestos';
 
 const OTRO = '__OTRO__';
+const ETIQUETA_OTRO = 'Otro (escribir uno nuevo)';
 
 const baseInputCls =
   'w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)] disabled:bg-[var(--bg-surface-secondary)] disabled:opacity-60';
@@ -65,121 +31,154 @@ export default function PuestoCombobox({
   required = false,
   inputCls = '',
 }) {
-  const [query, setQuery]     = useState('');
-  const [abierto, setAbierto] = useState(false);
+  const [abiertoRaw, setAbierto] = useState(false);
+  const abierto = abiertoRaw && !disabled;
+  const [query, setQuery]       = useState('');
+  const [activo, setActivo]     = useState(-1);
   const [modoOtro, setModoOtro] = useState(false);
   const [textOtro, setTextOtro] = useState('');
-  const [aviso, setAviso]     = useState(null);
-  const [activo, setActivo]   = useState(-1);
+  // { tipo: 'exacto', puesto } | { tipo: 'similar', sugerido, escrito }
+  const [aviso, setAviso]       = useState(null);
 
-  const wrapRef  = useRef(null);
-  const inputRef = useRef(null);
+  const wrapRef   = useRef(null);
+  const inputRef  = useRef(null);
+  const otroRef   = useRef(null);
+  const previoRef = useRef('');
 
-  // Inicializar display desde value externo
+  // Validación nativa del formulario: el texto escrito no cuenta si no se eligió un puesto
   useEffect(() => {
-    if (!value) {
-      setQuery(''); setModoOtro(false); setTextOtro(''); return;
-    }
-    const existe = puestosExistentes.includes(value);
-    if (existe) {
-      setQuery(value); setModoOtro(false);
-    } else {
-      setModoOtro(true); setTextOtro(value);
-      setQuery('Otro (escribir uno nuevo)');
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+    const msg = required && !value && !disabled
+      ? (modoOtro ? 'Confirma el puesto nuevo con OK.' : 'Selecciona un puesto de la lista o elige "Otro".')
+      : '';
+    inputRef.current?.setCustomValidity(msg);
+    otroRef.current?.setCustomValidity(msg);
+  }, [required, value, disabled, modoOtro, aviso]);
 
-  // Cerrar al click fuera
-  useEffect(() => {
-    const handler = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setAbierto(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const listaFiltrada = puestosExistentes.filter(p =>
-    sinAcentos(p).includes(sinAcentos(query))
-  );
+  const claveQuery = clavePuesto(query);
+  const listaFiltrada = claveQuery
+    ? puestosExistentes.filter(p => clavePuesto(p).includes(claveQuery))
+    : puestosExistentes;
   const opciones = [...listaFiltrada, OTRO];
+  const esNuevo = !!value && !existePuesto(value, puestosExistentes);
 
-  const seleccionar = useCallback((puesto) => {
-    if (puesto === OTRO) {
-      setModoOtro(true); setTextOtro('');
-      setQuery('Otro (escribir uno nuevo)');
-      setAbierto(false); onChange(''); setAviso(null);
-      setTimeout(() => inputRef.current && inputRef.current.focus(), 50);
+  const abrir = () => {
+    if (disabled) return;
+    setQuery(''); setActivo(-1); setAbierto(true); setAviso(null);
+  };
+
+  const seleccionar = (op) => {
+    setAbierto(false); setAviso(null);
+    if (op === OTRO) {
+      previoRef.current = value;
+      setModoOtro(true);
+      setTextOtro(query);
+      onChange('');
+      setTimeout(() => otroRef.current?.focus(), 0);
       return;
     }
+    onChange(op);
+  };
+
+  const salirOtro = () => {
     setModoOtro(false); setTextOtro('');
-    setQuery(puesto); setAbierto(false); setAviso(null);
-    onChange(puesto);
-  }, [onChange]);
+  };
 
-  const confirmarOtro = useCallback(() => {
-    const normalizado = normalizarTexto(textOtro);
-    if (!normalizado) return;
-    const { exacto, similares } = buscarCoincidencias(normalizado, puestosExistentes);
+  const cancelarOtro = () => {
+    salirOtro(); setAviso(null);
+    onChange(previoRef.current);
+  };
+
+  const confirmarOtro = () => {
+    const escrito = normalizarPuesto(textOtro);
+    if (!escrito) return;
+    const { exacto, similares } = buscarCoincidencias(escrito, puestosExistentes);
     if (exacto) {
-      setAviso({ tipo: 'exacto', exacto });
-      onChange(exacto); setQuery(exacto); setModoOtro(false); setTextOtro('');
+      setAviso({ tipo: 'exacto', puesto: exacto });
+      salirOtro();
+      onChange(exacto);
     } else if (similares.length > 0) {
-      setAviso({ tipo: 'similares', similares });
-      onChange(normalizado);
+      // No se emite valor hasta que el usuario decida
+      setTextOtro(escrito);
+      setAviso({ tipo: 'similar', sugerido: similares[0], escrito });
     } else {
-      onChange(normalizado); setAviso(null); setModoOtro(false); setQuery(normalizado);
+      setAviso(null);
+      salirOtro();
+      onChange(escrito);
     }
-  }, [textOtro, puestosExistentes, onChange]);
+  };
 
-  const usarSugerido = (sug) => {
-    onChange(sug); setQuery(sug); setModoOtro(false); setTextOtro(''); setAviso(null);
+  const usarSugerido = () => {
+    const sugerido = aviso.sugerido;
+    setAviso(null); salirOtro();
+    onChange(sugerido);
   };
 
   const esDistinto = () => {
-    setAviso(null); setModoOtro(false); setQuery(value);
+    const escrito = aviso.escrito;
+    setAviso(null); salirOtro();
+    onChange(escrito);
   };
 
   const handleKeyDown = (e) => {
     if (!abierto) {
-      if (e.key === 'ArrowDown' || e.key === 'Enter') setAbierto(true);
+      if (e.key === 'ArrowDown') { e.preventDefault(); abrir(); }
       return;
     }
     if (e.key === 'ArrowDown') { e.preventDefault(); setActivo(a => Math.min(a + 1, opciones.length - 1)); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActivo(a => Math.max(a - 1, 0)); }
-    else if (e.key === 'Enter' && activo >= 0) { e.preventDefault(); seleccionar(opciones[activo]); }
-    else if (e.key === 'Escape') setAbierto(false);
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (activo >= 0) seleccionar(opciones[activo]);
+      else if (claveQuery && listaFiltrada.length === 1) seleccionar(listaFiltrada[0]);
+    }
+    else if (e.key === 'Escape') { e.preventDefault(); setAbierto(false); }
+  };
+
+  // Cerrar al salir del control (mouse o teclado)
+  const handleBlur = (e) => {
+    if (!wrapRef.current?.contains(e.relatedTarget)) setAbierto(false);
   };
 
   return (
-    <div ref={wrapRef} className="relative">
+    <div ref={wrapRef} className="relative" onBlur={handleBlur}>
       {!modoOtro && (
         <div className="relative">
           <input
+            ref={inputRef}
             type="text"
+            role="combobox"
+            aria-expanded={abierto}
             autoComplete="off"
             disabled={disabled}
-            required={required && !value}
-            value={query}
-            placeholder="Buscar puesto..."
+            value={abierto ? query : value}
+            placeholder={abierto && value ? value : 'Buscar puesto...'}
             className={`${baseInputCls} ${inputCls} pr-8`}
-            onFocus={() => setAbierto(true)}
+            onFocus={abrir}
+            onClick={() => { if (!abierto) abrir(); }}
             onChange={e => { setQuery(e.target.value); setAbierto(true); setActivo(-1); }}
             onKeyDown={handleKeyDown}
           />
           <button
             type="button" tabIndex={-1} disabled={disabled}
-            onClick={() => setAbierto(o => !o)}
+            onMouseDown={e => e.preventDefault()}
+            onClick={() => (abierto ? setAbierto(false) : (inputRef.current?.focus(), abrir()))}
             className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
           >
             {abierto ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </button>
           {abierto && (
-            <div className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] shadow-xl">
+            <div role="listbox" className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] shadow-xl">
+              {listaFiltrada.length === 0 && (
+                <div className="px-3 py-2 text-xs text-[var(--text-muted)] italic">
+                  {claveQuery ? 'Sin coincidencias.' : 'Aun no hay puestos registrados.'}
+                </div>
+              )}
               {opciones.map((op, i) => (
                 <button
-                  key={op} type="button"
-                  onMouseDown={() => seleccionar(op)}
+                  key={op} type="button" role="option" tabIndex={-1}
+                  aria-selected={op === value}
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => seleccionar(op)}
                   onMouseEnter={() => setActivo(i)}
                   className={[
                     'flex w-full items-center gap-2 border-b border-[var(--border-subtle)] px-3 py-2 text-left text-xs last:border-0 hover:bg-[var(--bg-surface-secondary)] transition-colors',
@@ -187,15 +186,10 @@ export default function PuestoCombobox({
                     op === OTRO ? 'italic text-[var(--text-secondary)]' : 'text-[var(--text-main)]',
                   ].join(' ')}
                 >
-                  {value === op && op !== OTRO && <Check className="h-3 w-3 text-[var(--cm-red)] shrink-0" />}
-                  {op === OTRO ? 'Otro (escribir uno nuevo)' : op}
+                  {op !== OTRO && clavePuesto(op) === clavePuesto(value) && <Check className="h-3 w-3 text-[var(--cm-red)] shrink-0" />}
+                  {op === OTRO ? ETIQUETA_OTRO : op}
                 </button>
               ))}
-              {listaFiltrada.length === 0 && query && (
-                <div className="px-3 py-2 text-xs text-[var(--text-muted)] italic">
-                  Sin coincidencias — elige "Otro" para escribir uno nuevo.
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -205,50 +199,55 @@ export default function PuestoCombobox({
         <div className="space-y-1.5">
           <div className="flex gap-2">
             <input
-              ref={inputRef} type="text" autoComplete="off"
-              disabled={disabled} required={required && !value}
+              ref={otroRef} type="text" autoComplete="off"
+              disabled={disabled}
               value={textOtro} placeholder="Escribe el nuevo puesto..."
               className={`${baseInputCls} ${inputCls} flex-1`}
-              onChange={e => setTextOtro(e.target.value)}
+              onChange={e => { setTextOtro(e.target.value); setAviso(null); }}
               onKeyDown={e => {
                 if (e.key === 'Enter') { e.preventDefault(); confirmarOtro(); }
-                if (e.key === 'Escape') { setModoOtro(false); setQuery(''); onChange(''); }
+                if (e.key === 'Escape') { e.preventDefault(); cancelarOtro(); }
               }}
             />
-            <button type="button" onClick={confirmarOtro}
-              className="rounded-md bg-[var(--cm-red)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--cm-red-hover)] transition-colors shrink-0">
+            <button type="button" onClick={confirmarOtro} disabled={disabled || !textOtro.trim()}
+              className="rounded-md bg-[var(--cm-red)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--cm-red-hover)] disabled:opacity-50 transition-colors shrink-0">
               OK
             </button>
-            <button type="button"
-              onClick={() => { setModoOtro(false); setQuery(''); onChange(''); setAviso(null); }}
+            <button type="button" onClick={cancelarOtro} title="Cancelar"
               className="rounded-md border border-[var(--border-color)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-secondary)] transition-colors shrink-0">
               X
             </button>
           </div>
-          <p className="text-[10px] text-[var(--text-muted)]">Se normalizara: trim, espacios dobles y mayusculas.</p>
+          {!aviso && (
+            <p className="text-[10px] text-[var(--text-muted)]">Se guardara en mayusculas y sin espacios dobles.</p>
+          )}
         </div>
       )}
 
-      {aviso && aviso.tipo === 'exacto' && (
+      {esNuevo && !modoOtro && !abierto && (
+        <p className="mt-1 flex items-center gap-1 text-[10px] text-[var(--text-muted)]">
+          <Sparkles className="h-3 w-3" />Puesto nuevo: se agregara a la lista al guardar.
+        </p>
+      )}
+
+      {aviso?.tipo === 'exacto' && (
         <div className="mt-1.5 flex items-start gap-1.5 rounded-md bg-[var(--status-success-bg)] border border-[var(--status-success-border)] px-2.5 py-2 text-[10px] text-[var(--status-success-text)]">
           <Check className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-          <span>Coincide con puesto existente &quot;<strong>{aviso.exacto}</strong>&quot;. Se usara ese para evitar duplicados.</span>
+          <span>Ya existe el puesto &quot;<strong>{aviso.puesto}</strong>&quot;. Se usara ese para evitar duplicados.</span>
         </div>
       )}
 
-      {aviso && aviso.tipo === 'similares' && (
+      {aviso?.tipo === 'similar' && (
         <div className="mt-1.5 rounded-md bg-[var(--status-warning-bg)] border border-[var(--status-warning-border)] px-2.5 py-2 space-y-1.5">
           <div className="flex items-start gap-1.5 text-[10px] text-[var(--status-warning-text)]">
             <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-            <span>Quisiste decir uno de estos?</span>
+            <span>¿Quisiste decir &quot;<strong>{aviso.sugerido}</strong>&quot;?</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {aviso.similares.map(sug => (
-              <button key={sug} type="button" onClick={() => usarSugerido(sug)}
-                className="rounded border border-[var(--status-warning-border)] bg-[var(--bg-surface)] px-2 py-0.5 text-[10px] font-semibold text-[var(--status-warning-text)] hover:bg-[var(--status-warning-bg)] transition-colors">
-                Usar &quot;{sug}&quot;
-              </button>
-            ))}
+            <button type="button" onClick={usarSugerido}
+              className="rounded border border-[var(--status-warning-border)] bg-[var(--bg-surface)] px-2 py-0.5 text-[10px] font-semibold text-[var(--status-warning-text)] hover:bg-[var(--status-warning-bg)] transition-colors">
+              Usar {aviso.sugerido}
+            </button>
             <button type="button" onClick={esDistinto}
               className="rounded border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-surface-secondary)] transition-colors">
               Es distinto

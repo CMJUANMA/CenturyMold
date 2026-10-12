@@ -14,6 +14,9 @@ import {
   Save, Loader2, MapPin,
 } from 'lucide-react';
 import PuestoCombobox from '../components/PuestoCombobox';
+import { derivarPuestos, existePuesto, canonizarPuesto } from '../utils/puestos';
+import { esActivo, rutaVigente } from '../utils/activo';
+import { useToast } from '../components/Toast';
 
 // Calcula la fecha mínima = hoy en formato YYYY-MM-DD (local, sin desfase TZ)
 function fechaMinima() {
@@ -48,6 +51,7 @@ const pasViejo = () => ({
 
 export default function NuevaSolicitud() {
   const { usuario } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
 
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -75,18 +79,21 @@ export default function NuevaSolicitud() {
     async function fetchData() {
       const safe = async (col) => {
         try { return await getDocs(collection(db, col)); }
-        catch { return { docs: [] }; }
+        catch (err) {
+          toast.error(err.code === 'permission-denied' ? `Sin permiso para leer ${col}.` : `Error al leer ${col}: ${err.message}`);
+          return { docs: [] };
+        }
       };
       const [sRutas, sComs, sPuntos, sEmp] = await Promise.all([
         safe('rutas'), safe('comunidades'), safe('puntosReunion'), safe('empleados'),
       ]);
-      const listaEmp = sEmp.docs.map(d => ({ id: d.id, ...d.data() })).filter(e => e.activo !== false);
+      const listaEmp = sEmp.docs.map(d => ({ id: d.id, ...d.data() })).filter(esActivo);
       setEmpleados(listaEmp);
-      const listaP = [...new Set(listaEmp.map(e => e.puesto).filter(Boolean))].sort();
-      setPuestosLista(listaP);
-      setRutas(sRutas.docs.map(d => ({ id: d.id, ...d.data() })).filter(r => r.activa !== false));
-      setComunidades(sComs.docs.map(d => ({ id: d.id, ...d.data() })));
-      setPuntos(sPuntos.docs.map(d => ({ id: d.id, ...d.data() })));
+      setPuestosLista(derivarPuestos(listaEmp));
+      // Solo elementos activos del directorio
+      setRutas(sRutas.docs.map(d => ({ id: d.id, ...d.data() })).filter(esActivo));
+      setComunidades(sComs.docs.map(d => ({ id: d.id, ...d.data() })).filter(esActivo));
+      setPuntos(sPuntos.docs.map(d => ({ id: d.id, ...d.data() })).filter(esActivo));
       setIsLoadingData(false);
     }
     fetchData();
@@ -114,15 +121,15 @@ export default function NuevaSolicitud() {
       alert('Este empleado ya fue agregado.'); return;
     }
     // Tiene ruta completa pre-asignada => pedir confirmacion
-    const tieneRutaCompleta = emp.rutaId && emp.comunidadId && emp.puntoReunionId;
+    // Lo que esté inactivo en el directorio no se precarga: se pedirá de nuevo
+    const ruta = rutaVigente(emp, { rutas, comunidades, puntos });
+    const tieneRutaCompleta = ruta.rutaId && ruta.comunidadId && ruta.puntoReunionId;
     updatePas(index, {
       empleadoSeleccionado: emp,
       searchQuery: `${emp.nomina} - ${emp.nombre}`,
       showResults: false,
       puesto: emp.puesto || '',
-      rutaId: emp.rutaId || '',
-      comunidadId: emp.comunidadId || '',
-      puntoReunionId: emp.puntoReunionId || '',
+      ...ruta,
       needsConfirmation: !!tieneRutaCompleta,
       isConfirmed: false,
     });
@@ -131,8 +138,8 @@ export default function NuevaSolicitud() {
   // Agregar un puesto nuevo a la lista global cuando se crea en el combobox
   const handlePuestoChange = (index, nuevoPuesto) => {
     updatePas(index, { puesto: nuevoPuesto });
-    if (nuevoPuesto && !puestosLista.includes(nuevoPuesto)) {
-      setPuestosLista(prev => [...prev, nuevoPuesto].sort());
+    if (nuevoPuesto && !existePuesto(nuevoPuesto, puestosLista)) {
+      setPuestosLista(prev => [...prev, nuevoPuesto].sort((a, b) => a.localeCompare(b, 'es')));
     }
   };
 
@@ -142,6 +149,7 @@ export default function NuevaSolicitud() {
 
     const invalido = pasajeros.find(p =>
       !p.empleadoSeleccionado ||
+      !p.puesto ||
       !p.turno ||
       !p.horaEntrada ||
       !p.horaSalida ||
@@ -175,13 +183,12 @@ export default function NuevaSolicitud() {
         }]
       };
       batch.set(solRef, solDoc);
-      console.log('[solicitud]', solDoc);
 
       for (const p of pasajeros) {
         const pasObj = {
           nomina:         p.empleadoSeleccionado.nomina,
           nombre:         p.empleadoSeleccionado.nombre,
-          puesto:         p.puesto         || '',
+          puesto:         canonizarPuesto(p.puesto, puestosLista),
           turno:          p.turno          || '',
           horaEntrada:    p.horaEntrada    || '',
           horaSalida:     p.horaSalida     || '',
@@ -193,12 +200,11 @@ export default function NuevaSolicitud() {
         };
         const pasRef = doc(db, `solicitudes/${solId}/pasajeros`, p.empleadoSeleccionado.nomina);
         batch.set(pasRef, pasObj);
-        console.log('[pasajero]', pasObj);
 
-        // Actualizar ruta en catálogo solo si cambió
+        // Guardar en el padrón la ruta confirmada, solo si cambió
         const emp = p.empleadoSeleccionado;
         if (emp.rutaId !== p.rutaId || emp.comunidadId !== p.comunidadId || emp.puntoReunionId !== p.puntoReunionId) {
-          batch.update(doc(db, 'empleados', emp.nomina), {
+          batch.update(doc(db, 'empleados', emp.id), {
             rutaId:         p.rutaId         || '',
             comunidadId:    p.comunidadId    || '',
             puntoReunionId: p.puntoReunionId || '',
@@ -438,9 +444,9 @@ export default function NuevaSolicitud() {
                       <CheckCircle2 className="h-3.5 w-3.5" />Datos de ruta confirmados.
                     </div>
                   )}
-                  {p.empleadoSeleccionado && !p.needsConfirmation && !p.isConfirmed && !p.rutaId && (
+                  {p.empleadoSeleccionado && !p.needsConfirmation && !p.isConfirmed && (!p.rutaId || !p.comunidadId || !p.puntoReunionId) && (
                     <div className="flex items-center gap-1 text-[11px] font-medium text-[var(--text-secondary)]">
-                      <MapPin className="h-3.5 w-3.5" />Asigne ruta, comunidad y punto de reunion.
+                      <MapPin className="h-3.5 w-3.5" />Asigne ruta, comunidad y punto de reunion; se guardaran en el padron del empleado.
                     </div>
                   )}
                 </div>

@@ -9,6 +9,13 @@ import { collection, getDocs, doc, getDoc, writeBatch, arrayUnion } from 'fireba
 import { db } from '../firebase';
 import { FileEdit, Plus, Trash2, CheckCircle2, AlertCircle, Save, Loader2, Info } from 'lucide-react';
 import { ROLES_RH } from '../utils/roles';
+import PuestoCombobox from '../components/PuestoCombobox';
+import { derivarPuestos, existePuesto, canonizarPuesto } from '../utils/puestos';
+import { esActivo, opcionesVigentes, rutaVigente } from '../utils/activo';
+import { useToast } from '../components/Toast';
+
+/** Nombre para un <option>, marcando si ya está inactivo */
+const etiqueta = (x) => (esActivo(x) ? x.nombre : `${x.nombre} (inactivo)`);
 
 // Calcula la fecha mínima = hoy
 function fechaMinima() {
@@ -44,6 +51,7 @@ const pasViejo = () => ({
 export default function EditarSolicitud() {
   const { id } = useParams();
   const { usuario } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
   const esRH = ROLES_RH.includes(usuario?.rol);
 
@@ -68,15 +76,19 @@ export default function EditarSolicitud() {
       try {
         const safe = async (col) => {
           try { return await getDocs(collection(db, col)); }
-          catch { return { docs: [] }; }
+          catch (err) {
+            toast.error(err.code === 'permission-denied' ? `Sin permiso para leer ${col}.` : `Error al leer ${col}: ${err.message}`);
+            return { docs: [] };
+          }
         };
         const [sRutas, sComs, sPuntos, sEmp] = await Promise.all([
           safe('rutas'), safe('comunidades'), safe('puntosReunion'), safe('empleados'),
         ]);
         const listaEmp = sEmp.docs.map(d => ({ id: d.id, ...d.data() }));
         setEmpleados(listaEmp);
-        setPuestos([...new Set(listaEmp.map(e => e.puesto).filter(Boolean))].sort());
-        setRutas(sRutas.docs.map(d => ({ id: d.id, ...d.data() })).filter(r => r.activa !== false));
+        setPuestos(derivarPuestos(listaEmp));
+        // Se cargan todos: los selects muestran solo activos, más el valor ya guardado del pasajero
+        setRutas(sRutas.docs.map(d => ({ id: d.id, ...d.data() })));
         setComunidades(sComs.docs.map(d => ({ id: d.id, ...d.data() })));
         setPuntos(sPuntos.docs.map(d => ({ id: d.id, ...d.data() })));
 
@@ -165,29 +177,37 @@ export default function EditarSolicitud() {
     if (pasajeros.some((p, i) => i !== index && p.empleadoSeleccionado?.nomina === emp.nomina)) {
       alert('Este empleado ya fue agregado.'); return;
     }
-    const tieneRuta = emp.rutaId && emp.comunidadId && emp.puntoReunionId;
+    // Lo que esté inactivo en el directorio no se precarga: se pedirá de nuevo
+    const ruta = rutaVigente(emp, { rutas, comunidades, puntos });
+    const tieneRuta = ruta.rutaId && ruta.comunidadId && ruta.puntoReunionId;
     updatePas(index, {
       empleadoSeleccionado: emp,
       searchQuery: `${emp.nomina} - ${emp.nombre}`,
       showResults: false,
       puesto: emp.puesto || '',
-      rutaId: emp.rutaId || '',
-      comunidadId: emp.comunidadId || '',
-      puntoReunionId: emp.puntoReunionId || '',
+      ...ruta,
       needsConfirmation: !!tieneRuta,
       isConfirmed: false,
     });
   };
 
+  // Agregar un puesto nuevo a la lista cuando se crea en el combobox
+  const handlePuestoChange = (index, nuevoPuesto) => {
+    updatePas(index, { puesto: nuevoPuesto });
+    if (nuevoPuesto && !existePuesto(nuevoPuesto, puestos)) {
+      setPuestos(prev => [...prev, nuevoPuesto].sort((a, b) => a.localeCompare(b, 'es')));
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!fechaServicio) return alert('Selecciona la fecha del servicio.');
-    
+
     if (!comentario.trim() && (solicitud.estatus === 'aprobada' || esRH)) {
       return alert('Debes ingresar un comentario sobre la edición.');
     }
 
-    const invalido = pasajeros.find(p => !p.empleadoSeleccionado || !p.turno || !p.horaEntrada || !p.horaSalida || !p.rutaId || !p.comunidadId || !p.puntoReunionId || (p.needsConfirmation && !p.isConfirmed));
+    const invalido = pasajeros.find(p => !p.empleadoSeleccionado || !p.puesto || !p.turno || !p.horaEntrada || !p.horaSalida || !p.rutaId || !p.comunidadId || !p.puntoReunionId || (p.needsConfirmation && !p.isConfirmed));
     if (invalido) return alert('Completa todos los campos de cada pasajero.');
 
     try {
@@ -226,7 +246,7 @@ export default function EditarSolicitud() {
         const pasObj = {
           nomina:         p.empleadoSeleccionado.nomina,
           nombre:         p.empleadoSeleccionado.nombre,
-          puesto:         p.puesto         || '',
+          puesto:         canonizarPuesto(p.puesto, puestos),
           turno:          p.turno          || '',
           horaEntrada:    p.horaEntrada    || '',
           horaSalida:     p.horaSalida     || '',
@@ -239,10 +259,10 @@ export default function EditarSolicitud() {
         const pasRef = doc(db, `solicitudes/${id}/pasajeros`, p.empleadoSeleccionado.nomina);
         batch.set(pasRef, pasObj);
 
-        // Actualizar empleado si cambió ruta
+        // Guardar en el padrón la ruta confirmada (si el empleado sigue existiendo y cambió)
         const emp = p.empleadoSeleccionado;
-        if (emp.rutaId !== p.rutaId || emp.comunidadId !== p.comunidadId || emp.puntoReunionId !== p.puntoReunionId) {
-          batch.update(doc(db, 'empleados', emp.nomina), {
+        if (emp.id && (emp.rutaId !== p.rutaId || emp.comunidadId !== p.comunidadId || emp.puntoReunionId !== p.puntoReunionId)) {
+          batch.update(doc(db, 'empleados', emp.id), {
             rutaId:         p.rutaId         || '',
             comunidadId:    p.comunidadId    || '',
             puntoReunionId: p.puntoReunionId || '',
@@ -312,7 +332,7 @@ export default function EditarSolicitud() {
                         <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-[var(--bg-surface)] shadow-lg">
                           {(() => {
                             const q = p.searchQuery.toLowerCase();
-                            const found = empleados.filter(emp => String(emp.nomina).includes(p.searchQuery) || (emp.nombreLower || emp.nombre?.toLowerCase() || '').includes(q)).slice(0, 10);
+                            const found = empleados.filter(emp => esActivo(emp) && (String(emp.nomina).includes(p.searchQuery) || (emp.nombreLower || emp.nombre?.toLowerCase() || '').includes(q))).slice(0, 10);
                             return found.length === 0 ? <div className="px-3 py-2 text-xs italic">Sin resultados</div> : found.map(emp => (
                               <div key={emp.nomina} onClick={() => handleSelectEmpleado(index, emp)} className="cursor-pointer border-b px-3 py-2 text-xs hover:bg-[var(--bg-surface-secondary)]"><span className="font-bold">{emp.nomina}</span><span className="ml-1">— {emp.nombre}</span></div>
                             ));
@@ -326,7 +346,13 @@ export default function EditarSolicitud() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                     <div>
                       <label className="block text-[10px] font-semibold uppercase text-[var(--text-muted)] mb-1">Puesto</label>
-                      <select required disabled={!p.empleadoSeleccionado} value={p.puesto} onChange={e => updatePas(index, { puesto: e.target.value })} className={inputCls}><option value="">—</option>{puestos.map(pt => <option key={pt} value={pt}>{pt}</option>)}</select>
+                      <PuestoCombobox
+                        puestosExistentes={puestos}
+                        value={p.puesto}
+                        onChange={v => handlePuestoChange(index, v)}
+                        disabled={!p.empleadoSeleccionado}
+                        required
+                      />
                     </div>
                     <div>
                       <label className="block text-[10px] font-semibold uppercase text-[var(--text-muted)] mb-1">Turno</label>
@@ -348,15 +374,15 @@ export default function EditarSolicitud() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label className="block text-[10px] font-semibold uppercase text-[var(--text-muted)] mb-1">Ruta</label>
-                      <select required disabled={disableRuta} value={p.rutaId} onChange={e => updatePas(index, { rutaId: e.target.value, comunidadId: '', puntoReunionId: '' })} className={inputCls}><option value="">Seleccione...</option>{rutas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}</select>
+                      <select required disabled={disableRuta} value={p.rutaId} onChange={e => updatePas(index, { rutaId: e.target.value, comunidadId: '', puntoReunionId: '' })} className={inputCls}><option value="">Seleccione...</option>{opcionesVigentes(rutas, p.rutaId).map(r => <option key={r.id} value={r.id}>{etiqueta(r)}</option>)}</select>
                     </div>
                     <div>
                       <label className="block text-[10px] font-semibold uppercase text-[var(--text-muted)] mb-1">Comunidad</label>
-                      <select required disabled={disableRuta || !p.rutaId} value={p.comunidadId} onChange={e => updatePas(index, { comunidadId: e.target.value, puntoReunionId: '' })} className={inputCls}><option value="">Seleccione...</option>{comunidades.filter(c => c.rutaId === p.rutaId).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select>
+                      <select required disabled={disableRuta || !p.rutaId} value={p.comunidadId} onChange={e => updatePas(index, { comunidadId: e.target.value, puntoReunionId: '' })} className={inputCls}><option value="">Seleccione...</option>{opcionesVigentes(comunidades.filter(c => c.rutaId === p.rutaId), p.comunidadId).map(c => <option key={c.id} value={c.id}>{etiqueta(c)}</option>)}</select>
                     </div>
                     <div>
                       <label className="block text-[10px] font-semibold uppercase text-[var(--text-muted)] mb-1">Punto</label>
-                      <select required disabled={disableRuta || !p.comunidadId} value={p.puntoReunionId} onChange={e => updatePas(index, { puntoReunionId: e.target.value })} className={inputCls}><option value="">Seleccione...</option>{puntos.filter(pt => pt.comunidadId === p.comunidadId).map(pt => <option key={pt.id} value={pt.id}>{pt.nombre}</option>)}</select>
+                      <select required disabled={disableRuta || !p.comunidadId} value={p.puntoReunionId} onChange={e => updatePas(index, { puntoReunionId: e.target.value })} className={inputCls}><option value="">Seleccione...</option>{opcionesVigentes(puntos.filter(pt => pt.comunidadId === p.comunidadId), p.puntoReunionId).map(pt => <option key={pt.id} value={pt.id}>{etiqueta(pt)}</option>)}</select>
                     </div>
                   </div>
                   {reqConfirm && (
@@ -366,7 +392,7 @@ export default function EditarSolicitud() {
                     </div>
                   )}
                   {p.isConfirmed && <div className="text-[11px] text-[var(--status-success-text)] flex gap-1"><CheckCircle2 className="h-3.5 w-3.5"/>Ruta confirmada.</div>}
-                  {p.empleadoSeleccionado && !p.needsConfirmation && !p.isConfirmed && !p.rutaId && <div className="text-[11px] flex gap-1"><Info className="h-3.5 w-3.5"/>Asigne una ruta.</div>}
+                  {p.empleadoSeleccionado && !p.needsConfirmation && !p.isConfirmed && (!p.rutaId || !p.comunidadId || !p.puntoReunionId) && <div className="text-[11px] flex gap-1"><Info className="h-3.5 w-3.5"/>Asigne ruta, comunidad y punto de reunion; se guardaran en el padron del empleado.</div>}
                 </div>
               );
             })}

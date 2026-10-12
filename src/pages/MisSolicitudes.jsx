@@ -40,6 +40,10 @@ export default function MisSolicitudes() {
       sols.sort((a,b) => (b.fechaServicio||'').localeCompare(a.fechaServicio||''));
       setSolicitudes(sols);
       setCargando(false);
+    }, err => {
+      console.error('MisSolicitudes:', err);
+      alert('No se pudieron cargar tus solicitudes: ' + err.message);
+      setCargando(false);
     });
     return () => unsub();
   }, [usuario]);

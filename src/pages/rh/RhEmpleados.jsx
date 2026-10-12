@@ -2,16 +2,23 @@
  * RhEmpleados.jsx
  */
 import { useState, useEffect, useMemo } from 'react';
-import { collection, getDocs, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Search, Plus, Filter, Pencil, Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '../../components/Toast';
 import Modal from '../../components/Modal';
 import PuestoCombobox from '../../components/PuestoCombobox';
+import { derivarPuestos, canonizarPuesto } from '../../utils/puestos';
+import { esActivo, opcionesVigentes } from '../../utils/activo';
+
+/** Nombre para un <option>, marcando si ya está inactivo (se conserva el valor guardado) */
+const etiqueta = (x) => (esActivo(x) ? x.nombre : `${x.nombre} (inactivo)`);
 
 const btnIcon = 'rounded-md p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-surface-secondary)] hover:text-[var(--text-main)] active:scale-95 transition-all cursor-pointer';
 const inputCls = 'w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)] disabled:bg-[var(--bg-surface-secondary)] disabled:opacity-60';
 const labelCls = 'block text-[10px] uppercase font-bold text-[var(--text-muted)] mb-1';
+const formVacio = { nomina: '', nombre: '', puesto: '', rutaId: '', comunidadId: '', puntoReunionId: '', activo: true };
+const AYUDA_RUTA = 'Si no la asigna, se pedirá al solicitar transporte';
 
 export default function RhEmpleados() {
   const toast = useToast();
@@ -26,18 +33,12 @@ export default function RhEmpleados() {
   const [modal, setModal] = useState(null);
   const [modalEliminar, setModalEliminar] = useState(null);
 
-  const [form, setForm] = useState({
-    nomina: '', nombre: '', puesto: '',
-    rutaId: '', comunidadId: '', puntoReunionId: '',
-    activo: true,
-  });
+  const [form, setForm] = useState(formVacio);
   const [guardando, setGuardando] = useState(false);
   const [formError, setFormError] = useState('');
 
   // Puestos unicos derivados del padron, ordenados alfabeticamente
-  const puestosExistentes = useMemo(() => {
-    return [...new Set(empleados.map(e => e.puesto).filter(Boolean))].sort();
-  }, [empleados]);
+  const puestosExistentes = useMemo(() => derivarPuestos(empleados), [empleados]);
 
   const cargar = async () => {
     setCargando(true);
@@ -63,12 +64,12 @@ export default function RhEmpleados() {
   });
 
   const abrirCrear = () => {
-    setForm({ nomina: '', nombre: '', puesto: '', rutaId: '', comunidadId: '', puntoReunionId: '', activo: true });
+    setForm(formVacio);
     setFormError('');
     setModal({ modo: 'crear' });
   };
   const abrirEditar = (emp) => {
-    setForm({ ...emp });
+    setForm({ ...formVacio, ...emp });
     setFormError('');
     setModal({ modo: 'editar', original: emp });
   };
@@ -76,13 +77,17 @@ export default function RhEmpleados() {
   const handleGuardar = async (e) => {
     e.preventDefault();
     if (!form.puesto) { setFormError('El puesto es obligatorio.'); return; }
+    const nomina = String(form.nomina).trim();
+    if (!nomina) { setFormError('La nomina es obligatoria.'); return; }
     setGuardando(true); setFormError('');
     try {
-      const ref = doc(db, 'empleados', form.nomina);
+      const ref = doc(db, 'empleados', nomina);
+      const nombre = form.nombre.trim().replace(/\s+/g, ' ');
       const data = {
-        nombre: form.nombre,
-        nombreLower: form.nombre.toLowerCase(),
-        puesto: form.puesto,
+        nomina,
+        nombre,
+        nombreLower: nombre.toLowerCase(),
+        puesto: canonizarPuesto(form.puesto, puestosExistentes),
         // Ruta/comunidad/punto son opcionales — guardar vacío si no se asigna
         rutaId: form.rutaId || '',
         comunidadId: form.comunidadId || '',
@@ -91,16 +96,15 @@ export default function RhEmpleados() {
       };
 
       if (modal.modo === 'crear') {
-        const docSnap = await getDocs(collection(db, 'empleados'));
-        if (docSnap.docs.some(d => d.id === form.nomina)) {
+        if ((await getDoc(ref)).exists()) {
           throw new Error('Ya existe un empleado con esta nomina.');
         }
         await setDoc(ref, data);
-        setEmpleados(prev => [...prev, { nomina: form.nomina, ...data }]);
+        setEmpleados(prev => [...prev, data]);
         toast.success('Empleado creado.');
       } else {
         await updateDoc(ref, data);
-        setEmpleados(prev => prev.map(emp => emp.nomina === form.nomina ? { ...emp, ...data } : emp));
+        setEmpleados(prev => prev.map(emp => emp.nomina === nomina ? { ...emp, ...data } : emp));
         toast.success('Empleado actualizado.');
       }
       setModal(null);
@@ -242,9 +246,7 @@ export default function RhEmpleados() {
 
           {/* Ruta / Comunidad / Punto — opcionales */}
           <div className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface-secondary)] p-3 space-y-3">
-            <p className="text-[10px] text-[var(--text-muted)] italic">
-              Ruta, comunidad y punto son opcionales en el padron. Si no se asignan aqui, se pediran al solicitar transporte.
-            </p>
+            <p className="text-[10px] text-[var(--text-muted)] italic">{AYUDA_RUTA}.</p>
 
             <div>
               <label className={labelCls}>
@@ -252,7 +254,7 @@ export default function RhEmpleados() {
               </label>
               <select value={form.rutaId} onChange={e => handleRutaChange(e.target.value)} className={inputCls}>
                 <option value="">Sin ruta asignada</option>
-                {rutas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                {opcionesVigentes(rutas, form.rutaId).map(r => <option key={r.id} value={r.id}>{etiqueta(r)}</option>)}
               </select>
             </div>
 
@@ -266,8 +268,8 @@ export default function RhEmpleados() {
                 onChange={e => handleComunidadChange(e.target.value)}
                 className={inputCls}>
                 <option value="">Sin comunidad</option>
-                {comunidades.filter(c => c.rutaId === form.rutaId).map(c => (
-                  <option key={c.id} value={c.id}>{c.nombre}</option>
+                {opcionesVigentes(comunidades.filter(c => c.rutaId === form.rutaId), form.comunidadId).map(c => (
+                  <option key={c.id} value={c.id}>{etiqueta(c)}</option>
                 ))}
               </select>
               {!form.rutaId && (
@@ -285,8 +287,8 @@ export default function RhEmpleados() {
                 onChange={e => setForm(f => ({ ...f, puntoReunionId: e.target.value }))}
                 className={inputCls}>
                 <option value="">Sin punto</option>
-                {puntos.filter(p => p.comunidadId === form.comunidadId).map(p => (
-                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                {opcionesVigentes(puntos.filter(p => p.comunidadId === form.comunidadId), form.puntoReunionId).map(p => (
+                  <option key={p.id} value={p.id}>{etiqueta(p)}</option>
                 ))}
               </select>
               {!form.comunidadId && (
