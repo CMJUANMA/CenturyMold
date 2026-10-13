@@ -11,11 +11,9 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from './useAuth';
 import { useAccesos } from './useAccesos';
-import { ESTATUS_TE } from '../utils/constantes';
+import { ESTATUS_TE_VISIBLES } from '../utils/tiempoExtra';
 
-export const ESTATUS_TE_VISIBLES = [
-  ESTATUS_TE.PENDIENTE_AUT1, ESTATUS_TE.PENDIENTE_AUT2, ESTATUS_TE.AUTORIZADA, ESTATUS_TE.DEVUELTA, ESTATUS_TE.PROCESADA, ESTATUS_TE.CANCELADA,
-];
+export { ESTATUS_TE_VISIBLES };
 const VACIO = [];
 
 export function useResumenTE() {

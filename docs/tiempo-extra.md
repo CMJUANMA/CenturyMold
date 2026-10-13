@@ -120,32 +120,43 @@ solicitante → sus `devuelta`. Nunca cuenta lo que creó la propia persona.
   `areasTE`, `config/areasTE`, `config/tiempoExtra` y `accesosTE` ya no tienen reglas de Firestore (la app no las toca); si existieran, se borran desde la consola de Firebase.
 - La matriz anterior nunca se llenó, así que no hubo migración de datos: los roles `superintendente`/`autorizador` que queden se corrigen a mano en *Usuarios*.
 
-## Borrador: captura por lotes (esquema para el prompt 3B; las reglas y pruebas ya existen, la pantalla no)
+## Captura: borrador, lotes y folio (pantallas `/tiempo-extra/nueva`, `/:id/editar` y `/mis-solicitudes`)
 
-Un lote de Firestore admite 20 lecturas en las reglas y cada empleado cuesta una (validar su `areaId` en el padrón), así que una solicitud
-con muchos empleados no cabe en un solo lote de captura (caben 12 con la captura directa). Por eso la captura pasa por un **borrador**:
+Un lote de Firestore admite 20 lecturas en las reglas y cada empleado cuesta una (validar su `areaId` contra el padrón), así que los empleados se
+escriben en **lotes de 10**. Por eso TODA solicitud nace como **borrador**:
 
-1. **Crear**: la solicitud se crea en estatus `borrador` (con su folio, el contador de siempre y la entrada `creada` del historial), sin empleados.
-   Lo crea quien puede capturar en esa área (solicitante vigente; RH o Aut. 2 en un área que no participa). **Solo el creador la ve y la edita**:
-   el Aut. 1, la Aut. 2, RH y admin no la leen (ni sus empleados ni su historial).
-2. **Armar**: los empleados se agregan, cambian o quitan en **lotes de máximo 10** (`writeBatch` sobre `tiempoExtra/{folio}/empleados/{nómina}`).
-   Las reglas validan cada empleado: debe estar en el padrón con la misma `areaId` que la solicitud. Sobra margen: el límite real es de unos 17; 10 es el
-   tope acordado. También se pueden editar `fechaTE`, `motivo` y `resumen` mientras sea borrador. Descartar = pasar a `cancelada` (con su historial).
-3. **Enviar a autorización**: un solo `update` del padre (puede ir en el lote del último grupo de empleados) con el estatus nuevo, el `resumen` ya
-   calculado (empleados, horas, transporte, alimentos) y la entrada `enviada` del historial en el mismo lote:
-   `borrador → pendiente_aut1`, o `pendiente_aut2` si quien envía es el Aut. 1 vigente de esa área o si el área no participa en TE (`estatusInicialTE`).
-   Sin firmas colgadas. Solo el creador, y solo si sigue siendo capaz de capturar en esa área.
+1. **Crear**: `tiempoExtra/BR-xxxxxxxxxxxx` (id propio que exigen las reglas), estatus `borrador`, **sin folio**. Lo crea un solicitante o el **Aut. 1** vigente del
+   área (el Aut. 1 también captura: su solicitud se salta su propio nivel), o RH / Aut. 2 en un área sin participaTE. **Solo el creador lo ve y lo edita**
+   (ni sus empleados ni su historial los leen Aut. 1, Aut. 2, RH ni admin). Un borrador no gasta folios.
+2. **Armar**: "Guardar borrador" escribe la solicitud y los empleados nuevos o modificados en lotes de 10 con barra de progreso (`guardarBorrador`); se puede salir y continuar.
+   Las reglas validan cada empleado: está en el padrón con la misma `areaId` y trae solo los campos del modelo
+   (`nombre, puesto, turnoNomina, horaEntrada, horaSalida, horas, requiereAlimentos, requiereTransporte, rutaId, comunidadId, puntoReunionId`).
+3. **Enviar a autorización** (`enviarSolicitud`): en **una transacción** toma el siguiente número del contador `contadores/te-AAAA`, pone el folio
+   `TE-AAAA-NNNN`, el estatus (`pendiente_aut1`, o `pendiente_aut2` si es el Aut. 1 de esa área o el área no participa), el resumen calculado y la entrada
+   `enviada` del historial. Las reglas exigen que el folio sea exactamente el número que deja el contador (que sube 1) y del año en curso.
+4. **Devuelta → corregir y reenviar**: se edita igual (contenido y empleados); al reenviar **conserva su folio**, se quitan `aut1`/`aut2` y vuelve a empezar en Aut. 1
+   (o en Aut. 2 si quien reenvía es su Aut. 1); entrada `reenviada`.
+5. **Cancelar** una pendiente o devuelta exige **motivo** (`motivoCancelacion`, mínimo 3 caracteres; queda también en el historial). Un **borrador no se cancela: se elimina**
+   (solo el propio; primero se borran sus empleados en lotes y al final la solicitud).
 
-Consecuencias para las pantallas: las consultas del Aut. 1, la Aut. 2 y RH sobre `tiempoExtra` deben **excluir borradores** (las que ya traen `where('estatus','==',…)` no
-cambian; una consulta solo por `areaId` ahora se rechaza: agrega `where('estatus','!=','borrador')`). `ESTATUS_TE.BORRADOR`, su etiqueta y la acción `enviada` están en `src/utils/constantes.js`.
-La captura directa a `pendiente_aut1`/`pendiente_aut2` (hasta 12 empleados) sigue permitida por las reglas.
+Campos de la solicitud: `areaId, areaNombre, creadoPor(+Nomina/Nombre), fechaTE, motivo` (Producción, Mantenimiento, Calidad, Inventario, Embarques u Otro),
+`comentario` (obligatorio al enviar, 10+ caracteres), `estatus, resumen, folio` (desde que se envía), `devolucion`, `motivoCancelacion`.
+
+Editor: elige el área (fija si solo tiene una), fecha (hoy o futura), motivo y comentario; "Agregar empleados" abre el selector de **todos los activos del área**
+(buscador, filtros por puesto y turno A/B/C, casillas para agregar 30 o más de golpe). Cada empleado: entrada (7:00, 16:00, 19:00, 0:00), salida (16:00, 19:00, 0:00, 7:00),
+horas calculadas (cruza medianoche), alimentos y transporte (marcado por defecto, con ruta → comunidad → punto precargados del padrón con confirmación; lo confirmado se
+guarda en el padrón de empleados de su área). Barra "aplicar a todos / a los seleccionados" y resumen fijo (empleados, horas, transporte, alimentos y empleados por horario).
+Validaciones: sin repetidos, entrada ≠ salida, transporte completo, máximo `MAX_PASAJEROS` (150); **aviso sin bloquear** si el empleado ya tiene otro tiempo extra no cancelado
+ese día (solo ve lo que puede leer: lo suyo y, si es Aut. 1, lo de su área).
+
+Consultas: las del Aut. 1, la Aut. 2 y RH sobre `tiempoExtra` deben **excluir borradores** (`estatus in ESTATUS_TE_VISIBLES`); una consulta solo por `areaId` se rechaza.
 
 ## Modelo de datos
 
-### `tiempoExtra/{id}` — el **id es el folio** (`TE-2026-0001`)
+### `tiempoExtra/{id}` — id propio del borrador (`BR-…`); el **folio** (`TE-2026-0001`) es un campo que se asigna al enviar
 
 ```
-folio                 'TE-2026-0001' (= id del documento)
+folio                 'TE-2026-0001' (se asigna al enviar; no existe en un borrador)
 areaId, areaNombre
 creadoPor (uid), creadoPorNomina, creadoPorNombre
 fechaTE ('AAAA-MM-DD'), motivo, estatus
@@ -156,21 +167,8 @@ solicitudRutaId       ← la pone RH al procesar
 fechaCreacion, fechaActualizacion   ← serverTimestamp()
 ```
 
-- **Folio**: contador en `contadores/te-AAAA` (`{ ultimo }`), incrementado **de uno en uno dentro de la transacción de
-  captura** (las reglas exigen `ultimo == anterior + 1`, o `1` al crear). Usar el folio como id garantiza unicidad aunque
-  el contador se manipule. Esquema de la captura:
-
-```js
-await runTransaction(db, async (tx) => {
-  const ref = doc(db, 'contadores', `te-${anio}`);
-  const ultimo = (await tx.get(ref)).data()?.ultimo ?? 0;
-  const folio = `TE-${anio}-${String(ultimo + 1).padStart(4, '0')}`;
-  tx.set(ref, { ultimo: ultimo + 1 });
-  tx.set(doc(db, 'tiempoExtra', folio), { folio, ...datos, fechaCreacion: serverTimestamp(), fechaActualizacion: serverTimestamp() });
-});
-// Los empleados y la entrada "creada" del historial van en un lote (writeBatch) en el mismo commit
-// que la solicitud, o en la misma transacción.
-```
+- **Folio**: contador en `contadores/te-AAAA` (`{ ultimo }`), incrementado **de uno en uno dentro de la transacción de envío** (las reglas exigen `ultimo == anterior + 1`, o `1` al crear,
+  y que el folio sea ese número). Ver `enviarSolicitud` en `src/utils/tiempoExtraDb.js`.
 
 ### `tiempoExtra/{id}/empleados/{nómina}`
 
@@ -194,8 +192,9 @@ aplican las reglas. Helpers: `transicionesTE(estatus, quien)` y `estatusInicialT
 | pendiente_aut1 | pendiente_aut2 / devuelta | Aut. 1 vigente del área (no el creador) |
 | pendiente_aut2 | autorizada / devuelta | Aut. 2 vigente o RH (no el creador) |
 | autorizada | procesada | RH |
-| borrador | pendiente_aut1 (o pendiente_aut2) | el creador, con el resumen calculado |
-| borrador, pendiente_aut1, pendiente_aut2, devuelta | cancelada | el creador |
+| borrador | pendiente_aut1 (o pendiente_aut2) | el creador: asigna folio, resumen y bitácora en una transacción |
+| pendiente_aut1, pendiente_aut2, devuelta | cancelada | el creador, con motivo |
+| borrador | (se elimina) | el creador |
 | devuelta | pendiente_aut1 (o pendiente_aut2 si es el Aut. 1 del área) | el creador, quitando `aut1`/`aut2` |
 
 ## Reglas de Firestore (resumen; ver `firestore.rules`)
@@ -219,7 +218,7 @@ aplican las reglas. Helpers: `transicionesTE(estatus, quien)` y `estatusInicialT
 
 ## Limitaciones conocidas
 
-- **Límite de empleados por lote**: ver *Borrador* (captura en lotes de hasta 10).
+- **Límite de empleados por lote**: ver *Captura: borrador, lotes y folio* (lotes de hasta 10).
 - La captura debe usar `usuario.nomina` (perfil); un usuario sin nómina no pasa ninguna regla de TE ni de asignaciones.
 - Las consultas con `orderBy` sobre `tiempoExtra` necesitarán índices compuestos en `firestore.indexes.json`.
 - Las pantallas de captura y autorización de TE aún no existen (solo las reglas y el modelo).

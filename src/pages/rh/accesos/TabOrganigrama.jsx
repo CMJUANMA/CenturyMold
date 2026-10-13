@@ -86,6 +86,8 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, usuario
     } catch (err) { toast.error('No se pudo exportar: ' + err.message); } finally { setExportando(false); }
   };
 
+  // Con una sola área los Aut. 2 se apilan (el nodo no excede la columna); con 2 van de dos en dos; con 3 o más, de tres en tres
+  const anchoPlanta = 17 * Math.max(1, Math.min(org.aut2.length, columnas <= 1 ? 1 : columnas === 2 ? 2 : 3)) - 0.75;
   const nodoPlanta = (
     <section aria-label="Nivel 2 · Planta" className="mx-auto w-fit max-w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-3">
       <h3 className="mb-2 flex items-center justify-center gap-1.5 text-center text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
@@ -94,7 +96,7 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, usuario
       {org.aut2.length === 0 ? (
         <p className="px-4 py-2 text-center text-xs text-[var(--text-secondary)]">Nadie tiene Autorización 2 vigente (solo RH puede firmar este nivel).</p>
       ) : (
-        <div className="flex flex-wrap justify-center gap-3">
+        <div className="flex flex-wrap justify-center gap-3" style={{ maxWidth: `${anchoPlanta}rem` }}>
           {org.aut2.map(t => <div key={t.id} className="w-64 max-w-full"><TarjetaPersona t={t} formato={formato} estado={estadoDe(t)} onAbrir={abrir} /></div>)}
         </div>
       )}
@@ -126,14 +128,14 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, usuario
           <input type="search" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar persona en el árbol…" aria-label="Buscar persona en el árbol"
             className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] py-1.5 pl-8 pr-3 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]" />
         </div>
-        <button type="button" role="switch" aria-checked={resaltarSin} disabled={!nominasConUsuario} onClick={() => setResaltarSin(v => !v)}
-          title={nominasConUsuario ? 'Marca claramente a quien aún no tiene cuenta' : 'No tienes permiso para ver qué personas ya tienen usuario'}
-          className="inline-flex cursor-pointer items-center gap-2 text-xs text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-50">
+        {nominasConUsuario && <button type="button" role="switch" aria-checked={resaltarSin} onClick={() => setResaltarSin(v => !v)}
+          title="Marca claramente a quien aún no tiene cuenta"
+          className="inline-flex cursor-pointer items-center gap-2 text-xs text-[var(--text-secondary)]">
           <span className={`relative h-4 w-7 rounded-full transition-colors ${resaltarSin ? 'bg-[var(--status-warning-text)]' : 'bg-[var(--border-color)]'}`}>
             <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${resaltarSin ? 'left-3.5' : 'left-0.5'}`} />
           </span>
           Resaltar sin usuario
-        </button>
+        </button>}
         <button type="button" id="btn-exportar-organigrama" onClick={exportar} disabled={exportando || !hayDatos} className={btnSecondary}>
           {exportando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}Exportar organigrama
         </button>
@@ -142,7 +144,8 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, usuario
 
       {/* Escritorio y pantallas medianas: árbol con riel de niveles; en medianas se desplaza con suavidad conservando las líneas */}
       <div className="hidden overflow-x-auto scroll-smooth pb-3 md:block" tabIndex={0} aria-label="Árbol del organigrama">
-        <div className="grid min-w-[1000px]" style={{ gridTemplateColumns: `6.5rem repeat(${columnas}, minmax(190px, 1fr))` }}>
+        {/* El ancho sigue la cantidad de áreas: cada columna mide a lo sumo 320 px y todo el árbol (riel incluido) se centra */}
+        <div className="mx-auto grid" style={{ gridTemplateColumns: `6.5rem repeat(${columnas}, minmax(200px, 320px))`, justifyContent: 'center', minWidth: `calc(6.5rem + ${columnas * 200}px)` }}>
           <Riel rol="aut2" texto="Nivel 2" />
           <div style={{ gridColumn: `2 / span ${columnas}` }}>
             {nodoPlanta}

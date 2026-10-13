@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "prueba:humo": "node scripts/prueba-humo.mjs",
     "test:rules": "firebase emulators:exec --only firestore --project demo-solicitud-rutas \"vitest run tests/firestore.rules\"",
-    "test:unit": "vitest run tests/importacion-nomina.test.js tests/importacion-areas.test.js tests/puestos.test.js tests/asignaciones.test.js tests/accesos-iniciales.test.js tests/nombres-persona.test.js tests/navegacion.test.js tests/resumen-inicio.test.js",
+    "test:unit": "vitest run tests/importacion-nomina.test.js tests/importacion-areas.test.js tests/puestos.test.js tests/asignaciones.test.js tests/accesos-iniciales.test.js tests/nombres-persona.test.js tests/navegacion.test.js tests/resumen-inicio.test.js tests/tiempo-extra.test.js",
     "test": "node scripts/probar.mjs"
   },
   "dependencies": {

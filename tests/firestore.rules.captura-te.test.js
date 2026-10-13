@@ -1,0 +1,230 @@
+// Las funciones de captura de tiempo extra (src/utils/tiempoExtraDb.js) contra el emulador con las reglas reales:
+// guardar borrador en lotes, enviar con folio del contador, reenviar una devuelta, cancelar con motivo y eliminar borrador.
+// Ejecutar con: npm run test:rules  (requiere Java 11+)
+import { readFileSync } from 'node:fs';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { assertFails, initializeTestEnvironment } from '@firebase/rules-unit-testing';
+import { Timestamp, collection, doc, getDoc, getDocs, setDoc } from 'firebase/firestore';
+import { empleadoDesdePadron } from '../src/utils/tiempoExtra.js';
+
+let env;
+const ANIO = new Date().getFullYear();
+const N = { solP: '50532', aut1P: '50610', aut2: '11' };
+const USUARIOS = {
+  solP: { uid: 'solP', nomina: N.solP, nombre: 'ACOSTA MARCOS' },
+  aut1P: { uid: 'aut1P', nomina: N.aut1P, nombre: 'GOMEZ ISMAEL' },
+};
+const ayer = () => Timestamp.fromDate(new Date(Date.now() - 86400000));
+const asig = (nomina, rol, areaId) => ({
+  nomina, nombre: nomina, rol, areaId: rol === 'aut2' ? null : areaId, desde: ayer(), hasta: null, motivo: '', activo: true,
+  asignadoPor: { uid: 'admin', nombre: 'Admin' }, fechaAsignacion: Timestamp.now(),
+});
+
+async function sembrar() {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    for (const [uid, nomina, rol] of [['solP', N.solP, 'usuario'], ['aut1P', N.aut1P, 'usuario'], ['aut2', N.aut2, 'usuario'], ['rh', '90001', 'rh']]) {
+      await setDoc(doc(db, 'usuarios', uid), { nombre: uid, rol, nomina, activo: true });
+    }
+    await setDoc(doc(db, 'areas', 'produccion'), { nombre: 'Producción', participaTE: true, activa: true, orden: 1 });
+    await setDoc(doc(db, 'asignaciones', `${N.solP}_solicitante_produccion`), asig(N.solP, 'solicitante', 'produccion'));
+    await setDoc(doc(db, 'asignaciones', `${N.aut1P}_aut1_produccion`), asig(N.aut1P, 'aut1', 'produccion'));
+    await setDoc(doc(db, 'asignaciones', `${N.aut2}_aut2_planta`), asig(N.aut2, 'aut2', null));
+    await setDoc(doc(db, 'contadores', `te-${ANIO}`), { ultimo: 12 });
+    for (let i = 0; i < 40; i++) {
+      await setDoc(doc(db, 'empleados', String(700 + i)), { nombre: `OPERADOR ${700 + i}`, nomina: String(700 + i), areaId: 'produccion', puesto: 'OPERATOR', turnoNomina: 'A' });
+    }
+  });
+}
+
+/** Carga tiempoExtraDb con `db` = el Firestore autenticado de ese usuario (las reglas se aplican de verdad) */
+async function comoUsuario(uid) {
+  vi.resetModules();
+  const db = env.authenticatedContext(uid).firestore();
+  vi.doMock('../src/firebase.js', () => ({ db }));
+  return { db, m: await import('../src/utils/tiempoExtraDb.js') };
+}
+
+const turnos = [['7:00', '16:00'], ['16:00', '0:00'], ['19:00', '7:00']];
+const empleados = (n, desde = 700) => Array.from({ length: n }, (_, i) => ({
+  ...empleadoDesdePadron({ nomina: String(desde + i), nombre: `OPERADOR ${desde + i}`, puesto: 'OPERATOR', turnoNomina: 'A' }, {}),
+  horaEntrada: turnos[i % 3][0], horaSalida: turnos[i % 3][1], rutaId: 'r1', comunidadId: 'c1', puntoReunionId: 'p1', transporte: i % 4 !== 0, alimentos: i % 2 === 0,
+}));
+const base = (id, extra = {}) => ({
+  id, existe: false, usuario: USUARIOS.solP, area: { id: 'produccion', nombre: 'Producción' }, fechaTE: '2026-12-01', motivo: 'Producción',
+  comentario: 'Entrega urgente de pedido', sucios: new Set(), eliminados: new Set(), ...extra,
+});
+const guardarNuevo = (m, id, lista, extra = {}) => m.guardarBorrador(base(id, { empleados: lista, sucios: new Set(lista.map(e => e.nomina)), ...extra }));
+const contar = async (db, id) => (await getDocs(collection(db, 'tiempoExtra', id, 'empleados'))).size;
+
+beforeAll(async () => {
+  env = await initializeTestEnvironment({ projectId: 'demo-solicitud-rutas-captura', firestore: { rules: readFileSync('firestore.rules', 'utf8') } });
+});
+afterAll(async () => { await env?.cleanup(); });
+beforeEach(async () => { await env.clearFirestore(); await sembrar(); });
+
+describe('guardar el borrador en lotes de 10', () => {
+  it('crea la solicitud y 35 empleados (4 lotes) con barra de progreso', async () => {
+    const { db, m } = await comoUsuario('solP');
+    const avances = [];
+    const lista = empleados(35);
+    await m.guardarBorrador(base('BR-AAAAAAAAAA', { empleados: lista, sucios: new Set(lista.map(e => e.nomina)), onProgreso: (h, t) => avances.push([h, t]) }));
+    expect(avances).toEqual([[1, 4], [2, 4], [3, 4], [4, 4]]);
+    const t = (await getDoc(doc(db, 'tiempoExtra', 'BR-AAAAAAAAAA'))).data();
+    expect(t).toMatchObject({ estatus: 'borrador', areaId: 'produccion', creadoPor: 'solP', motivo: 'Producción' });
+    expect(t.folio).toBeUndefined();
+    expect(t.resumen).toMatchObject({ totalEmpleados: 35 });
+    expect(await contar(db, 'BR-AAAAAAAAAA')).toBe(35);
+  });
+  it('un borrador no gasta folio: el contador sigue igual', async () => {
+    const { db, m } = await comoUsuario('solP');
+    await guardarNuevo(m, 'BR-AAAAAAAAAA', empleados(3));
+    expect((await getDoc(doc(db, 'contadores', `te-${ANIO}`))).data().ultimo).toBe(12);
+  });
+  it('se puede salir y continuar: solo se escriben los cambios y se borran los quitados', async () => {
+    const { db, m } = await comoUsuario('solP');
+    const lista = empleados(25);
+    await guardarNuevo(m, 'BR-AAAAAAAAAA', lista);
+    const quedan = lista.slice(2).map((e, i) => (i === 0 ? { ...e, horaEntrada: '19:00', horaSalida: '7:00' } : e));
+    await m.guardarBorrador(base('BR-AAAAAAAAAA', { existe: true, empleados: quedan, sucios: new Set([quedan[0].nomina]), eliminados: new Set([lista[0].nomina, lista[1].nomina]) }));
+    expect(await contar(db, 'BR-AAAAAAAAAA')).toBe(23);
+    expect((await getDoc(doc(db, 'tiempoExtra', 'BR-AAAAAAAAAA', 'empleados', quedan[0].nomina))).data()).toMatchObject({ horaEntrada: '19:00', horas: 12 });
+  });
+  it('un empleado de otra área hace fallar su lote', async () => {
+    const { m } = await comoUsuario('solP');
+    await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'empleados', '801'), { nombre: 'AJENO', nomina: '801', areaId: 'calidad' }); });
+    await expect(guardarNuevo(m, 'BR-AAAAAAAAAA', [...empleados(2), ...empleados(1, 801)])).rejects.toThrow();
+  });
+});
+
+describe('enviar a autorización', () => {
+  it('asigna el folio del contador al enviar, con su historial; el siguiente borrador recibe el consecutivo', async () => {
+    const { db, m } = await comoUsuario('solP');
+    const lista = empleados(12);
+    await guardarNuevo(m, 'BR-AAAAAAAAAA', lista);
+    await guardarNuevo(m, 'BR-BBBBBBBBBB', lista);
+    const datos = (id) => ({ id, devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Entrega urgente de pedido', empleados: lista });
+    expect(await m.enviarSolicitud(datos('BR-AAAAAAAAAA'))).toBe(`TE-${ANIO}-0013`);
+    expect(await m.enviarSolicitud(datos('BR-BBBBBBBBBB'))).toBe(`TE-${ANIO}-0014`);
+    const t = (await getDoc(doc(db, 'tiempoExtra', 'BR-AAAAAAAAAA'))).data();
+    expect(t).toMatchObject({ estatus: 'pendiente_aut1', folio: `TE-${ANIO}-0013` });
+    expect(t.resumen.totalEmpleados).toBe(12);
+    expect((await getDoc(doc(db, 'contadores', `te-${ANIO}`))).data().ultimo).toBe(14);
+    const h = await m.leerHistorialTE('BR-AAAAAAAAAA');
+    expect(h.map(x => x.accion)).toEqual(['enviada']);
+  });
+  it('el primer folio del año crea el contador', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => { await ctx.firestore().doc(`contadores/te-${ANIO}`).delete(); });
+    const { db, m } = await comoUsuario('solP');
+    await guardarNuevo(m, 'BR-AAAAAAAAAA', empleados(2));
+    const folio = await m.enviarSolicitud({ id: 'BR-AAAAAAAAAA', devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2026-12-01', motivo: 'Calidad', comentario: 'Revisión de lotes', empleados: empleados(2) });
+    expect(folio).toBe(`TE-${ANIO}-0001`);
+    expect((await getDoc(doc(db, 'contadores', `te-${ANIO}`))).data().ultimo).toBe(1);
+  });
+  it('el Aut. 1 del área captura y su solicitud va directo a pendiente_aut2', async () => {
+    const { db, m } = await comoUsuario('aut1P');
+    const lista = empleados(3);
+    await m.guardarBorrador({ ...base('BR-CCCCCCCCCC', { usuario: USUARIOS.aut1P }), empleados: lista, sucios: new Set(lista.map(e => e.nomina)) });
+    await m.enviarSolicitud({ id: 'BR-CCCCCCCCCC', devuelta: false, usuario: USUARIOS.aut1P, estatus: 'pendiente_aut2', fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Pedido especial', empleados: lista });
+    expect((await getDoc(doc(db, 'tiempoExtra', 'BR-CCCCCCCCCC'))).data().estatus).toBe('pendiente_aut2');
+  });
+  it('quien no es el Aut. 1 no puede saltarse su nivel', async () => {
+    const { m } = await comoUsuario('solP');
+    const lista = empleados(2);
+    await guardarNuevo(m, 'BR-AAAAAAAAAA', lista);
+    await expect(m.enviarSolicitud({ id: 'BR-AAAAAAAAAA', devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut2', fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Entrega urgente', empleados: lista })).rejects.toThrow();
+  });
+  it('ya enviada, el Aut. 1 la ve; sus empleados y su borrador previo, no', async () => {
+    const { m } = await comoUsuario('solP');
+    const lista = empleados(2);
+    await guardarNuevo(m, 'BR-AAAAAAAAAA', lista);
+    const { db: dbAut1 } = await comoUsuario('aut1P');
+    await assertFails(getDoc(doc(dbAut1, 'tiempoExtra', 'BR-AAAAAAAAAA')));
+    const { m: m2 } = await comoUsuario('solP');
+    await m2.enviarSolicitud({ id: 'BR-AAAAAAAAAA', devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Entrega urgente', empleados: lista });
+    expect((await getDoc(doc(dbAut1, 'tiempoExtra', 'BR-AAAAAAAAAA'))).exists()).toBe(true);
+  });
+});
+
+describe('devuelta: corregir y reenviar', () => {
+  it('conserva su folio, quita las firmas y registra "reenviada"; el contador no se mueve', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'tiempoExtra', 'TE-2026-0004'), {
+        folio: 'TE-2026-0004', areaId: 'produccion', areaNombre: 'Producción', creadoPor: 'solP', creadoPorNomina: N.solP, creadoPorNombre: 'x', fechaTE: '2026-12-01',
+        motivo: 'Producción', comentario: 'Entrega urgente de pedido', estatus: 'devuelta', resumen: { totalEmpleados: 2 }, fechaCreacion: Timestamp.now(), fechaActualizacion: Timestamp.now(),
+        aut1: { nomina: N.aut1P, nombre: 'x', fecha: Timestamp.now(), comentario: '' }, devolucion: { nivel: 2, nomina: N.aut2, nombre: 'Salvador', motivo: 'Faltan horas', fecha: Timestamp.now() },
+      });
+    });
+    const { db, m } = await comoUsuario('solP');
+    const folio = await m.enviarSolicitud({ id: 'TE-2026-0004', devuelta: true, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2026-12-02', motivo: 'Calidad', comentario: 'Corregido el horario', empleados: empleados(2) });
+    expect(folio).toBe('TE-2026-0004');
+    const t = (await getDoc(doc(db, 'tiempoExtra', 'TE-2026-0004'))).data();
+    expect(t).toMatchObject({ estatus: 'pendiente_aut1', fechaTE: '2026-12-02', motivo: 'Calidad' });
+    expect(t.aut1).toBeUndefined();
+    expect((await m.leerHistorialTE('TE-2026-0004')).map(x => x.accion)).toEqual(['reenviada']);
+    expect((await getDoc(doc(db, 'contadores', `te-${ANIO}`))).data().ultimo).toBe(12);
+  });
+});
+
+describe('cancelar y eliminar', () => {
+  const enviada = async (m, id = 'BR-AAAAAAAAAA') => {
+    const lista = empleados(2);
+    await guardarNuevo(m, id, lista);
+    await m.enviarSolicitud({ id, devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Entrega urgente', empleados: lista });
+  };
+  it('cancela una pendiente con motivo (queda en la solicitud y en el historial); sin motivo no', async () => {
+    const { db, m } = await comoUsuario('solP');
+    await enviada(m);
+    await expect(m.cancelarSolicitud({ id: 'BR-AAAAAAAAAA', usuario: USUARIOS.solP, motivo: ' x ' })).rejects.toThrow();
+    await m.cancelarSolicitud({ id: 'BR-AAAAAAAAAA', usuario: USUARIOS.solP, motivo: 'Ya no se necesita' });
+    expect((await getDoc(doc(db, 'tiempoExtra', 'BR-AAAAAAAAAA'))).data()).toMatchObject({ estatus: 'cancelada', motivoCancelacion: 'Ya no se necesita' });
+    const h = await m.leerHistorialTE('BR-AAAAAAAAAA');
+    expect(h.map(x => x.accion)).toEqual(['enviada', 'cancelada']);
+    expect(h[1].comentario).toBe('Ya no se necesita');
+  });
+  it('elimina un borrador de 25 empleados (sus lotes y luego la solicitud)', async () => {
+    const { db, m } = await comoUsuario('solP');
+    await guardarNuevo(m, 'BR-AAAAAAAAAA', empleados(25));
+    await m.eliminarBorrador('BR-AAAAAAAAAA');
+    // (sin la solicitud, las reglas ya no dejan leer nada: se comprueba con permisos de administración del emulador)
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      expect((await getDoc(doc(ctx.firestore(), 'tiempoExtra', 'BR-AAAAAAAAAA'))).exists()).toBe(false);
+      expect(await contar(ctx.firestore(), 'BR-AAAAAAAAAA')).toBe(0);
+    });
+    void db;
+  });
+  it('lo ya enviado no se elimina', async () => {
+    const { m } = await comoUsuario('solP');
+    await enviada(m);
+    await expect(m.eliminarBorrador('BR-AAAAAAAAAA')).rejects.toThrow();
+  });
+});
+
+describe('ruta en el padrón y avisos de la misma fecha', () => {
+  it('el solicitante guarda ruta, comunidad y punto de su área', async () => {
+    const { db, m } = await comoUsuario('solP');
+    await m.guardarRutasEnPadron({ 700: { rutaId: 'r1', comunidadId: 'c1', puntoReunionId: 'p1' }, 701: { rutaId: 'r2', comunidadId: 'c2', puntoReunionId: 'p2' } });
+    expect((await getDoc(doc(db, 'empleados', '701'))).data()).toMatchObject({ rutaId: 'r2', puntoReunionId: 'p2' });
+  });
+  it('avisa de quien ya tiene otro tiempo extra no cancelado ese día (lo propio); ignora canceladas y la misma solicitud', async () => {
+    const { m } = await comoUsuario('solP');
+    const lista = empleados(3);
+    await guardarNuevo(m, 'BR-AAAAAAAAAA', lista, { fechaTE: '2026-12-01' });
+    await guardarNuevo(m, 'BR-BBBBBBBBBB', lista.slice(0, 1), { fechaTE: '2026-12-02' });
+    const ocupados = await m.leerOcupados({ uid: 'solP', areaId: 'produccion', fechaTE: '2026-12-01', esAut1DeLaArea: false, excluirId: 'BR-BBBBBBBBBB' });
+    expect([...ocupados.keys()].sort()).toEqual(['700', '701', '702']);
+    expect((await m.leerOcupados({ uid: 'solP', areaId: 'produccion', fechaTE: '2026-12-01', esAut1DeLaArea: false, excluirId: 'BR-AAAAAAAAAA' })).size).toBe(0);
+    expect((await m.leerOcupados({ uid: 'solP', areaId: 'produccion', fechaTE: '2026-12-09', esAut1DeLaArea: false })).size).toBe(0);
+  });
+  it('el Aut. 1 del área también ve lo que capturaron otros del área', async () => {
+    const { m } = await comoUsuario('solP');
+    const lista = empleados(2);
+    await guardarNuevo(m, 'BR-AAAAAAAAAA', lista);
+    await m.enviarSolicitud({ id: 'BR-AAAAAAAAAA', devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Entrega urgente', empleados: lista });
+    const { m: m2 } = await comoUsuario('aut1P');
+    const ocupados = await m2.leerOcupados({ uid: 'aut1P', areaId: 'produccion', fechaTE: '2026-12-01', esAut1DeLaArea: true });
+    expect([...ocupados.keys()].sort()).toEqual(['700', '701']);
+    expect(ocupados.get('700')).toMatchObject({ folio: `TE-${ANIO}-0013`, estatus: 'pendiente_aut1' });
+  });
+});

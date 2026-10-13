@@ -36,6 +36,8 @@ const NAV_ITEMS = [
 
   { section: 'Tiempo extra', modulo: 'tiempo-extra' },
   { path: '/tiempo-extra', label: 'Resumen', icon: Clock, modulo: 'tiempo-extra', end: true },
+  { path: '/tiempo-extra/nueva', label: 'Solicitar tiempo extra', icon: FilePlus, modulo: 'tiempo-extra', rh: true },
+  { path: '/tiempo-extra/mis-solicitudes', label: 'Mis solicitudes de TE', icon: ClipboardList, modulo: 'tiempo-extra', rh: true },
   { path: '/accesos/organigrama', label: 'Organigrama', icon: GitBranch, modulo: 'tiempo-extra' },
 
   { section: 'Administración', rh: true },

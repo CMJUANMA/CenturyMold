@@ -19,6 +19,8 @@ import Layout from './pages/Layout';
 import Login from './pages/Login';
 import Home from './pages/Home';
 import Proximamente from './pages/Proximamente';
+const EditorTE = lazy(() => import('./pages/te/EditorTE'));
+const MisSolicitudesTE = lazy(() => import('./pages/te/MisSolicitudesTE'));
 import RutaCapacidad from './components/RutaCapacidad';
 import Inicio from './pages/Inicio';
 import TiempoExtraInicio from './pages/TiempoExtraInicio';
@@ -79,8 +81,9 @@ const router = createBrowserRouter([
             {
               element: <RutaCapacidad puede="solicitar" />,
               children: [
-                { path: '/tiempo-extra/nueva', element: <Proximamente nombre="Solicitar tiempo extra" /> },
-                { path: '/tiempo-extra/mis-solicitudes', element: <Proximamente nombre="Mis solicitudes de tiempo extra" /> },
+                { path: '/tiempo-extra/nueva', element: <EditorTE /> },
+                { path: '/tiempo-extra/:id/editar', element: <EditorTE /> },
+                { path: '/tiempo-extra/mis-solicitudes', element: <MisSolicitudesTE /> },
               ],
             },
             { element: <RutaCapacidad puede="autorizar" />, children: [{ path: '/tiempo-extra/autorizar', element: <Proximamente nombre="Por autorizar" /> }] },

@@ -39,6 +39,8 @@ export default function UsuariosYAccesos() {
 
   const asigna = puedeAsignarAlgo(accesos);
   const veTodo = accesos.esRH || accesos.esAut2;
+  // El Aut. 1 que solo tiene su área ve "Mi área", no la pantalla de administración de accesos
+  const soloMiArea = !veTodo && accesos.areasAut1.length > 0;
   // El Aut. 1 ve solo su área en el organigrama; Aut. 2, RH y admin, todas
   const areas = useMemo(() => (veTodo ? todasLasAreas : todasLasAreas.filter(a => accesos.areasAut1.includes(a.id))), [veTodo, todasLasAreas, accesos.areasAut1]);
   const { asignaciones, cargando: cargandoAsig, error: errorAsig } = useAsignaciones();
@@ -87,11 +89,22 @@ export default function UsuariosYAccesos() {
   return (
     <div className="space-y-6">
       <div className="border-b border-[var(--border-color)] pb-4">
-        <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Seguridad y accesos</div>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Usuarios y accesos</h1>
-        <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
-          Los permisos viven en el rol: se asignan a personas, por área y con fechas si son temporales. El puesto no da permisos.
-        </p>
+        {soloMiArea ? (
+          <>
+            <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">Mi área</h1>
+            <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
+              Organigrama de autorización de {areas.map(a => a.nombre).join(', ') || 'tu área'}
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Seguridad y accesos</div>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Usuarios y accesos</h1>
+            <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
+              Los permisos viven en el rol: se asignan a personas, por área y con fechas si son temporales. El puesto no da permisos.
+            </p>
+          </>
+        )}
       </div>
 
       {(error || errorAsig) && (
@@ -100,7 +113,7 @@ export default function UsuariosYAccesos() {
         </div>
       )}
 
-      <div className="border-b border-[var(--border-color)]">
+      {tabs.length > 1 && <div className="border-b border-[var(--border-color)]">
         <nav className="-mb-px flex gap-0 overflow-x-auto" aria-label="Secciones">
           {tabs.map(t => {
             const Icono = t.icon;
@@ -113,7 +126,7 @@ export default function UsuariosYAccesos() {
             );
           })}
         </nav>
-      </div>
+      </div>}
 
       {cargando ? (
         <div className="flex items-center justify-center gap-2 py-16 text-[var(--text-muted)]">
