@@ -263,7 +263,7 @@ function agregarListaDesplegable(ws, colIndex, rango, titulo) {
 }
 
 // ── Constructores públicos ────────────────────────────────────────────────
-function nuevoLibro() {
+export function nuevoLibro() {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Century Mold';
   wb.created = new Date();
@@ -322,7 +322,7 @@ const RESULTADO = {
 };
 
 /** Tabla con encabezado rojo, bordes, filas alternadas y anchos automáticos */
-function agregarHojaReporte(wb, nombre, headers, filas, { anchoMax = 60, columnasAjuste = [] } = {}) {
+export function agregarHojaReporte(wb, nombre, headers, filas, { anchoMax = 60, columnasAjuste = [] } = {}) {
   const ws = wb.addWorksheet(nombre, {
     views: [{ state: 'frozen', xSplit: 0, ySplit: 1, topLeftCell: 'A2', activeCell: 'A2' }],
   });

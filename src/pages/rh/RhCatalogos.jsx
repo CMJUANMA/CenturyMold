@@ -5,12 +5,13 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import {
   Database, MapPin, Navigation, Upload, Loader2,
-  Users, CheckCircle2, AlertTriangle,
+  Users, CheckCircle2, AlertTriangle, Download,
   Plus, Pencil, ToggleLeft, ToggleRight, Search,
 } from 'lucide-react';
 import { collection, doc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
+import { leerColeccion } from '../../utils/estructuraDb';
 import { slugify } from '../../utils/comparacionImportacion';
 import { esActivo } from '../../utils/activo';
 import RevisarColecciones from './RevisarColecciones';
@@ -538,6 +539,8 @@ export default function RhCatalogos() {
   const { usuario } = useAuth();
   const [tabActiva, setTabActiva] = useState('rutas');
   const [modalTipo, setModalTipo] = useState(null);
+  const [exportando, setExportando] = useState(false);
+  const toast = useToast();
 
   const [rutas, setRutas] = useState([]);
   const [comunidades, setComunidades] = useState([]);
@@ -565,6 +568,23 @@ export default function RhCatalogos() {
       .finally(() => setCargando(false));
   }, [rev]);
 
+  // Respaldo del padrón completo (activos e inactivos): exceljs se descarga solo al pulsar el botón
+  const exportarPadron = async () => {
+    setExportando(true);
+    try {
+      const nombres = ["empleados", "areas", "rutas", "comunidades", "puntosReunion"];
+      const lecturas = await Promise.all(nombres.map(n => leerColeccion(n, toast)));
+      const fallida = lecturas.findIndex(l => l.error);
+      if (fallida >= 0) { toast.error(`No se pudo leer "${nombres[fallida]}"; el respaldo no se generó.`, 8000); return; }
+      const [empleados, areas, rutasDb, comunidadesDb, puntosDb] = lecturas.map(l => l.datos);
+      const { descargarRespaldoPadron } = await import("../../utils/respaldoPadron");
+      const n = await descargarRespaldoPadron({ empleados, areas, rutas: rutasDb, comunidades: comunidadesDb, puntos: puntosDb });
+      toast.success(`Respaldo descargado: ${n} empleados (activos e inactivos).`);
+    } catch (err) {
+      toast.error("No se pudo generar el respaldo: " + err.message, 8000);
+    } finally { setExportando(false); }
+  };
+
   const puedeCargarMasivo = usuario?.rol === ROLES.ADMIN || usuario?.rol === ROLES.RH;
 
   return (
@@ -579,6 +599,9 @@ export default function RhCatalogos() {
         {puedeCargarMasivo && (
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold text-[var(--text-muted)] hidden sm:block">Carga masiva:</span>
+            <button type="button" id="btn-exportar-padron" onClick={exportarPadron} disabled={exportando} className={btnSecondary}>
+              {exportando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4 text-[var(--text-secondary)]" />}Exportar padrón (respaldo)
+            </button>
             <button type="button" id="btn-importar-directorio" onClick={() => setModalTipo('directorio')} className={btnSecondary}>
               <Upload className="h-4 w-4 text-[var(--text-secondary)]" />Importar directorio
             </button>

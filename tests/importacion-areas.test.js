@@ -229,3 +229,24 @@ describe('reporte de resultado', () => {
     expect(wb.getWorksheet('Creados').rowCount).toBe(3); // encabezado + 2 empleados
   });
 });
+
+describe('respaldo del padrón', () => {
+  it('incluye activos e inactivos, nómina como texto y nombres de área/ruta', async () => {
+    const { construirRespaldoPadron, ENCABEZADOS_RESPALDO, nombreRespaldo } = await import('../src/utils/respaldoPadron.js');
+    const wb = construirRespaldoPadron({
+      empleados: [
+        { id: '7219', nomina: '7219', nombre: 'PEREZ JUAN', puesto: 'PRODUCTION OPERATOR', puestoId: 'production-operator', areaId: 'produccion', rutaId: 'r1', activo: true },
+        { id: '11', nomina: '11', nombre: 'BAJA PRUEBA', areaExcepcion: 'moldes', areaExcepcionMotivo: 'Prestado', activo: false },
+      ],
+      areas, rutas: [{ id: 'r1', nombre: 'RUTA NORTE' }],
+    });
+    const ws = wb.getWorksheet('Padron');
+    expect(ws.getRow(1).values.slice(1)).toEqual(ENCABEZADOS_RESPALDO);
+    expect(ws.rowCount).toBe(3);
+    expect(ws.getRow(2).getCell(1).value).toBe('11'); // texto, ordenado por nómina
+    expect(ws.getRow(2).getCell(17).value).toBe('No');
+    expect(ws.getRow(3).getCell(6).value).toBe('Producción');
+    expect(ws.getRow(3).getCell(9).value).toBe('RUTA NORTE');
+    expect(nombreRespaldo(new Date(2026, 9, 13, 8, 5))).toBe('Respaldo_Padron_2026-10-13_0805.xlsx');
+  });
+});
