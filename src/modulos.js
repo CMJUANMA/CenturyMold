@@ -19,11 +19,12 @@ export const MODULOS = [
   {
     id: 'rutas',
     nombre: 'Transporte (rutas)',
-    descripcion: 'Solicitudes de rutas de transporte para el personal.',
+    descripcion: 'Solicitudes de transporte para el personal (RH).',
     icono: Bus,
     base: '/rutas',
-    // RH/admin, o solicitante vigente de algún área
-    acceso: (usuario, accesos) => ROLES_RH.includes(usuario?.rol) || (accesos?.areasSolicitante?.length ?? 0) > 0,
+    // Solo RH/admin crean transporte suelto; los solicitantes lo piden dentro del tiempo extra (su consulta de lo anterior
+    // vive aparte, en /rutas/mis-solicitudes, sin este módulo)
+    acceso: (usuario) => ROLES_RH.includes(usuario?.rol),
     useContador: (usuario, accesos, activo) => usePendientesRutas(usuario, accesos, activo).total,
   },
   {

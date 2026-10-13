@@ -1,25 +1,28 @@
 /**
  * Navbar.jsx — Barra lateral corporativa Century Mold.
- * rh y admin tienen acceso completo al panel de gestión.
+ * RH y admin: menú por secciones (Transporte, Tiempo extra, Administración).
+ * Todos los demás: un menú plano según los roles que tienen hoy (solicitante, Aut. 1, Aut. 2), con la unión de lo que le toca
+ * a cada rol (utils/navegacion.js). No hay "portal de procesos" para ellos: su Inicio es su panel.
  */
 import { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, FilePlus, ClipboardList, Layers, Users, Database, LayoutGrid,
-  ShieldCheck, User, LogOut, Menu, X, Sun, Moon, Clock, Network, GitBranch,
+  ShieldCheck, User, LogOut, Menu, X, Sun, Moon, Clock, Network, GitBranch, BadgeCheck, Bus,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import { useAccesos } from '../hooks/useAccesos';
-import { usePendientesRutas } from '../hooks/usePendientes';
+import { usePendientesRutas, usePorAutorizar } from '../hooks/usePendientes';
+import { useTransporteAnterior } from '../hooks/useTransporteAnterior';
+import { useAreas } from '../hooks/useAreas';
 import { modulosDe, moduloDeRuta } from '../modulos';
 import { ROLES_RH } from '../utils/roles';
-import { ROL_LABELS_CORTOS } from '../utils/constantes';
-import { puedeAsignarAlgo } from '../utils/asignaciones';
+import { descripcionRoles, itemsMenuPorRol } from '../utils/navegacion';
 
 /**
  * Menú por módulo. `modulo`: el ítem solo se ve si el usuario tiene acceso a ese módulo (modulos.js);
- * `rh`: además exige rol RH/admin; `asigna`: exige poder asignar roles (RH, admin o Aut. 2 vigente). Las secciones (section) se ocultan si no les queda ningún ítem.
+ * `rh`: además exige rol RH/admin. Las secciones (section) se ocultan si no les queda ningún ítem.
  */
 const NAV_ITEMS = [
   { path: '/', label: 'Inicio (portal)', icon: Home, end: true },
@@ -34,7 +37,6 @@ const NAV_ITEMS = [
   { section: 'Tiempo extra', modulo: 'tiempo-extra' },
   { path: '/tiempo-extra', label: 'Resumen', icon: Clock, modulo: 'tiempo-extra', end: true },
   { path: '/accesos/organigrama', label: 'Organigrama', icon: GitBranch, modulo: 'tiempo-extra' },
-  { path: '/accesos/asignaciones', label: 'Asignar roles', icon: ShieldCheck, modulo: 'tiempo-extra', asigna: true, soloSiNoRH: true },
 
   { section: 'Administración', rh: true },
   { path: '/rutas/rh/empleados', label: 'Padrón de empleados', icon: Users, rh: true },
@@ -42,7 +44,8 @@ const NAV_ITEMS = [
   { path: '/accesos', label: 'Usuarios y accesos', icon: ShieldCheck, rh: true, end: true },
 ];
 
-const SUBTITULO_MODULO = { rutas: 'Control de Transporte', 'tiempo-extra': 'Tiempo extra' };
+const SUBTITULO_MODULO = { rutas: 'Transporte', 'tiempo-extra': 'Tiempo extra' };
+const ICONOS_ROL = { Home, FilePlus, ClipboardList, BadgeCheck, Layers, GitBranch, ShieldCheck, Bus };
 
 export default function Navbar() {
   const { usuario, cerrarSesion } = useAuth();
@@ -55,20 +58,24 @@ export default function Navbar() {
   const { pendientesRh, novedades: novedadesUser } = usePendientesRutas(usuario, accesos);
 
   const moduloActual = moduloDeRuta(pathname);
-  const subtitulo = SUBTITULO_MODULO[moduloActual?.id] ?? 'Portal de procesos';
+  const esRH = ROLES_RH.includes(usuario?.rol);
+  const { nombres: nombresArea } = useAreas();
+  const transporteAnterior = useTransporteAnterior(usuario?.uid, !esRH);
+  const porAutorizar = usePorAutorizar(usuario, accesos, !esRH).total;
+  const subtitulo = esRH ? (SUBTITULO_MODULO[moduloActual?.id] ?? 'Century Mold Querétaro') : 'Century Mold Querétaro';
+  const descripcion = descripcionRoles(accesos, nombresArea);
 
   const idsModulos = new Set(modulosDe(usuario, accesos).map(m => m.id));
-  const esRH = ROLES_RH.includes(usuario?.rol);
-  const asigna = puedeAsignarAlgo(accesos);
-  // "Asignar roles" en el módulo es para quien asigna sin ser RH (RH/admin ya tienen "Usuarios y accesos")
-  const visible = (it) => (!it.modulo || idsModulos.has(it.modulo)) && (!it.rh || esRH)
-    && (!it.asigna || asigna) && (!it.soloSiNoRH || !esRH);
-  // Una sección solo se muestra si tiene al menos un ítem visible
-  const items = NAV_ITEMS.filter(visible).filter((it, i, lista) => {
-    if (!it.section) return true;
-    const siguiente = lista[i + 1];
-    return !!siguiente && !siguiente.section;
-  });
+  const visible = (it) => (!it.modulo || idsModulos.has(it.modulo)) && (!it.rh || esRH);
+  // RH/admin: por secciones (una sección solo se muestra si tiene al menos un ítem visible).
+  // Los demás: menú plano por rol
+  const items = esRH
+    ? NAV_ITEMS.filter(visible).filter((it, i, lista) => {
+      if (!it.section) return true;
+      const siguiente = lista[i + 1];
+      return !!siguiente && !siguiente.section;
+    })
+    : itemsMenuPorRol({ ...accesos, transporteAnterior }).map(it => ({ ...it, icon: ICONOS_ROL[it.icono] ?? Home }));
 
   const handleCerrarSesion = async () => {
     await cerrarSesion();
@@ -76,7 +83,6 @@ export default function Navbar() {
   };
 
   const cerrarMenu = () => setMenuAbierto(false);
-  const rol = usuario?.rol ?? '';
 
   return (
     <>
@@ -143,6 +149,11 @@ export default function Navbar() {
                 }>
                 <Icono className="h-4 w-4 shrink-0" />
                 <span className="truncate">{item.label}</span>
+                {item.contador === 'autorizar' && porAutorizar > 0 && (
+                  <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-1 text-[9px] font-bold text-[var(--status-warning-text)] shrink-0 shadow-sm">
+                    {porAutorizar}
+                  </span>
+                )}
                 {item.path === '/rutas/rh/solicitudes' && pendientesRh > 0 && (
                   <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-[var(--status-warning-bg)] text-[9px] font-bold text-[var(--status-warning-text)] border border-[var(--status-warning-border)] shrink-0 shadow-sm">
                     {pendientesRh}
@@ -168,7 +179,7 @@ export default function Navbar() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold text-[var(--text-main)] leading-tight text-xs">{usuario?.nombre ?? 'Usuario'}</p>
-              <p className="truncate text-[10px] text-[var(--text-secondary)]">{ROL_LABELS_CORTOS[rol] ?? rol}</p>
+              <p className="truncate text-[10px] text-[var(--text-secondary)]" title={descripcion}>{descripcion || 'Usuario'}</p>
             </div>
           </NavLink>
           <button type="button" id="btn-cerrar-sesion" onClick={handleCerrarSesion}

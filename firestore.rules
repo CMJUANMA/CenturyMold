@@ -108,9 +108,13 @@ service cloud.firestore {
     // ---------- Empleados ----------
     match /empleados/{id} {
       // Cualquier usuario activo lo lee (padrón). puestoId, areaId, areaExcepcion(+Motivo) y el resto solo los cambian
-      // admin/RH: la lista blanca de abajo para quien no es RH solo incluye ruta/comunidad/punto, y solo de empleados
+      // Lo leen admin, RH y la Aut. 2 (todo el padrón); un solicitante o Aut. 1 vigente, solo los empleados de sus áreas.
+      // Las consultas de estos dos roles deben traer where('areaId', '==' o 'in', sus áreas): una regla no puede probar
+      // el área de cada documento de una consulta abierta (con 'in', si alguna área no es suya se rechaza toda).
+      // La lista blanca de abajo para quien no es RH solo incluye ruta/comunidad/punto, y solo de empleados
       // del área donde es solicitante vigente (la pantalla solo manda esos cambios al padrón)
-      allow read: if activo();
+      allow read: if esRH() || esAut2()
+        || (activo() && (esSolicitanteDe(resource.data.get('areaId', null)) || esAut1De(resource.data.get('areaId', null))));
       allow create: if esRH();
       allow update: if esRH()
         || (soloCambia(['rutaId', 'comunidadId', 'puntoReunionId']) && esSolicitanteDe(resource.data.get('areaId', null)));
@@ -128,9 +132,9 @@ service cloud.firestore {
 
       // Cada quien lee las suyas aunque su rol de solicitante ya haya vencido
       allow read: if esRH() || (activo() && esDueno());
-      // Crean los solicitantes vigentes de un área (la solicitud guarda su areaId), además de RH y admin
-      allow create: if activo()
-        && (esRH() || (request.resource.data.get('areaId', null) is string && esSolicitanteDe(request.resource.data.areaId)))
+      // Las solicitudes de transporte sueltas las crean solo RH y admin (los solicitantes piden transporte dentro del
+      // tiempo extra). Las anteriores de cada usuario siguen visibles para él, y editables mientras sea solicitante vigente de su área.
+      allow create: if esRH()
         && request.resource.data.creadoPor == request.auth.uid
         && request.resource.data.estatus == 'pendiente';
       allow update: if esRH()
@@ -219,7 +223,10 @@ service cloud.firestore {
               && d.nomina != miNomina() && areaParticipaTE(d.areaId));
       }
 
-      allow read: if activo();
+      // Cada quien lee las suyas; el Aut. 1, las de su área y las de Aut. 2 (el Nivel 2 que ve arriba en su organigrama);
+      // Aut. 2, RH y admin, todas. Las consultas deben probarse: where('nomina' == la suya), where('areaId' == su área) o where('rol' == 'aut2')
+      allow read: if esRH() || esAut2()
+        || (activo() && (resource.data.nomina == miNomina() || resource.data.rol == 'aut2' || esAut1De(resource.data.areaId)));
       allow create: if formaValida() && puedeAsignar(n()) && n().activo == true
         && n().fechaAsignacion == request.time && n().asignadoPor.uid == request.auth.uid;
       // Revocar o extender: solo activo, hasta y motivo; volver a asignar: el documento completo, con fecha y autor nuevos

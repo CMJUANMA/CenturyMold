@@ -3,7 +3,7 @@
  * Por ahora solo muestra qué puede hacer el usuario según sus asignaciones vigentes;
  * las pantallas de captura y de autorización llegan en la siguiente etapa.
  */
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useAccesos } from '../hooks/useAccesos';
 import { useAreas } from '../hooks/useAreas';
 import { puedeAsignarAlgo } from '../utils/asignaciones';
@@ -25,6 +25,8 @@ export default function TiempoExtraInicio() {
   const lista = (ids) => ids.map(id => nombres.get(id) ?? id).join(', ');
 
   if (cargando || cargandoAreas) return <Spinner />;
+  // Quien no es RH/admin tiene su Inicio por rol: este resumen es del módulo de RH
+  if (!esRH) return <Navigate to="/" replace />;
   return (
     <div className="space-y-6">
       <div className="border-b border-[var(--border-color)] pb-4">

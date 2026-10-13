@@ -17,7 +17,9 @@ import RutaModulo from './components/RutaModulo';
 import Redirigir from './components/Redirigir';
 import Layout from './pages/Layout';
 import Login from './pages/Login';
-import Portal from './pages/Portal';
+import Home from './pages/Home';
+import Proximamente from './pages/Proximamente';
+import RutaCapacidad from './components/RutaCapacidad';
 import Inicio from './pages/Inicio';
 import TiempoExtraInicio from './pages/TiempoExtraInicio';
 import NuevaSolicitud from './pages/NuevaSolicitud';
@@ -44,7 +46,9 @@ const router = createBrowserRouter([
     {
       element: <Layout />,
       children: [
-        { path: '/', element: <Portal /> },
+        { path: '/', element: <Home /> },
+        // Consulta del transporte anterior: la ve cualquiera que tenga solicitudes suyas (el menú solo la ofrece si las hay)
+        { path: '/rutas/mis-solicitudes', element: <MisSolicitudes /> },
         { path: '/perfil', element: <Perfil /> },
 
         // Módulo de transporte (rutas)
@@ -54,7 +58,6 @@ const router = createBrowserRouter([
             { path: '/rutas', element: <Inicio /> },
             { path: '/rutas/solicitud/nueva', element: <NuevaSolicitud /> },
             { path: '/rutas/solicitud/editar/:id', element: <EditarSolicitud /> },
-            { path: '/rutas/mis-solicitudes', element: <MisSolicitudes /> },
             {
               element: <RutaRol roles={ROLES_RH} />,
               children: [
@@ -72,6 +75,16 @@ const router = createBrowserRouter([
           element: <RutaModulo modulo="tiempo-extra" />,
           children: [
             { path: '/tiempo-extra', element: <TiempoExtraInicio /> },
+            // Pantallas que llegan en los siguientes prompts: por ahora muestran "Próximamente"
+            {
+              element: <RutaCapacidad puede="solicitar" />,
+              children: [
+                { path: '/tiempo-extra/nueva', element: <Proximamente nombre="Solicitar tiempo extra" /> },
+                { path: '/tiempo-extra/mis-solicitudes', element: <Proximamente nombre="Mis solicitudes de tiempo extra" /> },
+              ],
+            },
+            { element: <RutaCapacidad puede="autorizar" />, children: [{ path: '/tiempo-extra/autorizar', element: <Proximamente nombre="Por autorizar" /> }] },
+            { element: <RutaCapacidad puede="consultar" />, children: [{ path: '/tiempo-extra/consulta', element: <Proximamente nombre="Consulta de solicitudes" /> }] },
           ],
         },
 

@@ -61,11 +61,25 @@ beforeEach(async () => {
 });
 
 describe('lectura', () => {
-  it('cualquier usuario activo las lee (y las consulta por nómina)', async () => {
-    for (const uid of ['solP', 'aut1P', 'aut2', 'ajeno']) {
-      await assertSucceeds(getDoc(doc(dbDe(uid), 'asignaciones', idDe(N.solP, 'solicitante', 'produccion'))));
-      await assertSucceeds(getDocs(query(collection(dbDe(uid), 'asignaciones'), where('nomina', '==', N[uid] ?? N.ajeno))));
+  it('cada quien lee las suyas (y las consulta por su nómina)', async () => {
+    for (const [uid, nomina] of [['solP', N.solP], ['aut1P', N.aut1P], ['aut2', N.aut2]]) {
+      await assertSucceeds(getDocs(query(collection(dbDe(uid), 'asignaciones'), where('nomina', '==', nomina))));
     }
+    await assertFails(getDocs(query(collection(dbDe('solP'), 'asignaciones'), where('nomina', '==', N.aut1P))));
+  });
+  it('el Aut. 1 lee las de su área y las de Aut. 2; no las de otra área', async () => {
+    const col = collection(dbDe('aut1P'), 'asignaciones');
+    await assertSucceeds(getDoc(doc(dbDe('aut1P'), 'asignaciones', idDe(N.solP, 'solicitante', 'produccion'))));
+    await assertSucceeds(getDocs(query(col, where('areaId', '==', 'produccion'))));
+    await assertSucceeds(getDocs(query(col, where('rol', '==', 'aut2'))));
+    await assertFails(getDocs(query(col, where('areaId', '==', 'calidad'))));
+    await assertFails(getDocs(col));
+  });
+  it('un solicitante no lee las de otros compañeros de su área', async () => {
+    await assertFails(getDoc(doc(dbDe('solP'), 'asignaciones', idDe(N.aut1P, 'aut1', 'produccion'))));
+  });
+  it('Aut. 2, RH y admin leen todas', async () => {
+    for (const uid of ['aut2', 'rh', 'admin']) await assertSucceeds(getDocs(collection(dbDe(uid), 'asignaciones')));
   });
   it('un usuario inactivo no las lee', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => { await updateDoc(doc(ctx.firestore(), 'usuarios', 'ajeno'), { activo: false }); });

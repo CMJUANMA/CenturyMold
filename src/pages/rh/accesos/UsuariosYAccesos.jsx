@@ -4,20 +4,23 @@
  * Los permisos viven en el ROL y se asignan a personas (con área y, si es temporal, con fechas):
  *   Usuarios      RH/admin — cuentas y rol del sistema (admin | rh | usuario)
  *   Asignaciones  quien puede asignar (admin; RH y Aut. 2 vigente solo aut1 y solicitante)
- *   Organigrama   todos — generado solo con las asignaciones vigentes
+ *   Organigrama   Aut. 2, RH y admin completo; el Aut. 1, solo su área (con el Nivel 2 arriba); el solicitante no lo ve.
+ *                 Generado solo con las asignaciones vigentes
  * Ruta: /accesos/:tab
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { collection, getDocs, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { GitBranch, Loader2, ShieldCheck, UserCog, AlertTriangle } from 'lucide-react';
 import { db } from '../../../firebase';
 import { useAuth } from '../../../hooks/useAuth';
 import { useAccesos } from '../../../hooks/useAccesos';
 import { useAreas } from '../../../hooks/useAreas';
 import { useCatalogos } from '../../../hooks/useCatalogos';
+import { useAsignaciones } from '../../../hooks/useAsignaciones';
 import { useToast } from '../../../hooks/useToast';
 import { puedeAsignarAlgo } from '../../../utils/asignaciones';
+import { veOrganigrama } from '../../../utils/navegacion';
 import Spinner from '../../../components/Spinner';
 import TabUsuarios from './TabUsuarios';
 import TabAsignaciones from './TabAsignaciones';
@@ -31,32 +34,28 @@ export default function UsuariosYAccesos() {
   const toast = useToast();
   const { usuario } = useAuth();
   const accesos = useAccesos();
-  const { areas, nombres: nombresArea, cargando: cargandoAreas } = useAreas();
+  const { areas: todasLasAreas, nombres: nombresArea, cargando: cargandoAreas } = useAreas();
   const { empleados, cargando: cargandoEmp } = useCatalogos({ empleados: true });
 
   const asigna = puedeAsignarAlgo(accesos);
+  const veTodo = accesos.esRH || accesos.esAut2;
+  // El Aut. 1 ve solo su área en el organigrama; Aut. 2, RH y admin, todas
+  const areas = useMemo(() => (veTodo ? todasLasAreas : todasLasAreas.filter(a => accesos.areasAut1.includes(a.id))), [veTodo, todasLasAreas, accesos.areasAut1]);
+  const { asignaciones, cargando: cargandoAsig, error: errorAsig } = useAsignaciones();
   // RH, admin y Aut. 2 pueden leer usuarios (reglas): sirve para el "Sin usuario" y para crear usuarios
   const leeUsuarios = accesos.esRH || accesos.esAut2;
   const tabs = [
     accesos.esRH && { id: 'usuarios', label: 'Usuarios', icon: UserCog },
     asigna && { id: 'asignaciones', label: 'Asignaciones', icon: ShieldCheck },
-    { id: 'organigrama', label: 'Organigrama', icon: GitBranch },
+    veOrganigrama(accesos) && { id: 'organigrama', label: accesos.esRH || accesos.esAut2 ? 'Organigrama' : 'Mi área', icon: GitBranch },
   ].filter(Boolean);
   const tabActiva = tabs.find(t => t.id === tab)?.id;
 
-  const [asignaciones, setAsignaciones] = useState([]);
-  const [cargandoAsig, setCargandoAsig] = useState(true);
   const [usuarios, setUsuarios] = useState(null);
   const [error, setError] = useState('');
   const [ahora, setAhora] = useState(() => Date.now());
   const [formAsig, setFormAsig] = useState(null);
   const [crearUsuario, setCrearUsuario] = useState(null);
-
-  useEffect(() => onSnapshot(
-    collection(db, 'asignaciones'),
-    snap => { setAsignaciones(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setCargandoAsig(false); },
-    err => { setError('No se pudieron leer las asignaciones: ' + err.message); setCargandoAsig(false); },
-  ), []);
 
   useEffect(() => {
     const t = setInterval(() => setAhora(Date.now()), 60_000);
@@ -78,6 +77,8 @@ export default function UsuariosYAccesos() {
   }), [usuario, accesos.esAdmin, accesos.esRH, accesos.esAut2]);
 
   if (accesos.cargando) return <Spinner />;
+  // Un solicitante (o quien no tiene rol) no ve esta pantalla
+  if (tabs.length === 0) return <Navigate to="/" replace />;
   if (!tabActiva) return <Navigate to={`/accesos/${tabs[0].id}`} replace />;
 
   const cargando = cargandoAsig || cargandoAreas || cargandoEmp || (leeUsuarios && !usuarios && !error);
@@ -93,9 +94,9 @@ export default function UsuariosYAccesos() {
         </p>
       </div>
 
-      {error && (
+      {(error || errorAsig) && (
         <div role="alert" className="flex items-start gap-2 rounded-md border border-[var(--status-error-border)] bg-[var(--status-error-bg)] px-3 py-2 text-xs text-[var(--status-error-text)]">
-          <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" /><span>{error}</span>
+          <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" /><span>{error || `No se pudieron leer las asignaciones: ${errorAsig.message}`}</span>
         </div>
       )}
 

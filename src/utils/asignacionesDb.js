@@ -57,12 +57,6 @@ export async function extenderAsignacion(actor, asignacion, { hasta, motivo }) {
   await batch.commit();
 }
 
-/** Todas las asignaciones (cualquier usuario activo las lee) */
-export async function leerAsignaciones() {
-  const snap = await getDocs(collection(db, 'asignaciones'));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-
 /** Historial de una asignación: renglones de la bitácora, del más nuevo al más viejo */
 export async function leerHistorialAsignacion(id) {
   const snap = await getDocs(query(collection(db, 'bitacora'), where('entidad', '==', 'asignacion'), where('despues.id', '==', id)));

@@ -13,11 +13,13 @@ import BadgeEstatus from '../components/BadgeEstatus';
 import { useToast } from '../hooks/useToast';
 import { useConfirmar } from '../hooks/useConfirmar';
 import { fmtFechaHora, ymd } from '../utils/fechas';
-import { ESTATUS_SOLICITUD } from '../utils/constantes';
+import { ESTATUS_SOLICITUD, ROLES_RH } from '../utils/constantes';
 
 export default function MisSolicitudes() {
   const { usuario } = useAuth();
   const navigate = useNavigate();
+  // Quien no es RH/admin ya no crea transporte suelto: aquí solo consulta lo que tenga de antes
+  const soloConsulta = !ROLES_RH.includes(usuario?.rol);
   const toast = useToast();
   const [hoy] = useState(() => ymd()); // YYYY-MM-DD local, fijo mientras la pantalla esté abierta
   const confirmar = useConfirmar();
@@ -102,7 +104,7 @@ export default function MisSolicitudes() {
   return (
     <div className="space-y-6">
       <div className="border-b pb-4">
-        <h1 className="text-2xl font-bold">Mis solicitudes</h1>
+        <h1 className="text-2xl font-bold">{soloConsulta ? 'Transporte · mis solicitudes anteriores' : 'Mis solicitudes'}</h1>
         <p className="text-sm text-[var(--text-muted)]">Consulta en tiempo real el estatus de tus viajes.</p>
       </div>
 
@@ -134,7 +136,7 @@ export default function MisSolicitudes() {
                 <td className="px-4 py-3 text-right">
                   <button onClick={()=>abrirDetalle(sol)} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-main)] mr-2" title="Ver Detalle"><Eye className="h-4 w-4"/></button>
                   
-                  {sol.estatus === ESTATUS_SOLICITUD.ENVIADA_PROVEEDOR ? (
+                  {!soloConsulta && (sol.estatus === ESTATUS_SOLICITUD.ENVIADA_PROVEEDOR ? (
                     <div className="mt-1 flex flex-col items-end gap-1">
                       <span className="text-[9px] text-[var(--text-muted)] max-w-[120px]">Ya fue enviada al proveedor.</span>
                       <button onClick={()=>avisarARH(sol)} className="inline-flex items-center gap-1 text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"><MessageSquareWarning className="h-3 w-3"/> Avisar a RH</button>
@@ -146,7 +148,7 @@ export default function MisSolicitudes() {
                         <button onClick={()=>setModalCancelar(sol)} className="p-1 text-[var(--status-error-text)] hover:opacity-80" title="Cancelar"><XCircle className="h-4 w-4"/></button>
                       </div>
                     )
-                  )}
+                  ))}
                 </td>
               </tr>
             ))}

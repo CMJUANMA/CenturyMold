@@ -77,3 +77,37 @@ export function usePendientesTE(usuario, accesos, activo = true) {
 
   return Object.values(conteos).reduce((a, b) => a + b, 0);
 }
+
+/**
+ * Por autorizar: lo que espera la firma de esta persona como Aut. 1 (pendiente_aut1 de sus áreas) o Aut. 2 (pendiente_aut2).
+ * No cuenta lo que creó ella misma. Devuelve { aut1, aut2, total }.
+ */
+export function usePorAutorizar(usuario, accesos, activo = true) {
+  const uid = usuario?.uid;
+  const { areasAut1, esAut2 } = accesos;
+  const idsAut1 = useMemo(() => [...areasAut1].sort().join('|'), [areasAut1]);
+  const [conteos, setConteos] = useState({});
+
+  useEffect(() => {
+    if (!uid || !activo) return;
+    const col = collection(db, 'tiempoExtra');
+    const unsubs = [];
+    const escuchar = (clave, q) => unsubs.push(onSnapshot(
+      q,
+      snap => {
+        const n = snap.docs.filter(d => d.data().creadoPor !== uid).length;
+        setConteos(c => (c[clave] === n ? c : { ...c, [clave]: n }));
+      },
+      err => console.error('Por autorizar:', clave, err),
+    ));
+    for (const id of idsAut1 ? idsAut1.split('|') : []) {
+      escuchar(`aut1:${id}`, query(col, where('areaId', '==', id), where('estatus', '==', ESTATUS_TE.PENDIENTE_AUT1)));
+    }
+    if (esAut2) escuchar('aut2', query(col, where('estatus', '==', ESTATUS_TE.PENDIENTE_AUT2)));
+    return () => { unsubs.forEach(u => u()); setConteos({}); };
+  }, [uid, activo, idsAut1, esAut2]);
+
+  const aut1 = Object.entries(conteos).filter(([k]) => k.startsWith('aut1:')).reduce((a, [, n]) => a + n, 0);
+  const aut2 = conteos.aut2 ?? 0;
+  return { aut1, aut2, total: aut1 + aut2 };
+}

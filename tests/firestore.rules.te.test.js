@@ -204,34 +204,47 @@ describe('estructura anterior (areasTE, config, accesosTE)', () => {
 });
 
 describe('padrón con areaId', () => {
-  it('lo lee cualquier usuario activo, incluido un autorizador', async () => {
-    for (const uid of ['aut1P', 'aut2', 'solP', 'ajeno']) await assertSucceeds(getDoc(doc(dbDe(uid), 'empleados', '600')));
-  });
-  it('un usuario inactivo no lo lee', async () => {
-    await assertFails(getDoc(doc(dbDe('inactivo'), 'empleados', '600')));
-  });
-  it('solo RH cambia el área (areaId, areaExcepcion)', async () => {
-    for (const uid of ['solP', 'aut1P', 'aut2']) {
-      await assertFails(updateDoc(doc(dbDe(uid), 'empleados', '600'), { areaId: 'almacen', areaExcepcion: 'almacen' }));
+  it('lo leen admin, RH y la Aut. 2 completo; el solicitante y el Aut. 1 solo los empleados de sus áreas', async () => {
+    for (const uid of ['admin', 'rh', 'aut2', 'aut2Sup']) {
+      await assertSucceeds(getDoc(doc(dbDe(uid), 'empleados', '600')));
+      await assertSucceeds(getDoc(doc(dbDe(uid), 'empleados', '801')));
     }
-    // un solicitante del área del empleado puede cambiar la ruta, pero no colar el área junto con ella
-    await assertSucceeds(updateDoc(doc(dbDe('solP'), 'empleados', '600'), { rutaId: 'r2' }));
-    await assertFails(updateDoc(doc(dbDe('solP'), 'empleados', '600'), { rutaId: 'r2', areaId: 'almacen' }));
-    await assertSucceeds(updateDoc(doc(dbDe('rh'), 'empleados', '600'), { areaId: 'almacen', areaExcepcion: 'almacen' }));
+    // Producción: su solicitante y su Aut. 1 leen al empleado 600 (de Producción) y no al 801 (Calidad)
+    for (const uid of ['solP', 'aut1P']) {
+      await assertSucceeds(getDoc(doc(dbDe(uid), 'empleados', '600')));
+      await assertFails(getDoc(doc(dbDe(uid), 'empleados', '801')));
+    }
+    // De otra área o sin rol: no
+    for (const uid of ['solA', 'aut1A', 'solM', 'ajeno']) await assertFails(getDoc(doc(dbDe(uid), 'empleados', '600')));
   });
-  it('un solicitante de otra área no cambia la ruta del empleado; un autorizador tampoco', async () => {
-    await assertFails(updateDoc(doc(dbDe('solA'), 'empleados', '600'), { rutaId: 'r2' }));
-    await assertFails(updateDoc(doc(dbDe('aut1P'), 'empleados', '600'), { rutaId: 'r2' }));
+  it('las consultas del solicitante y del Aut. 1 deben fijar su área; el padrón completo solo lo piden admin, RH y Aut. 2', async () => {
+    const col = (uid) => collection(dbDe(uid), 'empleados');
+    await assertSucceeds(getDocs(query(col('solP'), where('areaId', '==', 'produccion'))));
+    await assertSucceeds(getDocs(query(col('aut1P'), where('areaId', '==', 'produccion'))));
+    await assertFails(getDocs(query(col('solP'), where('areaId', '==', 'calidad'))));
+    await assertFails(getDocs(col('solP')));
+    await assertFails(getDocs(col('aut1P')));
+    for (const uid of ['aut2', 'rh', 'admin']) await assertSucceeds(getDocs(col(uid)));
+  });
+  it('con varias áreas sirve where("areaId", "in", susÁreas); si una no es suya, la consulta completa se rechaza', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'asignaciones', idAsig(N.solP, 'solicitante', 'almacen')), asig(N.solP, 'solicitante', 'almacen'));
+    });
+    const col = collection(dbDe('solP'), 'empleados');
+    await assertSucceeds(getDocs(query(col, where('areaId', '==', 'produccion'))));
+    await assertSucceeds(getDocs(query(col, where('areaId', '==', 'almacen'))));
+    await assertSucceeds(getDocs(query(col, where('areaId', 'in', ['produccion', 'almacen']))));
+    await assertFails(getDocs(query(col, where('areaId', 'in', ['produccion', 'almacen', 'calidad']))));
   });
 });
 
 describe('módulo de rutas: solicitante vigente de un área', () => {
   const solicitud = (uid, extra = {}) => ({ creadoPor: uid, estatus: 'pendiente', fechaServicio: '2026-11-10', ...extra });
 
-  it('crea el solicitante vigente de un área, con su areaId; no sin área, ni de otra área', async () => {
-    await assertSucceeds(setDoc(doc(dbDe('solP'), 'solicitudes', 'nueva'), solicitud('solP', { areaId: 'produccion' })));
+  it('un solicitante vigente NO crea transporte suelto (con o sin areaId); lo piden dentro del tiempo extra', async () => {
+    await assertFails(setDoc(doc(dbDe('solP'), 'solicitudes', 'nueva'), solicitud('solP', { areaId: 'produccion' })));
     await assertFails(setDoc(doc(dbDe('solP'), 'solicitudes', 'sin-area'), solicitud('solP')));
-    await assertFails(setDoc(doc(dbDe('solP'), 'solicitudes', 'otra-area'), solicitud('solP', { areaId: 'almacen' })));
+    await assertFails(setDoc(doc(dbDe('aut1P'), 'solicitudes', 'aut1'), solicitud('aut1P', { areaId: 'produccion' })));
   });
   it('un Aut. 1 o una Aut. 2 sin ser solicitantes no crean ni leen solicitudes de rutas', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
@@ -260,7 +273,6 @@ describe('módulo de rutas: solicitante vigente de un área', () => {
     });
     await assertSucceeds(getDoc(doc(dbDe('solP'), 'solicitudes', 'sol-p')));
     await assertFails(updateDoc(doc(dbDe('solP'), 'solicitudes', 'sol-p'), { estatus: 'cancelada', historial: [] }));
-    await assertFails(setDoc(doc(dbDe('solP'), 'solicitudes', 'nueva'), solicitud('solP', { areaId: 'produccion' })));
   });
 });
 
@@ -845,6 +857,16 @@ describe('borrador: se arma en lotes y se envía a autorización', () => {
     await assertSucceeds(getDocs(query(col('solP'), where('creadoPor', '==', 'solP'))));
   });
 
+  it('las bandejas de consulta (Aut. 1 por área, Aut. 2 de toda la planta) usan estatus in [sin borrador]', async () => {
+    await crearBorrador('solP', 'produccion');
+    const visibles = ['pendiente_aut1', 'pendiente_aut2', 'autorizada', 'devuelta', 'procesada', 'cancelada'];
+    const col = (uid) => collection(dbDe(uid), 'tiempoExtra');
+    const aut1 = await assertSucceeds(getDocs(query(col('aut1P'), where('areaId', '==', 'produccion'), where('estatus', 'in', visibles))));
+    const aut2 = await assertSucceeds(getDocs(query(col('aut2'), where('estatus', 'in', visibles))));
+    if (aut1.docs.some(d => d.id === FOLIO) || aut2.docs.some(d => d.id === FOLIO)) throw new Error('el borrador no debe aparecer');
+    await assertSucceeds(getDocs(query(col('rh'), where('estatus', 'in', visibles))));
+    await assertFails(getDocs(query(col('aut2'), where('estatus', 'in', [...visibles, 'borrador']))));
+  });
   it('se agregan empleados del área en lotes de 10 (y quitan), cada uno validado contra el padrón', async () => {
     await crearBorrador('solP', 'produccion');
     await assertSucceeds(agregar('solP', nominas(700, 10)).commit());

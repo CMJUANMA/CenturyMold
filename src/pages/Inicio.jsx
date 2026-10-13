@@ -22,6 +22,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { mismoMes, fechaLocal, fmtFecha, ymd } from '../utils/fechas';
 import { useCatalogos } from '../hooks/useCatalogos';
+import { useSaludo } from '../hooks/useSaludo';
 import BadgeEstatus from '../components/BadgeEstatus';
 import { ROL_LABELS, ROLES, ESTATUS_SOLICITUD } from '../utils/constantes';
 
@@ -32,8 +33,7 @@ const formatFecha = (ymd) => fmtFecha(fechaLocal(ymd));
 export default function Inicio() {
   const { usuario } = useAuth();
   const toast = useToast();
-  const hora = new Date().getHours();
-  const saludo = hora < 12 ? 'Buenos dias' : hora < 19 ? 'Buenas tardes' : 'Buenas noches';
+  const { saludo, nombre } = useSaludo();
   const esAdminORh = usuario?.rol === ROLES.ADMIN || usuario?.rol === ROLES.RH;
 
   const [cargandoSol, setCargandoSol] = useState(true);
@@ -128,13 +128,13 @@ export default function Inicio() {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-              Century Mold Mexico · Panel de Control
+              Century Mold Querétaro · Transporte
             </div>
             <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">
-              {saludo}, {usuario?.nombre ?? 'Usuario'}
+              {saludo}{nombre ? `, ${nombre}` : ''}
             </h1>
             <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
-              Plataforma para la programacion y autorizacion de transporte de personal
+              Solicitudes de transporte de personal
             </p>
           </div>
           <div className="flex items-center gap-2">

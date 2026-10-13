@@ -140,39 +140,22 @@ describe('solicitante: catálogos y empleados', () => {
 });
 
 describe('solicitante: solicitudes', () => {
-  it('puede crear una solicitud pendiente a su nombre', async () => {
-    await assertSucceeds(setDoc(doc(dbDe(U.sup), 'solicitudes', 'nueva'), solicitudBase(U.sup)));
+  it('NO puede crear transporte suelto: lo crean solo RH y admin (el solicitante lo pide dentro del tiempo extra)', async () => {
+    await assertFails(setDoc(doc(dbDe(U.sup), 'solicitudes', 'nueva'), solicitudBase(U.sup)));
+    await assertSucceeds(setDoc(doc(dbDe(U.rh), 'solicitudes', 'de-rh'), solicitudBase(U.rh)));
+    await assertSucceeds(setDoc(doc(dbDe(U.admin), 'solicitudes', 'de-admin'), solicitudBase(U.admin)));
   });
 
-  it('la solicitud nueva debe traer el areaId de un área donde es solicitante vigente', async () => {
-    const db = dbDe(U.sup);
-    const { areaId: _omitida, ...sinArea } = solicitudBase(U.sup);
-    await assertFails(setDoc(doc(db, 'solicitudes', 'sin-area'), sinArea));
-    await assertFails(setDoc(doc(db, 'solicitudes', 'otra-area'), solicitudBase(U.sup, { areaId: 'a2' })));
-  });
 
-  it('sin asignación de solicitante (o con la asignación revocada o vencida) no crea', async () => {
-    const db = dbDe(U.primerAcceso);
-    await assertFails(setDoc(doc(db, 'solicitudes', 'x1'), solicitudBase(U.primerAcceso)));
-    await env.withSecurityRulesDisabled(async (ctx) => {
-      await updateDoc(doc(ctx.firestore(), 'asignaciones', `${NOMINA.sup1}_solicitante_a1`), { activo: false });
-      await updateDoc(doc(ctx.firestore(), 'asignaciones', `${NOMINA.sup2}_solicitante_a1`), { hasta: new Date(Date.now() - 1000) });
-    });
-    await assertFails(setDoc(doc(dbDe(U.sup), 'solicitudes', 'x2'), solicitudBase(U.sup)));
-    await assertFails(setDoc(doc(dbDe(U.sup2), 'solicitudes', 'x3'), solicitudBase(U.sup2)));
-  });
-
-  it('no puede crear solicitudes aprobadas, canceladas ni rechazadas', async () => {
-    const db = dbDe(U.sup);
+  it('RH no puede crear solicitudes aprobadas, canceladas ni rechazadas', async () => {
+    const db = dbDe(U.rh);
     for (const estatus of ['aprobada', 'cancelada', 'rechazada']) {
-      await assertFails(setDoc(doc(db, 'solicitudes', `x-${estatus}`), solicitudBase(U.sup, { estatus })));
+      await assertFails(setDoc(doc(db, 'solicitudes', `x-${estatus}`), solicitudBase(U.rh, { estatus })));
     }
   });
-
   it('no puede crear solicitudes a nombre de otro', async () => {
-    await assertFails(setDoc(doc(dbDe(U.sup), 'solicitudes', 'ajena'), solicitudBase(U.sup2)));
+    await assertFails(setDoc(doc(dbDe(U.rh), 'solicitudes', 'ajena'), solicitudBase(U.sup2)));
   });
-
   it('lee las suyas pero no las ajenas', async () => {
     const db = dbDe(U.sup);
     await assertSucceeds(getDoc(doc(db, 'solicitudes', 'sol-sup')));

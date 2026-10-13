@@ -60,6 +60,32 @@ asignadoPor { uid, nombre }, fechaAsignacion (serverTimestamp)
   solicitantes (rosa). Quien asigna ve *+ Aut. 1* / *+ Solicitante* por columna y puede revocar desde la tarjeta. Un área sin
   Aut. 1 vigente muestra "Sin Autorización 1: las solicitudes de esta área no podrán avanzar".
 
+## Navegación e Inicio por rol
+
+La app se organiza por **lo que la persona hace**, no por módulos (RH y admin conservan el menú por secciones y el portal). Una persona con varios
+roles ve la unión de lo que le toca a cada uno. Lógica pura en `src/utils/navegacion.js` (con pruebas).
+
+| Rol | Menú | Inicio |
+|---|---|---|
+| Solicitante | Inicio · Solicitar tiempo extra · Mis solicitudes | botón grande "Solicitar tiempo extra"; empleados de mi área; borrador / en autorización / devueltas (resaltadas) / autorizadas del mes; próximos autorizados |
+| Aut. 1 | lo del solicitante + Por autorizar (contador) + Mi área | además "Por autorizar (N)" y "Últimas solicitudes de mi área" |
+| Aut. 2 | Inicio · Por autorizar · Consulta de solicitudes · Organigrama · Asignar roles | por autorizar nivel 2, solicitudes de la semana por área, empleados de planta |
+| RH / admin | Transporte, Tiempo extra, Administración | portal + "Autorizadas pendientes de recibir" |
+
+- El saludo usa el nombre de pila ("Buenas tardes, Oscar") con el formateador de nombres del organigrama; si no puede separar con seguridad, saluda sin nombre.
+- `/tiempo-extra/nueva`, `/mis-solicitudes`, `/autorizar` y `/consulta` muestran "Próximamente" hasta los siguientes prompts.
+- El solicitante pide transporte **solo dentro del tiempo extra** (elige la ruta de cada empleado): la "Nueva solicitud" de transporte suelta la crean solo RH y admin.
+  Quien tenga solicitudes de transporte suyas anteriores conserva "Transporte (consulta)" (solo lectura).
+- **Organigrama**: el solicitante no lo ve; el Aut. 1 ve solo su área (pestaña "Mi área") con el Nivel 2 arriba; Aut. 2, RH y admin, completo.
+
+### Quién lee qué (reglas)
+
+- **Padrón** (`empleados`): admin, RH y Aut. 2 todo; solicitante y Aut. 1 solo los de sus áreas vigentes. Sus consultas llevan `where('areaId', 'in', susÁreas)`
+  (en trozos de 10): el `CatalogosProvider` lo hace solo según el rol. Una consulta abierta (o con un área ajena) se rechaza.
+- **Asignaciones**: cada quien las suyas; el Aut. 1, las de su área y las de Aut. 2; Aut. 2, RH y admin, todas (`useAsignaciones()`).
+  El Aut. 1 ve el Nivel 2 del organigrama con el nombre guardado en la asignación y sin puesto (no lee el padrón de otras áreas).
+- **Tiempo extra**: las consultas de Aut. 1, Aut. 2 y RH usan `estatus in [sin borrador]` (`ESTATUS_TE_VISIBLES`): los borradores solo los lee su creador.
+
 ## Accesos en la app
 
 `useAccesos()` (`src/hooks/useAccesos.js`, proveedor `AccesosProvider`) lee **una vez por sesión, en vivo,** las asignaciones de la
