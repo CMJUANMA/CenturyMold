@@ -15,6 +15,7 @@ import { leerColeccion } from '../../utils/estructuraDb';
 import { slugify } from '../../utils/comparacionImportacion';
 import { esActivo } from '../../utils/activo';
 import RevisarColecciones from './RevisarColecciones';
+import MigracionAsignaciones from './MigracionAsignaciones';
 import { useRecargarCatalogos } from '../../hooks/useCatalogos';
 
 // Importación masiva (arrastra exceljs): se descarga solo al abrir el modal
@@ -641,7 +642,12 @@ export default function RhCatalogos() {
             {tabActiva === 'rutas' && <TabRutas rutas={rutas} comunidades={comunidades} puntos={puntos} reload={reload} />}
             {tabActiva === 'comunidades' && <TabComunidades comunidades={comunidades} rutas={rutas} puntos={puntos} reload={reload} />}
             {tabActiva === 'puntos' && <TabPuntos puntos={puntos} comunidades={comunidades} rutas={rutas} reload={reload} />}
-            {tabActiva === 'herramientas' && <RevisarColecciones />}
+            {tabActiva === 'herramientas' && (
+              <div className="space-y-6">
+                <RevisarColecciones />
+                <MigracionAsignaciones />
+              </div>
+            )}
           </>
         )}
       </div>

@@ -23,6 +23,12 @@ const U = {
 };
 
 const perfil = (rol, extra = {}) => ({ nombre: rol, email: `${rol}@test.com`, rol, activo: true, ...extra });
+// Rol del sistema: 'usuario'. Quien solicita rutas lo hace por una asignación vigente de solicitante en un área (nomina_rol_area)
+const NOMINA = { sup1: '5001', sup2: '5002', inactivo1: '5003', primer1: '5004' };
+const asignacion = (nomina, areaId) => ({
+  nomina, nombre: nomina, rol: 'solicitante', areaId, desde: new Date(Date.now() - 86400000), hasta: null, motivo: '',
+  activo: true, asignadoPor: { uid: 'admin1', nombre: 'Admin' }, fechaAsignacion: new Date(),
+});
 
 const solicitudBase = (creadoPor, extra = {}) => ({
   creadoPor,
@@ -34,6 +40,7 @@ const solicitudBase = (creadoPor, extra = {}) => ({
   conteoTurnos: {},
   conteoPuestos: {},
   historial: [],
+  areaId: 'a1',
   ...extra,
 });
 
@@ -42,17 +49,18 @@ async function sembrar() {
     const db = ctx.firestore();
     await setDoc(doc(db, 'usuarios', U.admin), perfil('admin'));
     await setDoc(doc(db, 'usuarios', U.rh), perfil('rh'));
-    await setDoc(doc(db, 'usuarios', U.sup), perfil('superintendente'));
-    await setDoc(doc(db, 'usuarios', U.sup2), perfil('superintendente'));
-    await setDoc(doc(db, 'usuarios', U.inactivo), perfil('superintendente', { activo: false }));
+    await setDoc(doc(db, 'usuarios', U.sup), perfil('usuario', { nomina: NOMINA.sup1 }));
+    await setDoc(doc(db, 'usuarios', U.sup2), perfil('usuario', { nomina: NOMINA.sup2 }));
+    await setDoc(doc(db, 'usuarios', U.inactivo), perfil('usuario', { nomina: NOMINA.inactivo1, activo: false }));
+    for (const n of [NOMINA.sup1, NOMINA.sup2, NOMINA.inactivo1]) await setDoc(doc(db, 'asignaciones', `${n}_solicitante_a1`), asignacion(n, 'a1'));
     await setDoc(doc(db, 'usuarios', U.rhInactivo), perfil('rh', { activo: false }));
-    await setDoc(doc(db, 'usuarios', U.primerAcceso), perfil('superintendente', { debeCambiarPassword: true }));
+    await setDoc(doc(db, 'usuarios', U.primerAcceso), perfil('usuario', { nomina: NOMINA.primer1, debeCambiarPassword: true }));
 
     await setDoc(doc(db, 'areas', 'a1'), { nombre: 'Área 1' });
     await setDoc(doc(db, 'rutas', 'r1'), { nombre: 'Ruta 1' });
     await setDoc(doc(db, 'comunidades', 'c1'), { nombre: 'Comunidad 1' });
     await setDoc(doc(db, 'puntosReunion', 'p1'), { nombre: 'Punto 1' });
-    await setDoc(doc(db, 'empleados', 'e1'), { nombre: 'Empleado 1', rutaId: 'r1' });
+    await setDoc(doc(db, 'empleados', 'e1'), { nombre: 'Empleado 1', rutaId: 'r1', areaId: 'a1' });
 
     await setDoc(doc(db, 'solicitudes', 'sol-sup'), solicitudBase(U.sup));
     await setDoc(doc(db, 'solicitudes', 'sol-sup-aprobada'), solicitudBase(U.sup, { estatus: 'aprobada' }));
@@ -78,7 +86,7 @@ beforeEach(async () => {
   await sembrar();
 });
 
-describe('superintendente: usuarios', () => {
+describe('solicitante: usuarios', () => {
   it('puede leer su propio perfil pero no el de otros', async () => {
     const db = dbDe(U.sup);
     await assertSucceeds(getDoc(doc(db, 'usuarios', U.sup)));
@@ -99,12 +107,12 @@ describe('superintendente: usuarios', () => {
 
   it('no puede crear ni borrar usuarios', async () => {
     const db = dbDe(U.sup);
-    await assertFails(setDoc(doc(db, 'usuarios', 'nuevo'), perfil('superintendente')));
+    await assertFails(setDoc(doc(db, 'usuarios', 'nuevo'), perfil('usuario')));
     await assertFails(deleteDoc(doc(db, 'usuarios', U.sup2)));
   });
 });
 
-describe('superintendente: catálogos y empleados', () => {
+describe('solicitante: catálogos y empleados', () => {
   const catalogos = [['areas', 'a1'], ['rutas', 'r1'], ['comunidades', 'c1'], ['puntosReunion', 'p1']];
 
   for (const [col, id] of catalogos) {
@@ -121,7 +129,7 @@ describe('superintendente: catálogos y empleados', () => {
     await assertFails(getDoc(doc(dbDe(U.sup), 'PuntosReunion', 'x')));
   });
 
-  it('empleados: solo puede cambiar rutaId/comunidadId/puntoReunionId', async () => {
+  it('empleados: solo puede cambiar rutaId/comunidadId/puntoReunionId de su área', async () => {
     const db = dbDe(U.sup);
     await assertSucceeds(getDoc(doc(db, 'empleados', 'e1')));
     await assertSucceeds(updateDoc(doc(db, 'empleados', 'e1'), { rutaId: 'r2', comunidadId: 'c1', puntoReunionId: 'p1' }));
@@ -131,9 +139,27 @@ describe('superintendente: catálogos y empleados', () => {
   });
 });
 
-describe('superintendente: solicitudes', () => {
+describe('solicitante: solicitudes', () => {
   it('puede crear una solicitud pendiente a su nombre', async () => {
     await assertSucceeds(setDoc(doc(dbDe(U.sup), 'solicitudes', 'nueva'), solicitudBase(U.sup)));
+  });
+
+  it('la solicitud nueva debe traer el areaId de un área donde es solicitante vigente', async () => {
+    const db = dbDe(U.sup);
+    const { areaId: _omitida, ...sinArea } = solicitudBase(U.sup);
+    await assertFails(setDoc(doc(db, 'solicitudes', 'sin-area'), sinArea));
+    await assertFails(setDoc(doc(db, 'solicitudes', 'otra-area'), solicitudBase(U.sup, { areaId: 'a2' })));
+  });
+
+  it('sin asignación de solicitante (o con la asignación revocada o vencida) no crea', async () => {
+    const db = dbDe(U.primerAcceso);
+    await assertFails(setDoc(doc(db, 'solicitudes', 'x1'), solicitudBase(U.primerAcceso)));
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), 'asignaciones', `${NOMINA.sup1}_solicitante_a1`), { activo: false });
+      await updateDoc(doc(ctx.firestore(), 'asignaciones', `${NOMINA.sup2}_solicitante_a1`), { hasta: new Date(Date.now() - 1000) });
+    });
+    await assertFails(setDoc(doc(dbDe(U.sup), 'solicitudes', 'x2'), solicitudBase(U.sup)));
+    await assertFails(setDoc(doc(dbDe(U.sup2), 'solicitudes', 'x3'), solicitudBase(U.sup2)));
   });
 
   it('no puede crear solicitudes aprobadas, canceladas ni rechazadas', async () => {
@@ -238,15 +264,31 @@ describe('RH', () => {
 
   it('puede crear y editar usuarios normales', async () => {
     const db = dbDe(U.rh);
-    await assertSucceeds(setDoc(doc(db, 'usuarios', 'nuevo'), perfil('superintendente')));
+    await assertSucceeds(setDoc(doc(db, 'usuarios', 'nuevo'), perfil('usuario')));
     await assertSucceeds(updateDoc(doc(db, 'usuarios', U.sup), { nombre: 'Nuevo nombre', activo: false }));
-    await assertSucceeds(updateDoc(doc(db, 'usuarios', U.sup), { rol: 'rh' }));
+    await assertSucceeds(updateDoc(doc(db, 'usuarios', U.sup), { rol: 'usuario' }));
   });
 
-  it('no puede hacer admin a nadie (crear ni promover)', async () => {
+  it('no puede dar rh ni admin (crear ni promover): solo el admin', async () => {
     const db = dbDe(U.rh);
+    await assertFails(setDoc(doc(db, 'usuarios', 'nuevoRH'), perfil('rh')));
     await assertFails(setDoc(doc(db, 'usuarios', 'nuevoAdmin'), perfil('admin')));
+    await assertFails(updateDoc(doc(db, 'usuarios', U.sup), { rol: 'rh' }));
     await assertFails(updateDoc(doc(db, 'usuarios', U.sup), { rol: 'admin' }));
+  });
+
+  it('no puede quitar el rol rh a otro RH ni tocar a un admin', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'usuarios', 'rh2'), perfil('rh'));
+    });
+    await assertFails(updateDoc(doc(dbDe(U.rh), 'usuarios', 'rh2'), { rol: 'usuario' }));
+    await assertFails(updateDoc(doc(dbDe(U.rh), 'usuarios', 'rh2'), { activo: false }));
+  });
+
+  it('el admin sí da y quita rh', async () => {
+    const db = dbDe(U.admin);
+    await assertSucceeds(updateDoc(doc(db, 'usuarios', U.sup), { rol: 'rh' }));
+    await assertSucceeds(updateDoc(doc(db, 'usuarios', U.sup), { rol: 'usuario' }));
   });
 
   it('no puede hacerse admin a sí mismo', async () => {
@@ -256,7 +298,7 @@ describe('RH', () => {
   it('no puede editar ni borrar a un admin', async () => {
     const db = dbDe(U.rh);
     await assertFails(updateDoc(doc(db, 'usuarios', U.admin), { activo: false }));
-    await assertFails(updateDoc(doc(db, 'usuarios', U.admin), { rol: 'superintendente' }));
+    await assertFails(updateDoc(doc(db, 'usuarios', U.admin), { rol: 'usuario' }));
     await assertFails(deleteDoc(doc(db, 'usuarios', U.admin)));
   });
 

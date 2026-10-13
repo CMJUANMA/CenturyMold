@@ -11,16 +11,23 @@ import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { useCatalogos } from '../hooks/useCatalogos';
+import { useAccesos } from '../hooks/useAccesos';
+import { useAreas } from '../hooks/useAreas';
 import FormularioSolicitud from '../components/FormularioSolicitud';
 import { ROLES_RH } from '../utils/roles';
 import { ESTATUS_SOLICITUD } from '../utils/constantes';
-import { armarPasajeroDoc, resumenDeFormulario, cambiosPadron } from '../utils/solicitudes';
+import { armarPasajeroDoc, resumenDeFormulario, cambiosPadron, cambiosPadronPermitidos } from '../utils/solicitudes';
 
 export default function NuevaSolicitud() {
   const { usuario } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const esRH = ROLES_RH.includes(usuario?.rol);
+  const { areasSolicitante } = useAccesos();
+  const { nombres: nombresArea } = useAreas();
+  // Con varias áreas como solicitante, elige a nombre de cuál es la solicitud (con una sola se usa esa)
+  const [areaElegida, setAreaElegida] = useState('');
+  const areaId = areasSolicitante.includes(areaElegida) ? areaElegida : (areasSolicitante[0] ?? '');
 
   // Catálogos compartidos (una lectura por sesión); aquí solo el padrón activo
   const {
@@ -47,6 +54,7 @@ export default function NuevaSolicitud() {
         fechaServicio,
         solicitanteNombre: solicitanteNombre || usuario?.nombre || '',
         creadoPor:         usuario?.uid,
+        ...(areaId ? { areaId } : {}),
         estatus:           ESTATUS_SOLICITUD.PENDIENTE,
         ...resumenDeFormulario(pasajeros, puestos),
         historial: [{
@@ -65,7 +73,7 @@ export default function NuevaSolicitud() {
       }
 
       // Guardar en el padrón la ruta confirmada, solo si cambió
-      const cambiosEmp = cambiosPadron(pasajeros);
+      const cambiosEmp = cambiosPadronPermitidos(cambiosPadron(pasajeros), empleadosActivos, { esRH, areasSolicitante });
       for (const [empId, cambios] of Object.entries(cambiosEmp)) {
         batch.update(doc(db, 'empleados', empId), cambios);
       }
@@ -100,6 +108,18 @@ export default function NuevaSolicitud() {
           Complete los campos para programar el servicio. Solicitante: <span className="font-semibold">{usuario?.nombre}</span>
         </p>
       </div>
+
+      {areasSolicitante.length > 1 && (
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4">
+          <label htmlFor="area-solicitud" className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1">
+            Área que solicita
+          </label>
+          <select id="area-solicitud" value={areaId} onChange={e => setAreaElegida(e.target.value)}
+            className="w-full max-w-xs rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1.5 text-xs text-[var(--text-main)] focus:border-[var(--cm-red)] focus:outline-none">
+            {areasSolicitante.map(id => <option key={id} value={id}>{nombresArea.get(id) ?? id}</option>)}
+          </select>
+        </div>
+      )}
 
       <FormularioSolicitud
         modo="nueva"

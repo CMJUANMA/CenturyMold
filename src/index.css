@@ -42,6 +42,17 @@
   --status-error-text: #8B0018;
   --status-error-bg: #FEE2E2;
   --status-error-border: #FECACA;
+  /* Organigrama de autorización (colores de la hoja "Niveles de autorización") */
+  --status-info-text: #1E40AF;
+  --status-info-bg: #DBEAFE;
+  --status-info-border: #BFDBFE;
+  --org-aut2-bg: #DBEAFE;
+  --org-aut2-border: #93C5FD;
+  --org-aut1-bg: #FEF08A;
+  --org-aut1-border: #FACC15;
+  --org-sol-bg: #FBCFE8;
+  --org-sol-border: #F9A8D4;
+  --org-text: #1F2328;
 }
 
 .dark {
@@ -76,6 +87,16 @@
   --status-error-text: #F87171;
   --status-error-bg: rgba(139, 0, 24, 0.25);
   --status-error-border: rgba(239, 68, 68, 0.3);
+  --status-info-text: #93C5FD;
+  --status-info-bg: rgba(30, 64, 175, 0.3);
+  --status-info-border: rgba(96, 165, 250, 0.35);
+  --org-aut2-bg: rgba(59, 130, 246, 0.28);
+  --org-aut2-border: rgba(96, 165, 250, 0.6);
+  --org-aut1-bg: rgba(234, 179, 8, 0.25);
+  --org-aut1-border: rgba(250, 204, 21, 0.55);
+  --org-sol-bg: rgba(236, 72, 153, 0.25);
+  --org-sol-border: rgba(244, 114, 182, 0.55);
+  --org-text: #F3F4F6;
 }
 
 @layer base {

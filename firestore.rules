@@ -10,11 +10,35 @@ service cloud.firestore {
     function activo()      { return tienePerfil() && perfil().get('activo', true) != false; }
     function rol()         { return perfil().get('rol', ''); }
 
-    // Roles: 'autorizador' (directores y gerentes) no entra a puedeSolicitar: no usa el módulo de rutas.
-    // Su acceso a tiempo extra sale de la matriz (areasTE / config/tiempoExtra), por nómina, no del rol.
+    // Rol del SISTEMA (usuarios/{uid}.rol): solo admin, rh o usuario. Los permisos operativos (Aut. 2, Aut. 1, solicitante)
+    // son asignaciones por área con vigencia (colección asignaciones); el puesto no da permisos.
     function esAdmin()        { return activo() && rol() == 'admin'; }
     function esRH()           { return activo() && rol() in ['rh', 'admin']; }
-    function puedeSolicitar() { return activo() && rol() in ['superintendente', 'rh', 'admin']; }
+    function miNomina()       { return perfil().get('nomina', ''); }
+
+    // ---------- Asignaciones (roles operativos) ----------
+    // asignaciones/{nomina}_{rol}_{areaId|planta}. Vigente = activo, desde <= ahora y (sin hasta o ahora <= hasta).
+    // Cada comprobación lee perfil + asignación (las lecturas repetidas del mismo documento no suman al límite de 10).
+    function asigPath(rol, area) {
+      return /databases/$(database)/documents/asignaciones/$(miNomina() + '_' + rol + '_' + area);
+    }
+    function asigVigente(a) {
+      return a.get('activo', false) == true && a.desde <= request.time
+        && (a.get('hasta', null) == null || request.time <= a.hasta);
+    }
+    function asignacionVigente(rol, area) {
+      return activo() && miNomina() != '' && area is string && exists(asigPath(rol, area)) && asigVigente(get(asigPath(rol, area)).data);
+    }
+    function esAut2() { return asignacionVigente('aut2', 'planta'); }
+    function esAut1De(areaId)        { return asignacionVigente('aut1', areaId); }
+    function esSolicitanteDe(areaId) { return asignacionVigente('solicitante', areaId); }
+
+    // Áreas: { nombre, participaTE, activa, orden }
+    function areaPath(areaId) { return /databases/$(database)/documents/areas/$(areaId); }
+    function areaActiva(areaId) {
+      return areaId is string && exists(areaPath(areaId)) && get(areaPath(areaId)).data.get('activa', true) != false;
+    }
+    function areaParticipaTE(areaId) { return areaActiva(areaId) && get(areaPath(areaId)).data.get('participaTE', false) == true; }
 
     function cambia(campos)     { return request.resource.data.diff(resource.data).affectedKeys().hasAny(campos); }
     function soloCambia(campos) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos); }
@@ -22,12 +46,15 @@ service cloud.firestore {
     // ---------- Usuarios ----------
     match /usuarios/{uid} {
       // Cada quien lee su propio perfil (AuthContext); RH lee todos
-      allow read: if (isAuth() && request.auth.uid == uid) || esRH();
-      // RH crea usuarios normales; solo admin crea admins
-      allow create: if esAdmin() || (esRH() && request.resource.data.rol != 'admin');
-      // RH edita a cualquiera (incluido sí mismo) salvo admins, y no puede asignar 'admin'
+      // La Aut. 2 también los lee: necesita saber quién aún no tiene usuario al asignar roles
+      allow read: if (isAuth() && request.auth.uid == uid) || esRH() || esAut2();
+      // Solo admin da o quita los roles rh y admin: RH crea usuarios con rol 'usuario'
+      allow create: if esAdmin() || (esRH() && request.resource.data.rol == 'usuario');
+      // RH edita a los usuarios que no son rh/admin y solo los deja en 'usuario' (un rol anterior sin migrar puede conservarse)
       allow update: if esAdmin()
-        || (esRH() && resource.data.rol != 'admin' && request.resource.data.rol != 'admin')
+        || (esRH() && !(resource.data.rol in ['rh', 'admin'])
+            && (request.resource.data.rol == 'usuario' || request.resource.data.rol == resource.data.rol)
+            && !(request.resource.data.rol in ['rh', 'admin']))
         // Primer acceso: el propio usuario solo puede bajar debeCambiarPassword de true a false (nunca al revés)
         || (activo() && request.auth.uid == uid
             && soloCambia(['debeCambiarPassword'])
@@ -61,10 +88,11 @@ service cloud.firestore {
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['fechaCreacion', 'creadoPor']);
       allow delete: if false;
     }
-    // Bitácora de la estructura: solo se crea. La leen y la crean admin y RH; nadie la edita ni la borra.
+    // Bitácora: solo se crea. La leen y la crean admin y RH; la Aut. 2 solo lo de asignaciones (ella también asigna).
+    // Nadie la edita ni la borra.
     match /bitacora/{id} {
-      allow read: if esRH();
-      allow create: if esRH()
+      allow read: if esRH() || (esAut2() && resource.data.get('entidad', '') == 'asignacion');
+      allow create: if (esRH() || (esAut2() && request.resource.data.entidad == 'asignacion'))
         && request.resource.data.keys().hasOnly(['accion', 'entidad', 'antes', 'despues', 'porUid', 'porNombre', 'fecha'])
         && request.resource.data.accion is string && request.resource.data.entidad is string
         && request.resource.data.porUid == request.auth.uid
@@ -80,20 +108,29 @@ service cloud.firestore {
     // ---------- Empleados ----------
     match /empleados/{id} {
       // Cualquier usuario activo lo lee (padrón). puestoId, areaId, areaExcepcion(+Motivo) y el resto solo los cambian
-      // admin/RH: la lista blanca de abajo para quien no es RH solo incluye ruta/comunidad/punto
+      // admin/RH: la lista blanca de abajo para quien no es RH solo incluye ruta/comunidad/punto, y solo de empleados
+      // del área donde es solicitante vigente (la pantalla solo manda esos cambios al padrón)
       allow read: if activo();
       allow create: if esRH();
       allow update: if esRH()
-        || (puedeSolicitar() && soloCambia(['rutaId', 'comunidadId', 'puntoReunionId']));
+        || (soloCambia(['rutaId', 'comunidadId', 'puntoReunionId']) && esSolicitanteDe(resource.data.get('areaId', null)));
       allow delete: if esRH();
     }
 
     // ---------- Solicitudes ----------
     match /solicitudes/{solId} {
       function esDueno() { return resource.data.creadoPor == request.auth.uid; }
+      // RH/admin, o solicitante vigente del área de la solicitud. Las solicitudes anteriores (sin areaId) siguen
+      // funcionando para quien las creó. d = datos de la solicitud
+      function puedeSobre(d) {
+        return esRH() || (activo() && (d.get('areaId', null) == null || esSolicitanteDe(d.areaId)));
+      }
 
-      allow read: if esRH() || (puedeSolicitar() && esDueno());
-      allow create: if puedeSolicitar()
+      // Cada quien lee las suyas aunque su rol de solicitante ya haya vencido
+      allow read: if esRH() || (activo() && esDueno());
+      // Crean los solicitantes vigentes de un área (la solicitud guarda su areaId), además de RH y admin
+      allow create: if activo()
+        && (esRH() || (request.resource.data.get('areaId', null) is string && esSolicitanteDe(request.resource.data.areaId)))
         && request.resource.data.creadoPor == request.auth.uid
         && request.resource.data.estatus == 'pendiente';
       allow update: if esRH()
@@ -101,13 +138,13 @@ service cloud.firestore {
         // lo que escribe EditarSolicitud (fechaServicio, solicitanteNombre, el resumen de pasajeros:
         // totalPasajeros/totalAlimentos/conteoTurnos/conteoPuestos, estatus, modificada, historial) y la cancelación (estatus, historial). creadoPor, fechaSolicitud y
         // los campos de revisión de RH quedan fuera.
-        || (puedeSolicitar() && esDueno()
+        || (esDueno() && puedeSobre(resource.data)
             && resource.data.estatus in ['pendiente', 'aprobada']
             && request.resource.data.estatus in ['pendiente', 'cancelada']
             && soloCambia(['fechaServicio', 'solicitanteNombre', 'totalPasajeros', 'totalAlimentos', 'conteoTurnos', 'conteoPuestos',
                         'estatus', 'modificada', 'historial']))
         // Dueño: marcar como vista y avisar a RH, en cualquier estatus
-        || (puedeSolicitar() && esDueno()
+        || (activo() && esDueno()
             && soloCambia(['vistoPorSolicitante', 'historial']));
       allow delete: if esAdmin();
 
@@ -116,46 +153,36 @@ service cloud.firestore {
         // getAfter: en el batch de creación la solicitud padre aún no existe en el estado "antes"
         function padreDespues() { return getAfter(/databases/$(database)/documents/solicitudes/$(solId)).data; }
 
-        allow read: if esRH() || (puedeSolicitar() && padreAntes().creadoPor == request.auth.uid);
+        allow read: if esRH() || (activo() && padreAntes().creadoPor == request.auth.uid);
         allow write: if esRH()
-          || (puedeSolicitar()
+          || (activo()
               && padreDespues().creadoPor == request.auth.uid
-              && padreDespues().estatus == 'pendiente');
+              && padreDespues().estatus == 'pendiente'
+              && (padreDespues().get('areaId', null) == null || esSolicitanteDe(padreDespues().areaId)));
       }
     }
 
     // =====================================================================
     // TIEMPO EXTRA  (ver docs/tiempo-extra.md)
-    // Los autorizadores se comparan por perfil().nomina contra areasTE/{areaId} y config/tiempoExtra.
+    // Los niveles salen de asignacionVigente (arriba): Aut. 1 y solicitante por área, Aut. 2 de toda la planta.
     // =====================================================================
-    function miNomina() { return perfil().get('nomina', ''); }
-    function areaTEPath(areaId) { return /databases/$(database)/documents/areasTE/$(areaId); }
-    function areaTE(areaId)     { return get(areaTEPath(areaId)).data; }
-    function cfgTEPath()        { return /databases/$(database)/documents/config/tiempoExtra; }
 
-    // Aut. 1 o suplente de esa área
-    function esAut1De(areaId) {
-      return activo() && miNomina() != '' && exists(areaTEPath(areaId))
-        && (areaTE(areaId).get('autorizador1Nomina', '') == miNomina()
-            || areaTE(areaId).get('suplente1Nomina', '') == miNomina());
+    // La Aut. 2 la firma un Aut. 2 vigente o RH (RH solo firma en este nivel)
+    function puedeFirmarAut2() { return esAut2() || esRH(); }
+
+    // Quién captura en un área: un solicitante vigente de esa área; en un área que no participa en TE
+    // (Administrativo) solo RH o un Aut. 2
+    function puedeCapturarTE(areaId) {
+      return areaActiva(areaId) && (areaParticipaTE(areaId) ? esSolicitanteDe(areaId) : (esRH() || esAut2()));
     }
-    // Su nómina está en solicitantesNominas de esa área
-    function esSolicitanteDe(areaId) {
-      return activo() && miNomina() != '' && exists(areaTEPath(areaId))
-        && miNomina() in areaTE(areaId).get('solicitantesNominas', []);
+    // Al capturar o reenviar, el Aut. 1 de esa área se salta su propio nivel; en un área que no participa se va directo a Aut. 2
+    function estatusInicial(areaId) {
+      return (!areaParticipaTE(areaId) || esAut1De(areaId)) ? 'pendiente_aut2' : 'pendiente_aut1';
     }
-    // Aut. 2 titular o su suplente (por ausencia)
-    function esAut2Titular() {
-      return activo() && miNomina() != '' && exists(cfgTEPath())
-        && (get(cfgTEPath()).data.get('autorizador2Nomina', '') == miNomina()
-            || get(cfgTEPath()).data.get('suplente2Nomina', '') == miNomina());
-    }
-    // La Aut. 2 la puede firmar el titular, el suplente o RH (RH solo firma en este nivel)
-    function puedeFirmarAut2() { return esAut2Titular() || esRH(); }
 
     // t = datos de una solicitud de tiempo extra
     function puedeLeerTE(t) {
-      return activo() && (t.creadoPor == request.auth.uid || esAut1De(t.areaId) || esAut2Titular() || esRH());
+      return activo() && (t.creadoPor == request.auth.uid || esAut1De(t.areaId) || esAut2() || esRH());
     }
     // Firma o devolución bien formada: {nomina, nombre, fecha, ...} de quien la hace
     function firmaValida(f) {
@@ -166,14 +193,54 @@ service cloud.firestore {
         && d.motivo is string && d.motivo.trim().size() > 0;
     }
 
-    // Colecciones de configuración: las lee cualquier usuario activo, solo escriben RH y admin
-    match /areasTE/{areaId} {
+    // Asignaciones: las lee cualquier usuario activo; las escribe admin (cualquier rol) o RH / Aut. 2 (solo aut1 y solicitante,
+    // de un área con participaTE). Nadie, salvo admin, toca las suyas. Nunca se borran: revocar es activo:false.
+    match /asignaciones/{asigId} {
+      function n() { return request.resource.data; }
+      function idEsperado(d) { return d.nomina + '_' + d.rol + '_' + (d.rol == 'aut2' ? 'planta' : d.areaId); }
+      function formaValida() {
+        return n().keys().hasOnly(['nomina', 'nombre', 'rol', 'areaId', 'desde', 'hasta', 'motivo', 'activo', 'asignadoPor', 'fechaAsignacion'])
+          && n().keys().hasAll(['nomina', 'nombre', 'rol', 'areaId', 'desde', 'hasta', 'motivo', 'activo', 'asignadoPor', 'fechaAsignacion'])
+          && n().nomina is string && n().nomina.size() > 0 && n().nombre is string
+          && n().rol in ['aut2', 'aut1', 'solicitante']
+          && (n().rol == 'aut2' ? n().areaId == null : n().areaId is string)
+          && asigId == idEsperado(n())
+          && n().desde is timestamp
+          && (n().hasta == null || (n().hasta is timestamp && n().hasta >= n().desde))
+          && n().motivo is string && (n().hasta == null || n().motivo.trim().size() > 0)
+          && n().activo is bool
+          && n().asignadoPor is map && n().asignadoPor.uid is string;
+      }
+      // d = una asignación (la que había o la nueva): ¿puede esta persona darla o cambiarla?
+      function puedeAsignar(d) {
+        return esAdmin()
+          || (d.rol in ['aut1', 'solicitante'] && (esRH() || esAut2())
+              && d.nomina != miNomina() && areaParticipaTE(d.areaId));
+      }
+
       allow read: if activo();
-      allow write: if esRH();
+      allow create: if formaValida() && puedeAsignar(n()) && n().activo == true
+        && n().fechaAsignacion == request.time && n().asignadoPor.uid == request.auth.uid;
+      // Revocar o extender: solo activo, hasta y motivo; volver a asignar: el documento completo, con fecha y autor nuevos
+      allow update: if formaValida() && puedeAsignar(resource.data) && puedeAsignar(n())
+        && n().nomina == resource.data.nomina && n().rol == resource.data.rol && n().areaId == resource.data.areaId
+        && (soloCambia(['activo', 'hasta', 'motivo'])
+            || (n().activo == true && n().fechaAsignacion == request.time && n().asignadoPor.uid == request.auth.uid));
+      allow delete: if false;
+    }
+
+    // Estructura anterior (areasTE, config/*, accesosTE): ya nada la usa; solo el admin las lee y borra al migrar y limpiar
+    match /areasTE/{areaId} {
+      allow read: if esRH();
+      allow write: if esAdmin();
+    }
+    match /accesosTE/{docId} {
+      allow read: if esRH();
+      allow write: if esAdmin();
     }
     match /config/{docId} {
-      allow read: if activo() && docId in ['areasTE', 'tiempoExtra'];
-      allow write: if esRH() && docId in ['areasTE', 'tiempoExtra'];
+      allow read: if esRH() && docId in ['areasTE', 'tiempoExtra'];
+      allow write: if esAdmin() && docId in ['areasTE', 'tiempoExtra'];
     }
 
     // Contador del folio (TE-2026-0001): se incrementa de uno en uno dentro de la transacción de captura
@@ -189,12 +256,9 @@ service cloud.firestore {
       function uid() { return request.auth.uid; }
       function antes()   { return resource.data; }
       function despues() { return request.resource.data; }
-      // Al reenviar o capturar, el Aut. 1 de esa área se salta su propio nivel
-      function estatusInicial(areaId) { return esAut1De(areaId) ? 'pendiente_aut2' : 'pendiente_aut1'; }
-
       allow read: if puedeLeerTE(resource.data);
 
-      // Solo un solicitante del área, a su nombre, con el folio como id y sin firmas
+      // Solo un solicitante vigente del área (RH o Aut. 2 si el área no participa en TE), a su nombre, con el folio como id y sin firmas
       allow create: if activo()
         && despues().keys().hasOnly(['folio', 'areaId', 'areaNombre', 'creadoPor', 'creadoPorNomina', 'creadoPorNombre',
                                      'fechaTE', 'motivo', 'estatus', 'resumen', 'fechaCreacion', 'fechaActualizacion'])
@@ -204,7 +268,8 @@ service cloud.firestore {
         && despues().folio.matches('TE-[0-9]{4}-[0-9]{4,}')
         && despues().creadoPor == uid()
         && despues().creadoPorNomina == miNomina()
-        && esSolicitanteDe(despues().areaId)
+        && despues().areaId is string
+        && puedeCapturarTE(despues().areaId)
         && despues().estatus == estatusInicial(despues().areaId)
         && despues().fechaCreacion == request.time
         && despues().fechaActualizacion == request.time;
@@ -212,7 +277,7 @@ service cloud.firestore {
       // Cada transición es su propio "allow update" (se evalúan en OR). Primero se comparan los datos
       // (estatus antes/después, campos que cambian) y al final los roles, que leen el perfil y la matriz.
 
-      // Aut. 1 (o suplente) de esa área autoriza: pendiente_aut1 → pendiente_aut2. Nadie autoriza lo que creó.
+      // Aut. 1 vigente de esa área autoriza: pendiente_aut1 → pendiente_aut2. Nadie autoriza lo que creó.
       allow update: if antes().estatus == 'pendiente_aut1' && despues().estatus == 'pendiente_aut2'
         && despues().fechaActualizacion == request.time
         && soloCambia(['estatus', 'aut1', 'fechaActualizacion'])
@@ -226,7 +291,7 @@ service cloud.firestore {
         && antes().creadoPor != uid()
         && esAut1De(antes().areaId) && devolucionValida(despues().devolucion, 1);
 
-      // Aut. 2, su suplente o RH autorizan: pendiente_aut2 → autorizada
+      // Aut. 2 vigente o RH autorizan: pendiente_aut2 → autorizada (si la creó un Aut. 2, la firma otro Aut. 2 o RH)
       allow update: if antes().estatus == 'pendiente_aut2' && despues().estatus == 'autorizada'
         && despues().fechaActualizacion == request.time
         && soloCambia(['estatus', 'aut2', 'fechaActualizacion'])
@@ -264,23 +329,28 @@ service cloud.firestore {
         && !despues().keys().hasAny(['aut1', 'aut2'])
         && soloCambia(['fechaTE', 'motivo', 'resumen', 'estatus', 'aut1', 'aut2', 'fechaActualizacion'])
         && antes().creadoPor == uid()
-        && esSolicitanteDe(antes().areaId)
+        && puedeCapturarTE(antes().areaId)
         && despues().estatus == estatusInicial(antes().areaId);
 
       allow delete: if esAdmin();
 
       // Empleados incluidos: solo los escribe el creador (al capturar y mientras esté devuelta);
-      // los autorizadores no los tocan. El id del documento es la nómina.
-      // OJO: que cada empleado sea del área del solicitante lo valida la pantalla de captura contra el padrón
-      // (empleados.areaTE); las reglas no pueden leer el padrón por cada fila (límite de 20 lecturas por lote).
+      // los autorizadores no los tocan. El id del documento es la nómina, y esa persona debe ser del área de la
+      // solicitud en el padrón (empleados/{nomina}.areaId). Cada empleado cuesta una lectura del padrón en las reglas
+      // (límite de 20 por lote): ver docs/tiempo-extra.md, "Límite de empleados por lote".
       match /empleados/{nomina} {
+        function empleadoDelArea(areaId) {
+          // get() sin exists(): si el empleado no está en el padrón, la lectura falla y la regla niega (y cuesta 1 lectura, no 2)
+          return get(/databases/$(database)/documents/empleados/$(nomina)).data.get('areaId', '') == areaId;
+        }
         function padrePath()    { return /databases/$(database)/documents/tiempoExtra/$(teId); }
         function padreAntes()   { return get(padrePath()).data; }
         // getAfter: en el lote de captura el padre aún no existe en el estado "antes"
         function padreDespues() { return getAfter(padrePath()).data; }
 
         allow read: if puedeLeerTE(padreAntes());
-        allow write: if activo()
+        function puedeEscribirEmpleado() {
+          return activo()
           && padreDespues().creadoPor == uid()
           && (
             // lote de captura: el padre se crea en el mismo lote
@@ -289,6 +359,9 @@ service cloud.firestore {
             || (padreAntes().estatus == 'devuelta'
                 && padreDespues().estatus in ['devuelta', 'pendiente_aut1', 'pendiente_aut2'])
           );
+        }
+        allow create, update: if puedeEscribirEmpleado() && empleadoDelArea(padreDespues().areaId);
+        allow delete: if puedeEscribirEmpleado();
       }
 
       // Bitácora: solo se crea, nunca se edita ni se borra. Cada acción debe acompañar la transición real

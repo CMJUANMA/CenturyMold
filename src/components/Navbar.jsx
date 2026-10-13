@@ -6,19 +6,20 @@ import { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, FilePlus, ClipboardList, Layers, Users, Database, LayoutGrid,
-  ShieldCheck, User, LogOut, Menu, X, Sun, Moon, Clock, Network,
+  ShieldCheck, User, LogOut, Menu, X, Sun, Moon, Clock, Network, GitBranch,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
-import { useAccesosTE } from '../hooks/useAccesosTE';
+import { useAccesos } from '../hooks/useAccesos';
 import { usePendientesRutas } from '../hooks/usePendientes';
 import { modulosDe, moduloDeRuta } from '../modulos';
 import { ROLES_RH } from '../utils/roles';
 import { ROL_LABELS_CORTOS } from '../utils/constantes';
+import { puedeAsignarAlgo } from '../utils/asignaciones';
 
 /**
  * Menú por módulo. `modulo`: el ítem solo se ve si el usuario tiene acceso a ese módulo (modulos.js);
- * `rh`: además exige rol RH/admin. Las secciones (section) se ocultan si no les queda ningún ítem.
+ * `rh`: además exige rol RH/admin; `asigna`: exige poder asignar roles (RH, admin o Aut. 2 vigente). Las secciones (section) se ocultan si no les queda ningún ítem.
  */
 const NAV_ITEMS = [
   { path: '/', label: 'Inicio (portal)', icon: Home, end: true },
@@ -32,12 +33,13 @@ const NAV_ITEMS = [
 
   { section: 'Tiempo extra', modulo: 'tiempo-extra' },
   { path: '/tiempo-extra', label: 'Resumen', icon: Clock, modulo: 'tiempo-extra', end: true },
-  { path: '/tiempo-extra/niveles', label: 'Niveles de autorización', icon: Network, modulo: 'tiempo-extra', rh: true },
+  { path: '/accesos/organigrama', label: 'Organigrama', icon: GitBranch, modulo: 'tiempo-extra' },
+  { path: '/accesos/asignaciones', label: 'Asignar roles', icon: ShieldCheck, modulo: 'tiempo-extra', asigna: true, soloSiNoRH: true },
 
   { section: 'Administración', rh: true },
   { path: '/rutas/rh/empleados', label: 'Padrón de empleados', icon: Users, rh: true },
   { path: '/rutas/rh/estructura', label: 'Estructura', icon: Network, rh: true },
-  { path: '/rutas/rh/usuarios', label: 'Usuarios y accesos', icon: ShieldCheck, rh: true },
+  { path: '/accesos', label: 'Usuarios y accesos', icon: ShieldCheck, rh: true, end: true },
 ];
 
 const SUBTITULO_MODULO = { rutas: 'Control de Transporte', 'tiempo-extra': 'Tiempo extra' };
@@ -49,15 +51,18 @@ export default function Navbar() {
   const { pathname } = useLocation();
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [logoError, setLogoError] = useState(false);
-  const te = useAccesosTE();
-  const { pendientesRh, novedades: novedadesUser } = usePendientesRutas(usuario);
+  const accesos = useAccesos();
+  const { pendientesRh, novedades: novedadesUser } = usePendientesRutas(usuario, accesos);
 
   const moduloActual = moduloDeRuta(pathname);
   const subtitulo = SUBTITULO_MODULO[moduloActual?.id] ?? 'Portal de procesos';
 
-  const idsModulos = new Set(modulosDe(usuario, { te }).map(m => m.id));
+  const idsModulos = new Set(modulosDe(usuario, accesos).map(m => m.id));
   const esRH = ROLES_RH.includes(usuario?.rol);
-  const visible = (it) => (!it.modulo || idsModulos.has(it.modulo)) && (!it.rh || esRH);
+  const asigna = puedeAsignarAlgo(accesos);
+  // "Asignar roles" en el módulo es para quien asigna sin ser RH (RH/admin ya tienen "Usuarios y accesos")
+  const visible = (it) => (!it.modulo || idsModulos.has(it.modulo)) && (!it.rh || esRH)
+    && (!it.asigna || asigna) && (!it.soloSiNoRH || !esRH);
   // Una sección solo se muestra si tiene al menos un ítem visible
   const items = NAV_ITEMS.filter(visible).filter((it, i, lista) => {
     if (!it.section) return true;

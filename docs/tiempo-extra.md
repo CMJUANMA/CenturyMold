@@ -1,116 +1,96 @@
-# Solicitud de tiempo extra (TE)
+# Solicitud de tiempo extra (TE) y permisos por asignaciones
 
-Segundo módulo del portal. Esta etapa deja la **base**: áreas y niveles de autorización, padrón con área,
-portal por módulos, modelo de datos y reglas de Firestore. Las pantallas de captura y de autorización
-vienen después.
+Segundo módulo del portal. **Los permisos viven en el ROL y a las personas se les ASIGNA un rol** (con área y, si es
+temporal, con fechas). El puesto ya no da permisos: solo sirve para sugerir candidatos al asignar.
+Las pantallas de captura y de autorización vienen después.
 
 ## Flujo
 
 ```
 Solicitante del área ──captura──► pendiente_aut1 ──Aut. 1──► pendiente_aut2 ──Aut. 2──► autorizada ──RH──► procesada
                                        │                          │
-                                       └──────── devuelta ◄───────┘   (con motivo; el solicitante corrige y reenvía:
-                                                                       vuelve a empezar en Aut. 1)
+                                       └──────── devuelta ◄───────┘   (con motivo; el solicitante corrige y reenvía)
 ```
 
 - Se autoriza o se devuelve la **solicitud completa**. Devolver exige un motivo.
-- **Aut. 1**: el autorizador1 o el suplente1 de esa área.
-- **Aut. 2**: el titular (`autorizador2Nomina`), el suplente (`suplente2Nomina`) o **cualquier usuario RH/admin**.
-  El historial registra quién firmó. RH solo firma en el nivel 2; si la Aut. 2 ya está firmada, RH solo consulta y descarga.
-- Si quien captura es el Aut. 1 (o suplente) de esa área, la solicitud entra **directo a `pendiente_aut2`** y el historial
-  lo registra (`creada`). Al reenviar una devuelta pasa lo mismo.
-- **Nadie autoriza ni devuelve una solicitud que creó él mismo** (ni siquiera RH o la Aut. 2).
-- Un solicitante solo debe incluir empleados de su área (ver "Limitaciones").
+- **Aut. 1**: asignación `aut1` vigente de esa área. **Aut. 2**: asignación `aut2` vigente, o RH/admin (RH solo firma este nivel).
+- Si quien captura también es Aut. 1 vigente de esa área, entra **directo a `pendiente_aut2`** (también al reenviar).
+- Áreas con `participaTE: false` (Administrativo): solo capturan RH o una Aut. 2, y la solicitud va **directo a `pendiente_aut2`**.
+- **Nadie autoriza ni devuelve lo que creó él mismo.** Si la creó una Aut. 2, la firma otra Aut. 2 o RH.
+- Solo se incluyen empleados cuya `areaId` en el padrón sea la del área de la solicitud (lo exigen las reglas).
 
-## Acceso: por la matriz, no por el rol
+## Dos tipos de rol
 
-Todo se define por **número de nómina** (los puestos cambian):
+1. **Rol del sistema** (`usuarios/{uid}.rol`): solo `admin`, `rh` o `usuario`. Solo un admin da o quita `rh` y `admin`.
+   Los roles anteriores `superintendente` y `autorizador` se migran a `usuario` (ver Migración).
+2. **Rol operativo**: asignaciones por área.
 
-| Acceso | Condición |
+### `asignaciones/{nomina}_{rol}_{areaId|planta}`
+
+```
+nomina, nombre, rol ('aut2' | 'aut1' | 'solicitante'), areaId (null en aut2),
+desde, hasta (null = permanente; se guarda como el fin del día), motivo, activo,
+asignadoPor { uid, nombre }, fechaAsignacion (serverTimestamp)
+```
+
+- Una persona puede tener varias (p. ej. solicitante en Mantenimiento y Aut. 1 temporal en Moldes).
+- **Vigente** = `activo`, `desde <= ahora` y (sin `hasta` o `ahora <= hasta`); es lo mismo en `src/utils/asignaciones.js` y en las reglas.
+  Una temporal vence sola: la app recalcula cada minuto y las reglas comparan con `request.time`.
+- **Revocar** = `activo: false`; nunca se borra. Cada alta, cambio o revocación deja un renglón en `bitacora`
+  (`entidad: 'asignacion'`, `antes`/`despues` con el id) en el mismo lote.
+- `aut1` y `solicitante` solo se asignan en áreas con `participaTE: true`.
+
+| Quién | Puede asignar |
 |---|---|
-| Solicitante | su nómina está en `areasTE/{área}.solicitantesNominas` de alguna área |
-| Aut. 1 | es `autorizador1Nomina` o `suplente1Nomina` de alguna área |
-| Aut. 2 | es `autorizador2Nomina` o `suplente2Nomina` de `config/tiempoExtra`, o tiene rol RH/admin |
+| Admin | todo (aut2, aut1, solicitante; y rol rh/admin en Usuarios) |
+| RH y Aut. 2 vigente | aut1 y solicitante, en cualquier área con participaTE |
+| Aut. 1 y solicitante | nada |
+| Cualquiera, salvo admin | no puede crear ni cambiar sus propias asignaciones |
 
-`useAccesosTE()` (`src/hooks/useAccesosTE.js`) devuelve `{ areasSolicitante, areasAut1, esAut2 }` (más `tieneAcceso`,
-`cargando`, `error`, `matriz`) y lee la matriz **una vez por sesión** (`src/utils/matrizTE.js`). Al guardar la matriz,
-la pantalla de niveles invalida esa caché (`invalidarMatrizTE()`).
+## Pantalla *Usuarios y accesos* (`/accesos/:tab`)
 
-Roles de `usuarios/{uid}.rol`: `superintendente` (se muestra como **Solicitante**; no se migró ningún dato), `rh`, `admin`
-y el nuevo **`autorizador`**, para quien solo autoriza (directores y gerentes): no ve el módulo de rutas.
+- **Usuarios** (RH/admin): tabla de cuentas con rol del sistema y la columna *Roles operativos* (etiquetas vigentes:
+  "Solicitante · Producción", "Aut. 1 · Moldes hasta 20/10").
+- **Asignaciones** (quien puede asignar): tabla con filtros (rol, área, estado Vigentes/Programadas/Vencidas/Revocadas) y
+  buscador; *Asignar rol*, *Revocar*, *Extender* y *Ver historial* (de la bitácora). Al elegir rol y área, el buscador
+  sugiere primero a los empleados de esa área (por `areaId`), ordenados por puesto. Si la persona no tiene usuario:
+  **Sin usuario** y, para RH/admin, **Crear usuario**.
+- **Organigrama** (todos; solo lectura salvo para quien asigna): generado **solo** con asignaciones vigentes, con la forma
+  de la hoja *Niveles de autorización*: Aut. 2 arriba, una columna por área con participaTE con su Aut. 1 (amarillo) y sus
+  solicitantes (rosa). Quien asigna ve *+ Aut. 1* / *+ Solicitante* por columna y puede revocar desde la tarjeta. Un área sin
+  Aut. 1 vigente muestra "Sin Autorización 1: las solicitudes de esta área no podrán avanzar".
+
+## Accesos en la app
+
+`useAccesos()` (`src/hooks/useAccesos.js`, proveedor `AccesosProvider`) lee **una vez por sesión, en vivo,** las asignaciones de la
+nómina del usuario (`where nomina == la suya`), filtra las vigentes y devuelve
+`{ esAdmin, esRH, esAut2, areasAut1, areasSolicitante }` (ids de área) más `tieneAcceso`, `cargando` y `error`.
+Menú, portal, contadores y suscripciones lo usan: nadie se suscribe a datos que no puede leer.
+
+- Módulo de **rutas**: lo ven RH/admin y los solicitantes vigentes de cualquier área. Las solicitudes nuevas guardan `areaId`
+  (si hay varias áreas, se elige una); las anteriores sin `areaId` siguen funcionando para su dueño.
+- Módulo de **tiempo extra**: RH/admin, Aut. 2, y quien tenga aut1 o solicitante vigente.
+- `useAreas()` entrega el catálogo de áreas (nombres) leído una vez por sesión.
 
 ## Portal y módulos
 
 - `/` es el portal: una tarjeta por módulo con el contador de pendientes de ese usuario.
 - `/rutas/...` transporte (las URLs viejas `/solicitud/...`, `/mis-solicitudes`, `/rh/...` redirigen).
-- `/tiempo-extra/...` tiempo extra; `/tiempo-extra/niveles` (RH) es la matriz.
-- `src/modulos.js` configura cada módulo: `id`, `nombre`, `icono`, `base`, `acceso(usuario, {te})` y `useContador(...)`.
-  Para un proceso nuevo: una entrada ahí, sus rutas bajo `base` en `App.jsx` (envueltas en `<RutaModulo modulo="..." />`)
-  y, si lleva contador, su hook en `src/hooks/usePendientes.js`.
+- `/tiempo-extra/...` tiempo extra. `/accesos/...` usuarios, asignaciones y organigrama (`/rutas/rh/usuarios` y `/tiempo-extra/niveles` redirigen).
+- `src/modulos.js` configura cada módulo: `id`, `nombre`, `icono`, `base`, `acceso(usuario, accesos)` y `useContador(...)`.
 
-Contador de tiempo extra: Aut. 1 → `pendiente_aut1` de sus áreas; Aut. 2 → `pendiente_aut2`; RH → `autorizada` por recibir;
+Contador de tiempo extra: Aut. 1 → `pendiente_aut1` de sus áreas; Aut. 2 y RH → `pendiente_aut2`; RH → `autorizada` por recibir;
 solicitante → sus `devuelta`. Nunca cuenta lo que creó la propia persona.
 
-## Áreas, niveles y reglas
+## Migración al modelo de asignaciones (RH > Catálogos > Diagnóstico, solo admin)
 
-### `areasTE/{areaId}` (id = slug del nombre: `produccion`, `almacen`, `calidad`, `mantenimiento`, `moldes`)
-
-```
-nombre, activa,
-autorizador1Nomina, suplente1Nomina (opcional),
-solicitantesNominas: [nómina, ...]
-```
-
-### `config/tiempoExtra`
-
-```
-autorizador2Nomina, suplente2Nomina
-```
-
-### `config/areasTE` — reglas departamento + puesto → área
-
-```
-reglas: [ { depto: '316', puestos: ['QUALITY INSPECTOR'], area: 'calidad' }, { depto: '316', area: 'produccion' }, ... ]
-```
-
-Se evalúan **en orden**; gana la primera donde coincidan `depto` y, si trae `puestos`, el puesto. `area: ''` = sin área
-(no participa en TE). Sin documento se usan las reglas iniciales de `src/utils/areasTE.js`. Se editan en
-*Tiempo extra > Niveles de autorización > Reglas de área* (con un probador de combinaciones).
-
-Reglas iniciales: 316 (QUALITY INSPECTOR → Calidad, resto → Producción), 317 → Calidad, 319 y 324 → Producción,
-323 (RESINER o SCRAP MILLER → Producción, resto → Almacén), 322/328/329 → Almacén, 320 → Mantenimiento,
-321 → Moldes, 318/331/461/472/474 → sin área. Un departamento **sin ninguna regla** también queda sin área, pero la
-vista previa de la importación lo avisa aparte ("sin regla").
-
-### Pantalla *Niveles de autorización* (RH)
-
-Matriz como la hoja de Excel de RH: columnas = áreas; filas *Autorización 2* y *Por ausencia* a todo el ancho;
-*Autorización 1*, *Aut. 1 por ausencia* (opcional) y *Solicitantes* por área. Cada celda se llena buscando en el padrón
-por nombre o nómina. Si la persona no tiene usuario muestra **Sin usuario** y **Crear usuario** (abre el alta con nómina y
-nombre ya llenos). El botón *Cargar configuración inicial* llena la matriz de prueba (sin guardar hasta presionar *Guardar*).
-
-## Padrón con área e importación de nómina
-
-`empleados/{nómina}` (id = nómina, como texto) gana: `depto`, `descDepto`, `turnoNomina` (A/B/C tal cual), `nivel`,
-`fechaAlta` (`AAAA-MM-DD`), `areaTE` (id de área, `''` = sin área) y `areaTEManual`.
-
-*Padrón de empleados > Importar* acepta el **formato propio** o el **reporte de nómina**, que se detecta por sus
-encabezados (`numero_i, nombre, depto, desc_depto, turno, puesto, nivel_g, alta_g`; basta con `numero_i, nombre, depto, puesto`
-y se busca en las primeras filas de cualquier hoja).
-
-| Reporte | Empleado |
-|---|---|
-| numero_i | nómina (texto: hay nóminas cortas como `11` o `7219`) |
-| nombre, puesto | nombre, puesto (el puesto se limpia: caracteres de control, `_x0002_`, espacios dobles/finales) |
-| depto, desc_depto | `depto`, `descDepto` |
-| turno, nivel_g, alta_g | `turnoNomina`, `nivel`, `fechaAlta` |
-
-`areaTE` se calcula con las reglas. Si RH fija el área a mano (selector *Área de tiempo extra* en la edición del
-empleado) se guarda `areaTEManual: true` y la importación ya no la pisa. La vista previa muestra el **conteo por área**,
-los empleados **sin área** y los departamentos sin regla. Se conserva todo lo anterior: modos *agregar* / *sincronizar*,
-bajas lógicas con umbral de seguridad y **no tocar ruta/comunidad/punto** cuando no vienen.
-
-Tras cambiar las reglas, las áreas se recalculan en la próxima importación de nómina (no hay recálculo masivo).
+1. *Respaldar y simular*: descarga un JSON (usuarios, areasTE, config/tiempoExtra, config/areasTE, accesosTE) y muestra todo lo que pasaría.
+2. *Ejecutar* (solo tras escribir `MIGRAR`): `areasTE` (Aut. 1 y suplente) → aut1; `solicitantesNominas` → solicitante;
+   Aut. 2 y suplente de `config/tiempoExtra` → aut2; `accesosTE` vigentes → asignaciones con sus fechas;
+   `superintendente` → `usuario` + solicitante en el área de su padrón (sin área o en un área sin participaTE: se listan "por decidir" y
+   su rol no cambia); `autorizador` → `usuario`; `areaTEManual` → `areaExcepcion`. Lo ya migrado se omite: simular otra vez da "nada pendiente".
+3. *Limpiar estructura vieja* (paso aparte, tras verificar; escribir `LIMPIAR`): borra `areasTE`, `config/areasTE`, `accesosTE` y los
+   campos `areaTE` / `areaTEManual` del padrón, con otro respaldo antes. `config/tiempoExtra` no se borra.
 
 ## Modelo de datos
 
@@ -159,44 +139,50 @@ del padre (las reglas comparan el estatus antes/después) y por quien tiene el r
 
 `pendiente_aut1`, `pendiente_aut2`, `autorizada`, `devuelta`, `cancelada`, `procesada`, con `ESTATUS_TE_MAP`
 (etiqueta y badge; `<BadgeEstatus modulo="te" />`) y `TRANSICIONES_TE` (de, a, quién, acción), la misma tabla que
-aplican las reglas. Helpers: `transicionesTE(estatus, quien)` y `estatusInicialTE(esAut1DeLaArea)`.
+aplican las reglas. Helpers: `transicionesTE(estatus, quien)` y `estatusInicialTE(esAut1DeLaArea, areaParticipa)`.
 
 | De | A | Quién |
 |---|---|---|
-| pendiente_aut1 | pendiente_aut2 / devuelta | Aut. 1 o suplente del área (no el creador) |
-| pendiente_aut2 | autorizada / devuelta | Aut. 2, suplente o RH (no el creador) |
+| pendiente_aut1 | pendiente_aut2 / devuelta | Aut. 1 vigente del área (no el creador) |
+| pendiente_aut2 | autorizada / devuelta | Aut. 2 vigente o RH (no el creador) |
 | autorizada | procesada | RH |
 | pendiente_aut1, pendiente_aut2, devuelta | cancelada | el creador |
 | devuelta | pendiente_aut1 (o pendiente_aut2 si es el Aut. 1 del área) | el creador, quitando `aut1`/`aut2` |
 
 ## Reglas de Firestore (resumen; ver `firestore.rules`)
 
-- `areasTE`, `config/areasTE`, `config/tiempoExtra`: lee cualquier usuario activo; escriben RH y admin.
-- `empleados` (padrón): lo lee cualquier usuario activo; `areaTE` solo lo cambia RH.
-- `tiempoExtra` **leer**: el creador, el Aut. 1/suplente de esa área, la Aut. 2/suplente, RH y admin.
-- **Crear**: nómina en `solicitantesNominas` de ese `areaId`, `creadoPor == uid`, `folio == id`, sin firmas, estatus
-  `pendiente_aut1` (o `pendiente_aut2` si es el Aut. 1 de esa área), fechas = hora del servidor.
-- **Editar contenido** (fecha, motivo, resumen): solo el creador y solo en `devuelta`.
-- **Transiciones**: ver la tabla. Las firmas llevan la nómina de quien firma y `fecha == request.time`; devolver exige
-  `motivo` no vacío y el nivel correcto. Los autorizadores no tocan `empleados`.
-- **Borrar**: solo admin. **Historial**: solo crear, nunca editar ni borrar.
-- Las consultas de lista deben traer el filtro que las reglas pueden probar: `where('creadoPor','==',uid)`,
-  `where('areaId','==',área)` (Aut. 1; una consulta por área), `where('estatus','==',…)` (Aut. 2 y RH).
-
-Los autorizadores se comparan por `perfil().nomina` (`usuarios/{uid}.nomina`, texto, que solo RH/admin puede escribir).
+- Helper `asignacionVigente(rol, area)`: lee `asignaciones/{perfil().nomina}_{rol}_{area}` y comprueba `activo`, `desde <= request.time`
+  y `hasta`. `esAut2() = asignacionVigente('aut2', 'planta')`; `esAut1De(a)` y `esSolicitanteDe(a)` son el mismo helper.
+- `asignaciones`: las lee cualquier usuario activo; las crea o edita el admin (cualquier rol) o RH / Aut. 2 vigente (solo aut1 y solicitante, en un
+  área con participaTE); el id debe coincidir con `nomina_rol_area`; nadie, salvo admin, toca las suyas; nunca se borran.
+  Revocar/extender solo cambia `activo`, `hasta` y `motivo`.
+- `usuarios`: solo admin pone o quita `rh`/`admin`; RH crea usuarios con rol `usuario` y solo edita a quienes no son rh/admin. La Aut. 2 vigente también
+  los lee (para el aviso "Sin usuario"). `bitacora`: la Aut. 2 puede crear y leer solo `entidad == 'asignacion'`.
+- `tiempoExtra` **leer**: el creador, Aut. 1 vigente del área, Aut. 2 vigente, RH y admin.
+  **Crear**: solicitante vigente de esa área (RH o Aut. 2 si el área no participa), `creadoPor == uid`, `folio == id`, sin firmas, estatus
+  `pendiente_aut1` / `pendiente_aut2` según corresponda, fechas = hora del servidor.
+- **Empleados dentro de un TE**: el empleado del padrón debe tener la misma `areaId` que la solicitud.
+- **Solicitudes de ruta**: crea RH/admin o un solicitante vigente del `areaId` que declara; el dueño lee las suyas siempre, pero editarlas o
+  cancelarlas exige seguir siendo solicitante vigente de esa área (las sin `areaId` solo exigen ser el dueño). Un solicitante solo cambia
+  ruta/comunidad/punto de empleados de las áreas donde es solicitante vigente (la pantalla ya filtra esos cambios).
+- **Transiciones**, **borrar**, **historial**: como antes (ver la tabla). Las consultas de lista deben traer el filtro que las reglas pueden probar.
+- `areasTE`, `config/*` y `accesosTE` quedan solo para el admin (migración y limpieza). Una vez limpiada la estructura se pueden quitar de las reglas.
 
 ## Limitaciones conocidas
 
-- **Empleados del área**: las reglas no pueden verificar por cada fila que el empleado pertenezca al área del
-  solicitante (leer el padrón por fila excede el límite de lecturas por lote). La pantalla de captura debe ofrecer solo
-  empleados con `areaTE == areaId`. Si se quiere reforzar en servidor, hace falta una Cloud Function.
-- La captura debe usar `usuario.nomina` (perfil); un usuario sin nómina no pasa ninguna regla de TE.
-- Las consultas con `orderBy` sobre `tiempoExtra` necesitarán índices compuestos en `firestore.indexes.json`
-  (las consultas por igualdad de este módulo no).
+- **Límite de empleados por lote**: validar la `areaId` de cada empleado contra el padrón cuesta una lectura por fila y Firestore permite 20 lecturas
+  por lote. Con el resto de comprobaciones (perfil, área, solicitante, Aut. 1, solicitud), **caben 12 empleados en el lote de captura** (medido con
+  el emulador; con 13 falla; con `exists()` además de `get()` solo cabían 6). Opciones para más: (a) crear la solicitud con los primeros 12 y
+  agregar el resto en lotes siguientes permitidos mientras la solicitud no tenga firmas y se haya creado hace pocos minutos; (b) dejar la
+  validación solo en la pantalla y auditar con una Cloud Function; (c) guardar los empleados dentro de la solicitud y validar en servidor.
+- La captura debe usar `usuario.nomina` (perfil); un usuario sin nómina no pasa ninguna regla de TE ni de asignaciones.
+- Las consultas con `orderBy` sobre `tiempoExtra` necesitarán índices compuestos en `firestore.indexes.json`.
+- Las pantallas de captura y autorización de TE aún no existen (solo las reglas y el modelo).
+- Un solicitante de un área sin participaTE (Administrativo) no se puede asignar: una persona de Administrativo que hoy pide rutas necesita
+  decisión de RH (la migración las lista como "por decidir").
 
 ## Pruebas
 
-- `npm run test:rules` — reglas (127 casos) contra el emulador de Firestore; requiere Java 11+.
-  `tests/firestore.rules.test.js` (rutas/usuarios) y `tests/firestore.rules.te.test.js` (tiempo extra).
-- `npm run test:unit` — importación del reporte de nómina, limpieza de puestos y reglas de área (sin emulador).
+- `npm run test:rules` — reglas (rutas/usuarios, estructura, tiempo extra y asignaciones) contra el emulador de Firestore; requiere Java 11+.
+- `npm run test:unit` — importación, puestos, asignaciones, organigrama y migración (sin emulador).
 - `npm run prueba:humo` — pruebas de humo de utilidades.

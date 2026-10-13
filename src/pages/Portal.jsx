@@ -6,14 +6,14 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { useAccesosTE } from '../hooks/useAccesosTE';
+import { useAccesos } from '../hooks/useAccesos';
 import { modulosDe } from '../modulos';
 import { ROL_LABELS } from '../utils/constantes';
 import Spinner from '../components/Spinner';
 
-function TarjetaModulo({ modulo, usuario, ctx }) {
+function TarjetaModulo({ modulo, usuario, accesos }) {
   const Icono = modulo.icono;
-  const pendientes = modulo.useContador(usuario, ctx, true);
+  const pendientes = modulo.useContador(usuario, accesos, true);
   return (
     <Link to={modulo.base}
       className="group flex items-start justify-between gap-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5 shadow-sm transition-colors hover:border-[var(--cm-red)]">
@@ -42,11 +42,10 @@ function TarjetaModulo({ modulo, usuario, ctx }) {
 
 export default function Portal() {
   const { usuario } = useAuth();
-  const te = useAccesosTE();
-  const ctx = { te };
+  const accesos = useAccesos();
   const [hora] = useState(() => new Date().getHours());
   const saludo = hora < 12 ? 'Buenos dias' : hora < 19 ? 'Buenas tardes' : 'Buenas noches';
-  const modulos = modulosDe(usuario, ctx);
+  const modulos = modulosDe(usuario, accesos);
 
   return (
     <div className="space-y-6">
@@ -60,7 +59,7 @@ export default function Portal() {
         <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Elige el proceso con el que quieres trabajar.</p>
       </div>
 
-      {te.cargando && modulos.length === 0 ? (
+      {accesos.cargando && modulos.length === 0 ? (
         <Spinner />
       ) : modulos.length === 0 ? (
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-6 text-center text-xs text-[var(--text-secondary)]">
@@ -68,7 +67,7 @@ export default function Portal() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {modulos.map(m => <TarjetaModulo key={m.id} modulo={m} usuario={usuario} ctx={ctx} />)}
+          {modulos.map(m => <TarjetaModulo key={m.id} modulo={m} usuario={usuario} accesos={accesos} />)}
         </div>
       )}
     </div>

@@ -3,34 +3,29 @@
  * Los valores son los que ya están guardados en Firestore: no cambiarlos sin migrar los datos.
  */
 
-// ── Roles (usuarios/{uid}.rol) ────────────────────────────────────────────
+// ── Roles del sistema (usuarios/{uid}.rol) ───────────────────────────────
+// Solo admin, rh o usuario. Los permisos operativos (Aut. 2, Aut. 1, solicitante) NO van aquí:
+// son asignaciones por área, con vigencia (utils/asignaciones.js).
 export const ROLES = {
-  SUPERINTENDENTE: 'superintendente',
   RH: 'rh',
   ADMIN: 'admin',
-  /** Solo autoriza tiempo extra (directores y gerentes): no ve el módulo de rutas */
-  AUTORIZADOR: 'autorizador',
+  USUARIO: 'usuario',
 };
 
 /** Roles con acceso al panel de RH */
 export const ROLES_RH = [ROLES.RH, ROLES.ADMIN];
-/** Roles que pueden crear solicitudes */
-export const ROLES_SOLICITANTES = [ROLES.SUPERINTENDENTE, ROLES.RH, ROLES.ADMIN];
 
 export const ROL_LABELS = {
   [ROLES.ADMIN]: 'Administrador del sistema',
   [ROLES.RH]: 'Recursos Humanos',
-  // El valor guardado sigue siendo 'superintendente'; en pantalla se muestra "Solicitante"
-  [ROLES.SUPERINTENDENTE]: 'Solicitante',
-  [ROLES.AUTORIZADOR]: 'Autorizador',
+  [ROLES.USUARIO]: 'Usuario',
 };
 
 /** Versión corta, para la barra lateral y los selectores */
 export const ROL_LABELS_CORTOS = {
   [ROLES.ADMIN]: 'Administrador',
   [ROLES.RH]: 'Recursos Humanos',
-  [ROLES.SUPERINTENDENTE]: 'Solicitante',
-  [ROLES.AUTORIZADOR]: 'Autorizador',
+  [ROLES.USUARIO]: 'Usuario',
 };
 
 // ── Estatus de solicitud (solicitudes/{id}.estatus) ───────────────────────
@@ -130,9 +125,9 @@ export const ACCIONES_TE_LABELS = {
 
 /**
  * Quién puede ejecutar una transición (lo mismo que verifican firestore.rules):
- *   creador → quien capturó la solicitud · aut1 → Aut. 1 o suplente del área
- *   aut2 → Aut. 2, su suplente o RH · rh → RH/admin
- * Nadie autoriza ni devuelve una solicitud que creó él mismo.
+ *   creador → quien capturó la solicitud · aut1 → Aut. 1 vigente del área
+ *   aut2 → Aut. 2 vigente o RH · rh → RH/admin
+ * Nadie autoriza ni devuelve una solicitud que creó él mismo (si la creó un Aut. 2, la firma otro Aut. 2 o RH).
  * Reenviar desde "devuelta" va a pendiente_aut2 (y no a pendiente_aut1) si quien reenvía es el Aut. 1 del área.
  */
 export const TRANSICIONES_TE = [
@@ -151,6 +146,9 @@ export const TRANSICIONES_TE = [
 /** Transiciones que `quien` puede hacer desde `estatus` */
 export const transicionesTE = (estatus, quien) => TRANSICIONES_TE.filter(t => t.de === estatus && t.quien === quien);
 
-/** Estatus con el que entra una solicitud nueva (o reenviada): el Aut. 1 de la propia área se salta su nivel */
-export const estatusInicialTE = (esAut1DeLaArea) =>
-  esAut1DeLaArea ? ESTATUS_TE.PENDIENTE_AUT2 : ESTATUS_TE.PENDIENTE_AUT1;
+/**
+ * Estatus con el que entra una solicitud nueva (o reenviada): el Aut. 1 de la propia área se salta su nivel, y en un
+ * área que no participa en TE (Administrativo) la captura RH o la Aut. 2 y va directo a pendiente_aut2.
+ */
+export const estatusInicialTE = (esAut1DeLaArea, areaParticipa = true) =>
+  !areaParticipa || esAut1DeLaArea ? ESTATUS_TE.PENDIENTE_AUT2 : ESTATUS_TE.PENDIENTE_AUT1;

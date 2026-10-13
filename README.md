@@ -1,7 +1,7 @@
 # Solicitud de rutas — Century Mold
 
-Aplicación web interna para programar y autorizar el **transporte de personal**. Los superintendentes
-solicitan servicios de ruta para sus empleados; Recursos Humanos (RH) los revisa, aprueba o rechaza y exporta
+Aplicación web interna para programar y autorizar el **transporte de personal**. Los solicitantes
+de cada área piden servicios de ruta para sus empleados; Recursos Humanos (RH) los revisa, aprueba o rechaza y exporta
 el formato maestro en Excel para el proveedor de transporte.
 
 Stack: React 19 + Vite, Tailwind CSS 4, Firebase (Authentication y Firestore). No hay servidor propio:
@@ -9,14 +9,17 @@ la seguridad la dan las reglas de Firestore (`firestore.rules`).
 
 ## Roles
 
+**Rol del sistema** (`usuarios/{uid}.rol`): solo `admin`, `rh` o `usuario`.
+
 | Rol | Qué puede hacer |
 |---|---|
-| `superintendente` | Crear solicitudes, ver, editar y cancelar **las suyas**, avisar a RH, cambiar su contraseña. |
-| `rh` | Todo lo anterior sobre cualquier solicitud, más aprobar/rechazar, exportar a Excel y administrar empleados, catálogos (rutas, comunidades, puntos de reunión) y usuarios (no admins). |
-| `admin` | Todo lo de RH, además de crear y modificar administradores y borrar usuarios o solicitudes. |
+| `usuario` | Lo que le den sus **roles operativos** (asignaciones por área, ver abajo); sin ellos solo entra al portal y cambia su contraseña. |
+| `rh` | Todo lo de rutas sobre cualquier solicitud (aprobar/rechazar, exportar a Excel), empleados, catálogos, usuarios con rol `usuario` y asignaciones de Aut. 1 y solicitante. |
+| `admin` | Todo lo de RH, además de dar o quitar `rh` y `admin`, asignar Aut. 2 y borrar usuarios o solicitudes. |
 
-Los roles, estatus y sus etiquetas están en `src/utils/constantes.js`. Para agregar un rol hay que actualizarlo
-ahí y en las funciones auxiliares de `firestore.rules` (`esAdmin`, `esRH`, `puedeSolicitar`).
+**Roles operativos** (`asignaciones/{nomina}_{rol}_{área}`, con vigencia opcional): `solicitante` (crea solicitudes de ruta y de tiempo extra de su área),
+`aut1` (autoriza el nivel 1 de su área) y `aut2` (nivel 2, toda la planta). Se asignan en *Usuarios y accesos*; el puesto no da permisos.
+Detalle en `docs/tiempo-extra.md`. Roles, estatus y etiquetas: `src/utils/constantes.js` y `src/utils/asignaciones.js`; en `firestore.rules`, `esAdmin`, `esRH` y `asignacionVigente`.
 
 ## Flujo de una solicitud
 

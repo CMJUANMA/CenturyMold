@@ -99,6 +99,17 @@ export function resumenDeFormulario(pasajeros, puestos) {
  * Empleados cuya ruta confirmada cambió respecto al padrón: { [empleadoId]: { rutaId, comunidadId, puntoReunionId } }
  * Se guarda en el empleado para precargarla la próxima vez.
  */
+/**
+ * Quita de los cambios al padrón los empleados que quien guarda no puede modificar: RH/admin editan a cualquiera;
+ * un solicitante solo a los de las áreas donde es solicitante vigente (lo mismo que exige firestore.rules).
+ * La solicitud se guarda igual; esa ruta simplemente no se recuerda en el padrón.
+ */
+export function cambiosPadronPermitidos(cambios, empleados, { esRH, areasSolicitante }) {
+  if (esRH) return cambios;
+  const areaDe = new Map(empleados.map(e => [e.id ?? e.nomina, e.areaId]));
+  return Object.fromEntries(Object.entries(cambios).filter(([id]) => areasSolicitante.includes(areaDe.get(id))));
+}
+
 export function cambiosPadron(pasajeros) {
   const cambios = {};
   for (const p of pasajeros) {

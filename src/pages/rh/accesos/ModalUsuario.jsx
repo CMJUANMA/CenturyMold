@@ -1,0 +1,194 @@
+/**
+ * ModalUsuario.jsx — Alta y edición de un usuario del sistema (cuenta + perfil usuarios/{uid}).
+ * El rol del sistema es solo admin, rh o usuario; los permisos operativos se dan en Asignaciones.
+ * Solo un admin puede dar o quitar rh y admin (las reglas lo exigen).
+ *
+ * Props:
+ *   abierto, onClose
+ *   usuario       usuario a editar (null = alta)
+ *   precarga      { nomina, nombre } para un alta con la persona ya elegida
+ *   usuarios      todos los usuarios (para no repetir nómina)
+ *   empleados     padrón (para elegir a la persona en un alta)
+ *   esAdmin       el usuario actual es admin
+ *   onGuardado    (usuario, { nuevo }) => void
+ */
+import { useState } from 'react';
+import { doc, setDoc, updateDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, deleteUser, signOut } from 'firebase/auth';
+import { CheckCircle2, AlertTriangle, Loader2, X } from 'lucide-react';
+import { db } from '../../../firebase';
+import { authSecundaria } from '../../../firebaseSecundario';
+import Modal from '../../../components/Modal';
+import BuscadorEmpleado from '../../../components/BuscadorEmpleado';
+import { ROLES, ROL_LABELS } from '../../../utils/constantes';
+import { inputCls, btnPrimary, btnSecondary, btnIcon, labelCls } from './ui';
+
+const formDe = (usuario, precarga) => ({
+  nomina: usuario?.nomina ?? precarga?.nomina ?? '',
+  nombre: usuario?.nombre ?? precarga?.nombre ?? '',
+  password: '',
+  // Un rol viejo (superintendente/autorizador) se corrige a "usuario" al guardar
+  rol: [ROLES.ADMIN, ROLES.RH].includes(usuario?.rol) ? usuario.rol : ROLES.USUARIO,
+});
+
+export default function ModalUsuario({ abierto, ...resto }) {
+  // El formulario se reinicia al abrir: el contenido se monta solo mientras está abierto
+  return abierto ? <Contenido {...resto} /> : null;
+}
+
+function Contenido({ onClose, usuario = null, precarga = null, usuarios, empleados, esAdmin, onGuardado }) {
+  const edicion = !!usuario;
+  const [form, setForm] = useState(() => formDe(usuario, precarga));
+  const [manual, setManual] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState('');
+  const [exito, setExito] = useState('');
+
+  const opcionesRol = esAdmin ? [ROLES.USUARIO, ROLES.RH, ROLES.ADMIN] : [ROLES.USUARIO];
+
+  const guardar = async (e) => {
+    e.preventDefault();
+    setError(''); setExito('');
+    if (!edicion) {
+      if (!form.nomina.trim() || !form.nombre.trim() || !form.password) {
+        setError(form.nomina.trim() ? 'Todos los campos son obligatorios.' : 'Elige a la persona del padrón (o captura la nómina a mano).'); return;
+      }
+      if (form.password.length < 6) { setError('La contraseña temporal debe tener al menos 6 caracteres.'); return; }
+    } else if (!form.nombre.trim()) { setError('El nombre es obligatorio.'); return; }
+
+    setGuardando(true);
+    try {
+      if (edicion) {
+        await updateDoc(doc(db, 'usuarios', usuario.uid), { nombre: form.nombre.trim(), rol: form.rol });
+        onGuardado({ ...usuario, nombre: form.nombre.trim(), rol: form.rol }, { nuevo: false });
+        setExito('Usuario actualizado correctamente.');
+      } else {
+        const email = `${form.nomina.trim()}@rutas.app`;
+        const cred = await createUserWithEmailAndPassword(authSecundaria, email, form.password);
+        const { uid } = cred.user;
+        const perfil = { nomina: form.nomina.trim(), nombre: form.nombre.trim(), rol: form.rol, activo: true, debeCambiarPassword: true };
+        try {
+          // setDoc con el db principal (sesión de RH); la app secundaria solo crea la cuenta de Auth
+          await setDoc(doc(db, 'usuarios', uid), perfil);
+        } catch (errPerfil) {
+          // El perfil no se pudo guardar: borrar la cuenta recién creada (la sesión sigue en la app secundaria)
+          try { await deleteUser(cred.user); } catch (errBorrar) {
+            console.error('No se pudo borrar la cuenta huérfana:', errBorrar);
+            errPerfil.cuentaHuerfana = true;
+          }
+          throw errPerfil;
+        } finally {
+          await signOut(authSecundaria).catch(() => {});
+        }
+        onGuardado({ uid, ...perfil }, { nuevo: true });
+        setExito('Usuario creado correctamente.');
+      }
+      setTimeout(onClose, 900);
+    } catch (err) {
+      if (err.code === 'auth/email-already-in-use') {
+        const tienePerfil = usuarios.some(u => String(u.nomina) === form.nomina.trim());
+        setError(tienePerfil
+          ? 'Ya existe un usuario con esa nómina.'
+          : 'Esa nómina tiene una cuenta de acceso sin perfil (cuenta huérfana, normalmente de un alta que falló). ' +
+            'Bórrala en Firebase Console > Authentication (busca ' + form.nomina.trim() + '@rutas.app) y vuelve a crear el usuario.');
+      } else if (err.code === 'auth/weak-password') {
+        setError('La contraseña debe tener al menos 6 caracteres.');
+      } else if (err.cuentaHuerfana) {
+        setError(`No se pudo guardar el perfil (${err.message}) y tampoco se pudo borrar la cuenta creada. ` +
+          'Bórrala en Firebase Console > Authentication (' + form.nomina.trim() + '@rutas.app) antes de reintentar.');
+      } else {
+        setError(`Error: ${err.message}`);
+      }
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <Modal isOpen onClose={onClose} title={edicion ? 'Editar usuario' : 'Nuevo usuario'} maxWidth="max-w-md">
+      <form onSubmit={guardar} className="space-y-4">
+        {error && (
+          <div className="flex items-start gap-2 rounded-md border border-[var(--status-error-border)] bg-[var(--status-error-bg)] px-3 py-2 text-xs text-[var(--status-error-text)]">
+            <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" /><span>{error}</span>
+          </div>
+        )}
+        {exito && (
+          <div className="flex items-start gap-2 rounded-md border border-[var(--status-success-border)] bg-[var(--status-success-bg)] px-3 py-2 text-xs text-[var(--status-success-text)]">
+            <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5" /><span>{exito}</span>
+          </div>
+        )}
+        {edicion ? (
+          <div>
+            <label className={labelCls}>Nombre completo</label>
+            <input required value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} className={inputCls} />
+          </div>
+        ) : manual ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Nombre completo</label>
+              <input required value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Nómina</label>
+              <input required value={form.nomina} onChange={e => setForm(f => ({ ...f, nomina: e.target.value }))} className={inputCls} placeholder="ej. 51109" />
+            </div>
+            <button type="button" onClick={() => setManual(false)} className="col-span-2 text-left text-[11px] font-semibold text-[var(--cm-red)] hover:underline cursor-pointer">
+              Elegir del padrón
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <label className={labelCls}>Persona del padrón (por nómina o nombre)</label>
+            {form.nomina ? (
+              <div className="flex items-center justify-between gap-2 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] px-3 py-2 text-xs">
+                <span className="min-w-0">
+                  <span className="font-mono font-bold text-[var(--text-main)]">{form.nomina}</span>{' '}
+                  <span className="text-[var(--text-main)]">{form.nombre}</span>
+                </span>
+                <button type="button" onClick={() => setForm(f => ({ ...f, nomina: '', nombre: '' }))} className={btnIcon} title="Cambiar"><X className="h-3.5 w-3.5" /></button>
+              </div>
+            ) : (
+              <BuscadorEmpleado empleados={empleados} excluir={usuarios.map(u => String(u.nomina))}
+                onSelect={emp => setForm(f => ({ ...f, nomina: String(emp.nomina), nombre: emp.nombre ?? '' }))} />
+            )}
+            {form.nomina && (
+              <div>
+                <label className={labelCls}>Nombre completo</label>
+                <input required value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} className={inputCls} />
+              </div>
+            )}
+            <p className="text-[10px] text-[var(--text-muted)]">
+              Solo aparecen empleados activos que aún no tienen usuario.{' '}
+              <button type="button" onClick={() => setManual(true)} className="font-semibold text-[var(--cm-red)] hover:underline cursor-pointer">Capturar a mano</button>
+            </p>
+          </div>
+        )}
+        {!edicion && (
+          <div>
+            <label className={labelCls}>Contraseña temporal</label>
+            <input required type="password" minLength={6} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className={inputCls} placeholder="Mínimo 6 caracteres" />
+          </div>
+        )}
+        <div>
+          <label className={labelCls}>Rol del sistema</label>
+          <select required value={form.rol} onChange={e => setForm(f => ({ ...f, rol: e.target.value }))} className={inputCls} disabled={opcionesRol.length === 1}>
+            {opcionesRol.map(r => <option key={r} value={r}>{ROL_LABELS[r]}</option>)}
+          </select>
+          <p className="mt-1 text-[10px] text-[var(--text-muted)]">
+            {esAdmin
+              ? 'Solo tú puedes dar o quitar Recursos Humanos y Administrador.'
+              : 'Solo un administrador puede dar o quitar Recursos Humanos y Administrador.'}
+            {' '}Aut. 1, Aut. 2 y solicitante se asignan en la pestaña Asignaciones.
+          </p>
+        </div>
+        <div className="flex justify-end gap-2 pt-2 border-t border-[var(--border-color)] mt-2">
+          <button type="button" onClick={onClose} className={btnSecondary}>Cancelar</button>
+          <button type="submit" disabled={guardando} className={btnPrimary}>
+            {guardando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+            {edicion ? 'Guardar cambios' : 'Crear usuario'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}

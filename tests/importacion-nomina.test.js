@@ -1,10 +1,9 @@
-// Importación del reporte de nómina: detección de formato, limpieza y área de tiempo extra.
+// Importación del reporte de nómina: detección de formato, limpieza y área por puesto.
 // Ejecutar con: npm run test:unit
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { leerEmpleados, construirFormatoEmpleados, ENCABEZADOS_NOMINA } from '../src/utils/formatosImportacion.js';
 import { compararEmpleados } from '../src/utils/comparacionImportacion.js';
-import { calcularAreaTE, REGLAS_AREA_TE_INICIALES } from '../src/utils/areasTE.js';
 import { limpiarTexto } from '../src/utils/puestos.js';
 import { AREAS_INICIALES, PUESTOS_INICIALES } from '../src/utils/estructura.js';
 
@@ -33,30 +32,6 @@ describe('limpieza de puesto', () => {
   it('quita _x0002_, caracteres de control y espacios', () => {
     expect(limpiarTexto('PRODUCTION OPERATOR      _x0002_')).toBe('PRODUCTION OPERATOR');
     expect(limpiarTexto('  A\u0001  B\t\tC ')).toBe('A B C');
-  });
-});
-
-describe('reglas de área de TE', () => {
-  const area = (d, p) => calcularAreaTE(d, p, REGLAS_AREA_TE_INICIALES).areaId;
-  it('316 inspector de calidad → calidad, el resto → producción', () => {
-    expect(area('316', 'QUALITY INSPECTOR')).toBe('calidad');
-    expect(area('316', 'PRODUCTION OPERATOR')).toBe('produccion');
-  });
-  it('323 resiner/scrap miller → producción, montacargas → almacén', () => {
-    expect(area('323', 'RESINER')).toBe('produccion');
-    expect(area('323', 'SCRAP MILLER')).toBe('produccion');
-    expect(area('323', 'FORKLIFT')).toBe('almacen');
-  });
-  it('departamentos simples y sin área', () => {
-    expect(area('317', 'X')).toBe('calidad');
-    for (const d of ['319', '324']) expect(area(d, 'X')).toBe('produccion');
-    for (const d of ['322', '328', '329']) expect(area(d, 'X')).toBe('almacen');
-    expect(area('320', 'X')).toBe('mantenimiento');
-    expect(area('321', 'X')).toBe('moldes');
-    for (const d of ['318', '331', '461', '472', '474']) expect(area(d, 'X')).toBe('');
-  });
-  it('un departamento sin regla no tiene área ni regla', () => {
-    expect(calcularAreaTE('999', 'X', REGLAS_AREA_TE_INICIALES)).toEqual({ areaId: '', regla: null });
   });
 });
 

@@ -13,8 +13,15 @@ async function sembrar() {
     const db = ctx.firestore();
     await setDoc(doc(db, 'usuarios', 'admin'), perfil('admin'));
     await setDoc(doc(db, 'usuarios', 'rh'), perfil('rh'));
-    await setDoc(doc(db, 'usuarios', 'sup'), perfil('superintendente'));
-    await setDoc(doc(db, 'usuarios', 'aut'), perfil('autorizador'));
+    // Un solicitante y un Aut. 1 de Producción (por asignaciones vigentes), ambos con rol de sistema "usuario"
+    await setDoc(doc(db, 'usuarios', 'sup'), perfil('usuario', { nomina: 'n-sup' }));
+    await setDoc(doc(db, 'usuarios', 'aut'), perfil('usuario', { nomina: 'n-aut' }));
+    for (const [nomina, rol] of [['n-sup', 'solicitante'], ['n-aut', 'aut1']]) {
+      await setDoc(doc(db, 'asignaciones', `${nomina}_${rol}_produccion`), {
+        nomina, nombre: nomina, rol, areaId: 'produccion', desde: new Date(Date.now() - 86400000), hasta: null, motivo: '',
+        activo: true, asignadoPor: { uid: 'admin', nombre: 'Admin' }, fechaAsignacion: new Date(),
+      });
+    }
     await setDoc(doc(db, 'usuarios', 'inactivo'), perfil('rh', { activo: false }));
     await setDoc(doc(db, 'areas', 'produccion'), { nombre: 'Producción', participaTE: true, activa: true, orden: 1 });
     await setDoc(doc(db, 'puestos', 'resiner'), {
@@ -50,7 +57,7 @@ describe('areas', () => {
     for (const u of ['sup', 'aut', 'rh', 'admin']) await assertSucceeds(getDoc(doc(dbDe(u), 'areas', 'produccion')));
     await assertFails(getDoc(doc(dbDe('inactivo'), 'areas', 'produccion')));
   });
-  it('admin y RH las crean y editan; superintendente y autorizador no', async () => {
+  it('admin y RH las crean y editan; solicitante y Aut. 1 no', async () => {
     const nueva = { nombre: 'Calidad', participaTE: true, activa: true, orden: 3 };
     await assertSucceeds(setDoc(doc(dbDe('rh'), 'areas', 'calidad'), nueva));
     await assertSucceeds(updateDoc(doc(dbDe('admin'), 'areas', 'calidad'), { activa: false }));
@@ -132,13 +139,13 @@ describe('empleados: puestoId, areaId y excepción', () => {
     await assertSucceeds(updateDoc(ref('rh'), { puestoId: 'otro', areaId: 'almacen' }));
     await assertSucceeds(updateDoc(ref('admin'), { areaExcepcion: 'moldes', areaExcepcionMotivo: 'Prestado', areaId: 'moldes' }));
   });
-  it('superintendente y autorizador no pueden cambiar ninguno', async () => {
+  it('solicitante y Aut. 1 no pueden cambiar ninguno', async () => {
     for (const campos of [{ puestoId: 'otro' }, { areaId: 'moldes' }, { areaExcepcion: 'moldes' }, { areaExcepcionMotivo: 'x' }]) {
       await assertFails(updateDoc(ref('sup'), campos));
       await assertFails(updateDoc(ref('aut'), campos));
     }
   });
-  it('el superintendente sigue pudiendo cambiar solo ruta, comunidad y punto', async () => {
+  it('el solicitante del área sigue pudiendo cambiar solo ruta, comunidad y punto', async () => {
     await assertSucceeds(updateDoc(ref('sup'), { rutaId: 'r1', comunidadId: 'c1', puntoReunionId: 'p1' }));
     await assertFails(updateDoc(ref('sup'), { rutaId: 'r1', areaId: 'moldes' }));
   });

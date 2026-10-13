@@ -10,6 +10,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { CatalogosProvider } from './context/CatalogosContext';
+import { AccesosProvider } from './context/AccesosContext';
 import RutaProtegida from './components/RutaProtegida';
 import RutaRol from './components/RutaRol';
 import RutaModulo from './components/RutaModulo';
@@ -28,9 +29,8 @@ import CambiarPassword from './pages/CambiarPassword';
 const RhSolicitudes = lazy(() => import('./pages/rh/RhSolicitudes'));
 const RhEmpleados = lazy(() => import('./pages/rh/RhEmpleados'));
 const RhCatalogos = lazy(() => import('./pages/rh/RhCatalogos'));
-const RhUsuarios = lazy(() => import('./pages/rh/RhUsuarios'));
+const UsuariosYAccesos = lazy(() => import('./pages/rh/accesos/UsuariosYAccesos'));
 const Estructura = lazy(() => import('./pages/rh/Estructura'));
-const NivelesAutorizacion = lazy(() => import('./pages/rh/NivelesAutorizacion'));
 import { ROLES_RH } from './utils/roles';
 import { ToastProvider } from './components/Toast';
 import { ConfirmarProvider } from './context/ConfirmarContext';
@@ -61,26 +61,24 @@ const router = createBrowserRouter([
                 { path: '/rutas/rh/solicitudes', element: <RhSolicitudes /> },
                 { path: '/rutas/rh/empleados', element: <RhEmpleados /> },
                 { path: '/rutas/rh/catalogos', element: <RhCatalogos /> },
-                { path: '/rutas/rh/usuarios', element: <RhUsuarios /> },
                 { path: '/rutas/rh/estructura', element: <Estructura /> },
               ],
             },
           ],
         },
 
-        // Módulo de tiempo extra (el acceso sale de la matriz de autorización, no del rol)
+        // Módulo de tiempo extra (el acceso sale de las asignaciones vigentes, no del puesto)
         {
           element: <RutaModulo modulo="tiempo-extra" />,
           children: [
             { path: '/tiempo-extra', element: <TiempoExtraInicio /> },
-            {
-              element: <RutaRol roles={ROLES_RH} />,
-              children: [
-                { path: '/tiempo-extra/niveles', element: <NivelesAutorizacion /> },
-              ],
-            },
           ],
         },
+
+        // Usuarios y accesos: cada pestaña decide qué muestra según los permisos de quien entra
+        // (organigrama: todos; asignaciones: quien asigna; usuarios: RH/admin)
+        { path: '/accesos', element: <UsuariosYAccesos /> },
+        { path: '/accesos/:tab', element: <UsuariosYAccesos /> },
 
         // URLs anteriores a los módulos
         { path: '/solicitud/nueva', element: <Redirigir a="/rutas/solicitud/nueva" /> },
@@ -89,7 +87,9 @@ const router = createBrowserRouter([
         { path: '/rh/solicitudes', element: <Redirigir a="/rutas/rh/solicitudes" /> },
         { path: '/rh/empleados', element: <Redirigir a="/rutas/rh/empleados" /> },
         { path: '/rh/catalogos', element: <Redirigir a="/rutas/rh/catalogos" /> },
-        { path: '/rh/usuarios', element: <Redirigir a="/rutas/rh/usuarios" /> },
+        { path: '/rh/usuarios', element: <Redirigir a="/accesos" /> },
+        { path: '/rutas/rh/usuarios', element: <Redirigir a="/accesos" /> },
+        { path: '/tiempo-extra/niveles', element: <Redirigir a="/accesos/organigrama" /> },
       ],
     }],
   },
@@ -99,13 +99,15 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <CatalogosProvider>
-          <ToastProvider>
-            <ConfirmarProvider>
-              <RouterProvider router={router} />
-            </ConfirmarProvider>
-          </ToastProvider>
-        </CatalogosProvider>
+        <AccesosProvider>
+          <CatalogosProvider>
+            <ToastProvider>
+              <ConfirmarProvider>
+                <RouterProvider router={router} />
+              </ConfirmarProvider>
+            </ToastProvider>
+          </CatalogosProvider>
+        </AccesosProvider>
       </AuthProvider>
     </ThemeProvider>
   );

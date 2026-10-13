@@ -1,5 +1,5 @@
 /**
- * MisSolicitudes.jsx — Vista de superintendente
+ * MisSolicitudes.jsx — Vista del solicitante
  */
 import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';

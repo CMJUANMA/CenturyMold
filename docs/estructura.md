@@ -29,9 +29,9 @@ El mismo panel (`ResolucionPuestos`) lo usa **Estructura → Puestos → Asignar
 ## Reglas (`firestore.rules`)
 
 `areas` y `puestos`: leen usuarios activos, escriben admin y RH. `bitacora`: crean y leen admin y RH. En `empleados`, `puestoId`, `areaId`,
-`areaExcepcion` y `areaExcepcionMotivo` solo los cambian admin y RH (el superintendente solo ruta/comunidad/punto).
+`areaExcepcion` y `areaExcepcionMotivo` solo los cambian admin y RH (un solicitante vigente de esa área solo ruta/comunidad/punto).
 Pruebas: `tests/firestore.rules.estructura.test.js` (`npm run test:rules`). Matcher y estructura: `tests/puestos.test.js` (`npm run test:unit`).
 
 ## Pendiente (siguiente etapa)
 
-Siguen existiendo `areasTE`, `config/areasTE` y `empleados.areaTE` (ya no se escribe `areaTE` al importar). Los permisos por área se definen en el siguiente paso.
+Los permisos por área ya son asignaciones (`docs/tiempo-extra.md`). La estructura vieja (`areasTE`, `config/areasTE`, `accesosTE`, `empleados.areaTE`/`areaTEManual`) se migra y se elimina desde RH > Catálogos > Diagnóstico (solo admin).

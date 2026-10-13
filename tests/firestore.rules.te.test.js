@@ -1,4 +1,4 @@
-// Reglas de tiempo extra (tiempoExtra, areasTE, config, contadores, padrón) contra el emulador de Firestore.
+// Reglas de tiempo extra (tiempoExtra, asignaciones vigentes, contadores, padrón) contra el emulador de Firestore.
 // Ejecutar con: npm run test:rules  (requiere Java 11+; levanta el emulador por sí solo)
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
@@ -29,38 +29,53 @@ const teSemilla = (folio, creadoPor, areaId, estatus, extra = {}) => ({
 });
 const firmaSemilla = (nomina) => ({ nomina, nombre: `Usuario ${nomina}`, fecha: ahora(), comentario: '' });
 
+const ayer = () => Timestamp.fromDate(new Date(Date.now() - 24 * 3600 * 1000));
+/** Asignación válida (el emulador la escribe con las reglas apagadas) */
+const asig = (nomina, rol, areaId, extra = {}) => ({
+  nomina, nombre: `Usuario ${nomina}`, rol, areaId: rol === 'aut2' ? null : areaId,
+  desde: ayer(), hasta: null, motivo: '', activo: true, asignadoPor: { uid: 'admin', nombre: 'Admin' }, fechaAsignacion: ahora(), ...extra,
+});
+const idAsig = (nomina, rol, areaId) => `${nomina}_${rol}_${rol === 'aut2' ? 'planta' : areaId}`;
+
 async function sembrar() {
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
     const usuarios = {
       admin: ['admin', N.admin], rh: ['rh', N.rh], rh2: ['rh', N.rh2],
-      solP: ['superintendente', N.solP], solP2: ['superintendente', N.solP2],
-      aut1P: ['autorizador', N.aut1P], aut1PSup: ['autorizador', N.aut1PSup],
-      solA: ['superintendente', N.solA], aut1A: ['autorizador', N.aut1A],
-      aut1M: ['superintendente', N.aut1M], solM: ['superintendente', N.solM],
-      aut2: ['autorizador', N.aut2], aut2Sup: ['autorizador', N.aut2Sup],
-      ajeno: ['superintendente', N.ajeno],
+      solP: ['usuario', N.solP], solP2: ['usuario', N.solP2],
+      aut1P: ['usuario', N.aut1P], aut1PSup: ['usuario', N.aut1PSup],
+      solA: ['usuario', N.solA], aut1A: ['usuario', N.aut1A],
+      aut1M: ['usuario', N.aut1M], solM: ['usuario', N.solM],
+      aut2: ['usuario', N.aut2], aut2Sup: ['usuario', N.aut2Sup],
+      ajeno: ['usuario', N.ajeno],
     };
     for (const [uid, [rol, nomina]] of Object.entries(usuarios)) await setDoc(doc(db, 'usuarios', uid), perfil(rol, nomina));
-    await setDoc(doc(db, 'usuarios', 'inactivo'), perfil('autorizador', N.inactivo, { activo: false }));
+    await setDoc(doc(db, 'usuarios', 'inactivo'), perfil('usuario', N.inactivo, { activo: false }));
 
-    // Matriz
-    await setDoc(doc(db, 'areasTE', 'produccion'), {
-      nombre: 'Producción', activa: true, autorizador1Nomina: N.aut1P, suplente1Nomina: N.aut1PSup,
-      solicitantesNominas: [N.solP, N.solP2],
-    });
-    await setDoc(doc(db, 'areasTE', 'almacen'), {
-      nombre: 'Almacén', activa: true, autorizador1Nomina: N.aut1A, solicitantesNominas: [N.solA],
-    });
-    // El Aut. 1 de Moldes también está entre sus solicitantes
-    await setDoc(doc(db, 'areasTE', 'moldes'), {
-      nombre: 'Moldes', activa: true, autorizador1Nomina: N.aut1M, solicitantesNominas: [N.solM, N.aut1M],
-    });
-    await setDoc(doc(db, 'config', 'tiempoExtra'), { autorizador2Nomina: N.aut2, suplente2Nomina: N.aut2Sup });
-    await setDoc(doc(db, 'config', 'areasTE'), { reglas: [{ depto: '316', area: 'produccion' }] });
+    // Áreas del catálogo (Administrativo no participa en TE)
+    for (const [id, nombre, participaTE, orden] of [
+      ['produccion', 'Producción', true, 1], ['almacen', 'Almacén', true, 2], ['calidad', 'Calidad', true, 3],
+      ['mantenimiento', 'Mantenimiento', true, 4], ['moldes', 'Moldes', true, 5], ['administrativo', 'Administrativo', false, 6],
+    ]) await setDoc(doc(db, 'areas', id), { nombre, participaTE, activa: true, orden });
+
+    // Asignaciones vigentes. Aut. 1 de Producción y su suplente; el Aut. 1 de Moldes también es solicitante
+    const todas = [
+      [N.aut1P, 'aut1', 'produccion'], [N.aut1PSup, 'aut1', 'produccion'], [N.solP, 'solicitante', 'produccion'], [N.solP2, 'solicitante', 'produccion'],
+      [N.aut1A, 'aut1', 'almacen'], [N.solA, 'solicitante', 'almacen'],
+      [N.aut1M, 'aut1', 'moldes'], [N.solM, 'solicitante', 'moldes'], [N.aut1M, 'solicitante', 'moldes'],
+      [N.aut2, 'aut2', null], [N.aut2Sup, 'aut2', null],
+    ];
+    for (const [nomina, rol, area] of todas) await setDoc(doc(db, 'asignaciones', idAsig(nomina, rol, area)), asig(nomina, rol, area));
     await setDoc(doc(db, 'contadores', 'te-2026'), { ultimo: 12 });
 
-    await setDoc(doc(db, 'empleados', '600'), { nombre: 'Operador 600', nomina: '600', areaTE: 'produccion', rutaId: 'r1' });
+    // Padrón: el área efectiva de cada empleado (areaId) debe coincidir con la de la solicitud
+    await setDoc(doc(db, 'empleados', '600'), { nombre: 'Operador 600', nomina: '600', areaId: 'produccion', rutaId: 'r1' });
+    await setDoc(doc(db, 'empleados', '800'), { nombre: 'Operador 800', nomina: '800', areaId: 'produccion' });
+    await setDoc(doc(db, 'empleados', '801'), { nombre: 'Auxiliar 801', nomina: '801', areaId: 'calidad' });
+    await setDoc(doc(db, 'empleados', '810'), { nombre: 'Moldeador 810', nomina: '810', areaId: 'moldes' });
+    await setDoc(doc(db, 'empleados', '802'), { nombre: 'Oficinista 802', nomina: '802', areaId: 'administrativo' });
+    for (let i = 0; i < 40; i++) await setDoc(doc(db, 'empleados', String(700 + i)), { nombre: `Operador ${700 + i}`, nomina: String(700 + i), areaId: 'produccion' });
+    for (let i = 0; i < 40; i++) await setDoc(doc(db, 'empleados', String(900 + i)), { nombre: `Administrativo ${900 + i}`, nomina: String(900 + i), areaId: 'administrativo' });
 
     // Solicitudes de tiempo extra
     const s = (folio, ...args) => setDoc(doc(db, 'tiempoExtra', folio), teSemilla(folio, ...args));
@@ -122,6 +137,22 @@ function capturar(uid, areaId, { extra = {}, empleados = 2, folio = 'TE-2026-001
   return b.commit();
 }
 
+/** Máximo de empleados que cabe en el lote de captura (medido con el emulador; ver docs/tiempo-extra.md) */
+const LOTE_MAXIMO = 12;
+
+/** Captura con empleados concretos (nóminas del padrón). conAut1: el estatus por defecto es el de un Aut. 1 que captura */
+function capturarCon(uid, areaId, nominas, extra = {}, conAut1 = false) {
+  const db = dbDe(uid);
+  const b = writeBatch(db);
+  const folio = 'TE-2026-0013';
+  const estatus = extra.estatus ?? (conAut1 ? 'pendiente_aut2' : 'pendiente_aut1');
+  b.set(doc(db, 'tiempoExtra', folio), nuevo(uid, areaId, { folio, ...extra, estatus }));
+  for (const n of nominas) b.set(doc(db, 'tiempoExtra', folio, 'empleados', n), { nombre: `Empleado ${n}`, puesto: 'X', horas: 2 });
+  const h = historial(db, folio, { uid, accion: 'creada' });
+  b.set(h.ref, h.data);
+  return b.commit();
+}
+
 /** Transición: cambios al padre + entrada de historial en el mismo lote */
 function transicion(uid, folio, cambios, accion, nivel) {
   const db = dbDe(uid);
@@ -153,77 +184,89 @@ beforeEach(async () => {
   await sembrar();
 });
 
-describe('configuración de áreas y niveles', () => {
-  it('cualquier usuario activo lee areasTE, config/tiempoExtra y config/areasTE', async () => {
+describe('estructura anterior (areasTE, config, accesosTE)', () => {
+  it('ya nada la lee salvo RH/admin, y solo el admin la escribe o borra (migración y limpieza)', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'areasTE', 'produccion'), { nombre: 'Producción', solicitantesNominas: [] });
+      await setDoc(doc(ctx.firestore(), 'config', 'tiempoExtra'), { autorizador2Nomina: N.aut2 });
+    });
     for (const uid of ['solP', 'aut1P', 'aut2', 'ajeno']) {
       const db = dbDe(uid);
-      await assertSucceeds(getDoc(doc(db, 'areasTE', 'produccion')));
-      await assertSucceeds(getDoc(doc(db, 'config', 'tiempoExtra')));
-      await assertSucceeds(getDoc(doc(db, 'config', 'areasTE')));
+      await assertFails(getDoc(doc(db, 'areasTE', 'produccion')));
+      await assertFails(getDoc(doc(db, 'config', 'tiempoExtra')));
+      await assertFails(setDoc(doc(db, 'areasTE', 'x'), { nombre: 'X' }));
     }
-  });
-
-  it('un usuario inactivo no lee nada de la configuración', async () => {
-    const db = dbDe('inactivo');
-    await assertFails(getDoc(doc(db, 'areasTE', 'produccion')));
-    await assertFails(getDoc(doc(db, 'config', 'tiempoExtra')));
-  });
-
-  it('solicitantes, autorizadores y aut. 2 no pueden escribir la configuración', async () => {
-    for (const uid of ['solP', 'aut1P', 'aut2', 'aut2Sup']) {
-      const db = dbDe(uid);
-      await assertFails(setDoc(doc(db, 'areasTE', 'produccion'), { nombre: 'X', solicitantesNominas: [N[uid]] }));
-      await assertFails(updateDoc(doc(db, 'areasTE', 'produccion'), { autorizador1Nomina: N[uid] }));
-      await assertFails(updateDoc(doc(db, 'config', 'tiempoExtra'), { autorizador2Nomina: N[uid] }));
-      await assertFails(setDoc(doc(db, 'config', 'areasTE'), { reglas: [] }));
-      await assertFails(deleteDoc(doc(db, 'areasTE', 'produccion')));
-    }
-  });
-
-  it('RH y admin escriben la configuración', async () => {
-    for (const uid of ['rh', 'admin']) {
-      const db = dbDe(uid);
-      await assertSucceeds(setDoc(doc(db, 'areasTE', 'nueva'), { nombre: 'Nueva', activa: true, autorizador1Nomina: '1', solicitantesNominas: [] }));
-      await assertSucceeds(updateDoc(doc(db, 'config', 'tiempoExtra'), { suplente2Nomina: '123' }));
-      await assertSucceeds(setDoc(doc(db, 'config', 'areasTE'), { reglas: [] }));
-    }
+    await assertSucceeds(getDoc(doc(dbDe('rh'), 'areasTE', 'produccion')));
+    await assertFails(setDoc(doc(dbDe('rh'), 'areasTE', 'x'), { nombre: 'X' }));
+    await assertFails(deleteDoc(doc(dbDe('rh'), 'areasTE', 'produccion')));
+    await assertSucceeds(deleteDoc(doc(dbDe('admin'), 'areasTE', 'produccion')));
+    await assertSucceeds(setDoc(doc(dbDe('admin'), 'config', 'areasTE'), { reglas: [] }));
   });
 
   it('no se puede crear otro documento de config', async () => {
-    await assertFails(setDoc(doc(dbDe('rh'), 'config', 'otra'), { x: 1 }));
+    await assertFails(setDoc(doc(dbDe('admin'), 'config', 'otra'), { x: 1 }));
     await assertFails(getDoc(doc(dbDe('rh'), 'config', 'otra')));
   });
 });
 
-describe('padrón con areaTE', () => {
+describe('padrón con areaId', () => {
   it('lo lee cualquier usuario activo, incluido un autorizador', async () => {
     for (const uid of ['aut1P', 'aut2', 'solP', 'ajeno']) await assertSucceeds(getDoc(doc(dbDe(uid), 'empleados', '600')));
   });
   it('un usuario inactivo no lo lee', async () => {
     await assertFails(getDoc(doc(dbDe('inactivo'), 'empleados', '600')));
   });
-  it('solo RH cambia areaTE', async () => {
+  it('solo RH cambia el área (areaId, areaExcepcion)', async () => {
     for (const uid of ['solP', 'aut1P', 'aut2']) {
-      await assertFails(updateDoc(doc(dbDe(uid), 'empleados', '600'), { areaTE: 'almacen', areaTEManual: true }));
+      await assertFails(updateDoc(doc(dbDe(uid), 'empleados', '600'), { areaId: 'almacen', areaExcepcion: 'almacen' }));
     }
-    // un solicitante de rutas sigue pudiendo cambiar la ruta, pero no colar areaTE junto con ella
+    // un solicitante del área del empleado puede cambiar la ruta, pero no colar el área junto con ella
     await assertSucceeds(updateDoc(doc(dbDe('solP'), 'empleados', '600'), { rutaId: 'r2' }));
-    await assertFails(updateDoc(doc(dbDe('solP'), 'empleados', '600'), { rutaId: 'r2', areaTE: 'almacen' }));
-    await assertSucceeds(updateDoc(doc(dbDe('rh'), 'empleados', '600'), { areaTE: 'almacen', areaTEManual: true }));
+    await assertFails(updateDoc(doc(dbDe('solP'), 'empleados', '600'), { rutaId: 'r2', areaId: 'almacen' }));
+    await assertSucceeds(updateDoc(doc(dbDe('rh'), 'empleados', '600'), { areaId: 'almacen', areaExcepcion: 'almacen' }));
   });
-  it('un autorizador no modifica el padrón', async () => {
+  it('un solicitante de otra área no cambia la ruta del empleado; un autorizador tampoco', async () => {
+    await assertFails(updateDoc(doc(dbDe('solA'), 'empleados', '600'), { rutaId: 'r2' }));
     await assertFails(updateDoc(doc(dbDe('aut1P'), 'empleados', '600'), { rutaId: 'r2' }));
   });
 });
 
-describe('módulo de rutas y rol autorizador', () => {
-  it('un autorizador no lee ni crea solicitudes de rutas', async () => {
-    const db = dbDe('aut2');
+describe('módulo de rutas: solicitante vigente de un área', () => {
+  const solicitud = (uid, extra = {}) => ({ creadoPor: uid, estatus: 'pendiente', fechaServicio: '2026-11-10', ...extra });
+
+  it('crea el solicitante vigente de un área, con su areaId; no sin área, ni de otra área', async () => {
+    await assertSucceeds(setDoc(doc(dbDe('solP'), 'solicitudes', 'nueva'), solicitud('solP', { areaId: 'produccion' })));
+    await assertFails(setDoc(doc(dbDe('solP'), 'solicitudes', 'sin-area'), solicitud('solP')));
+    await assertFails(setDoc(doc(dbDe('solP'), 'solicitudes', 'otra-area'), solicitud('solP', { areaId: 'almacen' })));
+  });
+  it('un Aut. 1 o una Aut. 2 sin ser solicitantes no crean ni leen solicitudes de rutas', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'solicitudes', 'sol-x'), { creadoPor: 'aut2', estatus: 'pendiente' });
     });
-    await assertFails(getDoc(doc(db, 'solicitudes', 'sol-x')));
-    await assertFails(setDoc(doc(db, 'solicitudes', 'nueva'), { creadoPor: 'aut2', estatus: 'pendiente' }));
+    for (const uid of ['aut2', 'aut1P', 'ajeno']) {
+      await assertFails(setDoc(doc(dbDe(uid), 'solicitudes', 'nueva'), solicitud(uid, { areaId: 'produccion' })));
+    }
+    await assertFails(getDoc(doc(dbDe('aut1P'), 'solicitudes', 'sol-x')));
+  });
+  it('RH y admin crean con o sin área', async () => {
+    await assertSucceeds(setDoc(doc(dbDe('rh'), 'solicitudes', 'rh-1'), solicitud('rh')));
+    await assertSucceeds(setDoc(doc(dbDe('admin'), 'solicitudes', 'ad-1'), solicitud('admin', { areaId: 'produccion' })));
+  });
+  it('una solicitud anterior (sin areaId) sigue funcionando para su dueño', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'solicitudes', 'vieja'), { creadoPor: 'ajeno', estatus: 'pendiente', fechaServicio: '2026-11-10' });
+    });
+    await assertSucceeds(getDoc(doc(dbDe('ajeno'), 'solicitudes', 'vieja')));
+    await assertSucceeds(updateDoc(doc(dbDe('ajeno'), 'solicitudes', 'vieja'), { estatus: 'cancelada', historial: [] }));
+  });
+  it('si su rol de solicitante vence, edita nada pero sigue leyendo lo suyo', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'solicitudes', 'sol-p'), { creadoPor: 'solP', estatus: 'pendiente', areaId: 'produccion', fechaServicio: '2026-11-10' });
+      await updateDoc(doc(ctx.firestore(), 'asignaciones', idAsig(N.solP, 'solicitante', 'produccion')), { hasta: Timestamp.fromDate(new Date(Date.now() - 1000)) });
+    });
+    await assertSucceeds(getDoc(doc(dbDe('solP'), 'solicitudes', 'sol-p')));
+    await assertFails(updateDoc(doc(dbDe('solP'), 'solicitudes', 'sol-p'), { estatus: 'cancelada', historial: [] }));
+    await assertFails(setDoc(doc(dbDe('solP'), 'solicitudes', 'nueva'), solicitud('solP', { areaId: 'produccion' })));
   });
 });
 
@@ -252,16 +295,46 @@ describe('capturar (crear)', () => {
     await assertSucceeds(capturar('solP', 'produccion'));
   });
 
-  it('un lote con muchos empleados no revienta el límite de lecturas de las reglas', async () => {
-    await assertSucceeds(capturar('solP', 'produccion', { empleados: 40 }));
+  it('un lote con varios empleados cabe en el límite de lecturas de las reglas', async () => {
+    await assertSucceeds(capturar('solP', 'produccion', { empleados: LOTE_MAXIMO }));
   });
 
-  it('el Aut. 1 de esa área entra directo a pendiente_aut2', async () => {
-    await assertSucceeds(capturar('aut1M', 'moldes', { extra: { estatus: 'pendiente_aut2' } }));
+  it('con un empleado más que el máximo medido, el lote supera el límite (hay que partirlo)', async () => {
+    await assertFails(capturar('solP', 'produccion', { empleados: LOTE_MAXIMO + 1 }));
+  });
+
+  it('un solicitante de Producción no incluye a un empleado de Calidad ni de otra área', async () => {
+    await assertFails(capturarCon('solP', 'produccion', ['801']));
+    await assertFails(capturarCon('solP', 'produccion', ['700', '801'])); // basta uno ajeno
+    await assertFails(capturarCon('solP', 'produccion', ['802']));
+    await assertFails(capturarCon('solP', 'produccion', ['999'])); // ni uno que no está en el padrón
+    await assertSucceeds(capturarCon('solP', 'produccion', ['600', '700']));
+  });
+
+  it('RH crea un TE de Administrativo (área sin participaTE): va directo a pendiente_aut2', async () => {
+    await assertSucceeds(capturarCon('rh', 'administrativo', ['802'], { estatus: 'pendiente_aut2' }));
+    await assertFails(capturarCon('rh', 'administrativo', ['802'], { estatus: 'pendiente_aut1' }));
+    await assertFails(capturarCon('rh', 'administrativo', ['700'], { estatus: 'pendiente_aut2' })); // empleado de Producción
+  });
+
+  it('una Aut. 2 también captura en Administrativo; un solicitante, un Aut. 1 o un ajeno no', async () => {
+    await assertSucceeds(capturarCon('aut2', 'administrativo', ['802'], { estatus: 'pendiente_aut2' }));
+    for (const uid of ['solP', 'aut1P', 'solM', 'ajeno']) {
+      await assertFails(capturarCon(uid, 'administrativo', ['802'], { estatus: 'pendiente_aut2' }));
+    }
+  });
+
+  it('RH y la Aut. 2 no capturan en un área que sí participa (solo sus solicitantes)', async () => {
+    await assertFails(capturar('rh', 'produccion', { extra: { estatus: 'pendiente_aut1' } }));
+    await assertFails(capturar('aut2', 'produccion', { extra: { estatus: 'pendiente_aut2' } }));
+  });
+
+  it('quien es solicitante y Aut. 1 de esa área entra directo a pendiente_aut2', async () => {
+    await assertSucceeds(capturarCon('aut1M', 'moldes', ['810'], { estatus: 'pendiente_aut2' }, true));
   });
 
   it('el Aut. 1 no puede capturar como pendiente_aut1, ni otro como pendiente_aut2', async () => {
-    await assertFails(capturar('aut1M', 'moldes', { extra: { estatus: 'pendiente_aut1' } }));
+    await assertFails(capturarCon('aut1M', 'moldes', ['810'], { estatus: 'pendiente_aut1' }, true));
     await assertFails(capturar('solP', 'produccion', { extra: { estatus: 'pendiente_aut2' } }));
   });
 
@@ -305,12 +378,9 @@ describe('capturar (crear)', () => {
     await assertFails(capturar('solP', 'produccion', { extra: { esAdmin: true } }));
   });
 
-  it('un usuario inactivo no captura', async () => {
+  it('un usuario inactivo no captura, aunque tenga el rol asignado', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), 'areasTE', 'produccion'), {
-        nombre: 'Producción', activa: true, autorizador1Nomina: N.aut1P, solicitantesNominas: [N.inactivo],
-      });
-      await setDoc(doc(ctx.firestore(), 'usuarios', 'inactivo'), perfil('superintendente', N.inactivo, { activo: false }));
+      await setDoc(doc(ctx.firestore(), 'asignaciones', idAsig(N.inactivo, 'solicitante', 'produccion')), asig(N.inactivo, 'solicitante', 'produccion'));
     });
     const db = dbDe('inactivo');
     await assertFails(setDoc(doc(db, 'tiempoExtra', 'TE-2026-0013'), nuevo('inactivo', 'produccion')));
@@ -324,7 +394,7 @@ describe('capturar (crear)', () => {
 });
 
 describe('leer', () => {
-  it('el creador, el Aut. 1, su suplente, la Aut. 2, su suplente, RH y admin leen la solicitud', async () => {
+  it('el creador, el Aut. 1 y su segundo Aut. 1, las Aut. 2, RH y admin leen la solicitud', async () => {
     for (const uid of ['solP', 'aut1P', 'aut1PSup', 'aut2', 'aut2Sup', 'rh', 'admin']) {
       await assertSucceeds(getDoc(doc(dbDe(uid), 'tiempoExtra', 'TE-2026-0001')));
     }
@@ -361,7 +431,7 @@ describe('Aut. 1: pendiente_aut1 → pendiente_aut2 o devuelta', () => {
     await assertSucceeds(transicion('aut1P', 'TE-2026-0001', { estatus: 'pendiente_aut2', aut1: firma(N.aut1P) }, 'autorizada_1', 1));
   });
 
-  it('el suplente del Aut. 1 también autoriza, y queda registrado quién fue', async () => {
+  it('otro Aut. 1 vigente del área también autoriza, y queda registrado quién fue', async () => {
     await assertFails(actualizar('aut1PSup', 'TE-2026-0001', { estatus: 'pendiente_aut2', aut1: firma(N.aut1P) })); // firma a nombre de otro
     await assertSucceeds(actualizar('aut1PSup', 'TE-2026-0001', { estatus: 'pendiente_aut2', aut1: firma(N.aut1PSup) }));
   });
@@ -378,7 +448,7 @@ describe('Aut. 1: pendiente_aut1 → pendiente_aut2 o devuelta', () => {
     }
   });
 
-  it('nadie autoriza lo que creó (aunque sea el suplente del Aut. 1)', async () => {
+  it('nadie autoriza lo que creó (aunque sea Aut. 1 del área)', async () => {
     await assertFails(actualizar('aut1PSup', 'TE-2026-0005', { estatus: 'pendiente_aut2', aut1: firma(N.aut1PSup) }));
     await assertFails(actualizar('aut1PSup', 'TE-2026-0005', { estatus: 'devuelta', devolucion: devolucion(1, N.aut1PSup) }));
   });
@@ -411,7 +481,7 @@ describe('Aut. 1: pendiente_aut1 → pendiente_aut2 o devuelta', () => {
 });
 
 describe('Aut. 2: pendiente_aut2 → autorizada o devuelta', () => {
-  it('la Aut. 2, su suplente y RH autorizan', async () => {
+  it('las Aut. 2 vigentes y RH autorizan', async () => {
     await assertSucceeds(transicion('aut2', 'TE-2026-0002', { estatus: 'autorizada', aut2: firma(N.aut2) }, 'autorizada_2', 2));
     for (const uid of ['aut2Sup', 'rh', 'admin']) {
       await reiniciar();
@@ -546,7 +616,7 @@ describe('creador: cancelar, corregir y reenviar', () => {
     await assertFails(actualizar('solP2', 'TE-2026-0004', { estatus: 'pendiente_aut1' }));
     await assertFails(actualizar('aut1P', 'TE-2026-0004', { estatus: 'pendiente_aut1' }));
     await env.withSecurityRulesDisabled(async (ctx) => {
-      await updateDoc(doc(ctx.firestore(), 'areasTE', 'produccion'), { solicitantesNominas: [N.solP2] });
+      await updateDoc(doc(ctx.firestore(), 'asignaciones', idAsig(N.solP, 'solicitante', 'produccion')), { activo: false });
     });
     await assertFails(actualizar('solP', 'TE-2026-0004', { estatus: 'pendiente_aut1' }));
   });
@@ -677,6 +747,49 @@ describe('historial', () => {
   it('la leen quienes pueden leer la solicitud, no un ajeno', async () => {
     for (const uid of ['solP', 'aut1P', 'aut2', 'rh']) await assertSucceeds(getDoc(doc(dbDe(uid), 'tiempoExtra', 'TE-2026-0002', 'historial', 'h1')));
     for (const uid of ['solP2', 'aut1A', 'ajeno']) await assertFails(getDoc(doc(dbDe(uid), 'tiempoExtra', 'TE-2026-0002', 'historial', 'h1')));
+  });
+});
+
+describe('vigencia de las asignaciones en tiempo extra', () => {
+  const cambiar = (nomina, rol, area, cambios) => env.withSecurityRulesDisabled(async (ctx) => {
+    await updateDoc(doc(ctx.firestore(), 'asignaciones', idAsig(nomina, rol, area)), cambios);
+  });
+  const manana = () => Timestamp.fromDate(new Date(Date.now() + 24 * 3600 * 1000));
+  const hace = (ms) => Timestamp.fromDate(new Date(Date.now() - ms));
+
+  it('un Aut. 1 con asignación vigente (con fecha final futura) autoriza', async () => {
+    await cambiar(N.aut1P, 'aut1', 'produccion', { hasta: manana() });
+    await assertSucceeds(actualizar('aut1P', 'TE-2026-0001', { estatus: 'pendiente_aut2', aut1: firma(N.aut1P) }));
+  });
+  it('programada (desde en el futuro): no autoriza ni lee', async () => {
+    await cambiar(N.aut1P, 'aut1', 'produccion', { desde: manana() });
+    await assertFails(getDoc(doc(dbDe('aut1P'), 'tiempoExtra', 'TE-2026-0001')));
+    await assertFails(actualizar('aut1P', 'TE-2026-0001', { estatus: 'pendiente_aut2', aut1: firma(N.aut1P) }));
+  });
+  it('vencida (hasta ya pasó): no autoriza ni lee', async () => {
+    await cambiar(N.aut1P, 'aut1', 'produccion', { hasta: hace(1000) });
+    await assertFails(getDoc(doc(dbDe('aut1P'), 'tiempoExtra', 'TE-2026-0001')));
+    await assertFails(actualizar('aut1P', 'TE-2026-0001', { estatus: 'pendiente_aut2', aut1: firma(N.aut1P) }));
+  });
+  it('revocada (activo false): no autoriza ni lee', async () => {
+    await cambiar(N.aut1P, 'aut1', 'produccion', { activo: false });
+    await assertFails(getDoc(doc(dbDe('aut1P'), 'tiempoExtra', 'TE-2026-0001')));
+    await assertFails(actualizar('aut1P', 'TE-2026-0001', { estatus: 'pendiente_aut2', aut1: firma(N.aut1P) }));
+  });
+  it('una Aut. 2 vencida o revocada deja de firmar y de leer', async () => {
+    await cambiar(N.aut2, 'aut2', null, { hasta: hace(1000) });
+    await cambiar(N.aut2Sup, 'aut2', null, { activo: false });
+    for (const uid of ['aut2', 'aut2Sup']) {
+      await assertFails(actualizar(uid, 'TE-2026-0002', { estatus: 'autorizada', aut2: firma(N[uid]) }));
+      await assertFails(getDoc(doc(dbDe(uid), 'tiempoExtra', 'TE-2026-0002')));
+    }
+  });
+  it('un Aut. 1 de Moldes no autoriza en Producción aunque esté vigente en Moldes', async () => {
+    await assertFails(actualizar('aut1M', 'TE-2026-0001', { estatus: 'pendiente_aut2', aut1: firma(N.aut1M) }));
+  });
+  it('un solicitante vencido no captura', async () => {
+    await cambiar(N.solP, 'solicitante', 'produccion', { hasta: hace(1000) });
+    await assertFails(capturar('solP', 'produccion'));
   });
 });
 

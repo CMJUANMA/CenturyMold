@@ -11,10 +11,11 @@ import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { useCatalogos } from '../hooks/useCatalogos';
+import { useAccesos } from '../hooks/useAccesos';
 import FormularioSolicitud from '../components/FormularioSolicitud';
 import { ROLES_RH } from '../utils/roles';
 import { ESTATUS_SOLICITUD } from '../utils/constantes';
-import { fechaMinima, armarPasajeroDoc, resumenDeFormulario, cambiosPadron } from '../utils/solicitudes';
+import { fechaMinima, armarPasajeroDoc, resumenDeFormulario, cambiosPadron, cambiosPadronPermitidos } from '../utils/solicitudes';
 
 // Error de negocio detectado dentro de la transacción: aborta sin guardar nada
 const conflicto = (msg) => Object.assign(new Error(msg), { code: 'app/conflicto' });
@@ -25,6 +26,7 @@ export default function EditarSolicitud() {
   const toast = useToast();
   const navigate = useNavigate();
   const esRH = ROLES_RH.includes(usuario?.rol);
+  const { areasSolicitante } = useAccesos();
 
   // Catálogos compartidos, completos: los selects muestran activos más el valor ya guardado
   const { rutas, comunidades, puntos, empleados, cargando: cargandoCat, error: errorCat, parchearEmpleados } = useCatalogos();
@@ -117,7 +119,7 @@ export default function EditarSolicitud() {
       const idsNuevos = new Set(pasajeros.map(p => p.empleadoSeleccionado.nomina));
       const idsABorrar = pasSnapActual.docs.map(d => d.id).filter(pid => !idsNuevos.has(pid));
 
-      const cambiosEmp = cambiosPadron(pasajeros);
+      const cambiosEmp = cambiosPadronPermitidos(cambiosPadron(pasajeros), empleados, { esRH, areasSolicitante });
       const resumen = resumenDeFormulario(pasajeros, puestos);
 
       // 1 (solicitud) + borrados + pasajeros + empleados
