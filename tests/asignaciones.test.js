@@ -1,11 +1,11 @@
-// Asignaciones (vigencia, permisos, organigrama) y migración al modelo de asignaciones. Datos ficticios en memoria.
+// Asignaciones (vigencia, permisos, organigrama) y carga inicial. Datos ficticios en memoria.
 // Ejecutar con: npm run test:unit
 import { describe, expect, it } from 'vitest';
 import {
   calcularAccesos, construirOrganigrama, estadoAsignacion, etiquetaAsignacion, finDelDia, formatoCorto, idAsignacion, inicioDelDia,
   motivoNoPuedeAsignar, rolesAsignables,
 } from '../src/utils/asignaciones.js';
-import { planearMigracion } from '../src/utils/migracionAsignaciones.js';
+import { PROPUESTAS_INICIALES, evaluarPropuestas, nombreCoincide } from '../src/utils/cargaInicial.js';
 
 const HOY = new Date(2026, 9, 13, 12, 0, 0); // 13/oct/2026 12:00
 const dia = (d) => new Date(2026, 9, d, 12, 0, 0);
@@ -142,106 +142,48 @@ describe('organigrama', () => {
   });
 });
 
-describe('migración al modelo de asignaciones', () => {
-  const areas = [
-    { id: 'produccion', nombre: 'Producción', participaTE: true },
-    { id: 'almacen', nombre: 'Almacén', participaTE: true },
-    { id: 'moldes', nombre: 'Moldes', participaTE: true },
-    { id: 'administrativo', nombre: 'Administrativo', participaTE: false },
-  ];
-  const base = () => ({
-    areas, ahora: HOY,
-    areasTE: [
-      { id: 'produccion', nombre: 'Producción', autorizador1Nomina: '50610', suplente1Nomina: '50611', solicitantesNominas: ['50532', '50009'] },
-      { id: 'almacen', nombre: 'Almacén', autorizador1Nomina: '50988', solicitantesNominas: ['50901'] },
-      { id: 'fantasma', nombre: 'Vieja', autorizador1Nomina: '1', solicitantesNominas: [] },
-    ],
-    configTE: { autorizador2Nomina: '11', suplente2Nomina: '50296' },
-    empleados: [
-      { nomina: '50610', nombre: 'JEFE', areaId: 'produccion' }, { nomina: '50532', nombre: 'ANA', areaId: 'produccion' },
-      { nomina: '60001', nombre: 'SUP PRODUCCION', areaId: 'produccion' }, { nomina: '60002', nombre: 'SUP ADMIN', areaId: 'administrativo' },
-      { nomina: '60003', nombre: 'SUP SIN AREA', areaId: '' }, { nomina: '60004', nombre: 'MANUAL', areaId: 'produccion', areaTEManual: 'almacen' },
-      { nomina: '50901', nombre: 'LUIS', areaId: 'almacen' },
-    ],
-    usuarios: [
-      { uid: 'u1', nomina: '60001', nombre: 'SUP PRODUCCION', rol: 'superintendente' },
-      { uid: 'u2', nomina: '60002', nombre: 'SUP ADMIN', rol: 'superintendente' },
-      { uid: 'u3', nomina: '60003', nombre: 'SUP SIN AREA', rol: 'superintendente' },
-      { uid: 'u4', nomina: '11', nombre: 'MALDONADO', rol: 'autorizador' },
-      { uid: 'u5', nomina: '50296', nombre: 'MARCO', rol: 'rh' },
-      { uid: 'u6', nomina: '50532', nombre: 'ANA', rol: 'superintendente' },
-    ],
-  });
+describe('carga inicial de asignaciones', () => {
+  const padron = (nomina, nombre, areaId, puesto = 'P') => ({ nomina, nombre, areaId, puesto });
+  const todos = PROPUESTAS_INICIALES.map(p => padron(p.nomina, `${p.nombre.split(' ').slice(-1)[0].toUpperCase()} ${p.nombre.split(' ')[0].toUpperCase()}`, p.areaId ?? 'administrativo'));
 
-  it('areasTE → aut1 y solicitantes; config → aut2; todo permanente y con el mismo slug', () => {
-    const plan = planearMigracion(base());
-    const ids = plan.asignaciones.map(a => a.id).sort();
-    expect(ids).toEqual(expect.arrayContaining([
-      '50610_aut1_produccion', '50611_aut1_produccion', '50532_solicitante_produccion', '50009_solicitante_produccion',
-      '50988_aut1_almacen', '50901_solicitante_almacen', '11_aut2_planta', '50296_aut2_planta',
-    ]));
-    expect(plan.asignaciones.every(a => a.hasta === null)).toBe(true);
-    expect(plan.asignaciones.find(a => a.id === '50610_aut1_produccion').nombre).toBe('JEFE');
+  it('propone las 16 asignaciones de la hoja, todas con casilla marcada si todo coincide', () => {
+    expect(PROPUESTAS_INICIALES).toHaveLength(16);
+    const filas = evaluarPropuestas({ empleados: todos, usuarios: PROPUESTAS_INICIALES.map(p => ({ nomina: p.nomina })), asignaciones: [], ahora: HOY });
+    expect(filas.every(f => f.estado === 'listo' && f.marcada && f.seleccionable)).toBe(true);
+    expect(filas.every(f => f.avisos.length === 0)).toBe(true);
   });
-
-  it('un área que ya no existe en el catálogo da advertencia y no migra', () => {
-    const plan = planearMigracion(base());
-    expect(plan.advertencias.join(' ')).toMatch(/fantasma/);
-    expect(plan.asignaciones.some(a => a.areaId === 'fantasma')).toBe(false);
+  it('el nombre sale del padrón; apellidos primero y nombres compuestos coinciden', () => {
+    expect(nombreCoincide('Luis Rodolfo Pérez', 'PEREZ GARCIA LUIS RODOLFO')).toBe(true);
+    expect(nombreCoincide('José Juan González', 'GONZALEZ JOSE JUAN')).toBe(true);
+    expect(nombreCoincide('Ismael Gómez', 'LOPEZ MARTINEZ PEDRO')).toBe(false);
+    const filas = evaluarPropuestas({ empleados: [padron('50610', 'GOMEZ ROBLES ISMAEL', 'produccion')], usuarios: null, asignaciones: [], ahora: HOY });
+    expect(filas.find(f => f.nomina === '50610').nombre).toBe('GOMEZ ROBLES ISMAEL');
   });
-
-  it('superintendentes: solicitante en su área; sin área o en Administrativo se listan y su rol no cambia', () => {
-    const plan = planearMigracion(base());
-    expect(plan.asignaciones.map(a => a.id)).toContain('60001_solicitante_produccion');
-    expect(plan.usuariosCambios.find(u => u.uid === 'u1')).toMatchObject({ rolAntes: 'superintendente', rolDespues: 'usuario' });
-    expect(plan.porDecidir.map(p => p.uid).sort()).toEqual(['u2', 'u3']);
-    expect(plan.porDecidir.find(p => p.uid === 'u2').motivo).toMatch(/no participa/);
-    expect(plan.usuariosCambios.some(u => ['u2', 'u3'].includes(u.uid))).toBe(false);
-  });
-
-  it('autorizador pasa a usuario; un superintendente ya solicitante en la matriz no duplica la asignación', () => {
-    const plan = planearMigracion(base());
-    expect(plan.usuariosCambios.find(u => u.uid === 'u4')).toMatchObject({ rolDespues: 'usuario' });
-    expect(plan.asignaciones.filter(a => a.id === '50532_solicitante_produccion')).toHaveLength(1);
-    expect(plan.usuariosCambios.find(u => u.uid === 'u5')).toBeUndefined(); // rh no cambia
-  });
-
-  it('areaTEManual → areaExcepcion', () => {
-    const plan = planearMigracion(base());
-    expect(plan.excepciones).toEqual([{ nomina: '60004', nombre: 'MANUAL', areaAntes: 'produccion', areaExcepcion: 'almacen' }]);
-  });
-
-  it('accesosTE: solo los vigentes, con sus mismas fechas', () => {
-    const plan = planearMigracion({
-      ...base(),
-      accesosTE: [
-        { id: 'a1', nomina: '50874', rol: 'aut1', areaId: 'moldes', desde: dia(10), hasta: dia(20), motivo: 'Vacaciones' },
-        { id: 'a2', nomina: '50875', rol: 'aut1', areaId: 'moldes', hasta: dia(5) }, // vencido
-        { id: 'a3', nomina: '50876', rol: 'raro', areaId: 'moldes' }, // no se entiende
-      ],
+  it('estados: ya existe, no está en el padrón, área distinta, sin usuario y revisar nombre', () => {
+    const empleados = [
+      padron('50610', 'GOMEZ ISMAEL', 'produccion'),        // ya existe
+      padron('50988', 'MEDRANO LEZLI', 'calidad'),          // área distinta
+      padron('50712', 'PEREZ JUAN', 'calidad'),             // nombre distinto
+      padron('50440', 'MENDOZA ANSELMO', 'mantenimiento'),  // sin usuario
+    ];
+    const filas = evaluarPropuestas({
+      empleados, usuarios: [{ nomina: '50610' }, { nomina: '50988' }, { nomina: '50712' }],
+      asignaciones: [asig('50610', 'aut1', 'produccion')], ahora: HOY,
     });
-    const a = plan.asignaciones.find(x => x.id === '50874_aut1_moldes');
-    expect(a).toMatchObject({ hasta: dia(20), motivo: 'Vacaciones' });
-    expect(plan.asignaciones.some(x => x.nomina === '50875')).toBe(false);
-    expect(plan.advertencias.join(' ')).toMatch(/accesosTE\/a3/);
+    const de = (n, rol = 'aut1') => filas.find(f => f.nomina === n && f.rol === rol);
+    expect(de('50610')).toMatchObject({ estado: 'ya-existe', seleccionable: false, marcada: false });
+    expect(de('50999') ?? null).toBeNull();
+    expect(de('50874')).toMatchObject({ estado: 'no-padron', seleccionable: false });
+    expect(de('50988')).toMatchObject({ estado: 'listo', marcada: true, avisos: ['area-distinta'] });
+    expect(de('50712')).toMatchObject({ marcada: false, avisos: ['revisar-nombre'] });
+    expect(de('50440')).toMatchObject({ marcada: true, avisos: ['sin-usuario'] });
   });
-
-  it('lo ya migrado no se repite: después de ejecutar no queda nada pendiente', () => {
-    const inicial = planearMigracion(base());
-    const hecho = inicial.asignaciones.map(a => ({ ...a, activo: true }));
-    const datos = base();
-    datos.usuarios = datos.usuarios.map(u => (['superintendente', 'autorizador'].includes(u.rol) && !['u2', 'u3'].includes(u.uid) ? { ...u, rol: 'usuario' } : u));
-    datos.empleados = datos.empleados.map(e => (e.areaTEManual ? { ...e, areaExcepcion: e.areaTEManual } : e));
-    const otra = planearMigracion({ ...datos, asignaciones: hecho });
-    expect(otra.asignaciones).toEqual([]);
-    expect(otra.excepciones).toEqual([]);
-    expect(otra.pendiente).toBe(false);
-    expect(otra.yaMigradas).toBeGreaterThan(0); // las de la matriz; los superintendentes ya son "usuario"
-  });
-
-  it('lista a quien tendrá un rol pero aún no tiene usuario', () => {
-    const plan = planearMigracion(base());
-    expect(plan.sinUsuario.map(s => s.nomina)).toContain('50610'); // JEFE no está en usuarios
-    expect(plan.sinUsuario.map(s => s.nomina)).not.toContain('50532');
+  it('es idempotente: lo ya creado sale como "Ya existe"; lo revocado se puede volver a crear', () => {
+    const creadas = PROPUESTAS_INICIALES.map(p => asig(p.nomina, p.rol, p.areaId));
+    const otra = evaluarPropuestas({ empleados: todos, usuarios: null, asignaciones: creadas, ahora: HOY });
+    expect(otra.every(f => f.estado === 'ya-existe')).toBe(true);
+    const revocada = creadas.map((a, i) => (i === 0 ? { ...a, activo: false } : a));
+    const de = evaluarPropuestas({ empleados: todos, usuarios: null, asignaciones: revocada, ahora: HOY });
+    expect(de[0]).toMatchObject({ estado: 'listo', seleccionable: true });
   });
 });

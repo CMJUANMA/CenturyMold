@@ -185,27 +185,21 @@ beforeEach(async () => {
 });
 
 describe('estructura anterior (areasTE, config, accesosTE)', () => {
-  it('ya nada la lee salvo RH/admin, y solo el admin la escribe o borra (migración y limpieza)', async () => {
+  it('ya no tiene reglas: nadie la lee ni la escribe, ni siquiera el admin', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), 'areasTE', 'produccion'), { nombre: 'Producción', solicitantesNominas: [] });
+      await setDoc(doc(ctx.firestore(), 'areasTE', 'produccion'), { nombre: 'Producción' });
       await setDoc(doc(ctx.firestore(), 'config', 'tiempoExtra'), { autorizador2Nomina: N.aut2 });
+      await setDoc(doc(ctx.firestore(), 'accesosTE', 'a1'), { nomina: '1' });
     });
-    for (const uid of ['solP', 'aut1P', 'aut2', 'ajeno']) {
+    for (const uid of ['solP', 'aut2', 'rh', 'admin']) {
       const db = dbDe(uid);
       await assertFails(getDoc(doc(db, 'areasTE', 'produccion')));
-      await assertFails(getDoc(doc(db, 'config', 'tiempoExtra')));
       await assertFails(setDoc(doc(db, 'areasTE', 'x'), { nombre: 'X' }));
+      await assertFails(getDoc(doc(db, 'config', 'tiempoExtra')));
+      await assertFails(setDoc(doc(db, 'config', 'areasTE'), { reglas: [] }));
+      await assertFails(getDoc(doc(db, 'accesosTE', 'a1')));
+      await assertFails(deleteDoc(doc(db, 'accesosTE', 'a1')));
     }
-    await assertSucceeds(getDoc(doc(dbDe('rh'), 'areasTE', 'produccion')));
-    await assertFails(setDoc(doc(dbDe('rh'), 'areasTE', 'x'), { nombre: 'X' }));
-    await assertFails(deleteDoc(doc(dbDe('rh'), 'areasTE', 'produccion')));
-    await assertSucceeds(deleteDoc(doc(dbDe('admin'), 'areasTE', 'produccion')));
-    await assertSucceeds(setDoc(doc(dbDe('admin'), 'config', 'areasTE'), { reglas: [] }));
-  });
-
-  it('no se puede crear otro documento de config', async () => {
-    await assertFails(setDoc(doc(dbDe('admin'), 'config', 'otra'), { x: 1 }));
-    await assertFails(getDoc(doc(dbDe('rh'), 'config', 'otra')));
   });
 });
 
@@ -415,7 +409,8 @@ describe('leer', () => {
     const col = (uid) => collection(dbDe(uid), 'tiempoExtra');
     await assertSucceeds(getDocs(query(col('solP'), where('creadoPor', '==', 'solP'))));
     await assertSucceeds(getDocs(query(col('aut1P'), where('areaId', '==', 'produccion'), where('estatus', '==', 'pendiente_aut1'))));
-    await assertSucceeds(getDocs(query(col('aut1PSup'), where('areaId', '==', 'produccion'))));
+    await assertFails(getDocs(query(col('aut1PSup'), where('areaId', '==', 'produccion')))); // podría traer borradores ajenos
+    await assertSucceeds(getDocs(query(col('aut1PSup'), where('areaId', '==', 'produccion'), where('estatus', '!=', 'borrador'))));
     await assertSucceeds(getDocs(query(col('aut2'), where('estatus', '==', 'pendiente_aut2'))));
     await assertSucceeds(getDocs(query(col('aut2Sup'), where('estatus', '==', 'pendiente_aut2'))));
     await assertSucceeds(getDocs(query(col('rh'), where('estatus', '==', 'autorizada'))));
@@ -790,6 +785,150 @@ describe('vigencia de las asignaciones en tiempo extra', () => {
   it('un solicitante vencido no captura', async () => {
     await cambiar(N.solP, 'solicitante', 'produccion', { hasta: hace(1000) });
     await assertFails(capturar('solP', 'produccion'));
+  });
+});
+
+describe('borrador: se arma en lotes y se envía a autorización', () => {
+  const FOLIO = 'TE-2026-0013';
+  const crearBorrador = (uid, areaId, extra = {}) => {
+    const db = dbDe(uid);
+    const b = writeBatch(db);
+    b.set(doc(db, 'tiempoExtra', FOLIO), nuevo(uid, areaId, { folio: FOLIO, estatus: 'borrador', ...extra }));
+    const h = historial(db, FOLIO, { uid, accion: 'creada' });
+    b.set(h.ref, h.data);
+    return b.commit();
+  };
+  /** Agrega empleados (nóminas del padrón) a un borrador ya creado, en un lote */
+  const agregar = (uid, nominas, cambiosPadre = null) => {
+    const db = dbDe(uid);
+    const b = writeBatch(db);
+    for (const n of nominas) b.set(doc(db, 'tiempoExtra', FOLIO, 'empleados', n), { nombre: `Empleado ${n}`, puesto: 'X', horas: 2 });
+    if (cambiosPadre) b.update(doc(db, 'tiempoExtra', FOLIO), { fechaActualizacion: ts(), ...cambiosPadre });
+    return b;
+  };
+  const nominas = (desde, n) => Array.from({ length: n }, (_, i) => String(desde + i));
+
+  it('el solicitante del área crea el borrador; sin empleados y con bitácora', async () => {
+    await assertSucceeds(crearBorrador('solP', 'produccion'));
+  });
+  it('no lo crea quien no puede capturar en esa área', async () => {
+    await assertFails(crearBorrador('solA', 'produccion'));
+    await assertFails(crearBorrador('aut1P', 'produccion'));
+    await assertFails(crearBorrador('rh', 'produccion'));
+  });
+  it('no se crea con firmas ni con estatus raro', async () => {
+    await assertFails(crearBorrador('solP', 'produccion', { aut1: firma(N.solP) }));
+    await assertFails(crearBorrador('solP', 'produccion', { estatus: 'autorizada' }));
+  });
+
+  it('solo el creador lo ve: ni el Aut. 1, ni la Aut. 2, ni RH, ni admin', async () => {
+    await crearBorrador('solP', 'produccion');
+    await assertSucceeds(getDoc(doc(dbDe('solP'), 'tiempoExtra', FOLIO)));
+    for (const uid of ['aut1P', 'aut1PSup', 'aut2', 'rh', 'admin', 'solP2', 'ajeno']) {
+      await assertFails(getDoc(doc(dbDe(uid), 'tiempoExtra', FOLIO)));
+    }
+  });
+  it('sus empleados e historial tampoco los ve nadie más', async () => {
+    await crearBorrador('solP', 'produccion');
+    await assertSucceeds(agregar('solP', ['700']).commit());
+    await assertSucceeds(getDoc(doc(dbDe('solP'), 'tiempoExtra', FOLIO, 'empleados', '700')));
+    for (const uid of ['aut1P', 'aut2', 'rh']) {
+      await assertFails(getDoc(doc(dbDe(uid), 'tiempoExtra', FOLIO, 'empleados', '700')));
+      await assertFails(getDocs(collection(dbDe(uid), 'tiempoExtra', FOLIO, 'historial')));
+    }
+  });
+  it('las consultas de autorizadores y RH que excluyen borradores no lo traen y no fallan', async () => {
+    await crearBorrador('solP', 'produccion');
+    const col = (uid) => collection(dbDe(uid), 'tiempoExtra');
+    await assertSucceeds(getDocs(query(col('aut1P'), where('areaId', '==', 'produccion'), where('estatus', '==', 'pendiente_aut1'))));
+    await assertSucceeds(getDocs(query(col('aut2'), where('estatus', '==', 'pendiente_aut2'))));
+    await assertSucceeds(getDocs(query(col('solP'), where('creadoPor', '==', 'solP'))));
+  });
+
+  it('se agregan empleados del área en lotes de 10 (y quitan), cada uno validado contra el padrón', async () => {
+    await crearBorrador('solP', 'produccion');
+    await assertSucceeds(agregar('solP', nominas(700, 10)).commit());
+    await assertSucceeds(agregar('solP', nominas(710, 10)).commit());
+    await assertSucceeds(agregar('solP', nominas(720, 10)).commit());
+    const db = dbDe('solP');
+    await assertSucceeds(deleteDoc(doc(db, 'tiempoExtra', FOLIO, 'empleados', '700')));
+    await assertSucceeds(updateDoc(doc(db, 'tiempoExtra', FOLIO, 'empleados', '701'), { horas: 4 }));
+  });
+  it('un empleado de otra área (o inexistente) hace fallar el lote', async () => {
+    await crearBorrador('solP', 'produccion');
+    await assertFails(agregar('solP', ['700', '801']).commit());
+    await assertFails(agregar('solP', ['700', '802']).commit());
+    await assertFails(agregar('solP', ['700', '99999']).commit());
+  });
+  it('nadie más agrega empleados al borrador', async () => {
+    await crearBorrador('solP', 'produccion');
+    for (const uid of ['solP2', 'aut1P', 'aut2', 'rh', 'admin']) await assertFails(agregar(uid, ['700']).commit());
+  });
+  it('el creador edita el contenido del borrador; otros no; el área no cambia', async () => {
+    await crearBorrador('solP', 'produccion');
+    await assertSucceeds(actualizar('solP', FOLIO, { motivo: 'Cambiado', fechaTE: '2026-11-09' }));
+    await assertFails(actualizar('solP', FOLIO, { areaId: 'almacen' }));
+    await assertFails(actualizar('solP', FOLIO, { estatus: 'autorizada' }));
+    for (const uid of ['solP2', 'aut1P', 'aut2', 'rh', 'admin']) await assertFails(actualizar(uid, FOLIO, { motivo: 'X' }));
+  });
+
+  it('"Enviar a autorización": pasa a pendiente_aut1 con el resumen calculado y su bitácora', async () => {
+    await crearBorrador('solP', 'produccion');
+    await assertSucceeds(agregar('solP', nominas(700, 3)).commit());
+    const db = dbDe('solP');
+    const b = writeBatch(db);
+    b.update(doc(db, 'tiempoExtra', FOLIO), {
+      estatus: 'pendiente_aut1', fechaActualizacion: ts(), resumen: { totalEmpleados: 3, totalHoras: 6, totalTransporte: 0, totalAlimentos: 3 },
+    });
+    const h = historial(db, FOLIO, { uid: 'solP', accion: 'enviada' });
+    b.set(h.ref, h.data);
+    await assertSucceeds(b.commit());
+    // ya enviada: la ven el Aut. 1 y los demás
+    await assertSucceeds(getDoc(doc(dbDe('aut1P'), 'tiempoExtra', FOLIO)));
+  });
+  it('un último lote de empleados puede viajar junto con el envío', async () => {
+    await crearBorrador('solP', 'produccion');
+    await assertSucceeds(agregar('solP', nominas(700, 10), { estatus: 'pendiente_aut1' }).commit());
+  });
+  it('quien es Aut. 1 de su área lo envía a pendiente_aut2, no a pendiente_aut1', async () => {
+    await crearBorrador('aut1M', 'moldes');
+    await assertFails(actualizar('aut1M', FOLIO, { estatus: 'pendiente_aut1' }));
+    await assertSucceeds(actualizar('aut1M', FOLIO, { estatus: 'pendiente_aut2' }));
+  });
+  it('en Administrativo, RH lo envía directo a pendiente_aut2', async () => {
+    await crearBorrador('rh', 'administrativo');
+    await assertSucceeds(agregar('rh', nominas(900, 10)).commit());
+    await assertFails(actualizar('rh', FOLIO, { estatus: 'pendiente_aut1' }));
+    await assertSucceeds(actualizar('rh', FOLIO, { estatus: 'pendiente_aut2' }));
+  });
+  it('no se envía a autorizada ni por otra persona; sin firmas colgadas', async () => {
+    await crearBorrador('solP', 'produccion');
+    await assertFails(actualizar('solP', FOLIO, { estatus: 'autorizada' }));
+    await assertFails(actualizar('solP', FOLIO, { estatus: 'pendiente_aut1', aut1: firma(N.solP) }));
+    for (const uid of ['solP2', 'aut1P', 'aut2', 'rh', 'admin']) await assertFails(actualizar(uid, FOLIO, { estatus: 'pendiente_aut1' }));
+  });
+  it('si ya no es solicitante vigente del área, no lo puede enviar', async () => {
+    await crearBorrador('solP', 'produccion');
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), 'asignaciones', idAsig(N.solP, 'solicitante', 'produccion')), { activo: false });
+    });
+    await assertFails(actualizar('solP', FOLIO, { estatus: 'pendiente_aut1' }));
+  });
+  it('el creador lo cancela (descarta) y nadie más', async () => {
+    await crearBorrador('solP', 'produccion');
+    for (const uid of ['solP2', 'aut1P', 'aut2', 'rh', 'admin']) await assertFails(actualizar(uid, FOLIO, { estatus: 'cancelada' }));
+    const db = dbDe('solP');
+    const b = writeBatch(db);
+    b.update(doc(db, 'tiempoExtra', FOLIO), { estatus: 'cancelada', fechaActualizacion: ts() });
+    const h = historial(db, FOLIO, { uid: 'solP', accion: 'cancelada' });
+    b.set(h.ref, h.data);
+    await assertSucceeds(b.commit());
+  });
+  it('el borrador no pasa por Aut. 1 ni Aut. 2 (no firman ni devuelven un borrador)', async () => {
+    await crearBorrador('solP', 'produccion');
+    await assertFails(actualizar('aut1P', FOLIO, { estatus: 'pendiente_aut2', aut1: firma(N.aut1P) }));
+    await assertFails(actualizar('aut2', FOLIO, { estatus: 'autorizada', aut2: firma(N.aut2) }));
+    await assertFails(actualizar('rh', FOLIO, { estatus: 'autorizada', aut2: firma(N.rh) }));
   });
 });
 

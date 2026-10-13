@@ -180,9 +180,10 @@ service cloud.firestore {
       return (!areaParticipaTE(areaId) || esAut1De(areaId)) ? 'pendiente_aut2' : 'pendiente_aut1';
     }
 
-    // t = datos de una solicitud de tiempo extra
+    // t = datos de una solicitud de tiempo extra. Un borrador solo lo ve su creador
     function puedeLeerTE(t) {
-      return activo() && (t.creadoPor == request.auth.uid || esAut1De(t.areaId) || esAut2() || esRH());
+      return activo() && (t.creadoPor == request.auth.uid
+        || (t.estatus != 'borrador' && (esAut1De(t.areaId) || esAut2() || esRH())));
     }
     // Firma o devolución bien formada: {nomina, nombre, fecha, ...} de quien la hace
     function firmaValida(f) {
@@ -229,19 +230,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Estructura anterior (areasTE, config/*, accesosTE): ya nada la usa; solo el admin las lee y borra al migrar y limpiar
-    match /areasTE/{areaId} {
-      allow read: if esRH();
-      allow write: if esAdmin();
-    }
-    match /accesosTE/{docId} {
-      allow read: if esRH();
-      allow write: if esAdmin();
-    }
-    match /config/{docId} {
-      allow read: if esRH() && docId in ['areasTE', 'tiempoExtra'];
-      allow write: if esAdmin() && docId in ['areasTE', 'tiempoExtra'];
-    }
+    // (areasTE, config/* y accesosTE ya no tienen reglas: la estructura anterior quedó sin acceso desde la app.)
 
     // Contador del folio (TE-2026-0001): se incrementa de uno en uno dentro de la transacción de captura
     match /contadores/{id} {
@@ -270,7 +259,7 @@ service cloud.firestore {
         && despues().creadoPorNomina == miNomina()
         && despues().areaId is string
         && puedeCapturarTE(despues().areaId)
-        && despues().estatus == estatusInicial(despues().areaId)
+        && (despues().estatus == 'borrador' || despues().estatus == estatusInicial(despues().areaId))
         && despues().fechaCreacion == request.time
         && despues().fechaActualizacion == request.time;
 
@@ -312,19 +301,21 @@ service cloud.firestore {
         && esRH();
 
       // El creador cancela mientras no esté autorizada
-      allow update: if antes().estatus in ['pendiente_aut1', 'pendiente_aut2', 'devuelta'] && despues().estatus == 'cancelada'
+      allow update: if antes().estatus in ['borrador', 'pendiente_aut1', 'pendiente_aut2', 'devuelta'] && despues().estatus == 'cancelada'
         && despues().fechaActualizacion == request.time
         && soloCambia(['estatus', 'fechaActualizacion'])
         && antes().creadoPor == uid() && activo();
 
       // El creador corrige el contenido de una devuelta (sin cambiar de estatus)
-      allow update: if antes().estatus == 'devuelta' && despues().estatus == 'devuelta'
+      // (y de un borrador, mientras se arma)
+      allow update: if antes().estatus in ['devuelta', 'borrador'] && despues().estatus == antes().estatus
         && despues().fechaActualizacion == request.time
         && soloCambia(['fechaTE', 'motivo', 'resumen', 'fechaActualizacion'])
         && antes().creadoPor == uid() && activo();
 
       // ...y la reenvía: vuelve a empezar (sin firmas) en Aut. 1, o en Aut. 2 si es el Aut. 1 del área
-      allow update: if antes().estatus == 'devuelta' && despues().estatus in ['pendiente_aut1', 'pendiente_aut2']
+      // Enviar a autorización: un borrador pasa igual, con el resumen ya calculado
+      allow update: if antes().estatus in ['devuelta', 'borrador'] && despues().estatus in ['pendiente_aut1', 'pendiente_aut2']
         && despues().fechaActualizacion == request.time
         && !despues().keys().hasAny(['aut1', 'aut2'])
         && soloCambia(['fechaTE', 'motivo', 'resumen', 'estatus', 'aut1', 'aut2', 'fechaActualizacion'])
@@ -354,10 +345,10 @@ service cloud.firestore {
           && padreDespues().creadoPor == uid()
           && (
             // lote de captura: el padre se crea en el mismo lote
-            (!exists(padrePath()) && padreDespues().estatus in ['pendiente_aut1', 'pendiente_aut2'])
-            // corrección: padre devuelta; puede reenviarse en el mismo lote
-            || (padreAntes().estatus == 'devuelta'
-                && padreDespues().estatus in ['devuelta', 'pendiente_aut1', 'pendiente_aut2'])
+            (!exists(padrePath()) && padreDespues().estatus in ['borrador', 'pendiente_aut1', 'pendiente_aut2'])
+            // corrección o armado: padre devuelta o borrador; puede reenviarse/enviarse en el mismo lote
+            || (padreAntes().estatus in ['devuelta', 'borrador']
+                && padreDespues().estatus in [padreAntes().estatus, 'pendiente_aut1', 'pendiente_aut2'])
           );
         }
         allow create, update: if puedeEscribirEmpleado() && empleadoDelArea(padreDespues().areaId);
@@ -379,8 +370,10 @@ service cloud.firestore {
           && h().fecha == request.time
           && (
             (h().accion == 'creada' && !exists(hPadrePath())
-              && hDespues().creadoPor == uid() && hDespues().estatus in ['pendiente_aut1', 'pendiente_aut2'])
+              && hDespues().creadoPor == uid() && hDespues().estatus in ['borrador', 'pendiente_aut1', 'pendiente_aut2'])
             || (h().accion == 'reenviada' && hAntes().estatus == 'devuelta' && hAntes().creadoPor == uid()
+              && hDespues().estatus in ['pendiente_aut1', 'pendiente_aut2'])
+            || (h().accion == 'enviada' && hAntes().estatus == 'borrador' && hAntes().creadoPor == uid()
               && hDespues().estatus in ['pendiente_aut1', 'pendiente_aut2'])
             || (h().accion == 'autorizada_1' && esAut1De(hAntes().areaId)
               && hAntes().estatus == 'pendiente_aut1' && hDespues().estatus == 'pendiente_aut2')
@@ -390,7 +383,7 @@ service cloud.firestore {
               && ((h().nivel == 1 && hAntes().estatus == 'pendiente_aut1' && esAut1De(hAntes().areaId))
                   || (h().nivel == 2 && hAntes().estatus == 'pendiente_aut2' && puedeFirmarAut2())))
             || (h().accion == 'cancelada' && hAntes().creadoPor == uid()
-              && hAntes().estatus in ['pendiente_aut1', 'pendiente_aut2', 'devuelta'] && hDespues().estatus == 'cancelada')
+              && hAntes().estatus in ['borrador', 'pendiente_aut1', 'pendiente_aut2', 'devuelta'] && hDespues().estatus == 'cancelada')
             || (h().accion == 'recibida_rh' && esRH()
               && hAntes().estatus == 'autorizada' && hDespues().estatus == 'procesada')
           );

@@ -22,7 +22,7 @@ Solicitante del área ──captura──► pendiente_aut1 ──Aut. 1──�
 ## Dos tipos de rol
 
 1. **Rol del sistema** (`usuarios/{uid}.rol`): solo `admin`, `rh` o `usuario`. Solo un admin da o quita `rh` y `admin`.
-   Los roles anteriores `superintendente` y `autorizador` se migran a `usuario` (ver Migración).
+   Los roles anteriores `superintendente` y `autorizador` se corrigen a mano a `usuario` (ver Carga inicial y limpieza).
 2. **Rol operativo**: asignaciones por área.
 
 ### `asignaciones/{nomina}_{rol}_{areaId|planta}`
@@ -82,15 +82,37 @@ Menú, portal, contadores y suscripciones lo usan: nadie se suscribe a datos que
 Contador de tiempo extra: Aut. 1 → `pendiente_aut1` de sus áreas; Aut. 2 y RH → `pendiente_aut2`; RH → `autorizada` por recibir;
 solicitante → sus `devuelta`. Nunca cuenta lo que creó la propia persona.
 
-## Migración al modelo de asignaciones (RH > Catálogos > Diagnóstico, solo admin)
+## Carga inicial y limpieza
 
-1. *Respaldar y simular*: descarga un JSON (usuarios, areasTE, config/tiempoExtra, config/areasTE, accesosTE) y muestra todo lo que pasaría.
-2. *Ejecutar* (solo tras escribir `MIGRAR`): `areasTE` (Aut. 1 y suplente) → aut1; `solicitantesNominas` → solicitante;
-   Aut. 2 y suplente de `config/tiempoExtra` → aut2; `accesosTE` vigentes → asignaciones con sus fechas;
-   `superintendente` → `usuario` + solicitante en el área de su padrón (sin área o en un área sin participaTE: se listan "por decidir" y
-   su rol no cambia); `autorizador` → `usuario`; `areaTEManual` → `areaExcepcion`. Lo ya migrado se omite: simular otra vez da "nada pendiente".
-3. *Limpiar estructura vieja* (paso aparte, tras verificar; escribir `LIMPIAR`): borra `areasTE`, `config/areasTE`, `accesosTE` y los
-   campos `areaTE` / `areaTEManual` del padrón, con otro respaldo antes. `config/tiempoExtra` no se borra.
+- **Cargar asignaciones iniciales** (Usuarios y accesos > Asignaciones, solo admin): lista de revisión con la configuración de la hoja
+  *Niveles de autorización* (Aut. 2: 11 y 50296; un Aut. 1 por área; los solicitantes de cada área). Una fila por asignación, con casilla,
+  rol, área, nómina, nombre y puesto **del padrón**, el área del empleado en el padrón y su estado: *Listo*, *Ya existe* (sin casilla),
+  *No está en el padrón* (sin casilla), *Área distinta* (marcada, con aviso), *Sin usuario* (aviso) y *Revisar nombre* (desmarcada: el nombre del
+  padrón no coincide con el de la hoja). Crea con las mismas funciones que *Asignar rol* (permanentes, con bitácora) y es idempotente. Al terminar abre el Organigrama.
+  Las propuestas están en `src/utils/cargaInicial.js`.
+- **Limpiar estructura vieja** (RH > Catálogos > Diagnóstico, solo admin; escribir `LIMPIAR`): quita `areaTE` y `areaTEManual` del padrón, con respaldo JSON antes.
+  `areasTE`, `config/areasTE`, `config/tiempoExtra` y `accesosTE` ya no tienen reglas de Firestore (la app no las toca); si existieran, se borran desde la consola de Firebase.
+- La matriz anterior nunca se llenó, así que no hubo migración de datos: los roles `superintendente`/`autorizador` que queden se corrigen a mano en *Usuarios*.
+
+## Borrador: captura por lotes (esquema para el prompt 3B; las reglas y pruebas ya existen, la pantalla no)
+
+Un lote de Firestore admite 20 lecturas en las reglas y cada empleado cuesta una (validar su `areaId` en el padrón), así que una solicitud
+con muchos empleados no cabe en un solo lote de captura (caben 12 con la captura directa). Por eso la captura pasa por un **borrador**:
+
+1. **Crear**: la solicitud se crea en estatus `borrador` (con su folio, el contador de siempre y la entrada `creada` del historial), sin empleados.
+   Lo crea quien puede capturar en esa área (solicitante vigente; RH o Aut. 2 en un área que no participa). **Solo el creador la ve y la edita**:
+   el Aut. 1, la Aut. 2, RH y admin no la leen (ni sus empleados ni su historial).
+2. **Armar**: los empleados se agregan, cambian o quitan en **lotes de máximo 10** (`writeBatch` sobre `tiempoExtra/{folio}/empleados/{nómina}`).
+   Las reglas validan cada empleado: debe estar en el padrón con la misma `areaId` que la solicitud. Sobra margen: el límite real es de unos 17; 10 es el
+   tope acordado. También se pueden editar `fechaTE`, `motivo` y `resumen` mientras sea borrador. Descartar = pasar a `cancelada` (con su historial).
+3. **Enviar a autorización**: un solo `update` del padre (puede ir en el lote del último grupo de empleados) con el estatus nuevo, el `resumen` ya
+   calculado (empleados, horas, transporte, alimentos) y la entrada `enviada` del historial en el mismo lote:
+   `borrador → pendiente_aut1`, o `pendiente_aut2` si quien envía es el Aut. 1 vigente de esa área o si el área no participa en TE (`estatusInicialTE`).
+   Sin firmas colgadas. Solo el creador, y solo si sigue siendo capaz de capturar en esa área.
+
+Consecuencias para las pantallas: las consultas del Aut. 1, la Aut. 2 y RH sobre `tiempoExtra` deben **excluir borradores** (las que ya traen `where('estatus','==',…)` no
+cambian; una consulta solo por `areaId` ahora se rechaza: agrega `where('estatus','!=','borrador')`). `ESTATUS_TE.BORRADOR`, su etiqueta y la acción `enviada` están en `src/utils/constantes.js`.
+La captura directa a `pendiente_aut1`/`pendiente_aut2` (hasta 12 empleados) sigue permitida por las reglas.
 
 ## Modelo de datos
 
@@ -131,13 +153,13 @@ que los pasajeros de rutas) `, requiereAlimentos`.
 
 ### `tiempoExtra/{id}/historial/{autoId}` — solo se crea
 
-`accion` (`creada | autorizada_1 | autorizada_2 | devuelta | reenviada | cancelada | recibida_rh`), `nivel`, `porUid`,
+`accion` (`creada | enviada | autorizada_1 | autorizada_2 | devuelta | reenviada | cancelada | recibida_rh`), `nivel`, `porUid`,
 `porNomina`, `porNombre`, `comentario`, `fecha`. Cada entrada debe escribirse **en el mismo lote** que la transición
 del padre (las reglas comparan el estatus antes/después) y por quien tiene el rol de esa acción.
 
 ### Estatus (`ESTATUS_TE` en `src/utils/constantes.js`)
 
-`pendiente_aut1`, `pendiente_aut2`, `autorizada`, `devuelta`, `cancelada`, `procesada`, con `ESTATUS_TE_MAP`
+`borrador`, `pendiente_aut1`, `pendiente_aut2`, `autorizada`, `devuelta`, `cancelada`, `procesada`, con `ESTATUS_TE_MAP`
 (etiqueta y badge; `<BadgeEstatus modulo="te" />`) y `TRANSICIONES_TE` (de, a, quién, acción), la misma tabla que
 aplican las reglas. Helpers: `transicionesTE(estatus, quien)` y `estatusInicialTE(esAut1DeLaArea, areaParticipa)`.
 
@@ -146,7 +168,8 @@ aplican las reglas. Helpers: `transicionesTE(estatus, quien)` y `estatusInicialT
 | pendiente_aut1 | pendiente_aut2 / devuelta | Aut. 1 vigente del área (no el creador) |
 | pendiente_aut2 | autorizada / devuelta | Aut. 2 vigente o RH (no el creador) |
 | autorizada | procesada | RH |
-| pendiente_aut1, pendiente_aut2, devuelta | cancelada | el creador |
+| borrador | pendiente_aut1 (o pendiente_aut2) | el creador, con el resumen calculado |
+| borrador, pendiente_aut1, pendiente_aut2, devuelta | cancelada | el creador |
 | devuelta | pendiente_aut1 (o pendiente_aut2 si es el Aut. 1 del área) | el creador, quitando `aut1`/`aut2` |
 
 ## Reglas de Firestore (resumen; ver `firestore.rules`)
@@ -166,15 +189,11 @@ aplican las reglas. Helpers: `transicionesTE(estatus, quien)` y `estatusInicialT
   cancelarlas exige seguir siendo solicitante vigente de esa área (las sin `areaId` solo exigen ser el dueño). Un solicitante solo cambia
   ruta/comunidad/punto de empleados de las áreas donde es solicitante vigente (la pantalla ya filtra esos cambios).
 - **Transiciones**, **borrar**, **historial**: como antes (ver la tabla). Las consultas de lista deben traer el filtro que las reglas pueden probar.
-- `areasTE`, `config/*` y `accesosTE` quedan solo para el admin (migración y limpieza). Una vez limpiada la estructura se pueden quitar de las reglas.
+- `areasTE`, `config/*` y `accesosTE` ya no tienen reglas (nadie accede a ellas desde la app).
 
 ## Limitaciones conocidas
 
-- **Límite de empleados por lote**: validar la `areaId` de cada empleado contra el padrón cuesta una lectura por fila y Firestore permite 20 lecturas
-  por lote. Con el resto de comprobaciones (perfil, área, solicitante, Aut. 1, solicitud), **caben 12 empleados en el lote de captura** (medido con
-  el emulador; con 13 falla; con `exists()` además de `get()` solo cabían 6). Opciones para más: (a) crear la solicitud con los primeros 12 y
-  agregar el resto en lotes siguientes permitidos mientras la solicitud no tenga firmas y se haya creado hace pocos minutos; (b) dejar la
-  validación solo en la pantalla y auditar con una Cloud Function; (c) guardar los empleados dentro de la solicitud y validar en servidor.
+- **Límite de empleados por lote**: ver *Borrador* (captura en lotes de hasta 10).
 - La captura debe usar `usuario.nomina` (perfil); un usuario sin nómina no pasa ninguna regla de TE ni de asignaciones.
 - Las consultas con `orderBy` sobre `tiempoExtra` necesitarán índices compuestos en `firestore.indexes.json`.
 - Las pantallas de captura y autorización de TE aún no existen (solo las reglas y el modelo).

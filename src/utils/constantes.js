@@ -71,6 +71,8 @@ export const normalizarEstatus = (estatus) => estatus?.toLowerCase() || ESTATUS_
 
 // ── Tiempo extra (tiempoExtra/{folio}.estatus) ────────────────────────────
 export const ESTATUS_TE = {
+  /** Se arma antes de enviarla: solo la ve y edita su creador (los empleados se agregan en lotes de hasta 10) */
+  BORRADOR: 'borrador',
   PENDIENTE_AUT1: 'pendiente_aut1',
   PENDIENTE_AUT2: 'pendiente_aut2',
   AUTORIZADA: 'autorizada',
@@ -90,6 +92,7 @@ const BADGE_SUCCESS = {
 
 /** Etiqueta y estilo de badge de cada estatus de tiempo extra (mismo formato que ESTATUS_MAP) */
 export const ESTATUS_TE_MAP = {
+  [ESTATUS_TE.BORRADOR]: { label: 'Borrador', ...ESTATUS_MAP[ESTATUS_SOLICITUD.CANCELADA] },
   [ESTATUS_TE.PENDIENTE_AUT1]: { label: 'Pendiente de Aut. 1', ...BADGE_WARNING },
   [ESTATUS_TE.PENDIENTE_AUT2]: { label: 'Pendiente de Aut. 2', ...BADGE_WARNING },
   [ESTATUS_TE.AUTORIZADA]: { label: 'Autorizada', ...BADGE_SUCCESS },
@@ -111,6 +114,7 @@ export const ACCIONES_TE = {
   REENVIADA: 'reenviada',
   CANCELADA: 'cancelada',
   RECIBIDA_RH: 'recibida_rh',
+  ENVIADA: 'enviada',
 };
 
 export const ACCIONES_TE_LABELS = {
@@ -121,6 +125,7 @@ export const ACCIONES_TE_LABELS = {
   [ACCIONES_TE.REENVIADA]: 'Reenviada',
   [ACCIONES_TE.CANCELADA]: 'Cancelada',
   [ACCIONES_TE.RECIBIDA_RH]: 'Recibida por RH',
+  [ACCIONES_TE.ENVIADA]: 'Enviada a autorización',
 };
 
 /**
@@ -138,7 +143,10 @@ export const TRANSICIONES_TE = [
   { de: ESTATUS_TE.DEVUELTA, a: ESTATUS_TE.PENDIENTE_AUT1, quien: 'creador', accion: ACCIONES_TE.REENVIADA },
   { de: ESTATUS_TE.DEVUELTA, a: ESTATUS_TE.PENDIENTE_AUT2, quien: 'creador', accion: ACCIONES_TE.REENVIADA, soloSiEsAut1: true },
   { de: ESTATUS_TE.AUTORIZADA, a: ESTATUS_TE.PROCESADA, quien: 'rh', accion: ACCIONES_TE.RECIBIDA_RH },
-  ...[ESTATUS_TE.PENDIENTE_AUT1, ESTATUS_TE.PENDIENTE_AUT2, ESTATUS_TE.DEVUELTA].map(de => (
+  // Enviar a autorización: en un área que no participa (o si el creador es su Aut. 1) va directo a pendiente_aut2
+  { de: ESTATUS_TE.BORRADOR, a: ESTATUS_TE.PENDIENTE_AUT1, quien: 'creador', accion: ACCIONES_TE.ENVIADA },
+  { de: ESTATUS_TE.BORRADOR, a: ESTATUS_TE.PENDIENTE_AUT2, quien: 'creador', accion: ACCIONES_TE.ENVIADA, soloSiEsAut1: true },
+  ...[ESTATUS_TE.BORRADOR, ESTATUS_TE.PENDIENTE_AUT1, ESTATUS_TE.PENDIENTE_AUT2, ESTATUS_TE.DEVUELTA].map(de => (
     { de, a: ESTATUS_TE.CANCELADA, quien: 'creador', accion: ACCIONES_TE.CANCELADA }
   )),
 ];

@@ -15,7 +15,7 @@ import { leerColeccion } from '../../utils/estructuraDb';
 import { slugify } from '../../utils/comparacionImportacion';
 import { esActivo } from '../../utils/activo';
 import RevisarColecciones from './RevisarColecciones';
-import MigracionAsignaciones from './MigracionAsignaciones';
+import LimpiezaEstructura from './LimpiezaEstructura';
 import { useRecargarCatalogos } from '../../hooks/useCatalogos';
 
 // Importación masiva (arrastra exceljs): se descarga solo al abrir el modal
@@ -645,7 +645,7 @@ export default function RhCatalogos() {
             {tabActiva === 'herramientas' && (
               <div className="space-y-6">
                 <RevisarColecciones />
-                <MigracionAsignaciones />
+                <LimpiezaEstructura />
               </div>
             )}
           </>

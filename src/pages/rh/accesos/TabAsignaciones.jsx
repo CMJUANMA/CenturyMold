@@ -3,7 +3,7 @@
  * y Ver historial. Cada quien solo ve las acciones de los roles que puede dar (admin: todos; RH y Aut. 2: aut1 y solicitante).
  */
 import { useMemo, useState } from 'react';
-import { AlertTriangle, CalendarPlus, CheckCircle2, History, Loader2, Plus, Search, ShieldOff } from 'lucide-react';
+import { AlertTriangle, CalendarPlus, CheckCircle2, History, ListChecks, Loader2, Plus, Search, ShieldOff } from 'lucide-react';
 import Modal from '../../../components/Modal';
 import { useConfirmar } from '../../../hooks/useConfirmar';
 import { useToast } from '../../../hooks/useToast';
@@ -11,12 +11,13 @@ import {
   ESTADO_LABELS, ROLES_OP, ROL_OP_LABELS, aFecha, aIsoLocal, estadoAsignacion, formatoFecha, inicioDelDia, finDelDia, rolesAsignables,
 } from '../../../utils/asignaciones';
 import { extenderAsignacion, leerHistorialAsignacion, revocarAsignacion } from '../../../utils/asignacionesDb';
+import ModalCargaInicial from './ModalCargaInicial';
 import { ESTADO_CLS, inputCls, labelCls, selectCls, btnPrimary, btnSecondary, btnIcon } from './ui';
 
 const ESTADOS = ['vigente', 'programada', 'vencida', 'revocada'];
 const sinAcentos = (t) => String(t ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-export default function TabAsignaciones({ asignaciones, nombresArea, actor, ahora, onAsignar, onCambio }) {
+export default function TabAsignaciones({ asignaciones, nombresArea, actor, ahora, onAsignar, onCambio, empleados = [], usuarios = null, onCargaTerminada }) {
   const confirmar = useConfirmar();
   const toast = useToast();
   const [filtroRol, setFiltroRol] = useState('');
@@ -25,6 +26,7 @@ export default function TabAsignaciones({ asignaciones, nombresArea, actor, ahor
   const [busqueda, setBusqueda] = useState('');
   const [extender, setExtender] = useState(null);
   const [historial, setHistorial] = useState(null);
+  const [cargaInicial, setCargaInicial] = useState(false);
 
   const asignables = rolesAsignables(actor);
   const puedeActuar = (a) => asignables.includes(a.rol) && (actor.esAdmin || String(a.nomina) !== String(actor.nomina));
@@ -84,11 +86,18 @@ export default function TabAsignaciones({ asignaciones, nombresArea, actor, ahor
           {ESTADOS.map(s => <option key={s} value={s}>{ESTADO_LABELS[s]}s</option>)}
         </select>
         <div className="text-xs text-[var(--text-muted)]">{filas.length} de {asignaciones.length}</div>
-        {asignables.length > 0 && (
-          <button type="button" id="btn-asignar-rol" onClick={() => onAsignar({})} className={`${btnPrimary} ml-auto`}>
-            <Plus className="h-4 w-4" />Asignar rol
-          </button>
-        )}
+        <div className="ml-auto flex flex-wrap gap-2">
+          {actor.esAdmin && (
+            <button type="button" id="btn-carga-inicial" onClick={() => setCargaInicial(true)} className={btnSecondary}>
+              <ListChecks className="h-4 w-4" />Cargar asignaciones iniciales
+            </button>
+          )}
+          {asignables.length > 0 && (
+            <button type="button" id="btn-asignar-rol" onClick={() => onAsignar({})} className={btnPrimary}>
+              <Plus className="h-4 w-4" />Asignar rol
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] shadow-sm">
@@ -140,6 +149,10 @@ export default function TabAsignaciones({ asignaciones, nombresArea, actor, ahor
           </table>
         </div>
       </div>
+
+      <ModalCargaInicial abierto={cargaInicial} actor={actor} empleados={empleados} usuarios={usuarios} asignaciones={asignaciones}
+        nombresArea={nombresArea} onClose={() => setCargaInicial(false)}
+        onTerminado={(n) => { setCargaInicial(false); toast.success(`${n} asignaciones creadas.`); onCargaTerminada?.(); }} />
 
       {extender && (
         <ModalExtender asignacion={extender} actor={actor} onClose={() => setExtender(null)}

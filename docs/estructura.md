@@ -34,4 +34,4 @@ Pruebas: `tests/firestore.rules.estructura.test.js` (`npm run test:rules`). Matc
 
 ## Pendiente (siguiente etapa)
 
-Los permisos por área ya son asignaciones (`docs/tiempo-extra.md`). La estructura vieja (`areasTE`, `config/areasTE`, `accesosTE`, `empleados.areaTE`/`areaTEManual`) se migra y se elimina desde RH > Catálogos > Diagnóstico (solo admin).
+Los permisos por área ya son asignaciones (`docs/tiempo-extra.md`). La estructura vieja (`areasTE`, `config/areasTE`, `accesosTE`, `empleados.areaTE`/`areaTEManual`) se limpia desde RH > Catálogos > Diagnóstico (solo admin).

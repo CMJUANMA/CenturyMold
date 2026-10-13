@@ -125,7 +125,8 @@ export default function UsuariosYAccesos() {
               empleados={empleados} esAdmin={accesos.esAdmin} ahora={ahora} />
           )}
           {tabActiva === 'asignaciones' && (
-            <TabAsignaciones asignaciones={asignaciones} nombresArea={nombresArea} actor={actor} ahora={ahora} onAsignar={abrirAsignar} />
+            <TabAsignaciones asignaciones={asignaciones} nombresArea={nombresArea} actor={actor} ahora={ahora} onAsignar={abrirAsignar}
+              empleados={empleados} usuarios={usuarios} onCargaTerminada={() => navigate('/accesos/organigrama')} />
           )}
           {tabActiva === 'organigrama' && (
             <TabOrganigrama asignaciones={asignaciones} areas={areas} empleados={empleados} usuarios={usuarios} actor={actor}
