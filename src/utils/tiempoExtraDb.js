@@ -10,7 +10,7 @@ import {
   collection, deleteField, doc, getDoc, getDocs, query, runTransaction, serverTimestamp, where, writeBatch,
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { ESTATUS_TE_VISIBLES, LOTE_EMPLEADOS, docAEmpleado, empleadoADoc, folioDe, resumenTE, trozos } from './tiempoExtra';
+import { ESTATUS_TE_VISIBLES, LOTE_EMPLEADOS, MIN_MOTIVO_DEVOLUCION, MSG_YA_RESPONDIDA, docAEmpleado, empleadoADoc, folioDe, resumenTE, trozos } from './tiempoExtra';
 
 const refTE = (id) => doc(db, 'tiempoExtra', id);
 
@@ -104,7 +104,7 @@ export async function enviarSolicitud({ id, devuelta, usuario, estatus, fechaTE,
     const c = await tx.get(contador);
     const numero = (c.exists() ? c.data().ultimo : 0) + 1;
     const folio = folioDe(anio, numero);
-    if (c.exists()) tx.update(contador, { ultimo: numero }); else tx.set(contador, { ultimo: 1 });
+    if (c.exists()) tx.update(contador, { ultimo: numero, solicitudId: id }); else tx.set(contador, { ultimo: 1, solicitudId: id });
     tx.update(refTE(id), { ...contenido, estatus, folio, fechaActualizacion: serverTimestamp() });
     tx.set(doc(collection(db, 'tiempoExtra', id, 'historial')), entradaHistorial(usuario, 'enviada'));
     return folio;
@@ -166,4 +166,68 @@ export async function leerOcupados({ uid, areaId, fechaTE, esAut1DeLaArea, exclu
     console.error('Ocupados:', err);
   }
   return ocupados;
+}
+
+// ── Autorizar y devolver (bandejas) ───────────────────────────────────────
+
+/** Error de concurrencia: alguien más ya respondió (o el solicitante canceló) mientras estaba abierta */
+export class YaRespondida extends Error {
+  constructor() { super(MSG_YA_RESPONDIDA); this.name = 'YaRespondida'; }
+}
+
+const ESTATUS_DEL_NIVEL = { 1: 'pendiente_aut1', 2: 'pendiente_aut2' };
+
+/**
+ * Autoriza en `nivel` (1: pendiente_aut1 → pendiente_aut2; 2: pendiente_aut2 → autorizada). En una transacción: relee el estatus y aborta con
+ * YaRespondida si cambió; guarda la firma { nomina, nombre, fecha, comentario, comoRH } y la entrada del historial.
+ * comoRH: firma el nivel 2 por su rol RH/admin sin ser Aut. 2 (para saber si firmó Salvador, Marco o alguien de RH).
+ */
+export async function autorizarSolicitud({ id, usuario, nivel, comoRH = false, comentario = '' }) {
+  const ref = refTE(id);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists() || snap.data().estatus !== ESTATUS_DEL_NIVEL[nivel]) throw new YaRespondida();
+    if (snap.data().creadoPor === usuario.uid) throw new Error('No puedes autorizar tu propia solicitud.');
+    const texto = String(comentario).trim();
+    const firma = { nomina: String(usuario.nomina), nombre: usuario.nombre ?? '', fecha: serverTimestamp(), comentario: texto, comoRH: nivel === 2 ? !!comoRH : false };
+    tx.update(ref, nivel === 1
+      ? { estatus: 'pendiente_aut2', aut1: firma, fechaActualizacion: serverTimestamp() }
+      : { estatus: 'autorizada', aut2: firma, fechaActualizacion: serverTimestamp() });
+    tx.set(doc(collection(db, 'tiempoExtra', id, 'historial')), { ...entradaHistorial(usuario, nivel === 1 ? 'autorizada_1' : 'autorizada_2', texto), nivel });
+  });
+}
+
+/** Devuelve con motivo (mínimo 10 caracteres) → devuelta, con { nivel, nomina, nombre, motivo, fecha }. Misma transacción y mismo aborto */
+export async function devolverSolicitud({ id, usuario, nivel, motivo }) {
+  const texto = String(motivo).trim();
+  if (texto.length < MIN_MOTIVO_DEVOLUCION) throw new Error(`El motivo de la devolución debe tener al menos ${MIN_MOTIVO_DEVOLUCION} caracteres.`);
+  const ref = refTE(id);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists() || snap.data().estatus !== ESTATUS_DEL_NIVEL[nivel]) throw new YaRespondida();
+    if (snap.data().creadoPor === usuario.uid) throw new Error('No puedes devolver tu propia solicitud.');
+    tx.update(ref, {
+      estatus: 'devuelta', fechaActualizacion: serverTimestamp(),
+      devolucion: { nivel, nomina: String(usuario.nomina), nombre: usuario.nombre ?? '', motivo: texto, fecha: serverTimestamp() },
+    });
+    tx.set(doc(collection(db, 'tiempoExtra', id, 'historial')), { ...entradaHistorial(usuario, 'devuelta', texto), nivel });
+  });
+}
+
+/**
+ * Autoriza varias, cada una en su propia transacción. Devuelve { ok: [ids], fallidas: [{ id, motivo }] }.
+ * `tareas`: [{ id, nivel }]
+ */
+export async function autorizarVarias({ tareas, usuario, comoRH, comentario = '' }) {
+  const ok = [];
+  const fallidas = [];
+  for (const { id, nivel } of tareas) {
+    try {
+      await autorizarSolicitud({ id, usuario, nivel, comoRH, comentario });
+      ok.push(id);
+    } catch (err) {
+      fallidas.push({ id, motivo: err instanceof YaRespondida ? MSG_YA_RESPONDIDA : (err.code === 'permission-denied' ? 'Sin permiso (ya no es tu nivel o tu rol venció)' : err.message) });
+    }
+  }
+  return { ok, fallidas };
 }

@@ -11,6 +11,8 @@ let env;
 const ANIO = new Date().getFullYear();
 const N = { solP: '50532', aut1P: '50610', aut2: '11' };
 const USUARIOS = {
+  aut2: { uid: 'aut2', nomina: N.aut2, nombre: 'MALDONADO SALVADOR' },
+  rh: { uid: 'rh', nomina: '90001', nombre: 'ESPINOSA MARCO' },
   solP: { uid: 'solP', nomina: N.solP, nombre: 'ACOSTA MARCOS' },
   aut1P: { uid: 'aut1P', nomina: N.aut1P, nombre: 'GOMEZ ISMAEL' },
 };
@@ -226,5 +228,97 @@ describe('ruta en el padrón y avisos de la misma fecha', () => {
     const ocupados = await m2.leerOcupados({ uid: 'aut1P', areaId: 'produccion', fechaTE: '2026-12-01', esAut1DeLaArea: true });
     expect([...ocupados.keys()].sort()).toEqual(['700', '701']);
     expect(ocupados.get('700')).toMatchObject({ folio: `TE-${ANIO}-0013`, estatus: 'pendiente_aut1' });
+  });
+});
+
+// ── Bandejas: autorizar y devolver ───────────────────────────────────────
+
+describe('autorizar y devolver (cada acción en su transacción)', () => {
+  const enviarComoOscar = async (id = 'BR-AAAAAAAAAA', estatus = 'pendiente_aut1') => {
+    const { m } = await comoUsuario('solP');
+    const lista = empleados(3);
+    await guardarNuevo(m, id, lista);
+    await m.enviarSolicitud({ id, devuelta: false, usuario: USUARIOS.solP, estatus, fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Entrega urgente', empleados: lista });
+    return m;
+  };
+
+  it('Oscar envía → el Aut. 1 autoriza (firma con comentario) → la Aut. 2 autoriza → queda autorizada, con su historial', async () => {
+    await enviarComoOscar();
+    const a1 = await comoUsuario('aut1P');
+    await a1.m.autorizarSolicitud({ id: 'BR-AAAAAAAAAA', usuario: USUARIOS.aut1P, nivel: 1, comentario: 'Va bien' });
+    let t = (await getDoc(doc(a1.db, 'tiempoExtra', 'BR-AAAAAAAAAA'))).data();
+    expect(t.estatus).toBe('pendiente_aut2');
+    expect(t.aut1).toMatchObject({ nomina: N.aut1P, comentario: 'Va bien', comoRH: false });
+    const a2 = await comoUsuario('aut2');
+    await a2.m.autorizarSolicitud({ id: 'BR-AAAAAAAAAA', usuario: USUARIOS.aut2, nivel: 2, comoRH: false });
+    t = (await getDoc(doc(a2.db, 'tiempoExtra', 'BR-AAAAAAAAAA'))).data();
+    expect(t.estatus).toBe('autorizada');
+    expect(t.aut2).toMatchObject({ nomina: N.aut2, comoRH: false });
+    expect((await a2.m.leerHistorialTE('BR-AAAAAAAAAA')).map(h => h.accion)).toEqual(['enviada', 'autorizada_1', 'autorizada_2']);
+  });
+
+  it('RH firma el nivel 2 con comoRH true; no puede decir que es la Aut. 2', async () => {
+    await enviarComoOscar();
+    const a1 = await comoUsuario('aut1P');
+    await a1.m.autorizarSolicitud({ id: 'BR-AAAAAAAAAA', usuario: USUARIOS.aut1P, nivel: 1 });
+    const rh = await comoUsuario('rh');
+    await expect(rh.m.autorizarSolicitud({ id: 'BR-AAAAAAAAAA', usuario: USUARIOS.rh, nivel: 2, comoRH: false })).rejects.toThrow();
+    await rh.m.autorizarSolicitud({ id: 'BR-AAAAAAAAAA', usuario: USUARIOS.rh, nivel: 2, comoRH: true });
+    expect((await getDoc(doc(rh.db, 'tiempoExtra', 'BR-AAAAAAAAAA'))).data().aut2.comoRH).toBe(true);
+  });
+
+  it('"Alguien más ya respondió esta solicitud": el segundo en responder aborta', async () => {
+    await enviarComoOscar();
+    const a1 = await comoUsuario('aut1P');
+    await a1.m.autorizarSolicitud({ id: 'BR-AAAAAAAAAA', usuario: USUARIOS.aut1P, nivel: 1 });
+    await expect(a1.m.autorizarSolicitud({ id: 'BR-AAAAAAAAAA', usuario: USUARIOS.aut1P, nivel: 1 })).rejects.toThrow('Alguien más ya respondió esta solicitud');
+    await expect(a1.m.devolverSolicitud({ id: 'BR-AAAAAAAAAA', usuario: USUARIOS.aut1P, nivel: 1, motivo: 'Ya la había autorizado yo' })).rejects.toThrow('Alguien más ya respondió esta solicitud');
+  });
+
+  it('si el solicitante la cancela mientras está abierta, ya no se puede responder', async () => {
+    const m = await enviarComoOscar();
+    await m.cancelarSolicitud({ id: 'BR-AAAAAAAAAA', usuario: USUARIOS.solP, motivo: 'Cambió el pedido' });
+    const a1 = await comoUsuario('aut1P');
+    await expect(a1.m.autorizarSolicitud({ id: 'BR-AAAAAAAAAA', usuario: USUARIOS.aut1P, nivel: 1 })).rejects.toThrow('Alguien más ya respondió esta solicitud');
+  });
+
+  it('devolver exige motivo de 10 caracteres; Oscar corrige y reenvía y vuelve a empezar en Aut. 1, con el mismo folio', async () => {
+    await enviarComoOscar();
+    const a1 = await comoUsuario('aut1P');
+    await expect(a1.m.devolverSolicitud({ id: 'BR-AAAAAAAAAA', usuario: USUARIOS.aut1P, nivel: 1, motivo: 'corto' })).rejects.toThrow(/al menos 10/);
+    await a1.m.devolverSolicitud({ id: 'BR-AAAAAAAAAA', usuario: USUARIOS.aut1P, nivel: 1, motivo: 'Faltan los horarios del turno B' });
+    let t = (await getDoc(doc(a1.db, 'tiempoExtra', 'BR-AAAAAAAAAA'))).data();
+    expect(t.estatus).toBe('devuelta');
+    expect(t.devolucion).toMatchObject({ nivel: 1, nomina: N.aut1P, motivo: 'Faltan los horarios del turno B' });
+    const folio = t.folio;
+    const oscar = await comoUsuario('solP');
+    await oscar.m.enviarSolicitud({ id: 'BR-AAAAAAAAAA', devuelta: true, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Corregí los horarios', empleados: empleados(3) });
+    t = (await getDoc(doc(oscar.db, 'tiempoExtra', 'BR-AAAAAAAAAA'))).data();
+    expect(t).toMatchObject({ estatus: 'pendiente_aut1', folio });
+    const a1b = await comoUsuario('aut1P');
+    await a1b.m.autorizarSolicitud({ id: 'BR-AAAAAAAAAA', usuario: USUARIOS.aut1P, nivel: 1 });
+    expect((await a1b.m.leerHistorialTE('BR-AAAAAAAAAA')).map(h => h.accion)).toEqual(['enviada', 'devuelta', 'reenviada', 'autorizada_1']);
+  });
+
+  it('autorizar varias: cada una en su transacción; la que ya respondió otro falla y las demás pasan', async () => {
+    await enviarComoOscar('BR-AAAAAAAAAA');
+    await enviarComoOscar('BR-BBBBBBBBBB');
+    await enviarComoOscar('BR-CCCCCCCCCC');
+    const a1 = await comoUsuario('aut1P');
+    await a1.m.devolverSolicitud({ id: 'BR-BBBBBBBBBB', usuario: USUARIOS.aut1P, nivel: 1, motivo: 'La devolvió otra persona' });
+    const r = await a1.m.autorizarVarias({ tareas: ['BR-AAAAAAAAAA', 'BR-BBBBBBBBBB', 'BR-CCCCCCCCCC'].map(id => ({ id, nivel: 1 })), usuario: USUARIOS.aut1P, comoRH: false });
+    expect(r.ok).toEqual(['BR-AAAAAAAAAA', 'BR-CCCCCCCCCC']);
+    expect(r.fallidas).toEqual([{ id: 'BR-BBBBBBBBBB', motivo: 'Alguien más ya respondió esta solicitud' }]);
+  });
+
+  it('lo que capturó el Aut. 1 entra directo a nivel 2 y él no puede firmarlo', async () => {
+    const a1 = await comoUsuario('aut1P');
+    const lista = empleados(2);
+    await a1.m.guardarBorrador({ ...base('BR-DDDDDDDDDD', { usuario: USUARIOS.aut1P }), empleados: lista, sucios: new Set(lista.map(e => e.nomina)) });
+    await a1.m.enviarSolicitud({ id: 'BR-DDDDDDDDDD', devuelta: false, usuario: USUARIOS.aut1P, estatus: 'pendiente_aut2', fechaTE: '2026-12-01', motivo: 'Calidad', comentario: 'Revisión especial', empleados: lista });
+    await expect(a1.m.autorizarSolicitud({ id: 'BR-DDDDDDDDDD', usuario: USUARIOS.aut1P, nivel: 1 })).rejects.toThrow();
+    const a2 = await comoUsuario('aut2');
+    await a2.m.autorizarSolicitud({ id: 'BR-DDDDDDDDDD', usuario: USUARIOS.aut2, nivel: 2, comoRH: false });
+    expect((await getDoc(doc(a2.db, 'tiempoExtra', 'BR-DDDDDDDDDD'))).data().estatus).toBe('autorizada');
   });
 });

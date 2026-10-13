@@ -85,6 +85,7 @@ export function usePendientesTE(usuario, accesos, activo = true) {
 export function usePorAutorizar(usuario, accesos, activo = true) {
   const uid = usuario?.uid;
   const { areasAut1, esAut2 } = accesos;
+  const firmaNivel2 = esAut2 || ROLES_RH.includes(usuario?.rol); // RH y admin también firman el nivel 2
   const idsAut1 = useMemo(() => [...areasAut1].sort().join('|'), [areasAut1]);
   const [conteos, setConteos] = useState({});
 
@@ -103,9 +104,9 @@ export function usePorAutorizar(usuario, accesos, activo = true) {
     for (const id of idsAut1 ? idsAut1.split('|') : []) {
       escuchar(`aut1:${id}`, query(col, where('areaId', '==', id), where('estatus', '==', ESTATUS_TE.PENDIENTE_AUT1)));
     }
-    if (esAut2) escuchar('aut2', query(col, where('estatus', '==', ESTATUS_TE.PENDIENTE_AUT2)));
+    if (firmaNivel2) escuchar('aut2', query(col, where('estatus', '==', ESTATUS_TE.PENDIENTE_AUT2)));
     return () => { unsubs.forEach(u => u()); setConteos({}); };
-  }, [uid, activo, idsAut1, esAut2]);
+  }, [uid, activo, idsAut1, firmaNivel2]);
 
   const aut1 = Object.entries(conteos).filter(([k]) => k.startsWith('aut1:')).reduce((a, [, n]) => a + n, 0);
   const aut2 = conteos.aut2 ?? 0;

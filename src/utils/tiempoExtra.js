@@ -153,3 +153,59 @@ export const PESTANAS_TE = [
   { id: 'autorizada', label: 'Autorizadas', estatus: ['autorizada', 'procesada'] },
   { id: 'cancelada', label: 'Canceladas', estatus: ['cancelada'] },
 ];
+
+// ── Bandejas de autorización ──────────────────────────────────────────────
+
+export const MIN_MOTIVO_DEVOLUCION = 10;
+export const MSG_YA_RESPONDIDA = 'Alguien más ya respondió esta solicitud';
+
+const aMillis = (f) => (typeof f?.toMillis === 'function' ? f.toMillis() : f instanceof Date ? f.getTime() : typeof f === 'number' ? f : 0);
+
+/** Desde cuándo espera en su nivel: la última vez que cambió de estatus (al enviarla, o al pasar de nivel 1 a 2) */
+export const esperaDesde = (t) => aMillis(t.fechaActualizacion) || aMillis(t.fechaCreacion);
+
+/** "hace 5 min", "hace 3 h", "hace 2 días" */
+export function haceTiempo(desde, ahora = Date.now()) {
+  const ms = Math.max(0, ahora - (typeof desde === 'number' ? desde : aMillis(desde)));
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return 'hace un momento';
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `hace ${h} h`;
+  const d = Math.floor(h / 24);
+  return `hace ${d} ${d === 1 ? 'día' : 'días'}`;
+}
+
+/** La fecha del tiempo extra ya pasó ('AAAA-MM-DD' contra hoy) */
+export const fechaVencida = (fechaTE, hoy) => !!fechaTE && fechaTE < hoy;
+
+/** Las más antiguas primero (por el tiempo que llevan esperando en su nivel) */
+export const masAntiguasPrimero = (lista) => [...lista].sort((a, b) => esperaDesde(a) - esperaDesde(b));
+
+/** ¿Es una solicitud propia? (nadie autoriza lo que creó) */
+export const esPropia = (t, uid) => t.creadoPor === uid;
+
+/** Texto de una firma: "Salvador Maldonado" o "Marco E. (RH)" cuando firmó por su rol RH */
+export const firmaTexto = (f, nombre = (x) => x) => (f ? `${nombre(f.nombre ?? f.nomina)}${f.comoRH ? ' (RH)' : ''}` : '');
+
+/** Filtros de la bandeja y de la consulta: área, estatus, rango de fecha del TE y texto del solicitante */
+export function filtrarSolicitudes(lista, { areaId = '', estatus = '', desde = '', hasta = '', solicitante = '' } = {}) {
+  const q = String(solicitante).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  return lista.filter(t => (!areaId || t.areaId === areaId) && (!estatus || t.estatus === estatus)
+    && (!desde || String(t.fechaTE ?? '') >= desde) && (!hasta || String(t.fechaTE ?? '') <= hasta)
+    && (!q || `${t.creadoPorNombre ?? ''} ${t.creadoPorNomina ?? ''}`.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q)));
+}
+
+/** Totales de varias solicitudes (para confirmar una autorización masiva) */
+export const totalesDe = (lista) => ({
+  solicitudes: lista.length,
+  empleados: lista.reduce((a, t) => a + (t.resumen?.totalEmpleados ?? 0), 0),
+  horas: Math.round(lista.reduce((a, t) => a + (t.resumen?.totalHoras ?? 0), 0) * 100) / 100,
+});
+
+/** "Ruta · Comunidad · Punto" de un empleado a partir de los ids y los catálogos */
+export function textoRuta(e, { rutas = [], comunidades = [], puntos = [] } = {}) {
+  if (!e.transporte) return 'Sin transporte';
+  const n = (lista, id) => lista.find(x => x.id === id)?.nombre ?? '';
+  return [n(rutas, e.rutaId), n(comunidades, e.comunidadId), n(puntos, e.puntoReunionId)].filter(Boolean).join(' · ') || 'Sin ruta';
+}

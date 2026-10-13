@@ -18,9 +18,10 @@ import Redirigir from './components/Redirigir';
 import Layout from './pages/Layout';
 import Login from './pages/Login';
 import Home from './pages/Home';
-import Proximamente from './pages/Proximamente';
 const EditorTE = lazy(() => import('./pages/te/EditorTE'));
 const MisSolicitudesTE = lazy(() => import('./pages/te/MisSolicitudesTE'));
+const BandejaTE = lazy(() => import('./pages/te/BandejaTE'));
+const ConsultaTE = lazy(() => import('./pages/te/ConsultaTE'));
 import RutaCapacidad from './components/RutaCapacidad';
 import Inicio from './pages/Inicio';
 import TiempoExtraInicio from './pages/TiempoExtraInicio';
@@ -86,8 +87,8 @@ const router = createBrowserRouter([
                 { path: '/tiempo-extra/mis-solicitudes', element: <MisSolicitudesTE /> },
               ],
             },
-            { element: <RutaCapacidad puede="autorizar" />, children: [{ path: '/tiempo-extra/autorizar', element: <Proximamente nombre="Por autorizar" /> }] },
-            { element: <RutaCapacidad puede="consultar" />, children: [{ path: '/tiempo-extra/consulta', element: <Proximamente nombre="Consulta de solicitudes" /> }] },
+            { element: <RutaCapacidad puede="autorizar" />, children: [{ path: '/tiempo-extra/autorizar', element: <BandejaTE /> }] },
+            { element: <RutaCapacidad puede="consultar" />, children: [{ path: '/tiempo-extra/consulta', element: <ConsultaTE /> }] },
           ],
         },
 

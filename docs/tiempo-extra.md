@@ -151,6 +151,27 @@ ese día (solo ve lo que puede leer: lo suyo y, si es Aut. 1, lo de su área).
 
 Consultas: las del Aut. 1, la Aut. 2 y RH sobre `tiempoExtra` deben **excluir borradores** (`estatus in ESTATUS_TE_VISIBLES`); una consulta solo por `areaId` se rechaza.
 
+## Bandejas de autorización y consulta
+
+- **`/tiempo-extra/autorizar`** (en tiempo real): el Aut. 1 ve `pendiente_aut1` de sus áreas; la Aut. 2 y RH/admin, `pendiente_aut2` de toda la planta; con los dos roles, dos
+  secciones ("Nivel 1" y "Nivel 2"). Las más antiguas primero (por el tiempo que llevan esperando en su nivel), con filtros de área y fechas, insignia "Fecha vencida"
+  (se puede autorizar, con confirmación extra) y las propias deshabilitadas ("No puedes autorizar tu propia solicitud"). El detalle muestra encabezado, empleados con su ruta,
+  resumen por bloque de horario, historial y, si fue devuelta antes, ese motivo. En celular se vuelve una lista de tarjetas con botones grandes.
+- **Autorizar** (comentario opcional) guarda `aut1` o `aut2` como `{ nomina, nombre, fecha, comentario, comoRH }`: `comoRH` es true cuando RH/admin firma el nivel 2 **sin ser Aut. 2**, para saber si firmó
+  Salvador, Marco o alguien de RH (las reglas exigen que diga la verdad). **Devolver** exige un motivo de 10+ caracteres y guarda `devolucion { nivel, nomina, nombre, motivo, fecha }`.
+  Cada acción corre en `runTransaction`: relee el estatus y aborta con "Alguien más ya respondió esta solicitud" si cambió (también si el solicitante canceló). Escribe el historial.
+- **Autorizar varias**: casillas y "Autorizar N seleccionadas" (confirmación con total de empleados y horas); cada una en su transacción y un resumen de las que fallaron. Devolver siempre es de una en una.
+  Lo que desaparece de la bandeja sin que uno lo haya respondido muestra un aviso.
+- El Aut. 1 tiene además "Historial de mi área" (lo que ya pasó por su nivel, solo lectura).
+- **`/tiempo-extra/consulta`** (Aut. 2, RH y admin): todas las solicitudes salvo borradores; filtros de área, estatus, fechas del TE y solicitante; tarjetas (pendientes por nivel, autorizadas de la
+  semana, empleados y horas autorizados del mes por área) y **Exportar a Excel** (hoja "Resumen" por área y estatus; hoja "Detalle" con una fila por empleado y quién firmó cada nivel).
+- Contadores en vivo en "Por autorizar" (menú, incluido el de RH) y en la tarjeta del Inicio; el Inicio del solicitante se actualiza solo cuando se le devuelve o se le autoriza una solicitud.
+
+### Contador de folios
+
+`contadores/te-AAAA` solo se puede subir de uno en uno y **únicamente dentro del lote o transacción en que una solicitud propia pasa de borrador a pendiente con ese folio**: el documento del
+contador lleva `solicitudId` y la regla compara con `get` (antes: borrador) y `getAfter` (después: pendiente, con el folio igual al número nuevo). Subirlo aislado falla.
+
 ## Modelo de datos
 
 ### `tiempoExtra/{id}` — id propio del borrador (`BR-…`); el **folio** (`TE-2026-0001`) es un campo que se asigna al enviar

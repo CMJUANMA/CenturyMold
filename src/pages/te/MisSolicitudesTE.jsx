@@ -14,19 +14,20 @@ import { useToast } from '../../hooks/useToast';
 import BadgeEstatus from '../../components/BadgeEstatus';
 import Modal from '../../components/Modal';
 import Spinner from '../../components/Spinner';
-import { ACCIONES_TE_LABELS } from '../../utils/constantes';
 import { formatoFecha } from '../../utils/asignaciones';
-import { PESTANAS_TE, calcularHoras, etiquetaBloque, nivelEnTexto } from '../../utils/tiempoExtra';
+import { PESTANAS_TE, nivelEnTexto } from '../../utils/tiempoExtra';
+import { useCatalogos } from '../../hooks/useCatalogos';
+import DetalleTE from './DetalleTE';
 import { cancelarSolicitud, eliminarBorrador, leerHistorialTE, leerSolicitudTE } from '../../utils/tiempoExtraDb';
 
 const cuando = (t) => t.fechaActualizacion?.toMillis?.() ?? t.fechaCreacion?.toMillis?.() ?? 0;
-const fechaHora = (f) => (f?.toDate ? f.toDate().toLocaleString('es-MX') : '');
 const btn = 'inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors';
 
 export default function MisSolicitudesTE() {
   const { usuario } = useAuth();
   const { propias, cargando, error } = useResumenTE();
   const { nombres } = useAreas();
+  const { rutas, comunidades, puntos } = useCatalogos({ empleados: false });
   const navigate = useNavigate();
   const confirmar = useConfirmar();
   const toast = useToast();
@@ -147,77 +148,11 @@ export default function MisSolicitudesTE() {
       {detalle && (
         <Modal isOpen onClose={() => setDetalle(null)} title={detalle.solicitud.folio ?? 'Borrador'} maxWidth="max-w-4xl">
           {detalle.cargando ? <div className="flex items-center gap-2 py-8 text-xs text-[var(--text-muted)]"><Loader2 className="h-4 w-4 animate-spin" />Cargando…</div> : (
-            <Detalle t={detalle.solicitud} historial={detalle.historial} area={nombres.get(detalle.solicitud.areaId) ?? detalle.solicitud.areaId} acciones={acciones(detalle.solicitud)} />
+            <DetalleTE t={detalle.solicitud} historial={detalle.historial} area={nombres.get(detalle.solicitud.areaId) ?? detalle.solicitud.areaId}
+              catalogos={{ rutas, comunidades, puntos }} acciones={acciones(detalle.solicitud)} avisoTransporte />
           )}
         </Modal>
       )}
-    </div>
-  );
-}
-
-function Detalle({ t, historial, area, acciones }) {
-  return (
-    <div className="space-y-5 text-xs">
-      {t.estatus === 'devuelta' && t.devolucion && (
-        <div role="alert" className="rounded-lg border-2 border-[var(--status-error-border)] bg-[var(--status-error-bg)] p-4 text-[var(--status-error-text)]">
-          <p className="flex items-center gap-2 text-sm font-bold"><AlertTriangle className="h-4 w-4" />Devuelta por Autorización {t.devolucion.nivel} · {t.devolucion.nombre}</p>
-          <p className="mt-1 text-sm">{t.devolucion.motivo}</p>
-        </div>
-      )}
-      {t.estatus === 'cancelada' && t.motivoCancelacion && <p className="rounded-md bg-[var(--bg-surface-secondary)] p-3 text-[var(--text-secondary)]">Motivo de la cancelación: {t.motivoCancelacion}</p>}
-
-      <dl className="grid grid-cols-2 gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-4 sm:grid-cols-4">
-        {[['Estatus', <BadgeEstatus key="e" estatus={t.estatus} modulo="te" />], ['Área', area], ['Fecha', t.fechaTE ? formatoFecha(`${t.fechaTE}T12:00:00`) : '—'], ['Motivo', t.motivo || '—'],
-          ['Empleados', t.resumen?.totalEmpleados ?? 0], ['Horas', t.resumen?.totalHoras ?? 0], ['Con transporte', t.resumen?.totalTransporte ?? 0], ['Con alimentos', t.resumen?.totalAlimentos ?? 0]].map(([k, v]) => (
-          <div key={k}><dt className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">{k}</dt><dd className="mt-0.5 font-semibold text-[var(--text-main)]">{v}</dd></div>
-        ))}
-        {t.comentario && <div className="col-span-full"><dt className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Comentario</dt><dd className="mt-0.5 text-[var(--text-main)]">{t.comentario}</dd></div>}
-      </dl>
-
-      {['pendiente_aut1', 'pendiente_aut2', 'autorizada'].includes(t.estatus) && (
-        <p className="rounded-md border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-3 py-2 text-[var(--status-info-text)]">
-          El transporte se solicitará automáticamente a RH al quedar autorizada.
-        </p>
-      )}
-
-      <section>
-        <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Empleados ({t.empleados?.length ?? 0})</h3>
-        <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
-          <table className="w-full text-left">
-            <thead className="bg-[var(--bg-surface-secondary)] text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
-              <tr><th className="px-3 py-2">Nómina</th><th className="px-3 py-2">Nombre</th><th className="px-3 py-2">Puesto</th><th className="px-3 py-2">Horario</th><th className="px-3 py-2 text-right">Horas</th><th className="px-3 py-2">Alimentos</th><th className="px-3 py-2">Transporte</th></tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-subtle)]">
-              {(t.empleados ?? []).map(e => (
-                <tr key={e.nomina}>
-                  <td className="px-3 py-1.5 font-mono">{e.nomina}</td><td className="px-3 py-1.5">{e.nombre}</td><td className="px-3 py-1.5 text-[var(--text-secondary)]">{e.puesto}</td>
-                  <td className="px-3 py-1.5 whitespace-nowrap">{etiquetaBloque(e)}</td><td className="px-3 py-1.5 text-right">{calcularHoras(e.horaEntrada, e.horaSalida)}</td>
-                  <td className="px-3 py-1.5">{e.alimentos ? 'Sí' : 'No'}</td><td className="px-3 py-1.5">{e.transporte ? 'Sí' : 'No'}</td>
-                </tr>
-              ))}
-              {(t.empleados ?? []).length === 0 && <tr><td colSpan={7} className="px-3 py-4 text-center text-[var(--text-muted)]">Sin empleados.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section>
-        <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Historial</h3>
-        {historial.length === 0 ? <p className="text-[var(--text-muted)]">Todavía sin movimientos: un borrador no tiene historial hasta enviarse.</p> : (
-          <ol className="space-y-2 border-l-2 border-[var(--border-color)] pl-4">
-            {historial.map(h => (
-              <li key={h.id} className="relative">
-                <span className="absolute -left-[1.4rem] top-1 h-2.5 w-2.5 rounded-full bg-[var(--cm-red)]" />
-                <p className="font-semibold text-[var(--text-main)]">{ACCIONES_TE_LABELS[h.accion] ?? h.accion}</p>
-                <p className="text-[var(--text-secondary)]">{h.porNombre || h.porNomina} · {fechaHora(h.fecha)}</p>
-                {h.comentario && <p className="text-[var(--text-secondary)]">“{h.comentario}”</p>}
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
-
-      {acciones && <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--border-color)] pt-3">{acciones}</div>}
     </div>
   );
 }

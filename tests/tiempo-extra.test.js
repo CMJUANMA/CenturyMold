@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   HORAS_ENTRADA_TE, HORAS_SALIDA_TE, LOTE_EMPLEADOS, PESTANAS_TE, aplicarA, calcularHoras, docAEmpleado, empleadoADoc, empleadoDesdePadron,
   estatusAlEnviar, folioDe, nivelEnTexto, nuevoIdBorrador, problemasDeEnvio, resumenTE, transporteCompleto, trozos,
+  MIN_MOTIVO_DEVOLUCION, MSG_YA_RESPONDIDA, esPropia, fechaVencida, filtrarSolicitudes, firmaTexto, haceTiempo, masAntiguasPrimero, totalesDe,
 } from '../src/utils/tiempoExtra.js';
 
 const emp = (nomina, extra = {}) => ({
@@ -126,5 +127,75 @@ describe('estatus y pestañas', () => {
   it('nivel en texto y pestañas de Mis solicitudes', () => {
     expect(nivelEnTexto('pendiente_aut1')).toBe('Autorización 1');
     expect(PESTANAS_TE.map(p => p.label)).toEqual(['Borradores', 'En autorización', 'Devueltas', 'Autorizadas', 'Canceladas']);
+  });
+});
+
+describe('bandejas: antigüedad, orden, filtros y totales', () => {
+  const t = (folio, extra = {}) => ({ folio, areaId: 'moldes', estatus: 'pendiente_aut1', fechaTE: '2026-10-20', creadoPor: 'u1', creadoPorNombre: 'ROMERO OSCAR', creadoPorNomina: '50875', resumen: { totalEmpleados: 4, totalHoras: 32 }, fechaActualizacion: 1000, ...extra });
+  const AHORA = 10 * 24 * 3600 * 1000;
+  it('antigüedad en texto', () => {
+    expect(haceTiempo(AHORA - 20_000, AHORA)).toBe('hace un momento');
+    expect(haceTiempo(AHORA - 5 * 60_000, AHORA)).toBe('hace 5 min');
+    expect(haceTiempo(AHORA - 3 * 3600_000, AHORA)).toBe('hace 3 h');
+    expect(haceTiempo(AHORA - 24 * 3600_000, AHORA)).toBe('hace 1 día');
+    expect(haceTiempo(AHORA - 2 * 24 * 3600_000, AHORA)).toBe('hace 2 días');
+    expect(haceTiempo({ toMillis: () => AHORA - 2 * 24 * 3600_000 }, AHORA)).toBe('hace 2 días');
+  });
+  it('las más antiguas primero', () => {
+    const lista = masAntiguasPrimero([t('B', { fechaActualizacion: 3000 }), t('A', { fechaActualizacion: 1000 }), t('C', { fechaActualizacion: 2000 })]);
+    expect(lista.map(x => x.folio)).toEqual(['A', 'C', 'B']);
+  });
+  it('fecha vencida y propias', () => {
+    expect(fechaVencida('2026-10-13', '2026-10-14')).toBe(true);
+    expect(fechaVencida('2026-10-14', '2026-10-14')).toBe(false);
+    expect(esPropia(t('A'), 'u1')).toBe(true);
+    expect(esPropia(t('A'), 'u2')).toBe(false);
+  });
+  it('firma con "(RH)" cuando firmó por su rol de RH', () => {
+    expect(firmaTexto({ nombre: 'SALVADOR', comoRH: false })).toBe('SALVADOR');
+    expect(firmaTexto({ nombre: 'ALGUIEN', comoRH: true })).toBe('ALGUIEN (RH)');
+    expect(firmaTexto(undefined)).toBe('');
+  });
+  it('filtros por área, estatus, fechas y solicitante', () => {
+    const lista = [t('A'), t('B', { areaId: 'calidad', estatus: 'autorizada', fechaTE: '2026-11-02', creadoPorNombre: 'PEREZ LUIS', creadoPorNomina: '50272' }), t('C', { fechaTE: '2026-10-05' })];
+    expect(filtrarSolicitudes(lista, { areaId: 'calidad' }).map(x => x.folio)).toEqual(['B']);
+    expect(filtrarSolicitudes(lista, { estatus: 'autorizada' }).map(x => x.folio)).toEqual(['B']);
+    expect(filtrarSolicitudes(lista, { desde: '2026-10-10', hasta: '2026-10-31' }).map(x => x.folio)).toEqual(['A']);
+    expect(filtrarSolicitudes(lista, { solicitante: 'pérez' }).map(x => x.folio)).toEqual(['B']);
+    expect(filtrarSolicitudes(lista, { solicitante: '50875' }).map(x => x.folio)).toEqual(['A', 'C']);
+  });
+  it('totales para la confirmación masiva', () => {
+    expect(totalesDe([t('A'), t('B', { resumen: { totalEmpleados: 6, totalHoras: 45.5 } })])).toEqual({ solicitudes: 2, empleados: 10, horas: 77.5 });
+    expect(totalesDe([])).toEqual({ solicitudes: 0, empleados: 0, horas: 0 });
+  });
+  it('constantes del flujo', () => {
+    expect(MIN_MOTIVO_DEVOLUCION).toBe(10);
+    expect(MSG_YA_RESPONDIDA).toBe('Alguien más ya respondió esta solicitud');
+  });
+});
+
+describe('Excel de la consulta', () => {
+  it('hoja Resumen por área y estatus; hoja Detalle con una fila por empleado y quién firmó', async () => {
+    const { construirLibroConsulta, ENCABEZADOS_DETALLE } = await import('../src/utils/exportarConsultaTE.js');
+    const e = (nomina, extra = {}) => ({ nomina, nombre: `EMP ${nomina}`, puesto: 'OP', horaEntrada: '7:00', horaSalida: '16:00', alimentos: true, transporte: true, rutaId: 'r1', comunidadId: 'c1', puntoReunionId: 'p1', ...extra });
+    const solicitudes = [
+      { folio: 'TE-2026-0001', areaId: 'moldes', estatus: 'autorizada', fechaTE: '2026-10-20', resumen: { totalEmpleados: 2, totalHoras: 18 }, empleados: [e('1'), e('2', { transporte: false })],
+        aut1: { nombre: 'ANSELMO', comoRH: false }, aut2: { nombre: 'ADMIN', comoRH: true } },
+      { folio: 'TE-2026-0002', areaId: 'moldes', estatus: 'pendiente_aut1', fechaTE: '2026-10-21', resumen: { totalEmpleados: 1, totalHoras: 9 }, empleados: [e('3')] },
+      { folio: 'TE-2026-0003', areaId: 'calidad', estatus: 'autorizada', fechaTE: '2026-10-22', resumen: { totalEmpleados: 1, totalHoras: 9 }, empleados: [e('4')] },
+    ];
+    const catalogos = { rutas: [{ id: 'r1', nombre: 'Norte' }], comunidades: [{ id: 'c1', nombre: 'Pueblito' }], puntos: [{ id: 'p1', nombre: 'Plaza' }] };
+    const wb = construirLibroConsulta({ solicitudes, nombresArea: new Map([['moldes', 'Moldes'], ['calidad', 'Calidad']]), catalogos });
+    expect(wb.worksheets.map(w => w.name)).toEqual(['Resumen', 'Detalle']);
+    const r = wb.getWorksheet('Resumen');
+    expect(r.getRow(2).values.slice(1)).toEqual(['Calidad', 'Autorizada', 1, 1, 9]);
+    expect(r.getRow(3).values.slice(1)).toEqual(['Moldes', 'Pendiente de Aut. 1', 1, 1, 9]);
+    expect(r.getRow(4).values.slice(1)).toEqual(['Moldes', 'Autorizada', 1, 2, 18]);
+    expect(r.getRow(5).values.slice(1)).toEqual(['TOTAL', '', 3, 4, 36]);
+    const d = wb.getWorksheet('Detalle');
+    expect(d.getRow(1).values.slice(1)).toEqual(ENCABEZADOS_DETALLE);
+    expect(d.rowCount).toBe(5); // encabezado + 4 empleados
+    expect(d.getRow(2).values.slice(1)).toEqual(['TE-2026-0001', 'Moldes', '2026-10-20', '1', 'EMP 1', 'OP', '7:00 → 16:00', 9, 'Sí', 'Sí', 'Norte · Pueblito · Plaza', 'Autorizada', 'ANSELMO', 'ADMIN (RH)']);
+    expect(d.getRow(3).values.slice(1)).toEqual(expect.arrayContaining(['No', '']));
   });
 });

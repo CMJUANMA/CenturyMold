@@ -110,7 +110,8 @@ async function sembrar() {
 
 const dbDe = (uid) => env.authenticatedContext(uid).firestore();
 const ts = serverTimestamp;
-const firma = (nomina, extra = {}) => ({ nomina, nombre: `Usuario ${nomina}`, fecha: ts(), comentario: '', ...extra });
+// comoRH: true cuando firma el nivel 2 alguien de RH/admin que no es Aut. 2
+const firma = (nomina, extra = {}) => ({ nomina, nombre: `Usuario ${nomina}`, fecha: ts(), comentario: '', comoRH: [N.rh, N.rh2, N.admin].includes(nomina), ...extra });
 const devolucion = (nivel, nomina, motivo = 'Revisar horas') => ({ nivel, nomina, nombre: `Usuario ${nomina}`, motivo, fecha: ts() });
 
 const ANIO = new Date().getFullYear();
@@ -163,7 +164,7 @@ function enviar(uid, id, { estatus = 'pendiente_aut1', folio = FOLIO, contador =
   b.update(doc(db, 'tiempoExtra', id), {
     estatus, folio, resumen: { totalEmpleados: 2, totalHoras: 18, totalTransporte: 2, totalAlimentos: 2 }, fechaActualizacion: ts(), ...extra,
   });
-  if (!sinContador) b.update(doc(db, 'contadores', `te-${anio}`), { ultimo: contador });
+  if (!sinContador) b.update(doc(db, 'contadores', `te-${anio}`), { ultimo: contador, solicitudId: id });
   const h = historial(db, id, { uid, accion: 'enviada' });
   b.set(h.ref, h.data);
   return b.commit();
@@ -293,22 +294,37 @@ describe('módulo de rutas: solicitante vigente de un área', () => {
 });
 
 describe('contador del folio', () => {
-  it('se incrementa solo de uno en uno', async () => {
-    const ref = doc(dbDe('solP'), 'contadores', 'te-2026');
+  it('subirlo aislado falla (de uno en uno o no): solo sube junto con el envío de una solicitud', async () => {
+    const ref = doc(dbDe('solP'), 'contadores', `te-${ANIO}`);
     await assertSucceeds(getDoc(ref));
-    await assertFails(updateDoc(ref, { ultimo: 20 }));
-    await assertFails(updateDoc(ref, { ultimo: 12 }));
-    await assertFails(updateDoc(ref, { ultimo: 11 }));
-    await assertSucceeds(updateDoc(ref, { ultimo: 13 }));
+    for (const ultimo of [13, 20, 12, 11]) await assertFails(updateDoc(ref, { ultimo }));
+    await assertFails(updateDoc(ref, { ultimo: 13, solicitudId: 'BR-NOEXISTE123' }));
+    for (const uid of ['aut1P', 'aut2', 'rh', 'admin']) await assertFails(updateDoc(doc(dbDe(uid), 'contadores', `te-${ANIO}`), { ultimo: 13 }));
   });
-  it('se crea con 1 y solo con el formato te-AAAA', async () => {
+  it('un contador nuevo tampoco se crea aislado (ni con 1 ni con otro valor)', async () => {
     const db = dbDe('solP');
-    await assertSucceeds(setDoc(doc(db, 'contadores', 'te-2027'), { ultimo: 1 }));
+    await assertFails(setDoc(doc(db, 'contadores', 'te-2027'), { ultimo: 1 }));
     await assertFails(setDoc(doc(db, 'contadores', 'te-2028'), { ultimo: 5 }));
     await assertFails(setDoc(doc(db, 'contadores', 'otro'), { ultimo: 1 }));
   });
+  it('sube de uno en uno dentro del envío de un borrador propio; no si apunta al borrador de otro', async () => {
+    await crearBorrador('solP', 'produccion');
+    await crearBorrador('solP2', 'produccion', { id: 'BR-ZZZZZZZZZ9' });
+    const db = dbDe('solP');
+    const b = writeBatch(db);
+    b.update(doc(db, 'tiempoExtra', BR), { estatus: 'pendiente_aut1', folio: FOLIO, fechaActualizacion: ts() });
+    b.update(doc(db, 'contadores', `te-${ANIO}`), { ultimo: 13, solicitudId: 'BR-ZZZZZZZZZ9' }); // el borrador de solP2
+    await assertFails(b.commit());
+    await assertSucceeds(enviar('solP', BR));
+  });
+  it('no se puede subir dos veces con la misma solicitud, ni saltarse un número', async () => {
+    await crearBorrador('solP', 'produccion');
+    await assertFails(enviar('solP', BR, { folio: `TE-${ANIO}-0014`, contador: 14 }));
+    await assertSucceeds(enviar('solP', BR));
+    await assertFails(enviar('solP', BR, { folio: `TE-${ANIO}-0014`, contador: 14 })); // ya no es borrador
+  });
   it('un usuario inactivo no lo toca', async () => {
-    await assertFails(updateDoc(doc(dbDe('inactivo'), 'contadores', 'te-2026'), { ultimo: 13 }));
+    await assertFails(updateDoc(doc(dbDe('inactivo'), 'contadores', `te-${ANIO}`), { ultimo: 13 }));
   });
 });
 
@@ -571,6 +587,49 @@ describe('Aut. 2: pendiente_aut2 → autorizada o devuelta', () => {
   it('no puede cambiar otros campos al firmar', async () => {
     await assertFails(actualizar('aut2', 'TE-2026-0002', { estatus: 'autorizada', aut2: firma(N.aut2), motivo: 'otro' }));
     await assertFails(actualizar('aut2', 'TE-2026-0002', { estatus: 'autorizada', aut2: firma(N.aut2), aut1: firma(N.aut2) }));
+  });
+});
+
+describe('firmas y devoluciones: quién puede y cómo', () => {
+  it('el Aut. 1 de otra área no firma; la Aut. 2 no firma el nivel 1; RH firma el nivel 2 pero no el 1', async () => {
+    await assertFails(actualizar('aut1A', 'TE-2026-0001', { estatus: 'pendiente_aut2', aut1: firma(N.aut1A) }));
+    await assertFails(actualizar('aut2', 'TE-2026-0001', { estatus: 'pendiente_aut2', aut1: firma(N.aut2) }));
+    await assertFails(actualizar('rh', 'TE-2026-0001', { estatus: 'pendiente_aut2', aut1: firma(N.rh) }));
+    await assertSucceeds(actualizar('rh', 'TE-2026-0002', { estatus: 'autorizada', aut2: firma(N.rh) }));
+  });
+  it('el creador no firma lo suyo, en ningún nivel', async () => {
+    await assertFails(actualizar('aut1PSup', 'TE-2026-0005', { estatus: 'pendiente_aut2', aut1: firma(N.aut1PSup) }));
+    await assertFails(actualizar('aut2', 'TE-2026-0006', { estatus: 'autorizada', aut2: firma(N.aut2) }));
+    await assertFails(actualizar('rh', 'TE-2026-0007', { estatus: 'autorizada', aut2: firma(N.rh) }));
+  });
+  it('comoRH dice la verdad: la Aut. 2 firma con comoRH false y RH con true; al revés no pasa', async () => {
+    await assertSucceeds(actualizar('aut2', 'TE-2026-0002', { estatus: 'autorizada', aut2: firma(N.aut2) }));
+    await reiniciar();
+    await assertFails(actualizar('aut2', 'TE-2026-0002', { estatus: 'autorizada', aut2: firma(N.aut2, { comoRH: true }) }));
+    await assertFails(actualizar('rh', 'TE-2026-0002', { estatus: 'autorizada', aut2: firma(N.rh, { comoRH: false }) }));
+    await assertFails(actualizar('aut1P', 'TE-2026-0001', { estatus: 'pendiente_aut2', aut1: firma(N.aut1P, { comoRH: true }) }));
+    await assertSucceeds(actualizar('rh', 'TE-2026-0002', { estatus: 'autorizada', aut2: firma(N.rh, { comoRH: true }) }));
+  });
+  it('devolver exige un motivo de al menos 10 caracteres', async () => {
+    for (const motivo of ['', '   ', 'corto', 'nueve chr']) await assertFails(actualizar('aut1P', 'TE-2026-0001', { estatus: 'devuelta', devolucion: devolucion(1, N.aut1P, motivo) }));
+    await assertSucceeds(actualizar('aut1P', 'TE-2026-0001', { estatus: 'devuelta', devolucion: devolucion(1, N.aut1P, 'Faltan los horarios') }));
+    await assertFails(actualizar('aut2', 'TE-2026-0002', { estatus: 'devuelta', devolucion: devolucion(2, N.aut2, 'corto') }));
+  });
+  it('lo ya firmado no se firma otra vez (ni otro nivel sobre otro estatus)', async () => {
+    await assertFails(actualizar('aut1P', 'TE-2026-0002', { estatus: 'pendiente_aut2', aut1: firma(N.aut1P) })); // ya está en nivel 2
+    await assertFails(actualizar('aut2', 'TE-2026-0003', { estatus: 'autorizada', aut2: firma(N.aut2) })); // ya autorizada
+    await assertFails(actualizar('aut1P', 'TE-2026-0003', { estatus: 'devuelta', devolucion: devolucion(1, N.aut1P, 'Ya la habían autorizado') }));
+    await assertFails(actualizar('aut2', 'TE-2026-0004', { estatus: 'autorizada', aut2: firma(N.aut2) })); // devuelta
+  });
+  it('los autorizadores no modifican la subcolección de empleados (ni agregan, ni cambian, ni borran)', async () => {
+    for (const uid of ['aut1P', 'aut1PSup', 'aut2', 'rh', 'admin']) {
+      const db = dbDe(uid);
+      for (const folio of ['TE-2026-0001', 'TE-2026-0002']) {
+        await assertFails(setDoc(doc(db, 'tiempoExtra', folio, 'empleados', '700'), empleadoDoc('700')));
+        await assertFails(updateDoc(doc(db, 'tiempoExtra', folio, 'empleados', '600'), { horas: 1 }));
+        await assertFails(deleteDoc(doc(db, 'tiempoExtra', folio, 'empleados', '600')));
+      }
+    }
   });
 });
 

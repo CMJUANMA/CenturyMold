@@ -38,6 +38,8 @@ const NAV_ITEMS = [
   { path: '/tiempo-extra', label: 'Resumen', icon: Clock, modulo: 'tiempo-extra', end: true },
   { path: '/tiempo-extra/nueva', label: 'Solicitar tiempo extra', icon: FilePlus, modulo: 'tiempo-extra', rh: true },
   { path: '/tiempo-extra/mis-solicitudes', label: 'Mis solicitudes de TE', icon: ClipboardList, modulo: 'tiempo-extra', rh: true },
+  { path: '/tiempo-extra/autorizar', label: 'Por autorizar', icon: BadgeCheck, modulo: 'tiempo-extra', rh: true, contador: 'autorizar' },
+  { path: '/tiempo-extra/consulta', label: 'Consulta de solicitudes', icon: Layers, modulo: 'tiempo-extra', rh: true },
   { path: '/accesos/organigrama', label: 'Organigrama', icon: GitBranch, modulo: 'tiempo-extra' },
 
   { section: 'Administración', rh: true },
@@ -63,7 +65,7 @@ export default function Navbar() {
   const esRH = ROLES_RH.includes(usuario?.rol);
   const { nombres: nombresArea } = useAreas();
   const transporteAnterior = useTransporteAnterior(usuario?.uid, !esRH);
-  const porAutorizar = usePorAutorizar(usuario, accesos, !esRH).total;
+  const porAutorizar = usePorAutorizar(usuario, accesos, true).total;
   const subtitulo = esRH ? (SUBTITULO_MODULO[moduloActual?.id] ?? 'Century Mold Querétaro') : 'Century Mold Querétaro';
   const descripcion = descripcionRoles(accesos, nombresArea);
 

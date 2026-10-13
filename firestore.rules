@@ -200,12 +200,14 @@ service cloud.firestore {
         || (t.estatus != 'borrador' && (esAut1De(t.areaId) || esAut2() || esRH())));
     }
     // Firma o devolución bien formada: {nomina, nombre, fecha, ...} de quien la hace
-    function firmaValida(f) {
-      return f.nomina == miNomina() && f.fecha == request.time;
+    // comoRH: true si firma el nivel 2 por su rol RH/admin (sin ser Aut. 2); así se sabe si firmó la Aut. 2 o alguien de RH
+    function firmaValida(f, comoRH) {
+      return f.nomina == miNomina() && f.fecha == request.time && f.get('comoRH', false) == comoRH;
     }
+    // Devolver exige un motivo de al menos 10 caracteres
     function devolucionValida(d, nivel) {
       return d.nivel == nivel && d.nomina == miNomina() && d.fecha == request.time
-        && d.motivo is string && d.motivo.trim().size() > 0;
+        && d.motivo is string && d.motivo.trim().size() >= 10;
     }
 
     // Asignaciones: las lee cualquier usuario activo; las escribe admin (cualquier rol) o RH / Aut. 2 (solo aut1 y solicitante,
@@ -250,12 +252,23 @@ service cloud.firestore {
     // (areasTE, config/* y accesosTE ya no tienen reglas: la estructura anterior quedó sin acceso desde la app.)
 
     // Contador del folio (TE-2026-0001): se incrementa de uno en uno dentro de la transacción de captura
+    // El contador solo sube de uno en uno y SOLO dentro del mismo lote/transacción en que una solicitud propia pasa de borrador a
+    // pendiente con ese folio: `solicitudId` apunta a ella y se comprueba antes (get) y después (getAfter). Subirlo aislado falla.
     match /contadores/{id} {
+      function folioLigado() {
+        let sid = request.resource.data.solicitudId;
+        return sid is string
+          && get(/databases/$(database)/documents/tiempoExtra/$(sid)).data.estatus == 'borrador'
+          && get(/databases/$(database)/documents/tiempoExtra/$(sid)).data.creadoPor == request.auth.uid
+          && getAfter(/databases/$(database)/documents/tiempoExtra/$(sid)).data.estatus in ['pendiente_aut1', 'pendiente_aut2']
+          && getAfter(/databases/$(database)/documents/tiempoExtra/$(sid)).data.folio.split('-')[1] == id.split('-')[1]
+          && int(getAfter(/databases/$(database)/documents/tiempoExtra/$(sid)).data.folio.split('-')[2]) == request.resource.data.ultimo;
+      }
       allow read: if activo();
       allow create: if activo() && id.matches('te-[0-9]{4}')
-        && request.resource.data.keys().hasOnly(['ultimo']) && request.resource.data.ultimo == 1;
+        && request.resource.data.keys().hasOnly(['ultimo', 'solicitudId']) && request.resource.data.ultimo == 1 && folioLigado();
       allow update: if activo() && id.matches('te-[0-9]{4}')
-        && request.resource.data.keys().hasOnly(['ultimo']) && request.resource.data.ultimo == resource.data.ultimo + 1;
+        && request.resource.data.keys().hasOnly(['ultimo', 'solicitudId']) && request.resource.data.ultimo == resource.data.ultimo + 1 && folioLigado();
     }
 
     match /tiempoExtra/{teId} {
@@ -288,7 +301,7 @@ service cloud.firestore {
         && despues().fechaActualizacion == request.time
         && soloCambia(['estatus', 'aut1', 'fechaActualizacion'])
         && antes().creadoPor != uid()
-        && esAut1De(antes().areaId) && firmaValida(despues().aut1);
+        && esAut1De(antes().areaId) && firmaValida(despues().aut1, false);
 
       // Aut. 1 devuelve (con motivo): pendiente_aut1 → devuelta
       allow update: if antes().estatus == 'pendiente_aut1' && despues().estatus == 'devuelta'
@@ -302,7 +315,7 @@ service cloud.firestore {
         && despues().fechaActualizacion == request.time
         && soloCambia(['estatus', 'aut2', 'fechaActualizacion'])
         && antes().creadoPor != uid()
-        && puedeFirmarAut2() && firmaValida(despues().aut2);
+        && puedeFirmarAut2() && firmaValida(despues().aut2, !esAut2());
 
       // ...o devuelven (con motivo): pendiente_aut2 → devuelta
       allow update: if antes().estatus == 'pendiente_aut2' && despues().estatus == 'devuelta'
