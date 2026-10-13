@@ -205,5 +205,6 @@ export function resumenParaBitacora(a) {
     id: a.id ?? idAsignacion(a.nomina, a.rol, a.areaId),
     nomina: String(a.nomina), nombre: a.nombre ?? '', rol: a.rol, areaId: a.areaId ?? null,
     desde: iso(a.desde), hasta: iso(a.hasta), motivo: a.motivo ?? '', activo: a.activo === true,
+    ...(a.motivoRevocacion ? { motivoRevocacion: a.motivoRevocacion } : {}),
   };
 }

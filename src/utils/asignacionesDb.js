@@ -39,11 +39,11 @@ export async function asignarRol(actor, datos, previa = null) {
   return id;
 }
 
-/** Revocar = activo:false. La asignación se conserva */
-export async function revocarAsignacion(actor, asignacion) {
+/** Revocar = activo:false. La asignación se conserva; el motivo de la revocación queda en la bitácora */
+export async function revocarAsignacion(actor, asignacion, motivo = '') {
   const batch = writeBatch(db);
   batch.update(doc(db, 'asignaciones', asignacion.id), { activo: false });
-  renglonBitacora(batch, actor, 'revocar', asignacion, { ...asignacion, activo: false });
+  renglonBitacora(batch, actor, 'revocar', asignacion, { ...asignacion, activo: false, motivoRevocacion: String(motivo).trim() });
   await batch.commit();
 }
 

@@ -1,53 +1,58 @@
 /**
  * TabOrganigrama.jsx — Organigrama de autorización, generado SOLO con las asignaciones vigentes.
- * Forma de la hoja "Niveles de autorización": arriba Autorización 2 a todo lo ancho; debajo una columna por área con
- * participaTE (en orden) con su Aut. 1 (amarillo) y sus solicitantes (rosa). Quien puede asignar ve "+ Aut. 1" / "+ Solicitante"
- * en cada columna y puede revocar desde la tarjeta; los demás lo ven en solo lectura.
+ * Árbol de arriba a abajo: Nivel 2 · Planta (Aut. 2 lado a lado) → una rama por área con participaTE → su Aut. 1 (la tarjeta
+ * más grande) → lista compacta de solicitantes. La jerarquía se ve por posición, tamaño y líneas; los colores son solo un acento.
+ * Escritorio: árbol completo con riel de niveles; pantallas medianas: scroll horizontal; celular: lista vertical plegable.
+ * Clic en una persona abre su panel lateral; quien puede asignar ve los botones "+" y, en el panel, Revocar y Extender.
  */
-import { useMemo } from 'react';
-import { AlertTriangle, Plus, X } from 'lucide-react';
-import { ROL_OP, construirOrganigrama, formatoCorto, rolesAsignables } from '../../../utils/asignaciones';
-import { revocarAsignacion } from '../../../utils/asignacionesDb';
-import { useConfirmar } from '../../../hooks/useConfirmar';
+import { useEffect, useMemo, useState } from 'react';
+import { BadgeCheck, ChevronDown, Download, Loader2, Search, ShieldCheck, User } from 'lucide-react';
+import { construirOrganigrama, rolesAsignables, ROL_OP } from '../../../utils/asignaciones';
+import { crearFormateadorNombres } from '../../../utils/nombresPersona';
 import { useToast } from '../../../hooks/useToast';
+import { BotonAgregar, FilaSolicitante, SinAut1, TarjetaPersona } from './NodosOrganigrama';
+import { COLOR_LINEA, NIVELES, textoConteo } from './nivelesOrganigrama';
+import PanelPersona from './PanelPersona';
+import { btnSecondary } from './ui';
 
-const COLORES = {
-  [ROL_OP.AUT2]: 'bg-[var(--org-aut2-bg)] border-[var(--org-aut2-border)]',
-  [ROL_OP.AUT1]: 'bg-[var(--org-aut1-bg)] border-[var(--org-aut1-border)]',
-  [ROL_OP.SOLICITANTE]: 'bg-[var(--org-sol-bg)] border-[var(--org-sol-border)]',
-};
+const sinAcentos = (t) => String(t ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const linea = { background: COLOR_LINEA };
 
-function Tarjeta({ t, puedeRevocar, onRevocar }) {
+function Leyenda() {
   return (
-    <div data-rol={t.rol} className={`relative rounded-md border px-3 py-2 text-[var(--org-text)] ${COLORES[t.rol]}`}>
-      {puedeRevocar && (
-        <button type="button" onClick={() => onRevocar(t)} title="Revocar" aria-label={`Revocar a ${t.nombre}`}
-          className="absolute right-1 top-1 rounded p-0.5 opacity-60 hover:bg-black/10 hover:opacity-100 cursor-pointer">
-          <X className="h-3 w-3" />
-        </button>
-      )}
-      <div className="pr-4 text-xs font-bold leading-tight">{t.nombre}</div>
-      {t.puesto && <div className="text-[11px] leading-tight opacity-80">{t.puesto}</div>}
-      <div className="font-mono text-[10px] opacity-70">{t.nomina}</div>
-      {(t.temporalHasta || t.sinUsuario) && (
-        <div className="mt-1 flex flex-wrap gap-1">
-          {t.temporalHasta && (
-            <span className="rounded bg-black/10 px-1 py-0.5 text-[9px] font-semibold">Temporal hasta {formatoCorto(t.temporalHasta)}</span>
-          )}
-          {t.sinUsuario && <span className="rounded bg-[var(--status-error-bg)] px-1 py-0.5 text-[9px] font-semibold text-[var(--status-error-text)]">Sin usuario</span>}
-        </div>
-      )}
+    <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[var(--text-secondary)]" aria-label="Leyenda">
+      {[['aut2', 'Nivel 2'], ['aut1', 'Nivel 1'], ['solicitante', 'Solicitante']].map(([rol, texto]) => {
+        const n = NIVELES[rol];
+        return <li key={rol} className="inline-flex items-center gap-1"><n.Icono className="h-3 w-3" style={{ color: n.acento }} />{texto}</li>;
+      })}
+      <li className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-500" />Sin usuario</li>
+    </ul>
+  );
+}
+
+/** Etiqueta del riel lateral, alineada con su fila del árbol */
+function Riel({ rol, texto }) {
+  const n = NIVELES[rol];
+  return (
+    <div className="self-start pt-1 pr-3">
+      <span className="inline-flex items-center gap-1.5 rounded-md border-l-[3px] bg-[var(--bg-surface-secondary)] px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]"
+        style={{ borderLeftColor: n.acento }}>
+        <n.Icono className="h-3 w-3" style={{ color: n.acento }} />{texto}
+      </span>
     </div>
   );
 }
 
-export default function TabOrganigrama({ asignaciones, areas, empleados, usuarios, actor, ahora, onAsignar, onCambio }) {
-  const confirmar = useConfirmar();
+export default function TabOrganigrama({ asignaciones, areas, empleados, usuarios, actor, ahora, nombresArea, onAsignar }) {
   const toast = useToast();
-  const asignables = rolesAsignables(actor);
-  const puedeAsignar = asignables.length > 0;
+  const [busqueda, setBusqueda] = useState('');
+  const [resaltarSin, setResaltarSin] = useState(false);
+  const [abierta, setAbierta] = useState(null); // nómina de la persona del panel
+  const [exportando, setExportando] = useState(false);
 
+  const asignables = rolesAsignables(actor);
   const empleadosPorNomina = useMemo(() => new Map(empleados.map(e => [String(e.nomina), e])), [empleados]);
+  const formato = useMemo(() => crearFormateadorNombres(empleados.map(e => e.nombre)), [empleados]);
   // "Sin usuario" solo se puede saber si quien ve puede leer usuarios (RH, admin, Aut. 2)
   const nominasConUsuario = useMemo(() => (usuarios ? new Set(usuarios.map(u => String(u.nomina))) : null), [usuarios]);
   const org = useMemo(
@@ -55,77 +60,149 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, usuario
     [asignaciones, areas, empleadosPorNomina, nominasConUsuario, ahora],
   );
 
-  const puedeRevocar = (t) => asignables.includes(t.rol) && (actor.esAdmin || t.nomina !== String(actor.nomina));
-  const revocar = async (t) => {
-    const original = asignaciones.find(a => a.id === t.id);
-    if (!original) return;
-    if (!await confirmar({
-      titulo: 'Revocar rol', mensaje: `¿Revocar el rol a ${t.nombre}? Deja de tener el permiso de inmediato; el registro se conserva.`,
-      textoConfirmar: 'Revocar', peligroso: true,
-    })) return;
+  const q = sinAcentos(busqueda).trim();
+  const coincide = (t) => !q || [formato.nombre(t.nombre), t.nombre, t.puesto, t.nomina].some(x => sinAcentos(x).includes(q));
+  const estadoDe = (t) => ({ resaltado: !!q && coincide(t), atenuado: !!q && !coincide(t), resaltarSin });
+  const primero = !q ? null
+    : [...org.aut2, ...org.columnas.flatMap(c => [...c.aut1, ...c.solicitantes])].find(coincide)?.id ?? null;
+
+  // Lleva a la vista a la primera persona que coincide (el nodo visible: hay una versión de escritorio y otra de celular)
+  useEffect(() => {
+    if (!primero) return;
+    const nodo = [...document.querySelectorAll(`[data-org="${primero}"]`)].find(n => n.offsetParent !== null);
+    nodo?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+  }, [primero]);
+
+  const abrir = (t) => setAbierta(t.nomina);
+  const asignar = (rol, areaId) => onAsignar(areaId ? { rol, areaId } : { rol });
+  const hayDatos = org.aut2.length > 0 || org.columnas.some(c => c.aut1.length || c.solicitantes.length);
+  const columnas = Math.max(org.columnas.length, 1);
+
+  const exportar = async () => {
+    setExportando(true);
     try {
-      await revocarAsignacion(actor, original);
-      toast.success('Rol revocado.');
-      onCambio?.();
-    } catch (err) { toast.error('No se pudo revocar: ' + err.message); }
+      const { descargarOrganigrama } = await import('../../../utils/exportarOrganigrama');
+      await descargarOrganigrama(org, (t) => formato.nombre(t.nombre));
+    } catch (err) { toast.error('No se pudo exportar: ' + err.message); } finally { setExportando(false); }
   };
+
+  const nodoPlanta = (
+    <section aria-label="Nivel 2 · Planta" className="mx-auto w-fit max-w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-3">
+      <h3 className="mb-2 flex items-center justify-center gap-1.5 text-center text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+        <ShieldCheck className="h-3.5 w-3.5" style={{ color: NIVELES.aut2.acento }} />Nivel 2 · Planta
+      </h3>
+      {org.aut2.length === 0 ? (
+        <p className="px-4 py-2 text-center text-xs text-[var(--text-secondary)]">Nadie tiene Autorización 2 vigente (solo RH puede firmar este nivel).</p>
+      ) : (
+        <div className="flex flex-wrap justify-center gap-3">
+          {org.aut2.map(t => <div key={t.id} className="w-64 max-w-full"><TarjetaPersona t={t} formato={formato} estado={estadoDe(t)} onAbrir={abrir} /></div>)}
+        </div>
+      )}
+      {asignables.includes(ROL_OP.AUT2) && <div className="mt-2 flex justify-center"><BotonAgregar onClick={() => asignar(ROL_OP.AUT2)}>Aut. 2</BotonAgregar></div>}
+    </section>
+  );
+
+  const cabeceraArea = (col) => (
+    <h3 className="mb-2 text-center text-xs font-bold uppercase tracking-wider text-[var(--text-main)]">
+      {col.area.nombre} <span className="font-normal normal-case tracking-normal text-[var(--text-secondary)]">· {textoConteo(col.solicitantes.length)}</span>
+    </h3>
+  );
+  const bloqueAut1 = (col, grande) => (col.sinAut1
+    ? <SinAut1 puedeAsignar={asignables.includes(ROL_OP.AUT1)} onAsignar={() => asignar(ROL_OP.AUT1, col.area.id)} />
+    : <div className="space-y-2">{col.aut1.map(t => <TarjetaPersona key={t.id} t={t} formato={formato} grande={grande} estado={estadoDe(t)} onAbrir={abrir} />)}</div>);
+  const listaSolicitantes = (col) => (
+    <div className="space-y-1">
+      {col.solicitantes.map(t => <FilaSolicitante key={t.id} t={t} formato={formato} conTick={false} estado={estadoDe(t)} onAbrir={abrir} />)}
+      {col.solicitantes.length === 0 && <p className="px-1 py-0.5 text-center text-[10px] text-[var(--text-muted)]">Sin solicitantes</p>}
+      {asignables.includes(ROL_OP.SOLICITANTE) && <div className="pt-0.5"><BotonAgregar onClick={() => asignar(ROL_OP.SOLICITANTE, col.area.id)}>Solicitante</BotonAgregar></div>}
+    </div>
+  );
 
   return (
     <div className="space-y-4" id="organigrama">
-      <div className={`rounded-lg border p-3 ${COLORES[ROL_OP.AUT2]}`}>
-        <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[var(--org-text)]">Autorización 2</div>
-        {org.aut2.length === 0 ? (
-          <p className="text-xs text-[var(--org-text)]">Nadie tiene Autorización 2 vigente: ninguna solicitud podrá autorizarse (solo RH puede firmar este nivel).</p>
-        ) : (
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {org.aut2.map(t => <Tarjeta key={t.id} t={t} puedeRevocar={puedeRevocar(t)} onRevocar={revocar} />)}
-          </div>
-        )}
-        {asignables.includes(ROL_OP.AUT2) && (
-          <button type="button" onClick={() => onAsignar({ rol: ROL_OP.AUT2 })}
-            className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--org-text)] hover:underline cursor-pointer">
-            <Plus className="h-3 w-3" />Aut. 2
-          </button>
-        )}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-muted)]" />
+          <input type="search" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar persona en el árbol…" aria-label="Buscar persona en el árbol"
+            className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] py-1.5 pl-8 pr-3 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]" />
+        </div>
+        <button type="button" role="switch" aria-checked={resaltarSin} disabled={!nominasConUsuario} onClick={() => setResaltarSin(v => !v)}
+          title={nominasConUsuario ? 'Marca claramente a quien aún no tiene cuenta' : 'No tienes permiso para ver qué personas ya tienen usuario'}
+          className="inline-flex cursor-pointer items-center gap-2 text-xs text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-50">
+          <span className={`relative h-4 w-7 rounded-full transition-colors ${resaltarSin ? 'bg-[var(--status-warning-text)]' : 'bg-[var(--border-color)]'}`}>
+            <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${resaltarSin ? 'left-3.5' : 'left-0.5'}`} />
+          </span>
+          Resaltar sin usuario
+        </button>
+        <button type="button" id="btn-exportar-organigrama" onClick={exportar} disabled={exportando || !hayDatos} className={btnSecondary}>
+          {exportando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}Exportar organigrama
+        </button>
+        <div className="ml-auto"><Leyenda /></div>
       </div>
 
-      <div className="overflow-x-auto pb-2">
-        <div className="grid min-w-[640px] gap-3" style={{ gridTemplateColumns: `repeat(${Math.max(org.columnas.length, 1)}, minmax(170px, 1fr))` }}>
-          {org.columnas.map(({ area, aut1, solicitantes, sinAut1 }) => (
-            <section key={area.id} aria-label={area.nombre} className="space-y-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-2.5">
-              <h3 className="text-center text-xs font-bold uppercase tracking-wider text-[var(--text-main)]">{area.nombre}</h3>
-              {sinAut1 && (
-                <div role="alert" className="flex items-start gap-1.5 rounded-md border border-[var(--status-error-border)] bg-[var(--status-error-bg)] px-2 py-1.5 text-[10px] font-semibold text-[var(--status-error-text)]">
-                  <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-                  <span>Sin Autorización 1: las solicitudes de esta área no podrán avanzar</span>
-                </div>
-              )}
-              {aut1.map(t => <Tarjeta key={t.id} t={t} puedeRevocar={puedeRevocar(t)} onRevocar={revocar} />)}
-              {solicitantes.map(t => <Tarjeta key={t.id} t={t} puedeRevocar={puedeRevocar(t)} onRevocar={revocar} />)}
-              {solicitantes.length === 0 && <p className="text-center text-[10px] text-[var(--text-muted)]">Sin solicitantes</p>}
-              {puedeAsignar && (
-                <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 pt-1">
-                  <button type="button" onClick={() => onAsignar({ rol: ROL_OP.AUT1, areaId: area.id })}
-                    className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-[var(--cm-red)] hover:underline cursor-pointer">
-                    <Plus className="h-3 w-3" />Aut. 1
-                  </button>
-                  <button type="button" onClick={() => onAsignar({ rol: ROL_OP.SOLICITANTE, areaId: area.id })}
-                    className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-[var(--cm-red)] hover:underline cursor-pointer">
-                    <Plus className="h-3 w-3" />Solicitante
-                  </button>
-                </div>
-              )}
-            </section>
+      {/* Escritorio y pantallas medianas: árbol con riel de niveles; en medianas se desplaza con suavidad conservando las líneas */}
+      <div className="hidden overflow-x-auto scroll-smooth pb-3 md:block" tabIndex={0} aria-label="Árbol del organigrama">
+        <div className="grid min-w-[1000px]" style={{ gridTemplateColumns: `6.5rem repeat(${columnas}, minmax(190px, 1fr))` }}>
+          <Riel rol="aut2" texto="Nivel 2" />
+          <div style={{ gridColumn: `2 / span ${columnas}` }}>
+            {nodoPlanta}
+            <div className="mx-auto h-5 w-px" style={linea} />
+          </div>
+
+          <div />
+          {org.columnas.map((col, i) => (
+            <div key={col.area.id} className="relative h-5" aria-hidden="true">
+              {columnas > 1 && <div className="absolute top-0 h-px" style={{ ...linea, left: i === 0 ? '50%' : 0, right: i === columnas - 1 ? '50%' : 0 }} />}
+              <div className="absolute bottom-0 left-1/2 top-0 w-px" style={linea} />
+            </div>
+          ))}
+
+          <Riel rol="aut1" texto="Nivel 1" />
+          {org.columnas.map(col => (
+            <div key={col.area.id} className="px-2">{cabeceraArea(col)}{bloqueAut1(col, true)}</div>
+          ))}
+
+          <div />
+          {org.columnas.map(col => <div key={col.area.id} className="flex justify-center" aria-hidden="true"><div className="h-5 w-px" style={linea} /></div>)}
+
+          <Riel rol="solicitante" texto="Solicitantes" />
+          {org.columnas.map(col => (
+            <div key={col.area.id} className="px-2"><div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-1.5">{listaSolicitantes(col)}</div></div>
           ))}
         </div>
-        {org.columnas.length === 0 && (
-          <p className="text-xs text-[var(--text-muted)]">No hay áreas que participen en tiempo extra. Márcalas en Estructura.</p>
-        )}
+        {org.columnas.length === 0 && <p className="text-xs text-[var(--text-muted)]">No hay áreas que participen en tiempo extra. Márcalas en Estructura.</p>}
+      </div>
+
+      {/* Celular: lista vertical, Aut. 2 arriba y cada área como bloque plegable */}
+      <div className="space-y-3 md:hidden">
+        {nodoPlanta}
+        {org.columnas.map(col => (
+          <details key={col.area.id} open className="group rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-main)]">
+                {col.area.nombre} <span className="font-normal normal-case tracking-normal text-[var(--text-secondary)]">· {textoConteo(col.solicitantes.length)}</span>
+              </span>
+              <ChevronDown className="h-4 w-4 text-[var(--text-muted)] transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="space-y-2 border-t border-[var(--border-subtle)] p-3">
+              <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]"><BadgeCheck className="h-3 w-3" />Nivel 1</p>
+              {bloqueAut1(col, false)}
+              <p className="flex items-center gap-1 pt-1 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]"><User className="h-3 w-3" />Solicitantes</p>
+              <div className="ml-4 border-l-2 pl-3" style={{ borderColor: COLOR_LINEA }}>{listaSolicitantes(col)}</div>
+            </div>
+          </details>
+        ))}
       </div>
 
       <p className="text-[10px] text-[var(--text-muted)]">
-        Solo muestra asignaciones vigentes hoy. Las temporales dejan de aparecer solas al llegar su fecha final.
+        Solo muestra asignaciones vigentes hoy. Las temporales dejan de aparecer solas al llegar su fecha final. Clic en una persona para ver su detalle.
       </p>
+
+      {abierta && (
+        <PanelPersona nomina={abierta} asignaciones={asignaciones} empleado={empleadosPorNomina.get(String(abierta))}
+          conUsuario={nominasConUsuario ? nominasConUsuario.has(String(abierta)) : undefined} actor={actor} ahora={ahora}
+          nombresArea={nombresArea} formato={formato} onClose={() => setAbierta(null)} />
+      )}
     </div>
   );
 }

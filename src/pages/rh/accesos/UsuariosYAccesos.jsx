@@ -130,7 +130,7 @@ export default function UsuariosYAccesos() {
           )}
           {tabActiva === 'organigrama' && (
             <TabOrganigrama asignaciones={asignaciones} areas={areas} empleados={empleados} usuarios={usuarios} actor={actor}
-              ahora={ahora} onAsignar={abrirAsignar} />
+              ahora={ahora} nombresArea={nombresArea} onAsignar={abrirAsignar} />
           )}
         </>
       )}

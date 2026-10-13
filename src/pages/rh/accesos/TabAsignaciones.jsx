@@ -163,7 +163,7 @@ export default function TabAsignaciones({ asignaciones, nombresArea, actor, ahor
   );
 }
 
-function ModalExtender({ asignacion, actor, onClose, onGuardado }) {
+export function ModalExtender({ asignacion, actor, onClose, onGuardado }) {
   const [hasta, setHasta] = useState(() => aIsoLocal(asignacion.hasta));
   const [motivo, setMotivo] = useState(asignacion.motivo ?? '');
   const [error, setError] = useState('');
