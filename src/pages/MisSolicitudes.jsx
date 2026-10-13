@@ -142,7 +142,7 @@ export default function MisSolicitudes() {
                   ) : (
                     (sol.estatus === ESTATUS_SOLICITUD.PENDIENTE || sol.estatus === ESTATUS_SOLICITUD.APROBADA) && sol.fechaServicio >= hoy && (
                       <div className="inline-flex">
-                        <button onClick={()=>navigate(`/solicitud/editar/${sol.id}`)} className="p-1 text-blue-600 hover:text-blue-800" title="Editar"><Edit className="h-4 w-4"/></button>
+                        <button onClick={()=>navigate(`/rutas/solicitud/editar/${sol.id}`)} className="p-1 text-blue-600 hover:text-blue-800" title="Editar"><Edit className="h-4 w-4"/></button>
                         <button onClick={()=>setModalCancelar(sol)} className="p-1 text-[var(--status-error-text)] hover:opacity-80" title="Cancelar"><XCircle className="h-4 w-4"/></button>
                       </div>
                     )

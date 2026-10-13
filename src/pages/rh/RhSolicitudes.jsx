@@ -385,7 +385,7 @@ export default function RhSolicitudes() {
                 <td className="px-4 py-3 text-right">
                   <div className="inline-flex gap-1">
                     <button onClick={()=>abrirDetalle(sol)} className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)]" title="Ver Detalle"><Eye className="h-4 w-4"/></button>
-                    <button onClick={()=>navigate(`/solicitud/editar/${sol.id}`)} className="p-1.5 text-blue-600 hover:text-blue-800" title="Editar (RH)"><Edit className="h-4 w-4"/></button>
+                    <button onClick={()=>navigate(`/rutas/solicitud/editar/${sol.id}`)} className="p-1.5 text-blue-600 hover:text-blue-800" title="Editar (RH)"><Edit className="h-4 w-4"/></button>
                     {sol.estatus === ESTATUS_SOLICITUD.PENDIENTE && (
                       <>
                         <button onClick={()=>setModalRechazar(sol)} className="p-1.5 text-[var(--status-error-text)] bg-[var(--status-error-bg)] hover:bg-[var(--status-error-bg)] rounded-md" title="Rechazar"><XCircle className="h-4 w-4"/></button>

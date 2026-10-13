@@ -16,7 +16,7 @@ import { esActivo } from '../../utils/activo';
 import RevisarColecciones from './RevisarColecciones';
 import { useRecargarCatalogos } from '../../hooks/useCatalogos';
 
-// Importación masiva (arrastra exceljs y xlsx): se descarga solo al abrir el modal
+// Importación masiva (arrastra exceljs): se descarga solo al abrir el modal
 const ModalImportacion = lazy(() => import('./ModalImportacion'));
 import Modal from '../../components/Modal';
 import { ROLES } from '../../utils/constantes';

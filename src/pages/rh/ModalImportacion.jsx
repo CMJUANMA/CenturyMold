@@ -6,18 +6,24 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Upload, Loader2, CheckCircle2, AlertTriangle, X, Download, FileSpreadsheet,
-  Info, ChevronDown, ChevronUp, Plus, Search, UserMinus, ShieldAlert,
+  Info, ChevronDown, ChevronUp, Search, UserMinus, ShieldAlert,
 } from 'lucide-react';
 import {
-  collection, doc, writeBatch, getDocs, serverTimestamp, deleteField,
+  doc, serverTimestamp, deleteField,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
-import { derivarPuestos } from '../../utils/puestos';
+import { useToast } from '../../hooks/useToast';
+import ResolucionPuestos from '../../components/ResolucionPuestos';
+import ConfirmarAreas from './ConfirmarAreas';
+import {
+  ejecutarEnLotes, leerColeccion, opBitacora, opsCambioAreaPuesto, opsDeResolucion,
+} from '../../utils/estructuraDb';
 import {
   construirFormatoDirectorio, construirFormatoEmpleados, construirReporteImportacion,
-  leerDirectorio, leerEmpleados,
+  leerDirectorio, leerEmpleadosArchivo, ENCABEZADOS_NOMINA,
 } from '../../utils/formatosImportacion';
+import { agruparPorArea, resumenImportacion, todoConfirmado } from '../../utils/areasImportacion';
 import {
   MODOS, UMBRAL_BAJAS, compararDirectorio, compararEmpleados, fechaCorta, motivoBaja,
 } from '../../utils/comparacionImportacion';
@@ -32,8 +38,16 @@ const DIR_COLS_INFO = [
 const EMP_COLS_INFO = [
   { letra: 'A', nombre: 'NOMINA',       obligatorio: true,  ejemplo: '12345' },
   { letra: 'B', nombre: 'NOMBRE',       obligatorio: true,  ejemplo: 'GARCIA LOPEZ JUAN' },
-  { letra: 'C', nombre: 'PUESTO',       obligatorio: true,  ejemplo: 'OPERADOR DE PRODUCCION' },
+  { letra: 'C', nombre: 'PUESTO',       obligatorio: true,  ejemplo: 'PRODUCTION OPERATOR' },
   { letra: 'D', nombre: 'CLAVE PARADA', obligatorio: false, ejemplo: 'SN01' },
+];
+const NOMINA_COLS_INFO = [
+  { campo: 'numero_i', destino: 'Nómina (texto)' },
+  { campo: 'nombre', destino: 'Nombre' },
+  { campo: 'depto / desc_depto', destino: 'Departamento y su descripción (solo informativos)' },
+  { campo: 'turno', destino: 'Turno de nómina (A/B/C)' },
+  { campo: 'puesto', destino: 'Puesto: se compara contra el catálogo y de él sale el área' },
+  { campo: 'nivel_g / alta_g', destino: 'Nivel y fecha de alta' },
 ];
 
 const btnPrimary = 'inline-flex items-center gap-1.5 rounded-md bg-[var(--cm-red)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--cm-red-hover)] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer';
@@ -59,23 +73,24 @@ async function descargarLibro(workbook, nombre) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-const docsDe = (snap) => snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
 // ── Guardado ──────────────────────────────────────────────────────────────
 /**
- * Aplica el plan en lotes de 500 (set con merge para altas/cambios; update para bajas).
+ * Aplica el plan en lotes de 500 (ejecutarEnLotes): puestos nuevos y alias, cambios de área de puestos,
+ * altas/cambios (set con merge), bajas lógicas y, al final, la bitácora con el modo, los cambios de área y las excepciones.
  * Si un lote falla, el error indica cuántas operaciones ya se guardaron.
  */
-async function aplicarPlan(plan, idsBaja, usuario) {
-  const ops = [];
-  const resumen = {
-    creados: 0, actualizados: 0, sinCambios: 0, reactivados: 0, bajas: 0, mantenidos: 0,
-    omitidos: plan.conteos.errores,
-  };
-  const CONTADOR = { crear: 'creados', actualizar: 'actualizados', reactivar: 'reactivados' };
+async function aplicarPlan(plan, idsBaja, usuario, modo) {
+  // Primero los puestos nuevos y los alias confirmados por RH (con su bitácora)
+  const ops = plan.resolucion ? opsDeResolucion(plan.resolucion, usuario, 'importacion') : [];
+  const resumen = resumenImportacion(plan, idsBaja);
+
+  // Puestos del catálogo que cambiaron de área (y los empleados que no vienen en el archivo)
+  for (const c of plan.cambiosPuesto ?? []) {
+    ops.push(...opsCambioAreaPuesto(c.puesto, c.a, c.fueraArchivo, c.conExcepcion, usuario));
+  }
 
   for (const it of plan.items) {
-    if (it.accion === 'sinCambios') { resumen.sinCambios++; continue; }
+    if (it.accion === 'sinCambios') continue;
     const data = { ...it.datos };
     if (it.accion === 'reactivar') {
       Object.assign(data, {
@@ -83,7 +98,6 @@ async function aplicarPlan(plan, idsBaja, usuario) {
       });
     }
     ops.push(b => b.set(doc(db, it.coleccion, it.id), data, { merge: true }));
-    resumen[CONTADOR[it.accion]]++;
   }
 
   const datosBaja = {
@@ -93,25 +107,27 @@ async function aplicarPlan(plan, idsBaja, usuario) {
     motivoBaja: motivoBaja(),
   };
   for (const b of plan.bajas) {
-    if (!idsBaja.has(b.key)) { resumen.mantenidos++; continue; }
+    if (!idsBaja.has(b.key)) continue;
     ops.push(batch => batch.update(doc(db, b.coleccion, b.id), datosBaja));
-    resumen.bajas++;
   }
 
-  let guardadas = 0;
-  try {
-    for (let i = 0; i < ops.length; i += 500) {
-      const batch = writeBatch(db);
-      ops.slice(i, i + 500).forEach(op => op(batch));
-      await batch.commit();
-      guardadas = Math.min(i + 500, ops.length);
-    }
-  } catch (err) {
-    err.message = guardadas
-      ? `Se guardaron ${guardadas} de ${ops.length} cambios antes del error: ${err.message}. Puede volver a importar el mismo archivo para completar.`
-      : err.message;
-    throw err;
+  if (plan.resolucion) {
+    const TOPE = 1000; // la bitácora es un solo documento: se acota la lista
+    ops.push(opBitacora({
+      accion: 'importacion_padron', entidad: 'empleados',
+      despues: {
+        modo, ...resumen,
+        cambiosDeArea: plan.items.filter(i => i.areaEstado === 'cambia').slice(0, TOPE)
+          .map(i => ({ nomina: i.clave, de: i.areaAnteriorId, a: i.areaId })),
+        excepcionesCreadas: plan.items.filter(i => i.excepcionNueva).slice(0, TOPE)
+          .map(i => ({ nomina: i.clave, areaId: i.excepcion.areaId, motivo: i.excepcion.motivo })),
+        excepcionesQuitadas: plan.items.filter(i => i.excepcionBase && !i.excepcion).slice(0, TOPE).map(i => i.clave),
+        puestosCambioArea: (plan.cambiosPuesto ?? []).map(c => ({ puestoId: c.puestoId, de: c.de, a: c.a })),
+      },
+    }, usuario));
   }
+
+  await ejecutarEnLotes(ops);
   return resumen;
 }
 
@@ -153,12 +169,15 @@ function FilaItem({ it, mostrarEntidad }) {
         <span className="font-mono font-bold text-[var(--text-main)]">{it.clave}</span>
         <span className="font-semibold text-[var(--text-main)]">{it.nombre}</span>
         {it.detalle && <span className="text-[var(--text-muted)]">· {it.detalle}</span>}
-        {it.puestoNuevo && (
-          <Insignia tono={it.puestoSimilar ? 'warning' : 'neutro'} title={it.puestoSimilar ? `Posible variante de ${it.puestoSimilar}` : undefined}>
-            {it.puestoSimilar ? `Puesto nuevo · ~${it.puestoSimilar}` : 'Puesto nuevo'}
-          </Insignia>
-        )}
+        {it.areaNombre && <Insignia title="Área (sale del puesto)">{it.areaNombre}</Insignia>}
+        {it.puestoNuevo && <Insignia tono="warning" title="El puesto se creará al confirmar">Puesto nuevo</Insignia>}
       </div>
+      {it.puestoCorreccion && (
+        <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
+          <span className="font-semibold">{it.puestoCorreccion.tipo === 'automatica' ? 'Corregido automáticamente' : 'Equivalencia confirmada'}:</span>{' '}
+          <span className="text-[var(--text-muted)] line-through">{it.puestoCorreccion.antes}</span> → <span className="font-semibold text-[var(--text-main)]">{it.puestoCorreccion.despues}</span>
+        </p>
+      )}
       {it.cambios?.length > 0 && (
         <ul className="mt-1 space-y-0.5 pl-1">
           {it.cambios.map(c => (
@@ -197,6 +216,27 @@ const textoBusqueda = (x) => [
 ].filter(v => v !== undefined && v !== null).join(' ').toLowerCase()
   .normalize('NFD').replace(/[̀-ͯ]/g, '');
 
+/** Contadores del resumen final de empleados (antes de guardar y en el resultado) */
+const CONTADORES_EMPLEADOS = [
+  ['Creados', 'creados'], ['Actualizados', 'actualizados'], ['Sin cambios', 'sinCambios'], ['Reactivados', 'reactivados'],
+  ['Cambian de área', 'cambianArea'], ['Área asignada (sin área antes)', 'areaAsignada'], ['Excepciones nuevas', 'excepcionesNuevas'],
+  ['Puestos nuevos', 'puestosNuevos'], ['Puestos con área cambiada', 'puestosCambioArea'], ['Alias nuevos', 'aliasNuevos'],
+  ['Bajas', 'bajas'], ['Omitidos por error', 'omitidos'], ['Omitidos por puesto', 'omitidosPuesto'],
+];
+
+function Contadores({ resumen, contadores }) {
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {contadores.map(([label, clave]) => (
+        <div key={label} className="rounded-lg border border-[var(--border-color)] px-3 py-2">
+          <span className="block text-lg font-bold text-[var(--text-main)]">{resumen[clave]}</span>
+          <span className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">{label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Modal ─────────────────────────────────────────────────────────────────
 export default function ModalImportacion({ tipo, onClose, onImportado }) {
   const { usuario } = useAuth();
@@ -204,12 +244,14 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
   const titulo = esDir ? 'Importar directorio de transporte' : 'Importar empleados';
   const descripcion = esDir
     ? 'Carga masiva de rutas, comunidades y puntos desde un .xlsx con formato fijo.'
-    : 'Carga masiva del padron de empleados desde un .xlsx con formato fijo.';
+    : 'Carga masiva del padron de empleados desde un .xlsx: el formato propio o directamente el reporte de nomina.';
   const colsInfo = esDir ? DIR_COLS_INFO : EMP_COLS_INFO;
   const nombreHoja = esDir ? 'Directorio' : 'Empleados';
 
   const fileRef = useRef(null);
-  const [base, setBase] = useState(null); // { empleados, rutas, comunidades, puntos }
+  const toast = useToast();
+  const [base, setBase] = useState(null); // { empleados, rutas, comunidades, puntos, areas, puestos }
+  const [decisiones, setDecisiones] = useState(() => new Map()); // clave de puesto → decisión de RH
   const [errorBase, setErrorBase] = useState('');
   const [modo, setModo] = useState(MODOS.AGREGAR);
   const [paso, setPaso] = useState('inicio'); // inicio | previa | guardando | resultado
@@ -223,26 +265,75 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
   const [decisionBajas, setDecisionBajas] = useState(null); // null | 'baja' | 'mantener'
   const [textoConfirmar, setTextoConfirmar] = useState('');
   const [resultado, setResultado] = useState(null); // { resumen, idsBaja, fecha }
+  const [excepciones, setExcepciones] = useState(() => new Map()); // nómina → { areaId, motivo } | null (quitar)
+  const [puestoArea, setPuestoArea] = useState(() => new Map()); // puestoId → área nueva ("Todo el puesto")
+  const [confirmadas, setConfirmadas] = useState(() => new Map()); // grupo de área → firma confirmada
+  const [archivo, setArchivo] = useState(null); // { buffer, nombre } del archivo leído
+  const [eleccionHoja, setEleccionHoja] = useState(null); // { candidatas, seleccionada } cuando hay varias hojas de nómina
+  const [metaArchivo, setMetaArchivo] = useState(null); // { formato, hoja, hojas, candidatas, filasHoja }
 
-  // Estado actual de la base (para comparar, contar asignados y resolver paradas)
+  // Estado actual de la base (para comparar, contar asignados y resolver paradas y puestos).
+  // Cada colección se lee por separado: si una falla se dice cuál y con qué código.
   useEffect(() => {
     let cancelado = false;
-    Promise.all(['empleados', 'rutas', 'comunidades', 'puntosReunion'].map(c => getDocs(collection(db, c))))
-      .then(([emp, rut, com, pts]) => {
-        if (!cancelado) setBase({ empleados: docsDe(emp), rutas: docsDe(rut), comunidades: docsDe(com), puntos: docsDe(pts) });
-      })
-      .catch(err => { if (!cancelado) setErrorBase(`No se pudo leer la base para comparar: ${err.message}`); });
+    const nombres = ['empleados', 'rutas', 'comunidades', 'puntosReunion', 'areas', 'puestos'];
+    Promise.all(nombres.map(n => leerColeccion(n, toast))).then((resultados) => {
+      if (cancelado) return;
+      const fallidas = resultados.map((r, i) => (r.error ? `${nombres[i]} (${r.error})` : null)).filter(Boolean);
+      if (fallidas.length) setErrorBase(`No se pudo leer la base para comparar: ${fallidas.join(', ')}. No se puede importar hasta resolverlo.`);
+      const [emp, rut, com, pts, are, pue] = resultados.map(r => r.datos);
+      setBase({ empleados: emp, rutas: rut, comunidades: com, puntos: pts, areas: are, puestos: pue, completa: fallidas.length === 0 });
+    });
     return () => { cancelado = true; };
-  }, []);
+  }, [toast]);
 
-  const puestosExistentes = useMemo(() => derivarPuestos(base?.empleados ?? []), [base]);
+  // Catálogo vigente: los puestos inactivos no se ofrecen como destino
+  const catalogo = useMemo(() => (base?.puestos ?? []).filter(p => p.activo !== false), [base]);
+  const areasActivas = useMemo(() => (base?.areas ?? []).filter(a => a.activa !== false).sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99)), [base]);
 
   const plan = useMemo(() => {
     if (!base || filas.length === 0) return null;
     return esDir
       ? compararDirectorio(filas, base, { modo })
-      : compararEmpleados(filas, base.empleados, { modo });
-  }, [base, filas, modo, esDir]);
+      : compararEmpleados(filas, base.empleados, { modo, catalogo, areas: base.areas, decisiones, excepciones, puestoArea });
+  }, [base, filas, modo, esDir, catalogo, decisiones, excepciones, puestoArea]);
+
+  // Paso "Confirmar áreas": grupos por área y su confirmación vigente
+  const grupos = useMemo(() => (plan && !esDir ? agruparPorArea(plan.items, base.areas) : []), [plan, esDir, base]);
+  const confirmar = (lista) => setConfirmadas(prev => {
+    const m = new Map(prev);
+    lista.forEach(({ id, firma }) => m.set(id, firma));
+    return m;
+  });
+  const ajustarPersona = (item, areaId, motivo) => setExcepciones(prev => {
+    const m = new Map(prev);
+    if (areaId === item.areaPuestoId) { if (item.excepcionBase) m.set(item.clave, null); else m.delete(item.clave); }
+    else m.set(item.clave, { areaId, motivo });
+    return m;
+  });
+  const quitarExcepcion = (item) => setExcepciones(prev => {
+    const m = new Map(prev);
+    if (item.excepcionBase) m.set(item.clave, null); else m.delete(item.clave);
+    return m;
+  });
+  const ajustarPuesto = (item, areaId) => {
+    if (item.puestoEstado === 'nuevo') { // puesto que aún no existe: el área sale de la decisión de RH
+      decidir(item.puestoClave, { ...(decisiones.get(item.puestoClave) ?? {}), tipo: 'nuevo', areaId });
+      return;
+    }
+    const original = catalogo.find(p => p.id === item.puestoId)?.areaId;
+    setPuestoArea(prev => {
+      const m = new Map(prev);
+      if (areaId === original) m.delete(item.puestoId); else m.set(item.puestoId, areaId);
+      return m;
+    });
+  };
+
+  const decidir = (clave, decision) => setDecisiones(prev => {
+    const m = new Map(prev);
+    if (decision) m.set(clave, decision); else m.delete(clave);
+    return m;
+  });
 
   const reiniciarDecision = () => { setDesmarcadas(new Set()); setDecisionBajas(null); setTextoConfirmar(''); };
 
@@ -251,22 +342,42 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
     if (m === MODOS.AGREGAR && pestana === 'bajas') setPestana('nuevos');
   };
 
-  const handleFile = async (file) => {
-    if (!file || !base) return;
+  // Lee el archivo (con la hoja elegida, si hubo que elegir) y arma la vista previa
+  const leerArchivo = async (buffer, hoja) => {
     setErrorParse(''); setParseando(true);
     try {
-      const buffer = await file.arrayBuffer();
       const puntosMap = new Map(base.puntos.map(p => [p.id, { clave: p.id, ...p }]));
-      const leidas = esDir ? await leerDirectorio(buffer) : await leerEmpleados(buffer, puntosMap, puestosExistentes);
+      let leidas; let meta = null;
+      if (esDir) leidas = await leerDirectorio(buffer);
+      else {
+        const r = await leerEmpleadosArchivo(buffer, puntosMap, { hoja });
+        if (r.meta.requiereHoja) { // varias hojas con los encabezados de nómina: que RH elija
+          setFilas([]); setPaso('inicio'); setMetaArchivo(null);
+          setEleccionHoja({ candidatas: r.meta.candidatas, seleccionada: r.meta.candidatas[0] });
+          return;
+        }
+        leidas = r.filas; meta = r.meta;
+      }
+      setEleccionHoja(null);
       if (leidas.length === 0) {
-        setFilas([]); setPaso('inicio');
-        setErrorParse(`El archivo no tiene registros: capture los datos en la hoja "${nombreHoja}" a partir de la fila 2.`);
+        setFilas([]); setPaso('inicio'); setMetaArchivo(null);
+        setErrorParse(`El archivo no tiene registros${meta ? ` en la hoja "${meta.hoja}"` : `: capture los datos en la hoja "${nombreHoja}" a partir de la fila 2`}.`);
         return;
       }
-      setFilas(leidas); setPaso('previa'); setBusqueda(''); reiniciarDecision();
+      setFilas(leidas); setMetaArchivo(meta); setPaso('previa'); setBusqueda(''); reiniciarDecision(); setDecisiones(new Map());
+      setExcepciones(new Map()); setPuestoArea(new Map()); setConfirmadas(new Map());
       setPestana('nuevos');
-    } catch (err) { setErrorParse(err.message); }
+    } catch (err) { setErrorParse(err.message); setEleccionHoja(null); }
     finally { setParseando(false); }
+  };
+
+  const handleFile = async (file) => {
+    if (!file || !base) return;
+    setErrorParse('');
+    let buffer;
+    try { buffer = await file.arrayBuffer(); } catch (err) { setErrorParse(err.message); return; }
+    setArchivo({ buffer, nombre: file.name });
+    await leerArchivo(buffer);
   };
 
   // ── Bajas ──
@@ -286,7 +397,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
   const handleConfirmar = async () => {
     setPaso('guardando'); setErrorParse('');
     try {
-      const resumen = await aplicarPlan(plan, idsBaja, usuario);
+      const resumen = await aplicarPlan(plan, idsBaja, usuario, modo === MODOS.SINCRONIZAR ? 'sincronizar' : 'agregar');
       setResultado({ resumen, idsBaja, fecha: new Date() });
       setPaso('resultado');
       onImportado?.();
@@ -323,18 +434,16 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
   const q = busqueda.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   const visibles = actual ? actual.lista.filter(x => !q || textoBusqueda(x).includes(q)) : [];
 
-  const puestosNuevos = esDir || !plan ? [] : Object.entries(
-    plan.items.filter(i => i.puestoNuevo)
-      .reduce((acc, i) => { acc[i.detalle] = (acc[i.detalle] ?? 0) + 1; return acc; }, {})
-  ).sort((a, b) => a[0].localeCompare(b[0], 'es'));
-
   const mensajeBajas = esDir
     ? `${plural(bajas.length, 'elemento activo del directorio no aparece', 'elementos activos del directorio no aparecen')} en el archivo` +
       ` (${['Ruta', 'Comunidad', 'Punto'].map(e => `${bajas.filter(b => b.entidad === e).length} ${PLURAL[e]}`).join(', ')}). ¿Es correcto que ya no estan vigentes?`
     : `${plural(bajas.length, 'empleado activo no aparece', 'empleados activos no aparecen')} en el archivo. ¿Es correcto que ya no estan en la nomina?`;
 
   const bloqueado = paso === 'guardando' || paso === 'resultado';
-  const puedeConfirmar = paso === 'previa' && !!plan && bajasResueltas;
+  const puestosSinResolver = plan?.resolucion?.pendientes.length ?? 0;
+  const areasConfirmadas = esDir || (puestosSinResolver === 0 && todoConfirmado(grupos, confirmadas));
+  const puedeConfirmar = paso === 'previa' && !!plan && bajasResueltas && puestosSinResolver === 0 && areasConfirmadas && !!base?.completa;
+  const resumenFinal = plan ? resumenImportacion(plan, idsBaja) : null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget && paso !== 'guardando') onClose(); }}>
@@ -423,16 +532,66 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                 </table>
               </div>
               {!esDir && (
-                <Aviso>Si CLAVE PARADA viene vacia, se conserva la ruta, comunidad y punto que el empleado ya tenga.</Aviso>
+                <Aviso>Una celda vacia nunca borra un dato que el empleado ya tiene (puesto, turno, departamento, nivel, fecha de alta, ruta, comunidad y punto): solo se actualiza lo que el archivo trae.</Aviso>
+              )}
+              {!esDir && (
+                <div className="space-y-2 rounded-lg border border-[var(--border-color)] p-3 text-xs">
+                  <p className="font-semibold text-[var(--text-main)]">Reporte de nomina</p>
+                  <p className="text-[var(--text-secondary)]">
+                    Tambien puede subir directamente el reporte de nomina (.xlsx): se reconoce por sus encabezados
+                    <span className="font-mono"> numero_i, nombre, depto, desc_depto, turno, puesto, nivel_g, alta_g</span>.
+                    El area de cada empleado sale de su puesto (el departamento queda solo como dato informativo); la ruta, comunidad y punto no se tocan.
+                  </p>
+                  <ul className="grid gap-x-4 gap-y-0.5 text-[11px] text-[var(--text-secondary)] sm:grid-cols-2">
+                    {NOMINA_COLS_INFO.map(c => (
+                      <li key={c.campo}><span className="font-mono font-semibold text-[var(--text-main)]">{c.campo}</span> → {c.destino}</li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </>
           )}
 
+          {eleccionHoja && archivo && (
+            <Aviso tono="warning" icon={AlertTriangle}>
+              <p className="font-bold">Varias hojas del archivo tienen los encabezados del reporte de nómina ({ENCABEZADOS_NOMINA.slice(0, 4).join(', ')}...).</p>
+              <p>Elija cuál leer; no se adivina.</p>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <select value={eleccionHoja.seleccionada} onChange={e => setEleccionHoja({ ...eleccionHoja, seleccionada: e.target.value })}
+                  className="rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1.5 text-xs text-[var(--text-main)]">
+                  {eleccionHoja.candidatas.map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
+                <button type="button" className={btnPrimary} disabled={parseando} onClick={() => leerArchivo(archivo.buffer, eleccionHoja.seleccionada)}>
+                  Leer esta hoja
+                </button>
+              </div>
+            </Aviso>
+          )}
           {errorParse && <Aviso tono="error" icon={AlertTriangle}>{errorParse}</Aviso>}
 
           {/* Vista previa comparativa */}
           {paso === 'previa' && plan && (
             <div className="space-y-3">
+              {metaArchivo && (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] px-3 py-2 text-xs">
+                  <FileSpreadsheet className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+                  <span className="font-semibold text-[var(--text-main)]">
+                    Hoja leída: {metaArchivo.hoja} · {plural(metaArchivo.filasHoja, 'fila', 'filas')}
+                  </span>
+                  <span className="text-[var(--text-muted)]">
+                    {archivo?.nombre} · {metaArchivo.formato === 'nomina' ? 'reporte de nómina' : 'formato propio'}
+                  </span>
+                  {metaArchivo.candidatas.length > 1 && (
+                    <label className="ml-auto flex items-center gap-1.5 text-[var(--text-secondary)]">
+                      Cambiar hoja
+                      <select value={metaArchivo.hoja} disabled={parseando} onChange={e => leerArchivo(archivo.buffer, e.target.value)}
+                        className="rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1 text-xs">
+                        {metaArchivo.candidatas.map(h => <option key={h} value={h}>{h}</option>)}
+                      </select>
+                    </label>
+                  )}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
                 {pestanas.map(p => (
                   <button key={p.id} type="button" onClick={() => { setPestana(p.id); setBusqueda(''); }}
@@ -445,18 +604,16 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                 ))}
               </div>
 
-              {puestosNuevos.length > 0 && (
-                <Aviso icon={Plus}>
-                  <p className="font-semibold text-[var(--text-main)]">{plural(puestosNuevos.length, 'puesto nuevo se agregara', 'puestos nuevos se agregaran')} a la lista:</p>
-                  <ul className="flex flex-wrap gap-1.5">
-                    {puestosNuevos.map(([puesto, n]) => (
-                      <li key={puesto} className="rounded border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-0.5 text-[10px]">
-                        <span className="font-semibold text-[var(--text-main)]">{puesto}</span>
-                        <span className="text-[var(--text-muted)]"> · {plural(n, 'empleado', 'empleados')}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </Aviso>
+              {!esDir && plan.resolucion && (
+                <ResolucionPuestos resolucion={plan.resolucion} catalogo={catalogo} areas={areasActivas}
+                  decisiones={decisiones} onDecidir={decidir} />
+              )}
+
+              {!esDir && (
+                <ConfirmarAreas plan={plan} grupos={grupos} areas={areasActivas} confirmadas={confirmadas}
+                  empleadosBase={base.empleados} bloqueado={paso !== 'previa'} puestosPendientes={puestosSinResolver}
+                  onConfirmar={confirmar} onAjustePersona={ajustarPersona} onAjustePuesto={ajustarPuesto}
+                  onQuitarExcepcion={quitarExcepcion} />
               )}
 
               {bajas.length > 0 && decisionBajas === null && actual?.id !== 'bajas' && (
@@ -564,6 +721,17 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                   )}
                 </ul>
               </div>
+
+              {!esDir && resumenFinal && (
+                <div className="space-y-2 rounded-lg border border-[var(--border-color)] p-3">
+                  <p className="text-xs font-semibold text-[var(--text-main)]">Resumen antes de guardar</p>
+                  <Contadores resumen={resumenFinal}
+                    contadores={CONTADORES_EMPLEADOS.filter(([, c]) => c !== 'bajas' || modo === MODOS.SINCRONIZAR)} />
+                  <p className="text-[11px] text-[var(--text-muted)]">
+                    Un empleado puede contarse en "Actualizados" y en "Cambian de área" a la vez. Nada se guarda hasta pulsar «Confirmar importación».
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -580,21 +748,11 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                 <p className="text-sm font-bold">Importacion completada</p>
                 <p>{modo === MODOS.SINCRONIZAR ? 'Modo: Sincronizar con la lista completa.' : 'Modo: Agregar y actualizar.'}</p>
               </Aviso>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {[
-                  ['Creados', resultado.resumen.creados],
-                  ['Actualizados', resultado.resumen.actualizados],
-                  ['Sin cambios', resultado.resumen.sinCambios],
-                  ['Reactivados', resultado.resumen.reactivados],
-                  ['Dados de baja', resultado.resumen.bajas],
-                  ['Omitidos por error', resultado.resumen.omitidos],
-                ].map(([label, n]) => (
-                  <div key={label} className="rounded-lg border border-[var(--border-color)] px-3 py-2">
-                    <span className="block text-lg font-bold text-[var(--text-main)]">{n}</span>
-                    <span className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">{label}</span>
-                  </div>
-                ))}
-              </div>
+              <Contadores resumen={resultado.resumen}
+                contadores={esDir
+                  ? [['Creados', 'creados'], ['Actualizados', 'actualizados'], ['Sin cambios', 'sinCambios'], ['Reactivados', 'reactivados'],
+                    ['Dados de baja', 'bajas'], ['Omitidos por error', 'omitidos']]
+                  : CONTADORES_EMPLEADOS} />
               {resultado.resumen.mantenidos > 0 && (
                 <Aviso>{plural(resultado.resumen.mantenidos, 'registro no aparece', 'registros no aparecen')} en el archivo y se dejaron activos.</Aviso>
               )}
@@ -609,7 +767,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-color)] px-6 py-4 flex-shrink-0 bg-[var(--bg-surface-secondary)]">
           <div className="flex flex-wrap gap-2">
             <button type="button"
-              onClick={() => descargarLibro(esDir ? construirFormatoDirectorio() : construirFormatoEmpleados(puestosExistentes), esDir ? 'Formato_Directorio.xlsx' : 'Formato_Empleados.xlsx')}
+              onClick={() => descargarLibro(esDir ? construirFormatoDirectorio() : construirFormatoEmpleados(catalogo.map(p => p.nombre).sort((a, b) => a.localeCompare(b, 'es'))), esDir ? 'Formato_Directorio.xlsx' : 'Formato_Empleados.xlsx')}
               className={btnSecondary}>
               <Download className="h-3.5 w-3.5 text-[var(--text-secondary)]" />Descargar formato en blanco
             </button>
@@ -626,6 +784,12 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
             )}
           </div>
           <div className="flex items-center gap-2">
+            {paso === 'previa' && plan && puestosSinResolver > 0 && (
+              <span className="text-[11px] text-[var(--status-warning-text)]">Resuelva {plural(puestosSinResolver, 'puesto', 'puestos')} para confirmar.</span>
+            )}
+            {paso === 'previa' && plan && !esDir && puestosSinResolver === 0 && !areasConfirmadas && (
+              <span className="text-[11px] text-[var(--status-warning-text)]">Confirme las áreas para continuar.</span>
+            )}
             {paso === 'previa' && plan && !bajasResueltas && (
               <span className="text-[11px] text-[var(--status-warning-text)]">
                 {decisionBajas === 'baja' ? 'Escriba CONFIRMAR para continuar.' : 'Decida que hacer con los que ya no aparecen.'}

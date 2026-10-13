@@ -222,7 +222,7 @@ export default function Inicio() {
           Operaciones principales
         </h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Link to="/solicitud/nueva" className="group flex items-start justify-between rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 shadow-sm hover:border-[var(--cm-red)] transition-colors">
+          <Link to="/rutas/solicitud/nueva" className="group flex items-start justify-between rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 shadow-sm hover:border-[var(--cm-red)] transition-colors">
             <div className="flex items-start gap-3">
               <div className="rounded-md border border-[var(--cm-red)]/20 bg-[var(--cm-red-light)] p-2 text-[var(--cm-red)]">
                 <FilePlus className="h-5 w-5" />
@@ -235,7 +235,7 @@ export default function Inicio() {
             <ArrowRight className="h-4 w-4 text-[var(--text-muted)] group-hover:text-[var(--cm-red)] group-hover:translate-x-0.5 transition-all mt-1" />
           </Link>
 
-          <Link to="/mis-solicitudes" className="group flex items-start justify-between rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 shadow-sm hover:border-[var(--cm-red)] transition-colors">
+          <Link to="/rutas/mis-solicitudes" className="group flex items-start justify-between rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 shadow-sm hover:border-[var(--cm-red)] transition-colors">
             <div className="flex items-start gap-3">
               <div className="rounded-md border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-2 text-[var(--text-secondary)]">
                 <ClipboardList className="h-5 w-5" />
@@ -249,7 +249,7 @@ export default function Inicio() {
           </Link>
 
           {esAdminORh ? (
-            <Link to="/rh/solicitudes" className="group flex items-start justify-between rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 shadow-sm hover:border-[var(--cm-red)] transition-colors">
+            <Link to="/rutas/rh/solicitudes" className="group flex items-start justify-between rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 shadow-sm hover:border-[var(--cm-red)] transition-colors">
               <div className="flex items-start gap-3">
                 <div className="rounded-md border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-2 text-[var(--text-secondary)]">
                   <Layers className="h-5 w-5" />
@@ -281,7 +281,7 @@ export default function Inicio() {
           <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
             Proximos servicios programados
           </h2>
-          <Link to={esAdminORh ? "/rh/solicitudes" : "/mis-solicitudes"} className="text-xs font-semibold text-[var(--cm-red)] hover:underline">
+          <Link to={esAdminORh ? "/rutas/rh/solicitudes" : "/rutas/mis-solicitudes"} className="text-xs font-semibold text-[var(--cm-red)] hover:underline">
             Ver todas
           </Link>
         </div>

@@ -2,14 +2,15 @@
  * RhEmpleados.jsx
  */
 import { useState, useEffect, useMemo } from 'react';
-import { collection, getDocs, getDoc, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { getDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Search, Plus, Filter, Pencil, Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 import { useRecargarCatalogos } from '../../hooks/useCatalogos';
 import Modal from '../../components/Modal';
-import PuestoCombobox from '../../components/PuestoCombobox';
-import { derivarPuestos, canonizarPuesto } from '../../utils/puestos';
+import { useAuth } from '../../hooks/useAuth';
+import { areaEfectiva } from '../../utils/estructura';
+import { ejecutarEnLotes, leerColeccion, opBitacora } from '../../utils/estructuraDb';
 import { esActivo, opcionesVigentes } from '../../utils/activo';
 
 /** Nombre para un <option>, marcando si ya está inactivo (se conserva el valor guardado) */
@@ -18,16 +19,23 @@ const etiqueta = (x) => (esActivo(x) ? x.nombre : `${x.nombre} (inactivo)`);
 const btnIcon = 'rounded-md p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-surface-secondary)] hover:text-[var(--text-main)] active:scale-95 transition-all cursor-pointer';
 const inputCls = 'w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)] disabled:bg-[var(--bg-surface-secondary)] disabled:opacity-60';
 const labelCls = 'block text-[10px] uppercase font-bold text-[var(--text-muted)] mb-1';
-const formVacio = { nomina: '', nombre: '', puesto: '', rutaId: '', comunidadId: '', puntoReunionId: '', activo: true };
+const formVacio = {
+  nomina: '', nombre: '', puesto: '', puestoId: '', rutaId: '', comunidadId: '', puntoReunionId: '', activo: true,
+  areaExcepcion: '', areaExcepcionMotivo: '',
+};
 const AYUDA_RUTA = 'Si no la asigna, se pedirá al solicitar transporte';
 
 export default function RhEmpleados() {
   const toast = useToast();
+  const { usuario } = useAuth();
   const recargarCompartidos = useRecargarCatalogos();
   const [empleados, setEmpleados] = useState([]);
   const [rutas, setRutas] = useState([]);
   const [comunidades, setComunidades] = useState([]);
   const [puntos, setPuntos] = useState([]);
+  const [areas, setAreas] = useState([]);
+  const [puestos, setPuestos] = useState([]);
+  const [filtroEstado, setFiltroEstado] = useState('todos');
   const [cargando, setCargando] = useState(true);
 
   const [busqueda, setBusqueda] = useState('');
@@ -39,32 +47,23 @@ export default function RhEmpleados() {
   const [guardando, setGuardando] = useState(false);
   const [formError, setFormError] = useState('');
 
-  // Puestos unicos derivados del padron, ordenados alfabeticamente
-  const puestosExistentes = useMemo(() => derivarPuestos(empleados), [empleados]);
-
-  // Carga inicial: solo actualiza el estado cuando llega la respuesta (y si la pantalla sigue montada)
+  // Carga inicial: cada colección por separado. Si una falla se avisa (toast + código en consola) y las demás se muestran.
   useEffect(() => {
     let vigente = true;
-    Promise.all([
-      getDocs(collection(db, 'empleados')),
-      getDocs(collection(db, 'rutas')),
-      getDocs(collection(db, 'comunidades')),
-      getDocs(collection(db, 'puntosReunion')),
-    ])
-      .then(([empS, rutS, comS, ptS]) => {
-        if (!vigente) return;
-        setEmpleados(empS.docs.map(d => ({ nomina: d.id, ...d.data() })));
-        setRutas(rutS.docs.map(d => ({ id: d.id, ...d.data() })));
-        setComunidades(comS.docs.map(d => ({ id: d.id, ...d.data() })));
-        setPuntos(ptS.docs.map(d => ({ id: d.id, ...d.data() })));
-      })
-      .catch(e => { console.error(e); })
-      .finally(() => { if (vigente) setCargando(false); });
+    const nombres = ['empleados', 'rutas', 'comunidades', 'puntosReunion', 'areas', 'puestos'];
+    Promise.all(nombres.map(n => leerColeccion(n, toast))).then(([emp, rut, com, pts, are, pue]) => {
+      if (!vigente) return;
+      setEmpleados(emp.datos.map(d => ({ ...d, nomina: String(d.nomina ?? d.id) })));
+      setRutas(rut.datos); setComunidades(com.datos); setPuntos(pts.datos); setAreas(are.datos); setPuestos(pue.datos);
+      setCargando(false);
+    });
     return () => { vigente = false; };
-  }, []);
+  }, [toast]);
 
   const filtrados = empleados.filter(e => {
     const q = busqueda.toLowerCase();
+    if (filtroEstado === 'activos' && e.activo === false) return false;
+    if (filtroEstado === 'inactivos' && e.activo !== false) return false;
     return !q || e.nomina.toLowerCase().includes(q) || (e.nombre || '').toLowerCase().includes(q);
   });
 
@@ -74,16 +73,30 @@ export default function RhEmpleados() {
     setModal({ modo: 'crear' });
   };
   const abrirEditar = (emp) => {
-    setForm({ ...formVacio, ...emp });
+    setForm({
+      ...formVacio, ...emp, puestoId: emp.puestoId ?? '',
+      areaExcepcion: emp.areaExcepcion ?? '', areaExcepcionMotivo: emp.areaExcepcionMotivo ?? '',
+    });
     setFormError('');
     setModal({ modo: 'editar', original: emp });
   };
 
+  const puestosPorId = useMemo(() => new Map(puestos.map(p => [p.id, p])), [puestos]);
+  const areasPorId = useMemo(() => new Map(areas.map(a => [a.id, a])), [areas]);
+  const areasActivas = areas.filter(a => a.activa !== false).sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99));
+  // Puestos que se pueden elegir: los activos más el que ya tiene el empleado (aunque esté inactivo)
+  const puestosElegibles = puestos.filter(p => p.activo !== false || p.id === form.puestoId)
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  const puestoElegido = puestosPorId.get(form.puestoId);
+
   const handleGuardar = async (e) => {
     e.preventDefault();
-    if (!form.puesto) { setFormError('El puesto es obligatorio.'); return; }
     const nomina = String(form.nomina).trim();
     if (!nomina) { setFormError('La nomina es obligatoria.'); return; }
+    const original = modal.original ?? {};
+    // Un empleado sin puestoId (aún sin asignar) puede guardarse sin elegir puesto; uno nuevo, no
+    if (!form.puestoId && (modal.modo === 'crear' || original.puestoId)) { setFormError('Elija el puesto del catálogo.'); return; }
+    if (form.areaExcepcion && !form.areaExcepcionMotivo.trim()) { setFormError('La excepción de área necesita un motivo.'); return; }
     setGuardando(true); setFormError('');
     try {
       const ref = doc(db, 'empleados', nomina);
@@ -92,31 +105,49 @@ export default function RhEmpleados() {
         nomina,
         nombre,
         nombreLower: nombre.toLowerCase(),
-        puesto: canonizarPuesto(form.puesto, puestosExistentes),
         // Ruta/comunidad/punto son opcionales — guardar vacío si no se asigna
         rutaId: form.rutaId || '',
         comunidadId: form.comunidadId || '',
         puntoReunionId: form.puntoReunionId || '',
         activo: form.activo !== false,
       };
-
-      if (modal.modo === 'crear') {
-        if ((await getDoc(ref)).exists()) {
-          throw new Error('Ya existe un empleado con esta nomina.');
-        }
-        await setDoc(ref, data);
-        setEmpleados(prev => [...prev, data]);
-        recargarCompartidos();
-        toast.success('Empleado creado.');
-      } else {
-        await updateDoc(ref, data);
-        setEmpleados(prev => prev.map(emp => emp.nomina === nomina ? { ...emp, ...data } : emp));
-        recargarCompartidos();
-        toast.success('Empleado actualizado.');
+      const excepcion = form.areaExcepcion || null;
+      const motivo = excepcion ? form.areaExcepcionMotivo.trim() : '';
+      if (puestoElegido) {
+        // El área sale del puesto, salvo que RH ponga una excepción
+        Object.assign(data, {
+          puesto: puestoElegido.nombre, puestoId: puestoElegido.id, areaExcepcion: excepcion, areaExcepcionMotivo: motivo,
+          areaId: areaEfectiva({ puestoId: puestoElegido.id, areaExcepcion: excepcion }, puestosPorId),
+        });
       }
+      const ops = [];
+      if (modal.modo === 'crear') {
+        if ((await getDoc(ref)).exists()) throw new Error('Ya existe un empleado con esta nomina.');
+        ops.push(b => b.set(ref, data));
+      } else {
+        ops.push(b => b.update(ref, data));
+      }
+      // Bitácora: cambios de puesto/área y de excepción
+      if (puestoElegido && (original.puestoId ?? '') !== puestoElegido.id) {
+        ops.push(opBitacora({ accion: 'empleado_puesto', entidad: `empleados/${nomina}`, antes: { puestoId: original.puestoId ?? null, areaId: original.areaId ?? null }, despues: { puestoId: puestoElegido.id, areaId: data.areaId } }, usuario));
+      }
+      if (puestoElegido && (original.areaExcepcion ?? null) !== excepcion) {
+        ops.push(opBitacora({
+          accion: excepcion ? (original.areaExcepcion ? 'excepcion_modificada' : 'excepcion_asignada') : 'excepcion_quitada',
+          entidad: `empleados/${nomina}`,
+          antes: { areaExcepcion: original.areaExcepcion ?? null, motivo: original.areaExcepcionMotivo ?? '' },
+          despues: { areaExcepcion: excepcion, motivo, areaId: data.areaId },
+        }, usuario));
+      }
+      await ejecutarEnLotes(ops);
+      setEmpleados(prev => (modal.modo === 'crear' ? [...prev, data] : prev.map(emp => emp.nomina === nomina ? { ...emp, ...data } : emp)));
+      recargarCompartidos();
+      toast.success(modal.modo === 'crear' ? 'Empleado creado.' : 'Empleado actualizado.');
       setModal(null);
     } catch (err) {
+      console.error('Guardar empleado:', err.code, err);
       setFormError(err.message);
+      toast.error(`No se pudo guardar (${err.code ?? err.message}).`, 7000);
     } finally {
       setGuardando(false);
     }
@@ -138,6 +169,7 @@ export default function RhEmpleados() {
     }
   };
 
+  const nombreArea = (id) => areasPorId.get(id)?.nombre ?? id;
   const nombreRuta = (id) => rutas.find(r => r.id === id)?.nombre || '—';
 
   // Cascada: limpiar comunidad y punto al cambiar ruta
@@ -169,6 +201,9 @@ export default function RhEmpleados() {
             placeholder="Buscar nomina o nombre..."
             className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] pl-8 pr-3 py-1.5 text-xs outline-none focus:border-[var(--cm-red)]" />
         </div>
+        <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} className={inputCls + ' !w-auto'}>
+          <option value="todos">Todos</option><option value="activos">Activos</option><option value="inactivos">Inactivos</option>
+        </select>
         <span className="text-[var(--text-muted)] font-medium">{filtrados.length} empleados</span>
       </div>
 
@@ -180,19 +215,25 @@ export default function RhEmpleados() {
               <th className="px-4 py-3">Nombre</th>
               <th className="px-4 py-3">Puesto</th>
               <th className="px-4 py-3">Ruta</th>
+              <th className="px-4 py-3">Area</th>
               <th className="px-4 py-3">Estado</th>
               <th className="px-4 py-3 text-right">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border-subtle)]">
             {cargando
-              ? <tr><td colSpan={6} className="p-8 text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto text-[var(--text-muted)]" /></td></tr>
+              ? <tr><td colSpan={7} className="p-8 text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto text-[var(--text-muted)]" /></td></tr>
               : filtrados.map(emp => (
                 <tr key={emp.nomina} className="hover:bg-[var(--bg-surface-secondary)] transition-colors">
                   <td className="px-4 py-2.5 font-mono font-bold">{emp.nomina}</td>
                   <td className="px-4 py-2.5 text-[var(--text-main)]">{emp.nombre}</td>
                   <td className="px-4 py-2.5 text-[var(--text-secondary)]">{emp.puesto || '—'}</td>
                   <td className="px-4 py-2.5 text-[var(--text-secondary)]">{nombreRuta(emp.rutaId)}</td>
+                  <td className="px-4 py-2.5 text-[var(--text-secondary)]">
+                    {emp.areaId ? nombreArea(emp.areaId) : '—'}
+                    {emp.areaExcepcion && <span className="ml-1 text-[9px] font-bold uppercase text-[var(--status-warning-text)]" title={emp.areaExcepcionMotivo || 'Excepción de área'}>excepción</span>}
+                    {!emp.puestoId && <span className="ml-1 text-[9px] font-bold uppercase text-[var(--text-muted)]" title="Aún sin puesto del catálogo">sin asignar</span>}
+                  </td>
                   <td className="px-4 py-2.5">
                     <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${emp.activo !== false ? 'bg-[var(--status-success-bg)] text-[var(--status-success-text)]' : 'bg-[var(--status-error-bg)] text-[var(--status-error-text)]'}`}>
                       {emp.activo !== false ? 'Activo' : 'Inactivo'}
@@ -239,17 +280,25 @@ export default function RhEmpleados() {
             </div>
           </div>
 
-          {/* Puesto con combobox */}
+          {/* Puesto del catálogo (de él sale el área) */}
           <div>
             <label className={labelCls}>
               Puesto <span className="text-[var(--status-error-text)]">*</span>
             </label>
-            <PuestoCombobox
-              puestosExistentes={puestosExistentes}
-              value={form.puesto}
-              onChange={v => setForm(f => ({ ...f, puesto: v }))}
-              required
-            />
+            <select value={form.puestoId} onChange={e => setForm(f => ({ ...f, puestoId: e.target.value }))} className={inputCls}>
+              <option value="">{form.puesto ? `(sin asignar) texto actual: ${form.puesto}` : 'Elija el puesto…'}</option>
+              {puestosElegibles.map(p => <option key={p.id} value={p.id}>{p.nombre}{p.activo === false ? ' (inactivo)' : ''} · {nombreArea(p.areaId) || 'sin área'}</option>)}
+            </select>
+            {puestos.length === 0 && (
+              <p className="mt-1 text-[10px] text-[var(--status-warning-text)]">No hay puestos en el catálogo: créelos en Estructura &gt; Áreas &gt; Crear estructura inicial.</p>
+            )}
+            {puestoElegido && (
+              <p className="mt-1 text-[10px] text-[var(--text-muted)]">
+                Área por puesto: <strong>{nombreArea(puestoElegido.areaId) || 'sin área'}</strong>
+                {form.areaExcepcion && <> · área efectiva por excepción: <strong>{nombreArea(form.areaExcepcion)}</strong></>}
+                {modal?.original?.depto && <> · Departamento (informativo): {modal.original.depto}</>}
+              </p>
+            )}
           </div>
 
           {/* Ruta / Comunidad / Punto — opcionales */}
@@ -303,6 +352,24 @@ export default function RhEmpleados() {
                 <p className="mt-1 text-[10px] text-[var(--text-muted)]">Primero selecciona una comunidad.</p>
               )}
             </div>
+          </div>
+
+          {/* Excepción de área: solo RH/admin; la importación nunca la sobrescribe */}
+          <div className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface-secondary)] p-3 space-y-2">
+            <div>
+              <label className={labelCls}>Excepción de área <span className="font-normal normal-case text-[var(--text-muted)]">(p. ej. prestado a otra área)</span></label>
+              <select value={form.areaExcepcion} onChange={e => setForm(f => ({ ...f, areaExcepcion: e.target.value }))} className={inputCls}>
+                <option value="">Sin excepción (área del puesto)</option>
+                {areasActivas.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+              </select>
+            </div>
+            {form.areaExcepcion && (
+              <div>
+                <label className={labelCls}>Motivo <span className="text-[var(--status-error-text)]">*</span></label>
+                <input value={form.areaExcepcionMotivo} onChange={e => setForm(f => ({ ...f, areaExcepcionMotivo: e.target.value }))}
+                  className={inputCls} placeholder="Ej. Prestado a Moldes por proyecto" />
+              </div>
+            )}
           </div>
 
           {modal?.modo === 'editar' && (

@@ -32,3 +32,6 @@ dist-ssr
 # Archivos de prueba generados por scripts/ (pueden contener datos)
 test-solicitudes.xlsx
 scripts/salida/
+
+# Emulador de Firebase
+*-debug.log

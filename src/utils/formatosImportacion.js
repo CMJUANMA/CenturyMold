@@ -8,7 +8,7 @@
  * El archivo es un documento: aquí se usan colores fijos, no tokens de la UI.
  */
 import ExcelJS from 'exceljs';
-import { buscarCoincidencias, normalizarPuesto } from './puestos.js';
+import { limpiarTexto, normalizarPuesto } from './puestos.js';
 import { esActivo } from './activo.js';
 import { slugify } from './comparacionImportacion.js';
 
@@ -28,7 +28,7 @@ const COLUMNAS_DIR = [
 const COLUMNAS_EMP = [
   { h: 'NOMINA',       ancho: 12, formato: 'numero', desc: 'Numero de nomina: solo digitos y unico en el archivo.', ej: '12345' },
   { h: 'NOMBRE',       ancho: 40, desc: 'Nombre completo (apellidos y nombre).',                                    ej: 'GARCIA LOPEZ JUAN' },
-  { h: 'PUESTO',       ancho: 32, desc: 'Elija de la lista desplegable o escriba uno nuevo.',                      ej: 'OPERADOR DE PRODUCCION' },
+  { h: 'PUESTO',       ancho: 32, desc: 'Un puesto del catalogo (o su alias). Los demas se resuelven en la vista previa.',                      ej: 'PRODUCTION OPERATOR' },
   { h: 'CLAVE PARADA', ancho: 16, formato: 'texto', opcional: true,
     desc: 'Clave del punto de reunion (columna CLAVE del directorio). Si se deja vacia, la ruta se pedira al solicitar transporte.', ej: 'SN01' },
 ];
@@ -42,7 +42,7 @@ const EJEMPLO_DIR = [
   ['RUTA SUR',   'COLONIA VISTA HERMOSA', 'PLAZA COMERCIAL',     'SU01'],
 ];
 const EJEMPLO_EMP = [
-  [12345, 'GARCIA LOPEZ JUAN',      'OPERADOR DE PRODUCCION', 'SN01'],
+  [12345, 'GARCIA LOPEZ JUAN',      'PRODUCTION OPERATOR', 'SN01'],
   [67890, 'MARTINEZ RUIZ ANA',      'SUPERVISORA DE CALIDAD', 'SU01'],
   [11111, 'RODRIGUEZ PEREZ CARLOS', 'ALMACENISTA',            ''],
 ];
@@ -303,7 +303,7 @@ export function construirFormatoEmpleados(puestosExistentes = []) {
       'No modifique, mueva ni renombre los encabezados de la fila 1. No agregue ni elimine columnas.',
       'NOMINA, NOMBRE y PUESTO son obligatorios. CLAVE PARADA es opcional.',
       'NOMINA debe contener solo digitos y no repetirse en el archivo.',
-      'PUESTO: elija de la lista desplegable o escriba uno nuevo. Los puestos nuevos se aceptan y se muestran como "Puesto nuevo" en la vista previa.',
+      'PUESTO: use un puesto del catalogo (o un alias ya confirmado). Los que no se reconozcan se resuelven en la vista previa antes de confirmar.',
       'CLAVE PARADA debe existir en el directorio de transporte. Si se deja vacia, la ruta se pedira al solicitar transporte.',
       'Si la nomina ya existe en el sistema, el empleado se actualiza; no se crean duplicados.',
       `La hoja "${HOJA_EJEMPLO}" es solo de referencia y esta hoja de instrucciones nunca se importan.`,
@@ -357,10 +357,60 @@ export function construirReporteImportacion({ tipo, modo, fecha, usuario, plan, 
     ['Actualizados', resumen.actualizados],
     ['Sin cambios', resumen.sinCambios],
     ['Reactivados', resumen.reactivados],
+    ...(plan.resolucion ? [
+      ['Cambian de area', resumen.cambianArea],
+      ['Area asignada (no tenian area)', resumen.areaAsignada],
+      ['Excepciones de area nuevas', resumen.excepcionesNuevas],
+      ['Puestos nuevos creados', resumen.puestosNuevos],
+      ['Puestos con area cambiada', resumen.puestosCambioArea],
+      ['Alias nuevos guardados', resumen.aliasNuevos],
+      ['Empleados omitidos por puesto', resumen.omitidosPuesto],
+    ] : []),
     ['Dados de baja', resumen.bajas],
     ['No aparecen y se dejaron activos', resumen.mantenidos],
     ['Omitidos por error', resumen.omitidos],
   ]);
+
+  if (plan.resolucion) {
+    // Cómo se resolvió cada puesto del archivo (y el área de cada uno)
+    const ETIQUETA = {
+      auto: 'Coincide', corregido: 'Corregido automaticamente', alias: 'Equivalencia confirmada (alias guardado)',
+      nuevo: 'Puesto nuevo', omitir: 'Omitido', pendiente: 'Sin resolver',
+    };
+    const filasPuestos = plan.resolucion.grupos.map(g => {
+      const r = plan.resolucion.porClave.get(g.clave);
+      return [[...g.crudos].filter(Boolean).join(' | ') || g.texto, r.nombre, r.areaId, ETIQUETA[r.estado] ?? r.estado, g.empleados.length];
+    });
+    agregarHojaReporte(wb, 'Puestos', ['Puesto en el archivo', 'Puesto asignado', 'Area', 'Resultado', 'Empleados'], filasPuestos);
+
+    // Una hoja por grupo del resumen final
+    const emp = (lista) => lista.map(i => [
+      i.clave, i.nombre, i.detalle, i.areaAnteriorNombre || '(sin area)', i.areaNombre || '(sin area)',
+      i.excepcion ? `${i.areaNombre} (${i.excepcion.motivo || 'sin motivo'})` : '',
+      i.cambios.map(c => `${c.campo}: ${c.antes} -> ${c.despues}`).join('\n'), i.filaExcel,
+    ]);
+    const colsEmp = ['Nomina', 'Nombre', 'Puesto', 'Area anterior', 'Area nueva', 'Excepcion', 'Cambios', 'Fila Excel'];
+    const hojaEmp = (nombre, lista) => agregarHojaReporte(wb, nombre, colsEmp, emp(lista), { columnasAjuste: [6] });
+    hojaEmp('Creados', plan.items.filter(i => i.accion === 'crear'));
+    hojaEmp('Actualizados', plan.items.filter(i => i.accion === 'actualizar'));
+    hojaEmp('Reactivados', plan.items.filter(i => i.accion === 'reactivar'));
+    hojaEmp('Sin cambios', plan.items.filter(i => i.accion === 'sinCambios'));
+    hojaEmp('Cambian de area', plan.items.filter(i => i.areaEstado === 'cambia'));
+    agregarHojaReporte(wb, 'Excepciones nuevas', ['Nomina', 'Nombre', 'Puesto', 'Area del puesto', 'Area de excepcion', 'Motivo'],
+      plan.items.filter(i => i.excepcionNueva).map(i => [i.clave, i.nombre, i.detalle,
+        plan.areaNombres?.get(i.areaPuestoId) ?? i.areaPuestoId, i.areaNombre, i.excepcion.motivo]));
+    agregarHojaReporte(wb, 'Puestos nuevos', ['Puesto', 'Area', 'Empleados'],
+      plan.resolucion.puestosNuevos.map(p => [p.nombre, plan.areaNombres?.get(p.areaId) ?? p.areaId,
+        plan.items.filter(i => i.puestoId === p.id).length]));
+    agregarHojaReporte(wb, 'Alias nuevos', ['Puesto (id)', 'Alias'], plan.resolucion.aliasNuevos.map(a => [a.puestoId, a.alias]));
+    agregarHojaReporte(wb, 'Puestos con area cambiada', ['Puesto', 'Area anterior', 'Area nueva', 'Del archivo', 'Fuera del archivo', 'Con excepcion (no se mueven)'],
+      (plan.cambiosPuesto ?? []).map(c => [c.nombre, plan.areaNombres?.get(c.de) ?? c.de, plan.areaNombres?.get(c.a) ?? c.a, c.enArchivo, c.fueraArchivo.length, c.conExcepcion]));
+    agregarHojaReporte(wb, 'Bajas', ['Nomina', 'Nombre', 'Puesto', 'Resultado'],
+      plan.bajas.map(b => [b.clave, b.nombre, b.detalle, idsBaja.has(b.key) ? 'Dado de baja' : 'No aparece; se dejo activo']));
+    agregarHojaReporte(wb, 'Omitidos', ['Fila Excel', 'Nomina', 'Nombre', 'Motivo'],
+      plan.problemas.filter(f => f.estado === 'error').map(f => [f.filaExcel, f.datos.NOMINA ?? '', f.datos.NOMBRE ?? '', f.mensaje]));
+    return wb;
+  }
 
   const detalle = [];
   for (const it of plan.items) {
@@ -373,7 +423,7 @@ export function construirReporteImportacion({ tipo, modo, fecha, usuario, plan, 
     detalle.push(['', b.entidad, b.clave, b.nombre, dadoDeBaja ? 'Dado de baja' : 'No aparece; se dejo activo', nota]);
   }
   for (const f of plan.problemas.filter(f => f.estado === 'error')) {
-    detalle.push([f.filaExcel, tipo === 'Empleados' ? 'Empleado' : 'Fila', Object.values(f.datos)[0] ?? '', Object.values(f.datos)[1] ?? '', 'Omitido por error', f.mensaje]);
+    detalle.push([f.filaExcel, 'Fila', Object.values(f.datos)[0] ?? '', Object.values(f.datos)[1] ?? '', 'Omitido por error', f.mensaje]);
   }
   agregarHojaReporte(wb, 'Detalle', ['Fila Excel', 'Tipo', 'ID / Clave', 'Nombre', 'Resultado', 'Detalle'], detalle, { columnasAjuste: [5] });
   return wb;
@@ -400,13 +450,17 @@ function textoCelda(cell) {
   return String(v);
 }
 
-async function leerHojaDatos(buffer, nombreHoja, headers) {
+async function cargarLibro(buffer) {
   const wb = new ExcelJS.Workbook();
   try {
     await wb.xlsx.load(buffer);
   } catch {
     throw new Error('No se pudo leer el archivo. Verifique que sea un .xlsx válido.');
   }
+  return wb;
+}
+
+function filasDeHoja(wb, nombreHoja, headers) {
   const ws = wb.getWorksheet(nombreHoja);
   if (!ws) throw new Error(`No se encontro la hoja "${nombreHoja}".`);
   const total = ws.rowCount;
@@ -428,6 +482,66 @@ async function leerHojaDatos(buffer, nombreHoja, headers) {
     const valores = headers.map((_, ci) => raw[i][ci]);
     if (valores.every(v => norm(v) === '')) continue;
     filas.push({ filaExcel: i + 1, valores });
+  }
+  return filas;
+}
+
+async function leerHojaDatos(buffer, nombreHoja, headers) {
+  return filasDeHoja(await cargarLibro(buffer), nombreHoja, headers);
+}
+
+// ── Reporte de nómina ─────────────────────────────────────────────────────
+/** Encabezados del reporte de nómina (por ellos se detecta el formato) */
+export const ENCABEZADOS_NOMINA = ['numero_i', 'nombre', 'depto', 'desc_depto', 'turno', 'puesto', 'nivel_g', 'alta_g'];
+const NUCLEO_NOMINA = ['numero_i', 'nombre', 'depto', 'puesto'];
+const normEnc = (v) => String(v ?? '').trim().toLowerCase();
+
+/** Todas las hojas que traen los encabezados del reporte de nómina (se buscan en sus primeras filas) */
+function buscarReportesNomina(wb) {
+  const encontrados = [];
+  for (const ws of wb.worksheets) {
+    const tope = Math.min(ws.rowCount, 10);
+    for (let n = 1; n <= tope; n++) {
+      const cols = new Map();
+      ws.getRow(n).eachCell({ includeEmpty: false }, (cell, ci) => cols.set(normEnc(textoCelda(cell)), ci));
+      if (NUCLEO_NOMINA.every(h => cols.has(h))) { encontrados.push({ ws, filaEnc: n, cols }); break; }
+    }
+  }
+  return encontrados;
+}
+
+/** Fecha de una celda como AAAA-MM-DD ('' si no se reconoce) */
+function fechaCelda(cell) {
+  const v = cell.value;
+  if (v == null || v === '') return '';
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (typeof v === 'number') return v > 20000 ? new Date(Math.round((v - 25569) * 86400000)).toISOString().slice(0, 10) : '';
+  const t = textoCelda(cell).trim();
+  const dmy = t.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+  const iso = t.match(/^(\d{4}-\d{2}-\d{2})/);
+  return iso ? iso[1] : t;
+}
+
+/** Filas crudas del reporte de nómina, con la misma forma que las del formato propio */
+function filasReporteNomina({ ws, filaEnc, cols }) {
+  const filas = [];
+  for (let n = filaEnc + 1; n <= ws.rowCount; n++) {
+    const row = ws.getRow(n);
+    const txt = (h) => (cols.has(h) ? limpiarTexto(textoCelda(row.getCell(cols.get(h)))) : '');
+    const nomina = txt('numero_i');
+    const nombre = txt('nombre');
+    const puesto = txt('puesto');
+    const puestoCrudo = cols.has('puesto') ? textoCelda(row.getCell(cols.get('puesto'))) : '';
+    const extra = {
+      depto: txt('depto'),
+      descDepto: txt('desc_depto'),
+      turnoNomina: txt('turno'),
+      nivel: txt('nivel_g'),
+      fechaAlta: cols.has('alta_g') ? fechaCelda(row.getCell(cols.get('alta_g'))) : '',
+    };
+    if (!nomina && !nombre && !puesto && !extra.depto) continue;
+    filas.push({ filaExcel: n, nomina: norm(nomina), nombre: norm(nombre), puesto: normalizarPuesto(puesto), claveParada: '', extra, puestoCrudo });
   }
   return filas;
 }
@@ -454,11 +568,46 @@ export async function leerDirectorio(buffer) {
   });
 }
 
-export async function leerEmpleados(buffer, puntosReunionMap, puestosExistentes = []) {
+/**
+ * Lee el padrón desde el formato propio (hoja "Empleados") o desde el reporte de nómina
+ * (se detecta por sus encabezados: numero_i, nombre, depto, puesto...). Cada fila lleva `formato`
+ * ('propio' | 'nomina'); las del reporte traen además `extra` { depto, descDepto, turnoNomina, nivel, fechaAlta }.
+ *
+ * Hoja del reporte de nómina: si solo una hoja trae los encabezados se usa sola; si hay varias, hay que
+ * indicar `hoja` (si no, devuelve `meta.requiereHoja` y ninguna fila). `usarPrimera` toma la primera candidata.
+ * @returns {{ filas: object[], meta: { formato, hoja, hojas: string[], candidatas: string[], requiereHoja: boolean, filasHoja?: number } }}
+ */
+export async function leerEmpleadosArchivo(buffer, puntosReunionMap, { hoja, usarPrimera = false } = {}) {
+  const wb = await cargarLibro(buffer);
+  const hojas = wb.worksheets.map(w => w.name);
+  const reportes = buscarReportesNomina(wb);
+  const candidatas = reportes.map(r => r.ws.name);
+  const meta = { formato: reportes.length ? 'nomina' : 'propio', hoja: '', hojas, candidatas, requiereHoja: false };
+
+  let reporte = null;
+  if (reportes.length) {
+    reporte = reportes.find(r => r.ws.name === hoja) ?? (usarPrimera || reportes.length === 1 ? reportes[0] : null);
+    if (!reporte) return { filas: [], meta: { ...meta, requiereHoja: true } };
+    meta.hoja = reporte.ws.name;
+  } else {
+    if (!wb.getWorksheet(HOJA_EMP)) {
+      throw new Error(
+        `No se encontro la hoja "${HOJA_EMP}" ni una hoja del reporte de nomina. Hojas del archivo: ${hojas.join(', ') || '(ninguna)'}. ` +
+        `Se esperaba el reporte de nomina (encabezados ${ENCABEZADOS_NOMINA.join(', ')}) o el formato propio (hoja "${HOJA_EMP}" con ${EMP_HEADERS.join(', ')}).`,
+      );
+    }
+    meta.hoja = HOJA_EMP;
+  }
+  const formato = meta.formato;
+  const crudas = reporte
+    ? filasReporteNomina(reporte)
+    : filasDeHoja(wb, HOJA_EMP, EMP_HEADERS).map(({ filaExcel, valores }) => ({
+      filaExcel, nomina: norm(valores[0]), nombre: norm(valores[1]),
+      puesto: normalizarPuesto(valores[2]), claveParada: norm(valores[3]), extra: null, puestoCrudo: valores[2],
+    }));
+
   const nominasSeen = new Map();
-  const filasTmp = (await leerHojaDatos(buffer, HOJA_EMP, EMP_HEADERS)).map(({ filaExcel, valores }) => {
-    const nomina = norm(valores[0]); const nombre = norm(valores[1]);
-    const puesto = normalizarPuesto(valores[2]); const claveParada = norm(valores[3]);
+  const filasTmp = crudas.map(({ filaExcel, nomina, nombre, puesto, claveParada, extra, puestoCrudo }) => {
     const datos = { NOMINA: nomina, NOMBRE: nombre, PUESTO: puesto, 'CLAVE PARADA': claveParada };
     const errores = []; const advertencias = [];
     if (!nomina) errores.push('NOMINA obligatoria');
@@ -466,25 +615,8 @@ export async function leerEmpleados(buffer, puntosReunionMap, puestosExistentes 
     else if (nominasSeen.has(nomina)) errores.push(`NOMINA "${nomina}" duplicada (fila ${nominasSeen.get(nomina)})`);
     else nominasSeen.set(nomina, filaExcel);
     if (!nombre) errores.push('NOMBRE obligatorio');
-    if (!puesto) errores.push('PUESTO obligatorio');
-    // Puesto: si equivale a uno existente se usa esa escritura; si no existe, es "Puesto nuevo" (no es error)
-    let puestoNuevo = false;
-    let puestoSimilar = null;
-    if (puesto) {
-      const { exacto, similares } = buscarCoincidencias(puesto, puestosExistentes);
-      if (exacto) {
-        if (exacto !== puesto) {
-          datos.PUESTO = exacto;
-          advertencias.push(`Puesto "${puesto}" es variante de "${exacto}"; se usara el existente`);
-        }
-      } else {
-        puestoNuevo = true;
-        if (similares.length > 0) {
-          puestoSimilar = similares[0];
-          advertencias.push(`Puesto nuevo "${puesto}": posible variante de "${similares[0]}"`);
-        }
-      }
-    }
+    // Puesto vacío: a un empleado existente se le conserva el puesto (lo decide la comparación); a uno nuevo se le omite
+    if (!puesto) advertencias.push('PUESTO vacio: se conserva el puesto actual del empleado');
     let paradaInfo = null;
     if (claveParada) {
       if (!puntosReunionMap || puntosReunionMap.size === 0) advertencias.push(`CLAVE PARADA "${claveParada}": directorio vacio`);
@@ -492,23 +624,17 @@ export async function leerEmpleados(buffer, puntosReunionMap, puestosExistentes 
       else if (!esActivo(puntosReunionMap.get(claveParada))) advertencias.push(`CLAVE PARADA "${claveParada}" esta inactiva; se conserva la ruta actual`);
       else paradaInfo = puntosReunionMap.get(claveParada);
     }
-    return { filaExcel, datos, paradaInfo, puestoNuevo, puestoSimilar, errores, advertencias };
+    return { filaExcel, formato, extra, datos, paradaInfo, puestoVacio: !puesto, puestoCrudo: String(puestoCrudo ?? ''), errores, advertencias };
   });
-  // Variantes entre puestos nuevos del mismo archivo (acentos o una letra de diferencia)
-  const nuevosEnArchivo = [...new Set(filasTmp.filter(f => f.puestoNuevo).map(f => f.datos.PUESTO))];
-  for (const f of filasTmp) {
-    if (!f.puestoNuevo || f.puestoSimilar) continue;
-    const otros = nuevosEnArchivo.filter(p => p !== f.datos.PUESTO);
-    const { exacto, similares } = buscarCoincidencias(f.datos.PUESTO, otros);
-    const variante = exacto ?? similares[0];
-    if (variante) {
-      f.puestoSimilar = variante;
-      f.advertencias.push(`Puesto nuevo "${f.datos.PUESTO}": posible variante de "${variante}" (tambien en el archivo)`);
-    }
-  }
-  return filasTmp.map(({ errores, advertencias, ...f }) => ({
+  const filas = filasTmp.map(({ errores, advertencias, ...f }) => ({
     ...f,
     estado: errores.length ? 'error' : advertencias.length ? 'advertencia' : 'valido',
     mensaje: (errores.length ? errores : advertencias).join('. '),
   }));
+  return { filas, meta: { ...meta, filasHoja: filas.length } };
+}
+
+/** Solo las filas (si hay varias hojas candidatas toma la primera); la interfaz usa leerEmpleadosArchivo */
+export async function leerEmpleados(buffer, puntosReunionMap) {
+  return (await leerEmpleadosArchivo(buffer, puntosReunionMap, { usarPrimera: true })).filas;
 }

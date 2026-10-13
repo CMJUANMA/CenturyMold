@@ -73,7 +73,7 @@ export default function NuevaSolicitud() {
       await batch.commit();
       parchearEmpleados(cambiosEmp);
       toast.success('Solicitud registrada correctamente.');
-      navigate('/mis-solicitudes');
+      navigate('/rutas/mis-solicitudes');
     } catch (err) {
       console.error(err);
       toast.error('Error al guardar: ' + err.message);

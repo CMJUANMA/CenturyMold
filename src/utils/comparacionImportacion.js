@@ -9,6 +9,7 @@
  */
 import { esActivo } from './activo.js';
 import { clavePuesto } from './puestos.js';
+import { construirResolucion } from './resolucionPuestos.js';
 
 export const MODOS = { AGREGAR: 'agregar', SINCRONIZAR: 'sincronizar' };
 /** Si las bajas propuestas superan esta fracción de los activos, se exige confirmación escrita */
@@ -65,20 +66,49 @@ function resumirPlan(items, bajas, filas, activosPorEntidad) {
 /**
  * @param filas       resultado de leerEmpleados
  * @param empleados   documentos existentes [{ id, ...data }]
- * @param opciones    { modo }
+ * @param opciones    { modo, catalogo, areas, decisiones, excepciones, puestoArea }
+ *   catalogo:    puestos [{ id, nombre, areaId, alias }]; areas: [{ id, nombre }]
+ *   decisiones:  Map clave de puesto → decisión de RH (ver resolucionPuestos.js)
+ *   excepciones: Map nómina → { areaId, motivo } (excepción individual fijada en la importación)
+ *                o null (quitar la excepción vigente)
+ *   puestoArea:  Map puestoId → areaId nueva (cambio del área del puesto en el catálogo, "Todo el puesto")
+ *
+ * El área sale SOLO del puesto (o de la excepción del empleado); el departamento es informativo.
+ * La importación nunca toca una excepción existente: solo cambia si RH la modificó en `excepciones`.
+ * Una celda vacía del archivo NO sobrescribe un dato que el empleado ya tiene (puesto, depto, turno, nivel, alta...).
+ * Las filas con puesto sin resolver u omitido no entran al plan (y nunca se proponen como baja).
  */
-export function compararEmpleados(filas, empleados, { modo = MODOS.AGREGAR } = {}) {
+export function compararEmpleados(filas, empleados, {
+  modo = MODOS.AGREGAR, catalogo = [], areas = [], decisiones = new Map(), excepciones = new Map(), puestoArea = new Map(),
+} = {}) {
   // Se identifica por el campo nómina (o el ID si falta); se escribe sobre el documento real
   const nominaDe = (e) => String(e.nomina ?? e.id).trim();
   const existentes = new Map(empleados.map(e => [nominaDe(e), e]));
   // Nóminas presentes en el archivo, incluso en filas con error: nunca se proponen como baja
   const presentes = new Set(filas.map(f => f.datos.NOMINA).filter(n => /^\d+$/.test(n)));
+  // Puesto vacío en un empleado nuevo: no hay de dónde sacar su puesto ni su área
+  filas = filas.map(f => (f.puestoVacio && f.estado !== 'error' && !existentes.has(f.datos.NOMINA)
+    ? { ...f, estado: 'error', mensaje: 'PUESTO obligatorio para un empleado nuevo' } : f));
+
+  // Catálogo efectivo: con las áreas de puesto que RH cambió en este paso
+  const catalogoEf = catalogo.map(p => (puestoArea.has(p.id) ? { ...p, areaId: puestoArea.get(p.id) } : p));
+  const puestosEf = new Map(catalogoEf.map(p => [p.id, p]));
+  const resolucion = construirResolucion(filas, catalogoEf, decisiones);
+  const nombreArea = (id) => areas.find(a => a.id === id)?.nombre ?? id ?? '';
   const items = [];
+  // Resumen por área (todas las filas con puesto resuelto, incluido Administrativo)
+  const porArea = {};
+  const sinArea = [];
 
   for (const fila of filas) {
     if (fila.estado === 'error') continue;
-    const { NOMINA: nomina, NOMBRE: nombre, PUESTO: puesto } = fila.datos;
+    const { NOMINA: nomina, NOMBRE: nombre } = fila.datos;
     const ex = existentes.get(nomina);
+    // Puesto vacío en un empleado existente: se conserva su puesto y su área
+    const res = fila.puestoVacio
+      ? { estado: 'conserva', puestoId: ex.puestoId, nombre: ex.puesto, areaId: puestosEf.get(ex.puestoId)?.areaId ?? ex.areaId ?? '' }
+      : resolucion.porClave.get(clavePuesto(fila.datos.PUESTO));
+    if (!res || res.estado === 'pendiente' || res.estado === 'omitir') continue;
     const id = ex ? String(ex.id) : nomina;
     const cambios = [];
     const datos = {};
@@ -87,10 +117,55 @@ export function compararEmpleados(filas, empleados, { modo = MODOS.AGREGAR } = {
       if (ex) cambios.push({ campo: 'NOMBRE', antes: ex.nombre || VACIO, despues: nombre });
       Object.assign(datos, { nombre, nombreLower: normLower(nombre) });
     }
-    if (!ex || clavePuesto(ex.puesto) !== clavePuesto(puesto)) {
-      if (ex) cambios.push({ campo: 'PUESTO', antes: ex.puesto || VACIO, despues: puesto });
-      datos.puesto = puesto;
+    if (!ex || ex.puestoId !== res.puestoId || ex.puesto !== res.nombre) {
+      if (ex) cambios.push({ campo: 'PUESTO', antes: ex.puesto || VACIO, despues: res.nombre });
+      Object.assign(datos, { puesto: res.nombre, puestoId: res.puestoId });
     }
+
+    // Excepción de área: la vigente del empleado, o la que RH fijó/quitó en este paso
+    const ajuste = excepciones.get(nomina); // undefined = sin ajuste, null = quitar, objeto = fijar
+    const excBase = ex?.areaExcepcion ? { areaId: ex.areaExcepcion, motivo: ex.areaExcepcionMotivo || '' } : null;
+    const excepcion = ajuste === undefined ? excBase : ajuste ? { areaId: ajuste.areaId, motivo: ajuste.motivo || '' } : null;
+    const excCambia = (excBase?.areaId ?? null) !== (excepcion?.areaId ?? null) || (excBase?.motivo ?? '') !== (excepcion?.motivo ?? '');
+    if (!ex || excCambia) {
+      if (ex) {
+        cambios.push({
+          campo: 'EXCEPCION DE AREA',
+          antes: excBase ? `${nombreArea(excBase.areaId)} (${excBase.motivo || 'sin motivo'})` : VACIO,
+          despues: excepcion ? `${nombreArea(excepcion.areaId)} (${excepcion.motivo || 'sin motivo'})` : VACIO,
+        });
+      }
+      Object.assign(datos, { areaExcepcion: excepcion?.areaId ?? null, areaExcepcionMotivo: excepcion?.motivo ?? '' });
+    }
+
+    // Área efectiva: la excepción de RH o la del puesto
+    const areaId = excepcion?.areaId || res.areaId || '';
+    const areaAnteriorId = ex?.areaId ?? '';
+    if (!ex || areaAnteriorId !== areaId) {
+      if (ex) cambios.push({ campo: 'AREA', antes: nombreArea(areaAnteriorId) || VACIO, despues: nombreArea(areaId) || VACIO });
+      datos.areaId = areaId;
+    }
+
+    // Reporte de nómina: datos informativos. Una celda vacía NO sobrescribe lo que el empleado ya tiene
+    if (fila.extra) {
+      const campos = [
+        ['depto', 'DEPTO', fila.extra.depto],
+        ['descDepto', 'DESC DEPTO', fila.extra.descDepto],
+        ['turnoNomina', 'TURNO', fila.extra.turnoNomina],
+        ['nivel', 'NIVEL', fila.extra.nivel],
+        ['fechaAlta', 'ALTA', fila.extra.fechaAlta],
+      ];
+      for (const [campo, etiqueta, valor] of campos) {
+        if (!ex) { datos[campo] = valor; continue; }
+        if (valor && String(ex[campo] ?? '') !== valor) {
+          cambios.push({ campo: etiqueta, antes: ex[campo] || VACIO, despues: valor });
+          datos[campo] = valor;
+        }
+      }
+    }
+    if (areaId) porArea[areaId] = (porArea[areaId] ?? 0) + 1;
+    else sinArea.push({ nomina, nombre, puesto: res.nombre });
+
     // Ruta: solo se toca si el archivo trae una CLAVE PARADA válida; vacía = conservar lo actual
     if (fila.paradaInfo) {
       const nueva = { rutaId: fila.paradaInfo.rutaId ?? '', comunidadId: fila.paradaInfo.comunidadId ?? '', puntoReunionId: fila.paradaInfo.clave };
@@ -104,13 +179,39 @@ export function compararEmpleados(filas, empleados, { modo = MODOS.AGREGAR } = {
 
     const accion = accionPara(ex, cambios);
     if (accion === 'crear') Object.assign(datos, { nomina, activo: true });
+    // "Corregido automáticamente: antes → después" (espacios, mayúsculas, acentos, _x0002_...)
+    // Los caracteres de control se muestran como _x0002_ para que se vea qué se limpió
+    // eslint-disable-next-line no-control-regex
+    const crudo = String(fila.puestoCrudo ?? '').replace(/[\u0000-\u001F]/g, c => '_x' + c.charCodeAt(0).toString(16).padStart(4, '0') + '_').trim();
+    const correccion = res.estado === 'corregido' && crudo !== res.nombre
+      ? { antes: crudo, despues: res.nombre, tipo: 'automatica' }
+      : res.estado === 'alias' ? { antes: fila.datos.PUESTO, despues: res.nombre, tipo: 'confirmada' } : null;
     items.push({
       key: `empleados/${id}`, coleccion: 'empleados', id, clave: nomina, entidad: 'Empleado',
-      nombre, detalle: puesto, filaExcel: fila.filaExcel, accion, cambios, datos,
-      puestoNuevo: !!fila.puestoNuevo, puestoSimilar: fila.puestoSimilar ?? null,
+      nombre, detalle: res.nombre, filaExcel: fila.filaExcel, accion, cambios, datos,
+      areaId, areaNombre: nombreArea(areaId), puestoNuevo: res.estado === 'nuevo', puestoCorreccion: correccion,
+      // Para el paso "Confirmar áreas"
+      puestoId: res.puestoId, puestoClave: clavePuesto(fila.datos.PUESTO), puestoNombre: res.nombre, puestoEstado: res.estado,
+      areaPuestoId: res.areaId || '',
+      areaAnteriorId, areaAnteriorNombre: nombreArea(areaAnteriorId),
+      areaEstado: !ex ? 'nuevo' : areaAnteriorId !== areaId ? 'cambia' : 'sinCambio',
+      excepcion, excepcionBase: excBase,
+      excepcionNueva: !!excepcion && excepcion.areaId !== excBase?.areaId,
       mensaje: fila.estado === 'advertencia' ? fila.mensaje : '',
     });
   }
+
+  // Puestos del catálogo cuya área cambió en este paso: se mueven también los empleados que NO vienen en el archivo
+  const cambiosPuesto = [...puestoArea].filter(([pid, a]) => catalogo.some(p => p.id === pid && p.areaId !== a)).map(([pid, a]) => {
+    const original = catalogo.find(p => p.id === pid);
+    const delPuesto = empleados.filter(e => esActivo(e) && e.puestoId === pid && !presentes.has(nominaDe(e)));
+    return {
+      puestoId: pid, nombre: original.nombre, de: original.areaId, a, puesto: original,
+      fueraArchivo: delPuesto.filter(e => !e.areaExcepcion && (e.areaId ?? '') !== a),
+      conExcepcion: delPuesto.filter(e => !!e.areaExcepcion).length + items.filter(i => i.puestoId === pid && i.excepcion).length,
+      enArchivo: items.filter(i => i.puestoId === pid && !i.excepcion).length,
+    };
+  });
 
   const activos = empleados.filter(esActivo);
   const bajas = modo === MODOS.SINCRONIZAR
@@ -120,7 +221,14 @@ export function compararEmpleados(filas, empleados, { modo = MODOS.AGREGAR } = {
     })).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
     : [];
 
-  return resumirPlan(items, bajas, filas, { Empleado: activos.length });
+  const plan = resumirPlan(items, bajas, filas, { Empleado: activos.length });
+  plan.areas = { porArea, sinArea };
+  plan.resolucion = resolucion;
+  plan.cambiosPuesto = cambiosPuesto;
+  plan.presentes = presentes;
+  plan.modo = modo;
+  plan.areaNombres = new Map(areas.map(a => [a.id, a.nombre ?? a.id]));
+  return plan;
 }
 
 // ── Directorio ────────────────────────────────────────────────────────────

@@ -3,21 +3,24 @@
  * Acceso: rh y admin (esPersonalRH)
  */
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { collection, getDocs, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, deleteUser, signOut } from 'firebase/auth';
 import { db } from '../../firebase';
 import { authSecundaria } from '../../firebaseSecundario';
 import {
   ShieldCheck, UserPlus, Search, Loader2, Pencil,
-  ToggleLeft, ToggleRight, CheckCircle2, Info, AlertTriangle,
+  ToggleLeft, ToggleRight, CheckCircle2, Info, AlertTriangle, X,
 } from 'lucide-react';
 import Modal from '../../components/Modal';
+import BuscadorEmpleado from '../../components/BuscadorEmpleado';
 import { ROLES } from '../../utils/constantes';
 import { useConfirmar } from '../../hooks/useConfirmar';
 import { useToast } from '../../hooks/useToast';
 
 const OPCIONES_ROL = [
-  { value: ROLES.SUPERINTENDENTE, label: 'Superintendente' },
+  { value: ROLES.SUPERINTENDENTE, label: 'Solicitante' },
+  { value: ROLES.AUTORIZADOR, label: 'Autorizador (solo tiempo extra)' },
   { value: ROLES.RH, label: 'Recursos Humanos' },
   { value: ROLES.ADMIN, label: 'Administrador' },
 ];
@@ -32,7 +35,11 @@ const btnIcon = 'rounded p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-surfa
 export default function RhUsuarios() {
   const confirmar = useConfirmar();
   const toast = useToast();
+  // Desde Niveles de autorización llega { nuevo: { nomina, nombre } } para abrir el alta ya llenada
+  const precarga = useLocation().state?.nuevo ?? null;
   const [usuarios, setUsuarios] = useState([]);
+  const [empleados, setEmpleados] = useState([]);
+  const [manual, setManual] = useState(false); // alta de alguien fuera del padrón
   const [areas, setAreas] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState('');
@@ -40,10 +47,10 @@ export default function RhUsuarios() {
   const [filtroRol, setFiltroRol] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
 
-  const [modalAbierto, setModalAbierto] = useState(false);
+  const [modalAbierto, setModalAbierto] = useState(!!precarga);
   const [modoEdicion, setModoEdicion] = useState(false);
   const [uidEdicion, setUidEdicion] = useState(null);
-  const [form, setForm] = useState(formVacio);
+  const [form, setForm] = useState(precarga ? { ...formVacio, nomina: precarga.nomina, nombre: precarga.nombre } : formVacio);
   const [guardando, setGuardando] = useState(false);
   const [formError, setFormError] = useState('');
   const [formExito, setFormExito] = useState('');
@@ -52,10 +59,12 @@ export default function RhUsuarios() {
     async function cargar() {
       setErrorCarga('');
       try {
-        const [snapU, snapA] = await Promise.all([
+        const [snapU, snapA, snapE] = await Promise.all([
           getDocs(collection(db, 'usuarios')),
           getDocs(collection(db, 'areas')),
+          getDocs(collection(db, 'empleados')),
         ]);
+        setEmpleados(snapE.docs.map(d => ({ nomina: d.id, ...d.data() })));
         setUsuarios(snapU.docs.map(d => ({ uid: d.id, ...d.data() })));
         setAreas(snapA.docs.map(d => ({ id: d.id, ...d.data() })));
       } catch (err) {
@@ -68,11 +77,11 @@ export default function RhUsuarios() {
   }, []);
 
   const abrirCrear = () => {
-    setModoEdicion(false); setUidEdicion(null); setForm(formVacio);
+    setModoEdicion(false); setUidEdicion(null); setForm(formVacio); setManual(false);
     setFormError(''); setFormExito(''); setModalAbierto(true);
   };
   const abrirEditar = (u) => {
-    setModoEdicion(true); setUidEdicion(u.uid);
+    setModoEdicion(true); setUidEdicion(u.uid); setManual(false);
     setForm({ nomina: u.nomina, nombre: u.nombre, password: '', rol: u.rol, areaIds: u.areaIds ?? [] });
     setFormError(''); setFormExito(''); setModalAbierto(true);
   };
@@ -86,7 +95,7 @@ export default function RhUsuarios() {
     setFormError(''); setFormExito('');
     if (!modoEdicion) {
       if (!form.nomina.trim() || !form.nombre.trim() || !form.password || !form.rol) {
-        setFormError('Todos los campos son obligatorios.'); return;
+        setFormError(form.nomina.trim() ? 'Todos los campos son obligatorios.' : 'Elige a la persona del padron (o captura la nomina a mano).'); return;
       }
       if (form.password.length < 6) { setFormError('La contrasena temporal debe tener al menos 6 caracteres.'); return; }
     } else {
@@ -281,18 +290,52 @@ export default function RhUsuarios() {
               <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5" /><span>{formExito}</span>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3">
-            <div className={modoEdicion ? 'col-span-2' : ''}>
+          {modoEdicion ? (
+            <div>
               <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Nombre completo</label>
               <input required value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} className={inputCls} placeholder="Nombre del usuario" />
             </div>
-            {!modoEdicion && (
+          ) : manual ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Nombre completo</label>
+                <input required value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} className={inputCls} placeholder="Nombre del usuario" />
+              </div>
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Nomina</label>
                 <input required value={form.nomina} onChange={e => setForm(f => ({ ...f, nomina: e.target.value }))} className={inputCls} placeholder="ej. 51109" />
               </div>
-            )}
-          </div>
+              <button type="button" onClick={() => setManual(false)} className="col-span-2 text-left text-[11px] font-semibold text-[var(--cm-red)] hover:underline cursor-pointer">
+                Elegir del padron
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-[var(--text-secondary)]">Persona del padron (por nomina o nombre)</label>
+              {form.nomina ? (
+                <div className="flex items-center justify-between gap-2 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] px-3 py-2 text-xs">
+                  <span className="min-w-0">
+                    <span className="font-mono font-bold text-[var(--text-main)]">{form.nomina}</span>{' '}
+                    <span className="text-[var(--text-main)]">{form.nombre}</span>
+                  </span>
+                  <button type="button" onClick={() => setForm(f => ({ ...f, nomina: '', nombre: '' }))} className={btnIcon} title="Cambiar"><X className="h-3.5 w-3.5" /></button>
+                </div>
+              ) : (
+                <BuscadorEmpleado empleados={empleados} excluir={usuarios.map(u => String(u.nomina))}
+                  onSelect={e => setForm(f => ({ ...f, nomina: String(e.nomina), nombre: e.nombre ?? '' }))} />
+              )}
+              {form.nomina && (
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Nombre completo</label>
+                  <input required value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} className={inputCls} />
+                </div>
+              )}
+              <p className="text-[10px] text-[var(--text-muted)]">
+                Solo aparecen empleados activos que aun no tienen usuario.{' '}
+                <button type="button" onClick={() => setManual(true)} className="font-semibold text-[var(--cm-red)] hover:underline cursor-pointer">Capturar a mano</button>
+              </p>
+            </div>
+          )}
           {!modoEdicion && (
             <div>
               <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Contrasena temporal</label>

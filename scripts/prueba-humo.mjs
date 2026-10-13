@@ -64,7 +64,8 @@ try {
   });
   await prueba('constantes: valores guardados en Firestore intactos', () => {
     assert.deepEqual(C.ESTATUS_SOLICITUD, { PENDIENTE: 'pendiente', APROBADA: 'aprobada', RECHAZADA: 'rechazada', CANCELADA: 'cancelada', ENVIADA_PROVEEDOR: 'enviada al proveedor' });
-    assert.deepEqual(C.ROLES, { SUPERINTENDENTE: 'superintendente', RH: 'rh', ADMIN: 'admin' });
+    assert.deepEqual(C.ROLES, { SUPERINTENDENTE: 'superintendente', RH: 'rh', ADMIN: 'admin', AUTORIZADOR: 'autorizador' });
+    for (const e of Object.values(C.ESTATUS_TE)) assert.ok(C.ESTATUS_TE_MAP[e]?.label, 'falta ESTATUS_TE_MAP de ' + e);
     for (const e of Object.values(C.ESTATUS_SOLICITUD)) assert.ok(C.ESTATUS_MAP[e]?.label, 'falta ESTATUS_MAP de ' + e);
   });
   await prueba('importación con exceljs: formato en blanco → llenar → leer', async () => {

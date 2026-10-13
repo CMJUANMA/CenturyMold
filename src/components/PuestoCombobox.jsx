@@ -15,7 +15,7 @@
  */
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, ChevronUp, AlertTriangle, Check, Sparkles } from 'lucide-react';
-import { normalizarPuesto, clavePuesto, buscarCoincidencias, existePuesto } from '../utils/puestos';
+import { normalizarPuesto, clavePuesto, resolverPuesto, existePuesto } from '../utils/puestos';
 
 const OTRO = '__OTRO__';
 const ETIQUETA_OTRO = 'Otro (escribir uno nuevo)';
@@ -91,15 +91,15 @@ export default function PuestoCombobox({
   const confirmarOtro = () => {
     const escrito = normalizarPuesto(textOtro);
     if (!escrito) return;
-    const { exacto, similares } = buscarCoincidencias(escrito, puestosExistentes);
-    if (exacto) {
-      setAviso({ tipo: 'exacto', puesto: exacto });
+    const r = resolverPuesto(escrito, puestosExistentes.map(nombre => ({ nombre })));
+    if (r.nivel === 'a') {
+      setAviso({ tipo: 'exacto', puesto: r.puesto.nombre });
       salirOtro();
-      onChange(exacto);
-    } else if (similares.length > 0) {
+      onChange(r.puesto.nombre);
+    } else if (r.nivel === 'b') {
       // No se emite valor hasta que el usuario decida
       setTextOtro(escrito);
-      setAviso({ tipo: 'similar', sugerido: similares[0], escrito });
+      setAviso({ tipo: 'similar', sugerido: r.puesto.nombre, escrito });
     } else {
       setAviso(null);
       salirOtro();

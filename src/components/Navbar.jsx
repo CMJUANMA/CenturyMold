@@ -2,54 +2,68 @@
  * Navbar.jsx — Barra lateral corporativa Century Mold.
  * rh y admin tienen acceso completo al panel de gestión.
  */
-import { useState, useEffect } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Home, FilePlus, ClipboardList, Layers, Users, Database,
-  ShieldCheck, User, LogOut, Menu, X, Sun, Moon,
+  Home, FilePlus, ClipboardList, Layers, Users, Database, LayoutGrid,
+  ShieldCheck, User, LogOut, Menu, X, Sun, Moon, Clock, Network,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db } from '../firebase';
+import { useAccesosTE } from '../hooks/useAccesosTE';
+import { usePendientesRutas } from '../hooks/usePendientes';
+import { modulosDe, moduloDeRuta } from '../modulos';
 import { ROLES_RH } from '../utils/roles';
-import { ROLES, ESTATUS_SOLICITUD, ROL_LABELS_CORTOS } from '../utils/constantes';
+import { ROL_LABELS_CORTOS } from '../utils/constantes';
 
+/**
+ * Menú por módulo. `modulo`: el ítem solo se ve si el usuario tiene acceso a ese módulo (modulos.js);
+ * `rh`: además exige rol RH/admin. Las secciones (section) se ocultan si no les queda ningún ítem.
+ */
 const NAV_ITEMS = [
-  { path: '/', label: 'Inicio', icon: Home, roles: [ROLES.ADMIN, ROLES.RH, ROLES.SUPERINTENDENTE], end: true },
-  { path: '/solicitud/nueva', label: 'Nueva solicitud', icon: FilePlus, roles: [ROLES.ADMIN, ROLES.RH, ROLES.SUPERINTENDENTE] },
-  { path: '/mis-solicitudes', label: 'Mis solicitudes', icon: ClipboardList, roles: [ROLES.ADMIN, ROLES.RH, ROLES.SUPERINTENDENTE] },
-  { section: 'Gestión y control', roles: ROLES_RH },
-  { path: '/rh/solicitudes', label: 'Todas las solicitudes', icon: Layers, roles: ROLES_RH },
-  { path: '/rh/empleados', label: 'Padrón de empleados', icon: Users, roles: ROLES_RH },
-  { path: '/rh/catalogos', label: 'Catálogos del sistema', icon: Database, roles: ROLES_RH },
-  { path: '/rh/usuarios', label: 'Usuarios y accesos', icon: ShieldCheck, roles: ROLES_RH },
+  { path: '/', label: 'Inicio (portal)', icon: Home, end: true },
+
+  { section: 'Transporte (rutas)', modulo: 'rutas' },
+  { path: '/rutas', label: 'Resumen', icon: LayoutGrid, modulo: 'rutas', end: true },
+  { path: '/rutas/solicitud/nueva', label: 'Nueva solicitud', icon: FilePlus, modulo: 'rutas' },
+  { path: '/rutas/mis-solicitudes', label: 'Mis solicitudes', icon: ClipboardList, modulo: 'rutas' },
+  { path: '/rutas/rh/solicitudes', label: 'Todas las solicitudes', icon: Layers, modulo: 'rutas', rh: true },
+  { path: '/rutas/rh/catalogos', label: 'Catálogos del sistema', icon: Database, modulo: 'rutas', rh: true },
+
+  { section: 'Tiempo extra', modulo: 'tiempo-extra' },
+  { path: '/tiempo-extra', label: 'Resumen', icon: Clock, modulo: 'tiempo-extra', end: true },
+  { path: '/tiempo-extra/niveles', label: 'Niveles de autorización', icon: Network, modulo: 'tiempo-extra', rh: true },
+
+  { section: 'Administración', rh: true },
+  { path: '/rutas/rh/empleados', label: 'Padrón de empleados', icon: Users, rh: true },
+  { path: '/rutas/rh/estructura', label: 'Estructura', icon: Network, rh: true },
+  { path: '/rutas/rh/usuarios', label: 'Usuarios y accesos', icon: ShieldCheck, rh: true },
 ];
+
+const SUBTITULO_MODULO = { rutas: 'Control de Transporte', 'tiempo-extra': 'Tiempo extra' };
 
 export default function Navbar() {
   const { usuario, cerrarSesion } = useAuth();
   const { esOscuro, alternarTema } = useTheme();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [logoError, setLogoError] = useState(false);
-  const [pendientesRh, setPendientesRh] = useState(0);
-  const [novedadesUser, setNovedadesUser] = useState(0);
+  const te = useAccesosTE();
+  const { pendientesRh, novedades: novedadesUser } = usePendientesRutas(usuario);
 
-  useEffect(() => {
-    if (!usuario) return;
-    let unsub1, unsub2;
-    if (ROLES_RH.includes(usuario.rol)) {
-      unsub1 = onSnapshot(query(collection(db, 'solicitudes'), where('estatus', '==', ESTATUS_SOLICITUD.PENDIENTE)), snap => {
-        setPendientesRh(snap.size);
-      });
-    }
-    if (usuario.uid) {
-      unsub2 = onSnapshot(query(collection(db, 'solicitudes'), where('creadoPor', '==', usuario.uid), where('vistoPorSolicitante', '==', false)), snap => {
-        setNovedadesUser(snap.size);
-      }, err => console.error('Navbar novedades:', err));
-    }
-    return () => { if (unsub1) unsub1(); if (unsub2) unsub2(); };
-  }, [usuario]);
+  const moduloActual = moduloDeRuta(pathname);
+  const subtitulo = SUBTITULO_MODULO[moduloActual?.id] ?? 'Portal de procesos';
+
+  const idsModulos = new Set(modulosDe(usuario, { te }).map(m => m.id));
+  const esRH = ROLES_RH.includes(usuario?.rol);
+  const visible = (it) => (!it.modulo || idsModulos.has(it.modulo)) && (!it.rh || esRH);
+  // Una sección solo se muestra si tiene al menos un ítem visible
+  const items = NAV_ITEMS.filter(visible).filter((it, i, lista) => {
+    if (!it.section) return true;
+    const siguiente = lista[i + 1];
+    return !!siguiente && !siguiente.section;
+  });
 
   const handleCerrarSesion = async () => {
     await cerrarSesion();
@@ -66,7 +80,7 @@ export default function Navbar() {
           <div className="h-4 w-1 bg-[var(--cm-red)] rounded-full" />
           <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-main)]">Century Mold</span>
           <span className="text-xs text-[var(--text-muted)]">|</span>
-          <span className="text-xs text-[var(--text-secondary)]">Transporte</span>
+          <span className="text-xs text-[var(--text-secondary)]">{subtitulo}</span>
         </div>
         <div className="flex items-center gap-1">
           <button type="button" onClick={alternarTema}
@@ -104,11 +118,11 @@ export default function Navbar() {
         </div>
 
         <div className="px-5 py-2.5 bg-[var(--bg-surface-secondary)] border-b border-[var(--border-subtle)] text-[11px] text-[var(--text-secondary)] font-medium">
-          Control de Transporte
+          {subtitulo}
         </div>
 
         <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
-          {NAV_ITEMS.filter(item => item.roles?.includes(rol)).map((item, idx) => {
+          {items.map((item, idx) => {
             if (item.section) return (
               <div key={`sec-${idx}`} className="px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                 {item.section}
@@ -124,12 +138,12 @@ export default function Navbar() {
                 }>
                 <Icono className="h-4 w-4 shrink-0" />
                 <span className="truncate">{item.label}</span>
-                {item.path === '/rh/solicitudes' && pendientesRh > 0 && (
+                {item.path === '/rutas/rh/solicitudes' && pendientesRh > 0 && (
                   <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-[var(--status-warning-bg)] text-[9px] font-bold text-[var(--status-warning-text)] border border-[var(--status-warning-border)] shrink-0 shadow-sm">
                     {pendientesRh}
                   </span>
                 )}
-                {item.path === '/mis-solicitudes' && novedadesUser > 0 && (
+                {item.path === '/rutas/mis-solicitudes' && novedadesUser > 0 && (
                   <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-[var(--status-success-bg)] text-[9px] font-bold text-[var(--status-success-text)] border border-[var(--status-success-border)] shrink-0 shadow-sm">
                     {novedadesUser}
                   </span>
