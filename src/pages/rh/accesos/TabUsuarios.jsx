@@ -2,25 +2,30 @@
  * TabUsuarios.jsx — Tabla de usuarios del sistema (rol del sistema + roles operativos vigentes) y su alta/edición.
  * Acceso: RH y admin. Solo un admin toca a rh/admin.
  */
-import { useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
-import { UserPlus, Search, Pencil, ToggleLeft, ToggleRight, ShieldCheck, Info } from 'lucide-react';
+import { UserPlus, Users, Search, Pencil, ToggleLeft, ToggleRight, ShieldCheck, Info } from 'lucide-react';
 import { db } from '../../../firebase';
 import { ROLES, ROL_LABELS } from '../../../utils/constantes';
 import { esVigente, etiquetaAsignacion, ROLES_OP } from '../../../utils/asignaciones';
 import { useConfirmar } from '../../../hooks/useConfirmar';
 import { useToast } from '../../../hooks/useToast';
+import { useAuth } from '../../../hooks/useAuth';
 import ModalUsuario from './ModalUsuario';
-import { btnPrimary, btnIcon, selectCls, etiquetaCls } from './ui';
+// Trae exceljs (el Excel de accesos) solo cuando se abre el modal
+const ModalUsuariosLote = lazy(() => import('./ModalUsuariosLote'));
+import { btnPrimary, btnSecondary, btnIcon, selectCls, etiquetaCls } from './ui';
 
 const rolLabel = (r) => ROL_LABELS[r] ?? `${r} (rol anterior: edítalo para pasarlo a Usuario)`;
 
 export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombresArea, empleados, esAdmin, ahora, precarga = null }) {
   const confirmar = useConfirmar();
+  const { usuario: yo } = useAuth();
   const toast = useToast();
   const [busqueda, setBusqueda] = useState('');
   const [filtroRol, setFiltroRol] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
+  const [lote, setLote] = useState(false);
   const [modal, setModal] = useState(precarga ? { usuario: null, precarga } : null);
 
   // Un RH que no es admin no puede tocar a otros rh/admin (las reglas lo rechazan)
@@ -65,9 +70,14 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
             disponible desde la app; cada usuario puede cambiar la suya en su Perfil.
           </span>
         </div>
-        <button type="button" onClick={() => setModal({ usuario: null, precarga: null })} className={btnPrimary}>
-          <UserPlus className="h-4 w-4" />Nuevo usuario
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" id="btn-usuarios-lote" onClick={() => setLote(true)} className={btnSecondary}>
+            <Users className="h-4 w-4" />Crear usuarios en lote
+          </button>
+          <button type="button" onClick={() => setModal({ usuario: null, precarga: null })} className={btnPrimary}>
+            <UserPlus className="h-4 w-4" />Nuevo usuario
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-3">
@@ -145,6 +155,14 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
           </table>
         </div>
       </div>
+
+      {lote && (
+        <Suspense fallback={null}>
+          <ModalUsuariosLote abierto actor={{ uid: yo?.uid, nombre: yo?.nombre ?? '' }} usuarios={usuarios} empleados={empleados}
+            asignaciones={asignaciones} nombresArea={nombresArea} ahora={ahora} onClose={() => setLote(false)}
+            onCreados={(perfiles) => setUsuarios(prev => [...prev, ...perfiles])} />
+        </Suspense>
+      )}
 
       <ModalUsuario abierto={!!modal} onClose={() => setModal(null)} usuario={modal?.usuario} precarga={modal?.precarga}
         usuarios={usuarios} empleados={empleados} esAdmin={esAdmin} onGuardado={guardado} />

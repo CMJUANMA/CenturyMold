@@ -21,6 +21,23 @@ la seguridad la dan las reglas de Firestore (`firestore.rules`).
 `aut1` (autoriza el nivel 1 de su área) y `aut2` (nivel 2, toda la planta). Se asignan en *Usuarios y accesos*; el puesto no da permisos.
 Detalle en `docs/tiempo-extra.md`. Roles, estatus y etiquetas: `src/utils/constantes.js` y `src/utils/asignaciones.js`; en `firestore.rules`, `esAdmin`, `esRH` y `asignacionVigente`.
 
+## Cuentas y contraseñas
+
+Cada persona entra con su nómina; internamente su correo es `{nómina}@rutas.app`, **ficticio** (no recibe correo).
+
+- **Crear cuentas**: *Usuarios y accesos > Usuarios > Nuevo usuario* o **Crear usuarios en lote** (personas con rol operativo vigente y sin cuenta, más otros empleados
+  del padrón). El lote genera una contraseña temporal por persona (`CM-7K4P-Q9TX`, sin 0/O/1/I/L), crea las cuentas una por una y descarga
+  `Accesos_Iniciales_AAAA-MM-DD_HHmm.xlsx` con los accesos y una hoja de instrucciones. Las contraseñas **no se guardan** en Firestore ni en la bitácora:
+  solo viven en el navegador mientras el modal siga abierto. Todos entran con `debeCambiarPassword: true` (cambio obligatorio en el primer acceso).
+- **Restablecer la contraseña de otra persona: la app NO puede**, y no hay forma segura de hacerlo sin Cloud Functions. Cambiar una contraseña ajena exige
+  el Admin SDK de Firebase (servidor); el cliente solo puede cambiar la de la sesión que tiene abierta. El correo de restablecimiento de Firebase tampoco sirve,
+  porque `{nómina}@rutas.app` no existe. La consola de Firebase tampoco permite asignar una contraseña a una cuenta de correo.
+  - **Alternativa simple hoy (sin servidor)**: en Firebase Console, borrar la cuenta en *Authentication* (`{nómina}@rutas.app`) **y** su perfil en Firestore
+    (`usuarios/{uid}`; si no, el alta se rechaza por nómina repetida o queda un perfil huérfano), y volver a crearla con *Nuevo usuario* o *Crear usuarios en lote*
+    para obtener una contraseña temporal nueva. Los roles operativos no se pierden: las asignaciones van por nómina, no por cuenta.
+  - **Alternativa definitiva (pendiente)**: una Cloud Function invocable solo por admin/RH que ponga una contraseña temporal con el Admin SDK y marque
+    `debeCambiarPassword: true`. Requiere el plan Blaze de Firebase.
+
 ## Flujo de una solicitud
 
 `pendiente` → `aprobada` | `rechazada` (RH) · `cancelada` (el solicitante) · `enviada al proveedor`.

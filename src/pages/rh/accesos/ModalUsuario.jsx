@@ -13,11 +13,10 @@
  *   onGuardado    (usuario, { nuevo }) => void
  */
 import { useState } from 'react';
-import { doc, setDoc, updateDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, deleteUser, signOut } from 'firebase/auth';
+import { doc, updateDoc } from 'firebase/firestore';
 import { CheckCircle2, AlertTriangle, Loader2, X } from 'lucide-react';
 import { db } from '../../../firebase';
-import { authSecundaria } from '../../../firebaseSecundario';
+import { crearCuentaUsuario, mensajeErrorAlta } from '../../../utils/usuariosDb';
 import Modal from '../../../components/Modal';
 import BuscadorEmpleado from '../../../components/BuscadorEmpleado';
 import { ROLES, ROL_LABELS } from '../../../utils/constantes';
@@ -63,42 +62,13 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
         onGuardado({ ...usuario, nombre: form.nombre.trim(), rol: form.rol }, { nuevo: false });
         setExito('Usuario actualizado correctamente.');
       } else {
-        const email = `${form.nomina.trim()}@rutas.app`;
-        const cred = await createUserWithEmailAndPassword(authSecundaria, email, form.password);
-        const { uid } = cred.user;
-        const perfil = { nomina: form.nomina.trim(), nombre: form.nombre.trim(), rol: form.rol, activo: true, debeCambiarPassword: true };
-        try {
-          // setDoc con el db principal (sesión de RH); la app secundaria solo crea la cuenta de Auth
-          await setDoc(doc(db, 'usuarios', uid), perfil);
-        } catch (errPerfil) {
-          // El perfil no se pudo guardar: borrar la cuenta recién creada (la sesión sigue en la app secundaria)
-          try { await deleteUser(cred.user); } catch (errBorrar) {
-            console.error('No se pudo borrar la cuenta huérfana:', errBorrar);
-            errPerfil.cuentaHuerfana = true;
-          }
-          throw errPerfil;
-        } finally {
-          await signOut(authSecundaria).catch(() => {});
-        }
+        const { uid, perfil } = await crearCuentaUsuario({ nomina: form.nomina, nombre: form.nombre, rol: form.rol, password: form.password });
         onGuardado({ uid, ...perfil }, { nuevo: true });
         setExito('Usuario creado correctamente.');
       }
       setTimeout(onClose, 900);
     } catch (err) {
-      if (err.code === 'auth/email-already-in-use') {
-        const tienePerfil = usuarios.some(u => String(u.nomina) === form.nomina.trim());
-        setError(tienePerfil
-          ? 'Ya existe un usuario con esa nómina.'
-          : 'Esa nómina tiene una cuenta de acceso sin perfil (cuenta huérfana, normalmente de un alta que falló). ' +
-            'Bórrala en Firebase Console > Authentication (busca ' + form.nomina.trim() + '@rutas.app) y vuelve a crear el usuario.');
-      } else if (err.code === 'auth/weak-password') {
-        setError('La contraseña debe tener al menos 6 caracteres.');
-      } else if (err.cuentaHuerfana) {
-        setError(`No se pudo guardar el perfil (${err.message}) y tampoco se pudo borrar la cuenta creada. ` +
-          'Bórrala en Firebase Console > Authentication (' + form.nomina.trim() + '@rutas.app) antes de reintentar.');
-      } else {
-        setError(`Error: ${err.message}`);
-      }
+      setError(mensajeErrorAlta(err, form.nomina, usuarios));
     } finally {
       setGuardando(false);
     }
