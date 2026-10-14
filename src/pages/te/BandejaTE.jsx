@@ -15,7 +15,10 @@ import { useCatalogos } from '../../hooks/useCatalogos';
 import { useResumenTE } from '../../hooks/useResumenTE';
 import { useConfirmar } from '../../hooks/useConfirmar';
 import { useToast } from '../../hooks/useToast';
+import Ayuda from '../../components/Ayuda';
+import AyudaPantalla from '../../components/AyudaPantalla';
 import BadgeEstatus from '../../components/BadgeEstatus';
+import InsigniasTE from '../../components/InsigniasTE';
 import Modal from '../../components/Modal';
 import Spinner from '../../components/Spinner';
 import { formatoFecha } from '../../utils/asignaciones';
@@ -135,13 +138,18 @@ export default function BandejaTE() {
 
   if (accesos.cargando || cargando) return <Spinner />;
   const totalPendientes = nivel1.length + nivel2.length;
+  // La primera solicitud que se puede revisar (no es mía): ahí apunta el recorrido guiado
+  const primeraRevisable = secciones.flatMap(s => lista(s.nivel)).find(t => !esPropia(t, usuario.uid))?.id;
   const historialArea = delArea.filter(t => t.estatus !== 'pendiente_aut1' && t.estatus !== 'borrador').sort((a, b) => esperaDesde(b) - esperaDesde(a));
 
   return (
     <div className="space-y-5">
       <header className="border-b border-[var(--border-color)] pb-4">
         <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Tiempo extra</div>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Por autorizar</h1>
+        <div className="mt-1 flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">Por autorizar</h1>
+          <AyudaPantalla id="autorizar" />
+        </div>
         <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{totalPendientes === 0 ? 'No tienes solicitudes pendientes.' : `${totalPendientes} esperando tu firma, las más antiguas primero. Se actualiza solo.`}</p>
       </header>
 
@@ -158,7 +166,7 @@ export default function BandejaTE() {
 
       {pestana === 'bandeja' && (
         <>
-          <div className="flex flex-wrap items-end gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-3" role="group" aria-label="Filtros">
+          <div data-tour="autorizar-filtros" className="flex flex-wrap items-end gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-3" role="group" aria-label="Filtros">
             <label className="text-[11px] font-medium text-[var(--text-secondary)]">Área
               <select value={filtros.areaId} onChange={e => setFiltros(f => ({ ...f, areaId: e.target.value }))} className={`${campo} mt-0.5 block`}>
                 <option value="">Todas</option>{areasEnBandeja.map(id => <option key={id} value={id}>{nombreArea(id)}</option>)}
@@ -173,13 +181,14 @@ export default function BandejaTE() {
             {(filtros.areaId || filtros.desde || filtros.hasta) && <button type="button" onClick={() => setFiltros({ areaId: '', desde: '', hasta: '' })} className="cursor-pointer pb-1.5 text-[11px] font-semibold text-[var(--cm-red)] hover:underline">Limpiar</button>}
           </div>
 
+          <Ayuda clave="autorizar.filtros" className="-mt-2" />
           {secciones.length === 0 && <p className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-6 text-center text-xs text-[var(--text-secondary)]">No tienes un nivel de autorización asignado.</p>}
           {secciones.map(({ nivel, titulo, lista: todas }) => {
             const items = lista(nivel);
             const firmables = items.filter(t => !esPropia(t, usuario.uid));
             const marcadas = firmables.filter(t => seleccion[nivel].has(t.id));
             return (
-              <section key={nivel} aria-label={titulo} className="space-y-2">
+              <section key={nivel} aria-label={titulo} data-tour={nivel === secciones[0].nivel ? 'autorizar-lista' : undefined} className="space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h2 className="flex items-center gap-2 text-sm font-bold text-[var(--text-main)]"><BadgeCheck className="h-4 w-4 text-[var(--text-muted)]" />{titulo}
                     <span className="rounded-full bg-[var(--bg-surface-secondary)] px-2 py-0.5 text-[11px] font-bold text-[var(--text-secondary)]">{items.length}{items.length !== todas.length ? ` de ${todas.length}` : ''}</span></h2>
@@ -195,6 +204,8 @@ export default function BandejaTE() {
                   </div>
                 </div>
 
+                <Ayuda clave="autorizar.lista" />
+                {firmables.length > 1 && <Ayuda clave="autorizar.varias" />}
                 {items.length === 0 ? (
                   <p className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--bg-surface)] p-6 text-center text-xs text-[var(--text-muted)]">{todas.length ? 'Ninguna solicitud con esos filtros.' : 'Nada pendiente en este nivel. 🎉'}</p>
                 ) : (
@@ -211,7 +222,7 @@ export default function BandejaTE() {
                             return (
                               <tr key={t.id} className={propia ? 'bg-[var(--bg-surface-secondary)] opacity-70' : 'hover:bg-[var(--bg-surface-secondary)]'}>
                                 <td className="px-3 py-2.5">{!propia && <input type="checkbox" aria-label={`Seleccionar ${t.folio}`} checked={seleccion[nivel].has(t.id)} onChange={() => alternar(nivel, t.id)} className="h-4 w-4 accent-[var(--cm-red)]" />}</td>
-                                <td className="px-3 py-2.5 font-mono font-semibold text-[var(--text-main)]">{t.folio}</td>
+                                <td className="px-3 py-2.5 font-mono font-semibold text-[var(--text-main)]">{t.folio}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></td>
                                 <td className="px-3 py-2.5">{nombreArea(t.areaId)}</td>
                                 <td className="px-3 py-2.5">{formato.nombre(t.creadoPorNombre)}</td>
                                 <td className="px-3 py-2.5 whitespace-nowrap">{formatoFecha(`${t.fechaTE}T12:00:00`)} {fechaVencida(t.fechaTE, hoy) && <Vencida />}</td>
@@ -221,7 +232,7 @@ export default function BandejaTE() {
                                 <td className="px-3 py-2.5 whitespace-nowrap text-[var(--text-secondary)]">{haceTiempo(esperaDesde(t), ahora)}</td>
                                 <td className="px-3 py-2.5 text-right">
                                   {propia ? <span className="text-[10px] font-semibold text-[var(--text-muted)]">No puedes autorizar tu propia solicitud</span>
-                                    : <button type="button" onClick={() => abrir(t, nivel)} className="cursor-pointer rounded-md border border-[var(--border-color)] px-3 py-1.5 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]">Revisar</button>}
+                                    : <button type="button" data-tour={t.id === primeraRevisable ? 'autorizar-revisar' : undefined} onClick={() => abrir(t, nivel)} className="cursor-pointer rounded-md border border-[var(--border-color)] px-3 py-1.5 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]">Revisar</button>}
                                 </td>
                               </tr>
                             );
@@ -235,13 +246,13 @@ export default function BandejaTE() {
                         return (
                           <li key={t.id} className={`rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 shadow-sm ${propia ? 'opacity-70' : ''}`}>
                             <div className="flex items-start justify-between gap-2">
-                              <div><p className="font-mono text-sm font-bold text-[var(--text-main)]">{t.folio}</p><p className="text-xs text-[var(--text-secondary)]">{nombreArea(t.areaId)} · {formato.nombre(t.creadoPorNombre)}</p></div>
+                              <div><p className="font-mono text-sm font-bold text-[var(--text-main)]">{t.folio}</p><p className="text-xs text-[var(--text-secondary)]">{nombreArea(t.areaId)} · {formato.nombre(t.creadoPorNombre)}</p><InsigniasTE t={t} className="mt-1" /></div>
                               {!propia && <input type="checkbox" aria-label={`Seleccionar ${t.folio}`} checked={seleccion[nivel].has(t.id)} onChange={() => alternar(nivel, t.id)} className="h-6 w-6 accent-[var(--cm-red)]" />}
                             </div>
                             <p className="mt-2 text-sm text-[var(--text-main)]">{formatoFecha(`${t.fechaTE}T12:00:00`)} {fechaVencida(t.fechaTE, hoy) && <Vencida />}</p>
                             <p className="mt-1 text-xs text-[var(--text-secondary)]"><b>{t.resumen?.totalEmpleados ?? 0}</b> empleados · <b>{t.resumen?.totalHoras ?? 0}</b> h · <b>{t.resumen?.totalTransporte ?? 0}</b> con transporte · {haceTiempo(esperaDesde(t), ahora)}</p>
                             {propia ? <p className="mt-3 text-xs font-semibold text-[var(--text-muted)]">No puedes autorizar tu propia solicitud</p>
-                              : <button type="button" onClick={() => abrir(t, nivel)} className={`${boton} mt-3 w-full border border-[var(--border-color)] text-[var(--text-main)]`}>Revisar y responder</button>}
+                              : <button type="button" data-tour={t.id === primeraRevisable ? 'autorizar-revisar' : undefined} onClick={() => abrir(t, nivel)} className={`${boton} mt-3 w-full border border-[var(--border-color)] text-[var(--text-main)]`}>Revisar y responder</button>}
                           </li>
                         );
                       })}
@@ -265,7 +276,7 @@ export default function BandejaTE() {
               <tbody className="divide-y divide-[var(--border-subtle)]">
                 {historialArea.length === 0 ? <tr><td colSpan={8} className="py-8 text-center text-[var(--text-muted)]">Todavía no hay historial en tu área.</td></tr> : historialArea.map(t => (
                   <tr key={t.id} className="hover:bg-[var(--bg-surface-secondary)]">
-                    <td className="px-3 py-2.5 font-mono font-semibold">{t.folio ?? '—'}</td><td className="px-3 py-2.5">{nombreArea(t.areaId)}</td><td className="px-3 py-2.5">{formato.nombre(t.creadoPorNombre)}</td>
+                    <td className="px-3 py-2.5 font-mono font-semibold">{t.folio ?? '—'}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></td><td className="px-3 py-2.5">{nombreArea(t.areaId)}</td><td className="px-3 py-2.5">{formato.nombre(t.creadoPorNombre)}</td>
                     <td className="px-3 py-2.5">{formatoFecha(`${t.fechaTE}T12:00:00`)}</td><td className="px-3 py-2.5 text-right">{t.resumen?.totalEmpleados ?? 0}</td><td className="px-3 py-2.5 text-right">{t.resumen?.totalHoras ?? 0}</td>
                     <td className="px-3 py-2.5"><BadgeEstatus estatus={t.estatus} modulo="te" /></td>
                     <td className="px-3 py-2.5 text-right"><button type="button" onClick={() => abrir(t, 1, true)} className="cursor-pointer rounded-md border border-[var(--border-color)] px-3 py-1.5 text-xs font-semibold hover:bg-[var(--bg-surface-hover)]">Ver</button></td>
@@ -289,6 +300,10 @@ export default function BandejaTE() {
                       Comentario <span className="text-[var(--text-muted)]">(opcional al autorizar; obligatorio al devolver, mínimo {MIN_MOTIVO_DEVOLUCION} caracteres: {texto.trim().length})</span>
                     </label>
                     <textarea id="comentario-firma" rows={2} value={texto} onChange={e => setTexto(e.target.value)} className={`${campo} w-full`} placeholder="Comentario o motivo de la devolución…" />
+                    <Ayuda clave="autorizar.comentario" />
+                    <Ayuda clave="autorizar.autorizar" className="!mt-0" />
+                    <Ayuda clave="autorizar.devolver" className="!mt-0" />
+                    {(detalle.solicitud.rutasDistintas ?? 0) > 1 && <Ayuda clave="autorizar.rutas" className="!mt-0 font-semibold !text-[var(--status-warning-text)]" />}
                     <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                       <button type="button" id="btn-devolver" disabled={trabajando || texto.trim().length < MIN_MOTIVO_DEVOLUCION} onClick={devolver}
                         className={`${boton} border border-[var(--status-error-border)] bg-[var(--bg-surface)] text-[var(--status-error-text)] hover:bg-[var(--status-error-bg)]`}><Undo2 className="h-4 w-4" />Devolver</button>

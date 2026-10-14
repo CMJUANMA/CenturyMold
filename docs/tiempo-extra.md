@@ -194,6 +194,27 @@ Consultas: las del Aut. 1, la Aut. 2 y RH sobre `tiempoExtra` deben **excluir bo
   La consulta usa el índice compuesto `estatus + fechaTE` de `firestore.indexes.json`.
 - El solicitante ve `procesada` como "Recibida por RH · transporte solicitado" (o "· sin transporte"). Menú de RH: "Recepción" con contador; la tarjeta "Autorizadas pendientes de recibir" del portal y del resumen lleva a la recepción.
 
+## Ajustes de uso (tipo, rutas, extensión de turno, descargas, ayudas)
+
+- **Estatus**: una sola etiqueta por estatus en todas las pantallas y Excel (`ESTATUS_TE_MAP` / `etiquetaEstatusTE`): Borrador · En autorización (nivel 1) · En autorización (nivel 2) · Devuelta · Autorizada · Recibida por RH · Cancelada.
+  Había un error de orden en el mapa (el estilo de "Cancelada" pisaba la etiqueta de Borrador). La prueba recorre todos los estatus.
+- **Dos descargas distintas**: *Descargar tiempo extra* (nómina y comedor: TODOS los empleados con TE autorizado o recibido, lleven transporte o no; periodo Hoy / Un día / Esta semana / Semana anterior / Rango, y área) y
+  *Formato de rutas (proveedor)* en "Todas las solicitudes" (solo quienes llevan transporte). Cada botón lleva su línea de ayuda; "Exportar consulta" (Consulta) es la lista filtrada en pantalla.
+- **Rutas distintas** (control de costo): se cuentan las rutas distintas de los empleados que llevan transporte (llegada o salida) y se muestran en vivo ("Esta solicitud usa 3 rutas: LA LIRA (2), …"). Con más de una,
+  la justificación (`justificacionRutas`, 15+ caracteres) es obligatoria para enviar (también en las reglas). Se guardan `rutasDistintas`, `desgloseRutas` [{ rutaId, nombre, empleados, llegada, salida }] y `justificacionRutas`.
+  Insignia ámbar "N rutas" en bandejas, consulta, recepción y Mis solicitudes; el detalle muestra la justificación y el desglose. El selector de empleados tiene columna y filtro de Ruta (la del padrón).
+- **Tipo de tiempo extra** (`tipo`): `turno_extra` (el empleado viene a la planta) o `extension` (ya está en la planta). Una **extensión**: empieza al terminar su turno normal (`horaEntrada` = fin de su turno; sale de *Estructura > Turnos* según su
+  turno de nómina o, si RH aún no lo captura, se elige a mano), se elige hasta qué hora se queda (los bloques de salida posteriores: 16:00 → 19:00, 0:00, 7:00), las horas cuentan desde ese fin de turno (16:00 → 19:00 = 3 h) y puede
+  capturarse para el mismo día. Insignia "Extensión de turno".
+- **Transporte por sentido**: cada empleado tiene `transporteLlegada` y `transporteSalida` (`requiereTransporte` = alguno de los dos). Turno extra: los dos marcados por defecto; extensión: solo salida (la llegada, apagada y deshabilitada: "Ya se
+  encuentra en la planta"; las reglas rechazan `transporteLlegada: true` en una extensión). Los documentos anteriores valen para los dos sentidos.
+- **Excel del proveedor, extensión**: el pasajero con solo salida va en la hoja de su turno normal (el turno que termina a la hora de su fin de turno: 16:00 → Turno 1, 0:00 y 19:00 → Turno 2, 7:00 → Turno 3), con ENTRADA = "YA EN PLANTA" y
+  SALIDA = su hora extendida ("7:00PM"). Un turno extra con solo llegada lleva SALIDA = "NO REQUIERE". El pasajero guarda `sentido` (ambos | llegada | salida).
+- **Turnos de nómina** (`turnosNomina/{A|B|C}`: entrada y salida en los bloques 7:00, 16:00, 19:00 y 0:00): RH los captura en *Estructura > Turnos*; empiezan vacíos. Los lee cualquier usuario activo; los escribe RH/admin.
+- **Configuración** (`/configuracion`, todos): ayudas sí/no, tamaño de letra (Normal/Grande) y tema (Claro/Oscuro/Automático), guardados en `usuarios/{uid}.preferencias` (las reglas dejan a cada usuario cambiar solo ese campo de su propio documento).
+  Con las ayudas activas: texto corto bajo los campos, "?" junto a los títulos (explicación de 3 o 4 pasos) y recorrido guiado la primera vez en *Solicitar tiempo extra* y *Por autorizar* (`preferencias.recorridosVistos`; se puede repetir desde el "?").
+  **Todos los textos de ayuda están en `src/utils/ayudas.js`.**
+
 ### Contador de folios
 
 `contadores/te-AAAA` solo se puede subir de uno en uno y **únicamente dentro del lote o transacción en que una solicitud propia pasa de borrador a pendiente con ese folio**: el documento del

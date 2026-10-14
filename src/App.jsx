@@ -8,6 +8,7 @@
 import { lazy } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
+import { PreferenciasProvider } from './context/PreferenciasContext';
 import { AuthProvider } from './context/AuthContext';
 import { CatalogosProvider } from './context/CatalogosContext';
 import { AccesosProvider } from './context/AccesosContext';
@@ -23,6 +24,7 @@ const MisSolicitudesTE = lazy(() => import('./pages/te/MisSolicitudesTE'));
 const BandejaTE = lazy(() => import('./pages/te/BandejaTE'));
 const ConsultaTE = lazy(() => import('./pages/te/ConsultaTE'));
 const RecepcionTE = lazy(() => import('./pages/te/RecepcionTE'));
+const Configuracion = lazy(() => import('./pages/Configuracion'));
 import RutaCapacidad from './components/RutaCapacidad';
 import Inicio from './pages/Inicio';
 import TiempoExtraInicio from './pages/TiempoExtraInicio';
@@ -54,6 +56,8 @@ const router = createBrowserRouter([
         // Consulta del transporte anterior: la ve cualquiera que tenga solicitudes suyas (el menú solo la ofrece si las hay)
         { path: '/rutas/mis-solicitudes', element: <MisSolicitudes /> },
         { path: '/perfil', element: <Perfil /> },
+        // Configuración personal (ayudas, tamaño de letra y tema): para todos los usuarios
+        { path: '/configuracion', element: <Configuracion /> },
 
         // Módulo de transporte (rutas)
         {
@@ -118,6 +122,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
+        <PreferenciasProvider>
         <AccesosProvider>
           <CatalogosProvider>
             <ToastProvider>
@@ -127,6 +132,7 @@ export default function App() {
             </ToastProvider>
           </CatalogosProvider>
         </AccesosProvider>
+        </PreferenciasProvider>
       </AuthProvider>
     </ThemeProvider>
   );

@@ -8,10 +8,9 @@ import { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, FilePlus, ClipboardList, Layers, Users, Database, LayoutGrid,
-  ShieldCheck, User, LogOut, Menu, X, Sun, Moon, Clock, Network, GitBranch, BadgeCheck, Bus, Inbox,
+  ShieldCheck, User, LogOut, Menu, X, Settings, Clock, Network, GitBranch, BadgeCheck, Bus, Inbox,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { useTheme } from '../context/ThemeContext';
 import { useAccesos } from '../hooks/useAccesos';
 import { usePendientesRutas, usePorAutorizar, usePorRecibir } from '../hooks/usePendientes';
 import { useTransporteAnterior } from '../hooks/useTransporteAnterior';
@@ -54,7 +53,6 @@ const ICONOS_ROL = { Home, FilePlus, ClipboardList, BadgeCheck, Layers, GitBranc
 
 export default function Navbar() {
   const { usuario, cerrarSesion } = useAuth();
-  const { esOscuro, alternarTema } = useTheme();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [menuAbierto, setMenuAbierto] = useState(false);
@@ -100,11 +98,10 @@ export default function Navbar() {
           <span className="text-xs text-[var(--text-secondary)]">{subtitulo}</span>
         </div>
         <div className="flex items-center gap-1">
-          <button type="button" onClick={alternarTema}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] transition-colors active:scale-95"
-            title={esOscuro ? 'Modo claro' : 'Modo oscuro'} aria-label="Cambiar tema">
-            {esOscuro ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
+          <NavLink to="/configuracion" aria-label="Configuración" title="Configuración"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] transition-colors active:scale-95">
+            <Settings className="h-4 w-4" />
+          </NavLink>
           <button type="button" id="btn-menu-movil" onClick={() => setMenuAbierto(v => !v)}
             className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] transition-colors active:scale-95"
             aria-label={menuAbierto ? 'Cerrar menú' : 'Abrir menú'}>
@@ -127,11 +124,7 @@ export default function Navbar() {
               </div>
             )}
           </div>
-          <button type="button" onClick={alternarTema}
-            className="hidden lg:inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] transition-colors active:scale-95"
-            title={esOscuro ? 'Modo claro' : 'Modo oscuro'} aria-label="Cambiar tema">
-            {esOscuro ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
+          
         </div>
 
         <div className="px-5 py-2.5 bg-[var(--bg-surface-secondary)] border-b border-[var(--border-subtle)] text-[11px] text-[var(--text-secondary)] font-medium">
@@ -192,6 +185,13 @@ export default function Navbar() {
               <p className="truncate font-semibold text-[var(--text-main)] leading-tight text-xs">{usuario?.nombre ?? 'Usuario'}</p>
               <p className="truncate text-[10px] text-[var(--text-secondary)]" title={descripcion}>{descripcion || 'Usuario'}</p>
             </div>
+          </NavLink>
+          <NavLink to="/configuracion" onClick={cerrarMenu}
+            className={({ isActive }) =>
+              `flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs transition-colors ${isActive ? 'bg-[var(--bg-surface-hover)] border border-[var(--border-color)] font-semibold text-[var(--text-main)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]'}`
+            }>
+            <Settings className="h-4 w-4 shrink-0" />
+            <span>Configuración</span>
           </NavLink>
           <button type="button" id="btn-cerrar-sesion" onClick={handleCerrarSesion}
             className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--cm-red-dark)] hover:bg-[var(--status-error-bg)] transition-colors active:scale-95 cursor-pointer">

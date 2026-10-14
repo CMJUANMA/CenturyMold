@@ -45,9 +45,10 @@ export async function leerHistorialTE(id) {
  * @param {{ id, nombre }} p.area
  * @param {object[]} p.empleados todos los del editor
  * @param {Set<string>} p.sucios nóminas por escribir; p.eliminados: nóminas por borrar
+ * @param {object} p.extras      tipo, rutasDistintas, desgloseRutas y justificacionRutas (ver datosTE en tiempoExtra.js)
  * @param {(hechos:number,total:number)=>void} [p.onProgreso]
  */
-export async function guardarBorrador({ id, existe, usuario, area, fechaTE, motivo, comentario, empleados, sucios, eliminados, onProgreso }) {
+export async function guardarBorrador({ id, existe, usuario, area, fechaTE, motivo, comentario, empleados, sucios, eliminados, extras = {}, onProgreso }) {
   const porNomina = new Map(empleados.map(e => [e.nomina, e]));
   const porEscribir = [...sucios].filter(n => porNomina.has(n));
   const lotesEmp = trozos(porEscribir, LOTE_EMPLEADOS);
@@ -61,11 +62,11 @@ export async function guardarBorrador({ id, existe, usuario, area, fechaTE, moti
   // El primer lote lleva la solicitud (se crea o se actualiza) junto con los primeros empleados
   const primero = writeBatch(db);
   if (existe) {
-    primero.update(refTE(id), { fechaTE, motivo, comentario, resumen, fechaActualizacion: serverTimestamp() });
+    primero.update(refTE(id), { fechaTE, motivo, comentario, resumen, ...extras, fechaActualizacion: serverTimestamp() });
   } else {
     primero.set(refTE(id), {
       areaId: area.id, areaNombre: area.nombre, creadoPor: usuario.uid, creadoPorNomina: String(usuario.nomina), creadoPorNombre: usuario.nombre ?? '',
-      fechaTE, motivo, comentario, estatus: 'borrador', resumen, fechaCreacion: serverTimestamp(), fechaActualizacion: serverTimestamp(),
+      fechaTE, motivo, comentario, estatus: 'borrador', resumen, ...extras, fechaCreacion: serverTimestamp(), fechaActualizacion: serverTimestamp(),
     });
   }
   escribirEmpleados(primero, lotesEmp[0] ?? []);
@@ -92,9 +93,9 @@ export async function guardarBorrador({ id, existe, usuario, area, fechaTE, moti
  *  - Devuelta: conserva su folio, quita las firmas anteriores y vuelve a empezar; entrada 'reenviada'.
  * @returns {Promise<string>} el folio
  */
-export async function enviarSolicitud({ id, devuelta, usuario, estatus, fechaTE, motivo, comentario, empleados }) {
+export async function enviarSolicitud({ id, devuelta, usuario, estatus, fechaTE, motivo, comentario, empleados, extras = {} }) {
   const resumen = resumenTE(empleados);
-  const contenido = { fechaTE, motivo, comentario, resumen };
+  const contenido = { fechaTE, motivo, comentario, resumen, ...extras };
   if (devuelta) {
     const b = writeBatch(db);
     b.update(refTE(id), { ...contenido, estatus, aut1: deleteField(), aut2: deleteField(), fechaActualizacion: serverTimestamp() });

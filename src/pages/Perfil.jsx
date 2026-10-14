@@ -13,11 +13,10 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
-  Sun,
-  Moon,
+  Settings,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { useTheme } from '../context/ThemeContext';
+import { Link } from 'react-router-dom';
 import { ROL_LABELS } from '../utils/constantes';
 
 const ERRORES_PASS = {
@@ -41,7 +40,6 @@ function traducirError(code) {
 
 export default function Perfil() {
   const { usuario, cambiarPassword } = useAuth();
-  const { tema, setTema } = useTheme();
 
   const [passActual, setPassActual] = useState('');
   const [passNueva, setPassNueva] = useState('');
@@ -175,50 +173,17 @@ export default function Perfil() {
         </div>
       </div>
 
-      {/* ── Selector de tema (Modo claro / oscuro) ───────────────────────── */}
-      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5 shadow-sm">
-        <div className="flex items-center gap-3 pb-3 border-b border-[var(--border-subtle)]">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)]">
-            {tema === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-[var(--text-main)]">
-              Apariencia del sistema
-            </h2>
-            <p className="text-xs text-[var(--text-secondary)]">
-              Seleccione el modo visual que prefiera para trabajar en el sistema
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={() => setTema('light')}
-            className={`flex items-center justify-center gap-2 rounded-md border p-3 text-xs font-semibold transition-colors ${
-              tema === 'light'
-                ? 'border-[var(--cm-red)] bg-[var(--cm-red-light)] text-[var(--cm-red)]'
-                : 'border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-main)]'
-            }`}
-          >
-            <Sun className="h-4 w-4" />
-            <span>Modo claro</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setTema('dark')}
-            className={`flex items-center justify-center gap-2 rounded-md border p-3 text-xs font-semibold transition-colors ${
-              tema === 'dark'
-                ? 'border-[var(--cm-red)] bg-[var(--cm-red)]/15 text-[var(--status-error-text)]'
-                : 'border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-main)]'
-            }`}
-          >
-            <Moon className="h-4 w-4" />
-            <span>Modo oscuro</span>
-          </button>
-        </div>
-      </div>
+      {/* ── Apariencia y ayudas: ahora viven en Configuración ───────────── */}
+      <Link to="/configuracion" className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5 shadow-sm hover:border-[var(--cm-red)]">
+        <span className="flex items-center gap-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-md border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)]"><Settings className="h-4 w-4" /></span>
+          <span>
+            <span className="block text-sm font-semibold text-[var(--text-main)]">Configuración</span>
+            <span className="block text-xs text-[var(--text-secondary)]">Ayudas, tamaño de letra y tema (claro, oscuro o automático)</span>
+          </span>
+        </span>
+        <span className="text-xs font-semibold text-[var(--cm-red)]">Abrir</span>
+      </Link>
 
       {/* ── Seguridad y cambio de contraseña ─────────────────────────────── */}
       <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5 shadow-sm">

@@ -92,10 +92,15 @@ const BADGE_SUCCESS = {
 
 /** Etiqueta y estilo de badge de cada estatus de tiempo extra (mismo formato que ESTATUS_MAP) */
 export const ESTATUS_TE_MAP = {
-  [ESTATUS_TE.BORRADOR]: { label: 'Borrador', ...ESTATUS_MAP[ESTATUS_SOLICITUD.CANCELADA] },
-  [ESTATUS_TE.PENDIENTE_AUT1]: { label: 'Pendiente de Aut. 1', ...BADGE_WARNING },
-  [ESTATUS_TE.PENDIENTE_AUT2]: { label: 'Pendiente de Aut. 2', ...BADGE_WARNING },
-  [ESTATUS_TE.AUTORIZADA]: { label: 'Autorizada', ...BADGE_SUCCESS },
+  // Borrador en azul (no en gris como Cancelada): el orden importa, el estilo va primero y la etiqueta después
+  [ESTATUS_TE.BORRADOR]: {
+    cls: 'bg-[var(--status-info-bg)] text-[var(--status-info-text)] border-[var(--status-info-border)]',
+    dot: 'bg-[var(--status-info-text)]',
+    label: 'Borrador',
+  },
+  [ESTATUS_TE.PENDIENTE_AUT1]: { ...BADGE_WARNING, label: 'En autorización (nivel 1)' },
+  [ESTATUS_TE.PENDIENTE_AUT2]: { ...BADGE_WARNING, label: 'En autorización (nivel 2)' },
+  [ESTATUS_TE.AUTORIZADA]: { ...BADGE_SUCCESS, label: 'Autorizada' },
   [ESTATUS_TE.DEVUELTA]: {
     label: 'Devuelta',
     cls: 'bg-[var(--status-error-bg)] text-[var(--status-error-text)] border-[var(--status-error-border)]',
@@ -104,6 +109,9 @@ export const ESTATUS_TE_MAP = {
   [ESTATUS_TE.CANCELADA]: { ...ESTATUS_MAP[ESTATUS_SOLICITUD.CANCELADA], label: 'Cancelada' },
   [ESTATUS_TE.PROCESADA]: { ...ESTATUS_MAP[ESTATUS_SOLICITUD.ENVIADA_PROVEEDOR], label: 'Recibida por RH' },
 };
+
+/** Etiqueta de un estatus de tiempo extra (la misma en todas las pantallas y en los Excel) */
+export const etiquetaEstatusTE = (estatus) => ESTATUS_TE_MAP[estatus]?.label ?? String(estatus ?? '');
 
 /** Acciones del historial (tiempoExtra/{id}/historial) */
 export const ACCIONES_TE = {

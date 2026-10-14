@@ -1,30 +1,41 @@
 /**
- * SelectorEmpleadosTE.jsx — "Agregar empleados": todos los empleados activos del área, con buscador, filtros por puesto y por
- * turno de nómina (A/B/C) y casillas para elegir varios a la vez (así se agregan 30 o más de un golpe).
- * Props: empleados (los del área), yaAgregados (Set de nóminas), onAgregar(lista), onClose
+ * SelectorEmpleadosTE.jsx — "Agregar empleados": todos los empleados activos del área, con buscador, filtros por puesto, por
+ * turno de nómina (A/B/C) y por ruta (la del padrón; sirve para juntar gente de la misma ruta y no usar rutas de más), una columna
+ * Ruta y casillas para elegir varios a la vez (así se agregan 30 o más de un golpe).
+ * Props: empleados (los del área), yaAgregados (Set de nóminas), rutas (catálogo), onAgregar(lista), onClose
  */
 import { useMemo, useState } from 'react';
 import { CheckCircle2, Search } from 'lucide-react';
 import Modal from '../../components/Modal';
+import Ayuda from '../../components/Ayuda';
 import { TURNOS_NOMINA } from '../../utils/tiempoExtra';
 
 const sinAcentos = (t) => String(t ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 const sel = 'rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]';
 
-export default function SelectorEmpleadosTE({ empleados, yaAgregados, onAgregar, onClose }) {
+export default function SelectorEmpleadosTE({ empleados, yaAgregados, rutas = [], onAgregar, onClose }) {
   const [busqueda, setBusqueda] = useState('');
   const [puesto, setPuesto] = useState('');
   const [turno, setTurno] = useState('');
+  const [ruta, setRuta] = useState(''); // '' = todas · 'sin' = sin ruta en el padrón · id de ruta
   const [marcados, setMarcados] = useState(() => new Set());
 
+  const nombreRuta = (id) => rutas.find(r => r.id === id)?.nombre ?? '';
+  // Solo las rutas que usan los empleados de esta área, con cuántos hay en cada una
+  const rutasDelArea = useMemo(() => {
+    const cuenta = new Map();
+    for (const e of empleados) if (e.rutaId) cuenta.set(e.rutaId, (cuenta.get(e.rutaId) ?? 0) + 1);
+    return [...cuenta].map(([id, n]) => ({ id, nombre: rutas.find(r => r.id === id)?.nombre ?? id, n })).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }, [empleados, rutas]);
   const puestos = useMemo(() => [...new Set(empleados.map(e => e.puesto).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es')), [empleados]);
   const visibles = useMemo(() => {
     const q = sinAcentos(busqueda).trim();
     return empleados
       .filter(e => (!puesto || e.puesto === puesto) && (!turno || String(e.turnoNomina ?? '').toUpperCase() === turno)
+        && (!ruta || (ruta === 'sin' ? !e.rutaId : e.rutaId === ruta))
         && (!q || String(e.nomina).startsWith(q) || sinAcentos(e.nombre).includes(q)))
       .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
-  }, [empleados, busqueda, puesto, turno]);
+  }, [empleados, busqueda, puesto, turno, ruta]);
   const disponibles = visibles.filter(e => !yaAgregados.has(String(e.nomina)));
   const todosMarcados = disponibles.length > 0 && disponibles.every(e => marcados.has(String(e.nomina)));
 
@@ -53,7 +64,13 @@ export default function SelectorEmpleadosTE({ empleados, yaAgregados, onAgregar,
             <option value="">Todos los turnos</option>
             {TURNOS_NOMINA.map(t => <option key={t} value={t}>Turno {t}</option>)}
           </select>
+          <select aria-label="Filtrar por ruta" value={ruta} onChange={e => setRuta(e.target.value)} className={`${sel} max-w-[14rem]`}>
+            <option value="">Todas las rutas</option>
+            {rutasDelArea.map(r => <option key={r.id} value={r.id}>{r.nombre} ({r.n})</option>)}
+            <option value="sin">Sin ruta guardada</option>
+          </select>
         </div>
+        <Ayuda clave="selector.ruta" />
 
         <div className="overflow-hidden rounded-lg border border-[var(--border-color)]">
           <label className="flex cursor-pointer items-center gap-3 border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] px-3 py-2 text-xs font-semibold text-[var(--text-secondary)]">
@@ -71,7 +88,8 @@ export default function SelectorEmpleadosTE({ empleados, yaAgregados, onAgregar,
                     <input type="checkbox" disabled={ya} checked={ya || marcados.has(n)} onChange={() => alternar(n)} className="h-3.5 w-3.5 accent-[var(--cm-red)]" />
                     <span className="font-mono font-bold text-[var(--text-main)]">{n}</span>
                     <span className="min-w-0 flex-1 truncate text-[var(--text-main)]">{e.nombre}</span>
-                    <span className="hidden truncate text-[10px] text-[var(--text-muted)] sm:block sm:max-w-[12rem]">{e.puesto}</span>
+                    <span className="hidden truncate text-[10px] text-[var(--text-muted)] sm:block sm:max-w-[10rem]">{e.puesto}</span>
+                    <span className="hidden truncate text-[10px] font-semibold text-[var(--text-secondary)] sm:block sm:max-w-[8rem]" title="Ruta guardada en el padrón">{nombreRuta(e.rutaId) || 'Sin ruta'}</span>
                     {e.turnoNomina && <span className="rounded border border-[var(--border-color)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--text-secondary)]">{e.turnoNomina}</span>}
                     {ya && <span className="text-[10px] font-semibold text-[var(--status-success-text)]">Ya agregado</span>}
                   </label>

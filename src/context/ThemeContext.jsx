@@ -4,63 +4,53 @@ const ThemeContext = createContext(null);
 
 const STORAGE_KEY = 'cm_theme';
 
-export function ThemeProvider({ children }) {
-  const [tema, setTemaState] = useState(() => {
-    if (typeof window === 'undefined') return 'light';
+/** Modos que elige la persona en Configuración: 'claro' | 'oscuro' | 'auto' (sigue al dispositivo). Se recuerda en este equipo */
+const leerModo = () => {
+  if (typeof window === 'undefined') return 'auto';
+  try {
     const guardado = localStorage.getItem(STORAGE_KEY);
-    if (guardado === 'dark' || guardado === 'light') {
-      return guardado;
-    }
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-      ? 'dark'
-      : 'light';
-  });
+    return guardado === 'dark' ? 'oscuro' : guardado === 'light' ? 'claro' : 'auto';
+  } catch { return 'auto'; }
+};
+const sistemaEsOscuro = () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-  const aplicarTema = (nuevoTema) => {
-    const root = document.documentElement;
-    if (nuevoTema === 'dark') {
-      root.classList.add('dark');
-      root.style.colorScheme = 'dark';
-    } else {
-      root.classList.remove('dark');
-      root.style.colorScheme = 'light';
-    }
-  };
+export function ThemeProvider({ children }) {
+  const [modo, setModoState] = useState(leerModo);
+  const [sistemaOscuro, setSistemaOscuro] = useState(sistemaEsOscuro);
+
+  const tema = modo === 'oscuro' || (modo === 'auto' && sistemaOscuro) ? 'dark' : 'light';
 
   useEffect(() => {
-    aplicarTema(tema);
+    const root = document.documentElement;
+    root.classList.toggle('dark', tema === 'dark');
+    root.style.colorScheme = tema;
   }, [tema]);
 
-  // Escuchar cambios de preferencia del sistema si el usuario no ha guardado uno explícito
+  // El modo automático sigue los cambios del dispositivo
   useEffect(() => {
+    if (!window.matchMedia) return;
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (e) => {
-      const guardado = localStorage.getItem(STORAGE_KEY);
-      if (!guardado) {
-        setTemaState(e.matches ? 'dark' : 'light');
-      }
-    };
-
+    const handleChange = (e) => setSistemaOscuro(e.matches);
     if (mediaQuery.addEventListener) {
       mediaQuery.addEventListener('change', handleChange);
       return () => mediaQuery.removeEventListener('change', handleChange);
     }
   }, []);
 
-  const setTema = (nuevoTema) => {
-    setTemaState(nuevoTema);
-    localStorage.setItem(STORAGE_KEY, nuevoTema);
+  const setModo = (nuevo) => {
+    const m = ['claro', 'oscuro', 'auto'].includes(nuevo) ? nuevo : 'auto';
+    setModoState(m);
+    try {
+      if (m === 'auto') localStorage.removeItem(STORAGE_KEY);
+      else localStorage.setItem(STORAGE_KEY, m === 'oscuro' ? 'dark' : 'light');
+    } catch { /* sin almacenamiento local: el modo vale solo para esta sesión */ }
   };
 
-  const alternarTema = () => {
-    const siguiente = tema === 'dark' ? 'light' : 'dark';
-    setTema(siguiente);
-  };
-
-  const esOscuro = tema === 'dark';
+  const setTema = (nuevoTema) => setModo(nuevoTema === 'dark' ? 'oscuro' : 'claro');
+  const alternarTema = () => setTema(tema === 'dark' ? 'light' : 'dark');
 
   return (
-    <ThemeContext.Provider value={{ tema, setTema, alternarTema, esOscuro }}>
+    <ThemeContext.Provider value={{ tema, modo, setModo, setTema, alternarTema, esOscuro: tema === 'dark' }}>
       {children}
     </ThemeContext.Provider>
   );

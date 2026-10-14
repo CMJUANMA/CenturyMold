@@ -4,11 +4,12 @@
  * resumen por bloque de horario y línea de tiempo del historial. Las acciones (props.acciones) las pone quien lo usa.
  */
 import { useEffect, useState } from 'react';
-import { AlertTriangle, Bus } from 'lucide-react';
+import { AlertTriangle, Bus, Route } from 'lucide-react';
 import BadgeEstatus from '../../components/BadgeEstatus';
+import InsigniasTE from '../../components/InsigniasTE';
 import { ACCIONES_TE_LABELS } from '../../utils/constantes';
 import { formatoFecha } from '../../utils/asignaciones';
-import { calcularHoras, etiquetaBloque, firmaTexto, quienDevolvio, resumenTE, textoRuta } from '../../utils/tiempoExtra';
+import { calcularHoras, esExtension, etiquetaBloque, firmaTexto, quienDevolvio, resumenTE, textoRuta, textoRutas } from '../../utils/tiempoExtra';
 import { leerTransporteDeTE } from '../../utils/tiempoExtraDb';
 
 const fechaHora = (f) => (f?.toDate ? f.toDate().toLocaleString('es-MX') : '');
@@ -66,7 +67,7 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
       {t.estatus === 'cancelada' && t.motivoCancelacion && <p className="rounded-md bg-[var(--bg-surface-secondary)] p-3 text-[var(--text-secondary)]">Motivo de la cancelación{t.canceladaPor ? ` (RH, ${nombre(t.canceladaPor.nombre)})` : ''}: {t.motivoCancelacion}</p>}
 
       <dl className="grid grid-cols-2 gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-4 sm:grid-cols-4">
-        {[['Estatus', <BadgeEstatus key="e" estatus={t.estatus} modulo="te" />], ['Área', area], ['Solicitante', nombre(t.creadoPorNombre ?? '—')],
+        {[['Estatus', <span key="e" className="flex flex-wrap items-center gap-1"><BadgeEstatus estatus={t.estatus} modulo="te" /><InsigniasTE t={t} /></span>], ['Tipo', esExtension(t) ? 'Extensión de turno' : 'Turno extra / día extra'], ['Área', area], ['Solicitante', nombre(t.creadoPorNombre ?? '—')],
           ['Fecha', t.fechaTE ? formatoFecha(`${t.fechaTE}T12:00:00`) : '—'], ['Motivo', t.motivo || '—'],
           ['Empleados', t.resumen?.totalEmpleados ?? 0], ['Horas', t.resumen?.totalHoras ?? 0], ['Con transporte', t.resumen?.totalTransporte ?? 0],
           ['Con alimentos', t.resumen?.totalAlimentos ?? 0], ['Firmó nivel 1', firmaTexto(t.aut1, nombre) || '—'], ['Firmó nivel 2', firmaTexto(t.aut2, nombre) || '—'],
@@ -83,6 +84,24 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
       )}
 
       <TransporteDeTE t={t} />
+
+      {(t.desgloseRutas?.length ?? 0) > 0 && (
+        <section aria-label="Rutas" className={`rounded-lg border p-4 ${t.rutasDistintas > 1 ? 'border-2 border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] text-[var(--status-warning-text)]' : 'border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-main)]'}`}>
+          <h3 className="flex items-center gap-2 text-sm font-bold"><Route className="h-4 w-4" />{textoRutas(t.desgloseRutas)}</h3>
+          <ul className="mt-2 space-y-0.5">
+            {t.desgloseRutas.map(g => (
+              <li key={g.rutaId}><b>{g.nombre}</b>: {g.empleados} {g.empleados === 1 ? 'empleado' : 'empleados'} ({g.llegada} de llegada · {g.salida} de salida)</li>
+            ))}
+          </ul>
+          {t.rutasDistintas > 1 && (
+            <div className="mt-3 rounded-md border border-[var(--status-warning-border)] bg-[var(--bg-surface)] p-3 text-[var(--text-main)]">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--status-warning-text)]">¿Por qué se necesita más de una ruta?</p>
+              <p className="mt-1 text-sm">{t.justificacionRutas || 'Sin justificación.'}</p>
+              <p className="mt-2 text-[11px] text-[var(--status-warning-text)]">Cada ruta adicional representa un costo extra. Los autorizadores decidirán si se aprueba.</p>
+            </div>
+          )}
+        </section>
+      )}
 
       <section aria-label="Horarios">
         <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Empleados por horario</h3>

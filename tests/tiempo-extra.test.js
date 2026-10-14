@@ -49,7 +49,7 @@ describe('ids, folios y lotes', () => {
 describe('empleado ↔ documento', () => {
   it('el documento solo trae campos permitidos y las horas calculadas', () => {
     const d = empleadoADoc(emp('1', { alimentos: true }));
-    expect(Object.keys(d).sort()).toEqual(['comunidadId', 'horaEntrada', 'horaSalida', 'horas', 'nombre', 'puesto', 'puntoReunionId', 'requiereAlimentos', 'requiereTransporte', 'rutaId', 'turnoNomina'].sort());
+    expect(Object.keys(d).sort()).toEqual(['comunidadId', 'horaEntrada', 'horaSalida', 'horas', 'nombre', 'puesto', 'puntoReunionId', 'requiereAlimentos', 'requiereTransporte', 'rutaId', 'transporteLlegada', 'transporteSalida', 'turnoNomina'].sort());
     expect(d).toMatchObject({ horas: 8, requiereAlimentos: true, requiereTransporte: true, rutaId: 'r1' });
   });
   it('sin transporte no guarda ruta', () => {
@@ -189,7 +189,7 @@ describe('Excel de la consulta', () => {
     expect(wb.worksheets.map(w => w.name)).toEqual(['Resumen', 'Detalle']);
     const r = wb.getWorksheet('Resumen');
     expect(r.getRow(2).values.slice(1)).toEqual(['Calidad', 'Autorizada', 1, 1, 9]);
-    expect(r.getRow(3).values.slice(1)).toEqual(['Moldes', 'Pendiente de Aut. 1', 1, 1, 9]);
+    expect(r.getRow(3).values.slice(1)).toEqual(['Moldes', 'En autorización (nivel 1)', 1, 1, 9]);
     expect(r.getRow(4).values.slice(1)).toEqual(['Moldes', 'Autorizada', 1, 2, 18]);
     expect(r.getRow(5).values.slice(1)).toEqual(['TOTAL', '', 3, 4, 36]);
     const d = wb.getWorksheet('Detalle');

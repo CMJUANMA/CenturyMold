@@ -5,6 +5,7 @@
  * En la recepción no se editan empleados: si algo está mal, RH devuelve con motivo. También baja el Excel de tiempo extra.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Clock, Download, Inbox, Loader2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useAreas } from '../../hooks/useAreas';
@@ -12,6 +13,9 @@ import { useCatalogos } from '../../hooks/useCatalogos';
 import { useConfirmar } from '../../hooks/useConfirmar';
 import { useRecepcion } from '../../hooks/useRecepcion';
 import { useToast } from '../../hooks/useToast';
+import Ayuda from '../../components/Ayuda';
+import AyudaPantalla from '../../components/AyudaPantalla';
+import InsigniasTE from '../../components/InsigniasTE';
 import Modal from '../../components/Modal';
 import Spinner from '../../components/Spinner';
 import { formatoFecha } from '../../utils/asignaciones';
@@ -93,15 +97,22 @@ export default function RecepcionTE() {
       <header className="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--border-color)] pb-4">
         <div>
           <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Tiempo extra · Recursos Humanos</div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Recepción</h1>
+          <div className="mt-1 flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">Recepción</h1>
+            <AyudaPantalla id="recepcion" />
+          </div>
           <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
             {totalPendientes === 0 ? 'No hay tiempo extra autorizado por recibir.' : `${totalPendientes} autorizadas por recibir, la fecha más próxima primero. Se actualiza sola.`}
           </p>
         </div>
-        <button type="button" id="btn-descargar-te-recepcion" onClick={() => setDescarga(true)}
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-4 py-2 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]">
-          <Download className="h-4 w-4" />Descargar tiempo extra
-        </button>
+        <div className="max-w-xs">
+          <button type="button" id="btn-descargar-te-recepcion" onClick={() => setDescarga(true)}
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-4 py-2 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]">
+            <Download className="h-4 w-4" />Descargar tiempo extra
+          </button>
+          <Ayuda clave="descarga.tiempoExtra" />
+          <p className="mt-1 text-[11px] text-[var(--text-secondary)]">El Excel para el proveedor de transporte (formato de rutas) está en <Link to="/rutas/rh/solicitudes" className="font-semibold text-[var(--cm-red)] hover:underline">Todas las solicitudes</Link>.</p>
+        </div>
       </header>
 
       {error && <p role="alert" className="flex items-center gap-2 text-xs text-[var(--status-error-text)]"><AlertTriangle className="h-4 w-4" />No se pudo leer la recepción: {error.message}</p>}
@@ -112,6 +123,7 @@ export default function RecepcionTE() {
         </div>
       )}
 
+      {porFecha.length > 0 && <Ayuda clave="recepcion.fecha" />}
       {porFecha.map(({ fecha, items }) => (
         <section key={fecha} aria-label={`Fecha ${fechaLarga(fecha)}`} className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -134,7 +146,7 @@ export default function RecepcionTE() {
               <tbody className="divide-y divide-[var(--border-subtle)]">
                 {items.map(t => (
                   <tr key={t.id} className="hover:bg-[var(--bg-surface-secondary)]">
-                    <td className="px-3 py-2.5 font-mono font-semibold text-[var(--text-main)]">{t.folio}</td>
+                    <td className="px-3 py-2.5 font-mono font-semibold text-[var(--text-main)]">{t.folio}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></td>
                     <td className="px-3 py-2.5">{nombreArea(t.areaId)}</td>
                     <td className="px-3 py-2.5">{formato.nombre(t.creadoPorNombre)}</td>
                     <td className="px-3 py-2.5 text-right">{t.resumen?.totalEmpleados ?? 0}</td>
@@ -156,6 +168,7 @@ export default function RecepcionTE() {
               <li key={t.id} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 shadow-sm">
                 <p className="font-mono text-sm font-bold text-[var(--text-main)]">{t.folio}</p>
                 <p className="text-xs text-[var(--text-secondary)]">{nombreArea(t.areaId)} · {formato.nombre(t.creadoPorNombre)}</p>
+                <InsigniasTE t={t} className="mt-1" />
                 <p className="mt-1 text-xs text-[var(--text-secondary)]"><b>{t.resumen?.totalEmpleados ?? 0}</b> empleados · <b>{t.resumen?.totalHoras ?? 0}</b> h · <b>{t.resumen?.totalTransporte ?? 0}</b> con transporte · <b>{t.resumen?.totalAlimentos ?? 0}</b> con alimentos</p>
                 <p className="mt-1 text-[11px] text-[var(--text-muted)]">Aut. 1: {firmaTexto(t.aut1, (x) => formato.nombre(x)) || '—'} · Aut. 2: {firmaTexto(t.aut2, (x) => formato.nombre(x)) || '—'}</p>
                 <button type="button" onClick={() => abrir(t)} className={`${boton} mt-3 w-full border border-[var(--border-color)] text-[var(--text-main)]`}>Revisar y recibir</button>
@@ -169,7 +182,12 @@ export default function RecepcionTE() {
         <Modal isOpen onClose={() => trabajando !== 'detalle' && setDetalle(null)} title={detalle.solicitud.folio ?? 'Solicitud'} maxWidth="max-w-4xl" preventCloseOnBackdrop={trabajando === 'detalle'}>
           {detalle.cargando ? <div className="flex items-center gap-2 py-8 text-xs text-[var(--text-muted)]"><Loader2 className="h-4 w-4 animate-spin" />Cargando…</div> : (
             <DetalleTE t={detalle.solicitud} historial={detalle.historial} area={nombreArea(detalle.solicitud.areaId)} catalogos={catalogos} formato={formato}
-              acciones={<AccionesRH t={detalle.solicitud} acciones={['cancelar', 'devolver', 'recibir']} onHecho={() => setDetalle(null)} onTrabajando={enDetalle} />} />
+              acciones={(
+                <>
+                  <div className="w-full"><Ayuda clave="recepcion.recibir" className="!mt-0" /><Ayuda clave="recepcion.devolver" /></div>
+                  <AccionesRH t={detalle.solicitud} acciones={['cancelar', 'devolver', 'recibir']} onHecho={() => setDetalle(null)} onTrabajando={enDetalle} />
+                </>
+              )} />
           )}
         </Modal>
       )}

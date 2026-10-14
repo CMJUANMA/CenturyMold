@@ -1,20 +1,27 @@
 /**
  * FilaEmpleadoTE.jsx — Un empleado del tiempo extra. En escritorio es una fila compacta (datos · entrada · salida · horas ·
- * alimentos · transporte); en celular se vuelve una tarjeta. Con Transporte marcado (por defecto) pide ruta → comunidad → punto
- * en cascada, precargados del padrón con confirmación (igual que el formulario de rutas); al guardar se recuerdan en el padrón.
+ * alimentos · transporte); en celular se vuelve una tarjeta.
+ *
+ * Turno extra: entrada y salida en los bloques de horario; transporte de Llegada y de Salida, las dos marcadas por defecto.
+ * Extensión de turno (el empleado ya está en la planta): el tiempo extra empieza cuando termina su turno normal (según su turno de nómina;
+ * si RH aún no lo configura, se elige a mano) y se elige hasta qué hora se queda; solo lleva transporte de Salida.
+ * Con transporte pide ruta → comunidad → punto en cascada, precargados del padrón con confirmación (igual que el formulario de rutas);
+ * al guardar se recuerdan en el padrón.
  */
 import { AlertCircle, CheckCircle2, MapPin, Trash2 } from 'lucide-react';
 import { opcionesVigentes } from '../../utils/activo';
-import { HORAS_ENTRADA_TE, HORAS_SALIDA_TE, calcularHoras } from '../../utils/tiempoExtra';
+import { HORAS_ENTRADA_TE, HORAS_SALIDA_TE, TIPOS_TE, calcularHoras, salidasPosteriores } from '../../utils/tiempoExtra';
 
 const sel = 'w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1.5 text-xs text-[var(--text-main)] focus:border-[var(--cm-red)] focus:outline-none disabled:opacity-50';
 const etiqueta = 'mb-0.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] lg:hidden';
-export const COLUMNAS_FILA = 'lg:grid lg:grid-cols-[1.5rem_minmax(0,2.2fr)_7rem_7rem_4rem_5.5rem_6rem_2rem] lg:items-center lg:gap-3';
+export const COLUMNAS_FILA = 'lg:grid lg:grid-cols-[1.5rem_minmax(0,2.2fr)_7rem_7rem_4rem_5.5rem_8rem_2rem] lg:items-center lg:gap-3';
 
-export default function FilaEmpleadoTE({ e, rutas, comunidades, puntos, seleccionado, aviso, error, onSeleccionar, onCambio, onQuitar }) {
+export default function FilaEmpleadoTE({ e, tipo = TIPOS_TE.TURNO_EXTRA, finFijo = false, rutas, comunidades, puntos, seleccionado, aviso, error, onSeleccionar, onCambio, onQuitar }) {
+  const extension = tipo === TIPOS_TE.EXTENSION;
   const horas = calcularHoras(e.horaEntrada, e.horaSalida);
   const pedirConfirmar = e.transporte && e.necesitaConfirmar && !e.confirmada;
   const cambiar = (parche) => onCambio(e.nomina, parche);
+  const posteriores = extension ? salidasPosteriores(e.horaEntrada) : [];
 
   return (
     <div className={`relative rounded-lg border bg-[var(--bg-surface)] p-3 ${error ? 'border-[var(--status-error-border)]' : 'border-[var(--border-color)]'}`}>
@@ -29,15 +36,31 @@ export default function FilaEmpleadoTE({ e, rutas, comunidades, puntos, seleccio
         </div>
         <div className="grid grid-cols-6 items-end gap-2 lg:contents">
           <div className="col-span-3 lg:col-span-1">
-            <label className={etiqueta} htmlFor={`ent-${e.nomina}`}>Entrada</label>
-            <select id={`ent-${e.nomina}`} value={e.horaEntrada} onChange={ev => cambiar({ horaEntrada: ev.target.value })} className={sel} aria-label={`Entrada de ${e.nombre}`}>
-              <option value="">—</option>{HORAS_ENTRADA_TE.map(h => <option key={h} value={h}>{h}</option>)}
-            </select>
+            {extension ? (
+              <>
+                <label className={etiqueta} htmlFor={`ent-${e.nomina}`}>Termina su turno</label>
+                {finFijo ? (
+                  <p id={`ent-${e.nomina}`} className="py-1.5 text-xs font-semibold text-[var(--text-main)]" aria-label={`Su turno termina a las ${e.horaEntrada} (${e.nombre})`}>{e.horaEntrada || '—'}</p>
+                ) : (
+                  <select id={`ent-${e.nomina}`} value={e.horaEntrada} onChange={ev => cambiar({ horaEntrada: ev.target.value, horaSalida: '' })} className={sel} aria-label={`Fin de turno de ${e.nombre}`}>
+                    <option value="">Fin de turno…</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                )}
+              </>
+            ) : (
+              <>
+                <label className={etiqueta} htmlFor={`ent-${e.nomina}`}>Entrada</label>
+                <select id={`ent-${e.nomina}`} value={e.horaEntrada} onChange={ev => cambiar({ horaEntrada: ev.target.value })} className={sel} aria-label={`Entrada de ${e.nombre}`}>
+                  <option value="">—</option>{HORAS_ENTRADA_TE.map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
+              </>
+            )}
           </div>
           <div className="col-span-3 lg:col-span-1">
-            <label className={etiqueta} htmlFor={`sal-${e.nomina}`}>Salida</label>
-            <select id={`sal-${e.nomina}`} value={e.horaSalida} onChange={ev => cambiar({ horaSalida: ev.target.value })} className={sel} aria-label={`Salida de ${e.nombre}`}>
-              <option value="">—</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{h}</option>)}
+            <label className={etiqueta} htmlFor={`sal-${e.nomina}`}>{extension ? 'Se queda hasta' : 'Salida'}</label>
+            <select id={`sal-${e.nomina}`} value={e.horaSalida} onChange={ev => cambiar({ horaSalida: ev.target.value })} className={sel} aria-label={`${extension ? 'Hora hasta la que se queda' : 'Salida de'} ${e.nombre}`}
+              disabled={extension && posteriores.length === 0}>
+              <option value="">—</option>{(extension ? posteriores : HORAS_SALIDA_TE).map(h => <option key={h} value={h}>{h}</option>)}
             </select>
           </div>
           <div className="col-span-2 lg:col-span-1">
@@ -47,10 +70,17 @@ export default function FilaEmpleadoTE({ e, rutas, comunidades, puntos, seleccio
           <label className="col-span-2 flex cursor-pointer items-center gap-1.5 pb-1.5 text-xs text-[var(--text-main)] lg:col-span-1 lg:justify-center lg:pb-0">
             <input type="checkbox" checked={e.alimentos} onChange={ev => cambiar({ alimentos: ev.target.checked })} className="h-3.5 w-3.5 accent-[var(--cm-red)]" />Alimentos
           </label>
-          <label className="col-span-2 flex cursor-pointer items-center gap-1.5 pb-1.5 text-xs text-[var(--text-main)] lg:col-span-1 lg:justify-center lg:pb-0">
-            <input type="checkbox" checked={e.transporte} onChange={ev => cambiar(ev.target.checked ? { transporte: true } : { transporte: false, necesitaConfirmar: false, confirmada: false })}
-              className="h-3.5 w-3.5 accent-[var(--cm-red)]" />Transporte
-          </label>
+          <div className="col-span-2 flex flex-col gap-1 pb-1.5 text-xs text-[var(--text-main)] lg:col-span-1 lg:pb-0">
+            <label className={`flex items-center gap-1.5 ${extension ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+              <input type="checkbox" checked={!!e.transporteLlegada} disabled={extension} aria-label={`Transporte de llegada de ${e.nombre}`}
+                onChange={ev => cambiar({ transporteLlegada: ev.target.checked })} className="h-3.5 w-3.5 accent-[var(--cm-red)]" />Llegada
+            </label>
+            <label className="flex cursor-pointer items-center gap-1.5">
+              <input type="checkbox" checked={!!e.transporteSalida} aria-label={`Transporte de salida de ${e.nombre}`}
+                onChange={ev => cambiar({ transporteSalida: ev.target.checked })} className="h-3.5 w-3.5 accent-[var(--cm-red)]" />Salida
+            </label>
+            {extension && <span className="text-[10px] leading-tight text-[var(--text-muted)]">Ya se encuentra en la planta</span>}
+          </div>
         </div>
         <button type="button" onClick={() => onQuitar(e.nomina)} aria-label={`Quitar a ${e.nombre}`}
           className="absolute right-2 top-2 cursor-pointer rounded-md p-1.5 lg:static lg:justify-self-end text-[var(--status-error-text)] hover:bg-[var(--status-error-bg)]"><Trash2 className="h-4 w-4" /></button>

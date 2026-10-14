@@ -13,6 +13,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   Filter, CheckCircle2, XCircle, Loader2, Eye, FileDown, Undo2, Edit, AlertTriangle,
 } from 'lucide-react';
+import Ayuda from '../../components/Ayuda';
 import Modal from '../../components/Modal';
 import BadgeEstatus from '../../components/BadgeEstatus';
 import { toDate, fmtFecha, fmtFechaHora, ymd, sumarDias, rangoSemana } from '../../utils/fechas';
@@ -357,9 +358,12 @@ export default function RhSolicitudes() {
         <input type="search" value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar..." className={inputCls} />
         <div className="ml-auto flex items-center gap-2">
           <span className="font-semibold text-[var(--text-main)]">{filtradas.length} solicitudes</span>
-          <button type="button" onClick={()=>setModalExportar(true)} className="inline-flex items-center gap-1.5 rounded-md bg-[var(--status-success-text)] px-3 py-1.5 text-white text-xs hover:bg-[var(--status-success-text)] hover:opacity-90 transition-opacity disabled:opacity-50">
-            <FileDown className="h-3.5 w-3.5"/> Exportar
-          </button>
+          <div className="max-w-[15rem]">
+            <button type="button" id="btn-formato-rutas" onClick={()=>setModalExportar(true)} className="inline-flex items-center gap-1.5 rounded-md bg-[var(--status-success-text)] px-3 py-1.5 text-white text-xs hover:bg-[var(--status-success-text)] hover:opacity-90 transition-opacity disabled:opacity-50">
+              <FileDown className="h-3.5 w-3.5"/> Formato de rutas (proveedor)
+            </button>
+            <Ayuda clave="descarga.formatoRutas" />
+          </div>
         </div>
       </div>
 
@@ -424,8 +428,8 @@ export default function RhSolicitudes() {
       <Modal isOpen={modalExportar} onClose={() => setModalExportar(false)} title="" maxWidth="max-w-md">
         <div className="space-y-5 -mt-2">
           <div>
-            <h3 className="text-lg font-bold text-[var(--text-main)] flex items-center gap-2"><FileDown className="h-5 w-5"/> Exportar solicitudes a Excel</h3>
-            <p className="text-xs text-[var(--text-secondary)] mt-1">Descarga el formato maestro. No depende de los filtros de la tabla.</p>
+            <h3 className="text-lg font-bold text-[var(--text-main)] flex items-center gap-2"><FileDown className="h-5 w-5"/> Formato de rutas (proveedor)</h3>
+            <p className="text-xs text-[var(--text-secondary)] mt-1">Excel para el proveedor de transporte: solo los empleados que llevan transporte. No depende de los filtros de la tabla.</p>
           </div>
           
           <div className="space-y-4">

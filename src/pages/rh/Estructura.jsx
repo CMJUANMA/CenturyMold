@@ -1,6 +1,6 @@
 /**
- * Estructura.jsx — ÁREAS → PUESTOS → EMPLEADOS (solo admin y RH). Tres pestañas: Áreas, Puestos y
- * Excepciones y pendientes. Cada colección se lee por separado y, si falla, se dice cuál y con qué código.
+ * Estructura.jsx — ÁREAS → PUESTOS → EMPLEADOS (solo admin y RH). Pestañas: Áreas, Puestos, Excepciones y pendientes y Turnos
+ * (horario normal de los turnos de nómina A, B y C). Cada colección se lee por separado y, si falla, se dice cuál y con qué código.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Loader2 } from 'lucide-react';
@@ -10,11 +10,13 @@ import { ejecutarEnLotes, leerColeccion } from '../../utils/estructuraDb';
 import TabAreas from './estructura/TabAreas';
 import TabPuestos from './estructura/TabPuestos';
 import TabPendientes from './estructura/TabPendientes';
+import TabTurnos from './estructura/TabTurnos';
 
 const PESTANAS = [
   { id: 'areas', label: 'Áreas' },
   { id: 'puestos', label: 'Puestos' },
   { id: 'pendientes', label: 'Excepciones y pendientes' },
+  { id: 'turnos', label: 'Turnos' },
 ];
 
 export default function Estructura() {
@@ -81,6 +83,7 @@ export default function Estructura() {
           {pestana === 'areas' && <TabAreas {...props} />}
           {pestana === 'puestos' && <TabPuestos {...props} />}
           {pestana === 'pendientes' && <TabPendientes {...props} />}
+          {pestana === 'turnos' && <TabTurnos />}
         </>
       )}
     </div>

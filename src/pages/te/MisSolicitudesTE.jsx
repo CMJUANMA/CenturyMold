@@ -11,7 +11,9 @@ import { useResumenTE } from '../../hooks/useResumenTE';
 import { useAreas } from '../../hooks/useAreas';
 import { useConfirmar } from '../../hooks/useConfirmar';
 import { useToast } from '../../hooks/useToast';
+import AyudaPantalla from '../../components/AyudaPantalla';
 import BadgeEstatus from '../../components/BadgeEstatus';
+import InsigniasTE from '../../components/InsigniasTE';
 import Modal from '../../components/Modal';
 import Spinner from '../../components/Spinner';
 import { formatoFecha } from '../../utils/asignaciones';
@@ -89,7 +91,10 @@ export default function MisSolicitudesTE() {
       <header className="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--border-color)] pb-4">
         <div>
           <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Tiempo extra</div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Mis solicitudes</h1>
+          <div className="mt-1 flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">Mis solicitudes</h1>
+            <AyudaPantalla id="misSolicitudes" />
+          </div>
         </div>
         <Link to="/tiempo-extra/nueva" className="inline-flex items-center gap-1.5 rounded-md bg-[var(--cm-red)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--cm-red-hover)]"><FilePlus className="h-3.5 w-3.5" />Solicitar tiempo extra</Link>
       </header>
@@ -124,7 +129,7 @@ export default function MisSolicitudesTE() {
                 <tr><td colSpan={9} className="py-10 text-center text-[var(--text-muted)]">No hay solicitudes en "{activa.label}".</td></tr>
               ) : lista.map(t => (
                 <tr key={t.id} className="hover:bg-[var(--bg-surface-secondary)]">
-                  <td className="px-4 py-2.5 font-mono font-semibold text-[var(--text-main)]">{t.folio ?? <span className="font-sans font-normal italic text-[var(--text-muted)]">Borrador</span>}</td>
+                  <td className="px-4 py-2.5 font-mono font-semibold text-[var(--text-main)]">{t.folio ?? <span className="font-sans font-normal italic text-[var(--text-muted)]">Borrador</span>}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></td>
                   <td className="px-4 py-2.5">{t.fechaTE ? formatoFecha(`${t.fechaTE}T12:00:00`) : '—'}</td>
                   <td className="px-4 py-2.5">{nombres.get(t.areaId) ?? t.areaNombre ?? t.areaId}</td>
                   <td className="px-4 py-2.5 text-right">{t.resumen?.totalEmpleados ?? 0}</td>

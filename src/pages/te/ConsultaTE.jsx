@@ -13,7 +13,10 @@ import { useAreas } from '../../hooks/useAreas';
 import { useCatalogos } from '../../hooks/useCatalogos';
 import { useResumenTE } from '../../hooks/useResumenTE';
 import { useToast } from '../../hooks/useToast';
+import Ayuda from '../../components/Ayuda';
+import AyudaPantalla from '../../components/AyudaPantalla';
 import BadgeEstatus from '../../components/BadgeEstatus';
+import InsigniasTE from '../../components/InsigniasTE';
 import Modal from '../../components/Modal';
 import Spinner from '../../components/Spinner';
 import { ESTATUS_TE_MAP } from '../../utils/constantes';
@@ -112,21 +115,30 @@ export default function ConsultaTE() {
       <header className="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--border-color)] pb-4">
         <div>
           <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Tiempo extra</div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Consulta de solicitudes</h1>
+          <div className="mt-1 flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">Consulta de solicitudes</h1>
+            <AyudaPantalla id="consulta" />
+          </div>
           <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Todas las solicitudes enviadas (los borradores solo los ve su creador).</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-start gap-4">
           {esRH && (
+            <div className="max-w-[16rem]">
             <button type="button" id="btn-descargar-te-consulta" onClick={() => setDescarga(true)}
               className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-4 py-2 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]">
               <FileSpreadsheet className="h-4 w-4" />Descargar tiempo extra
             </button>
+            <Ayuda clave="descarga.tiempoExtra" />
+            </div>
           )}
+          <div className="max-w-[16rem]">
           <button type="button" id="btn-exportar-consulta" onClick={exportar} disabled={!!exportando || filtradas.length === 0}
             className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-4 py-2 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] disabled:opacity-50">
             {exportando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            {exportando ? `Leyendo empleados ${exportando.hechos}/${exportando.total}…` : `Exportar a Excel (${filtradas.length})`}
+            {exportando ? `Leyendo empleados ${exportando.hechos}/${exportando.total}…` : `Exportar consulta (${filtradas.length})`}
           </button>
+          <Ayuda>Lista de las solicitudes que ves en pantalla (con los filtros), con su estatus y quién firmó. No es el reporte de nómina.</Ayuda>
+          </div>
         </div>
       </header>
 
@@ -174,7 +186,7 @@ export default function ConsultaTE() {
           <tbody className="divide-y divide-[var(--border-subtle)]">
             {filtradas.length === 0 ? <tr><td colSpan={8} className="py-10 text-center text-[var(--text-muted)]">No hay solicitudes con esos filtros.</td></tr> : filtradas.map(t => (
               <tr key={t.id} className="hover:bg-[var(--bg-surface-secondary)]">
-                <td className="px-3 py-2.5 font-mono font-semibold">{t.folio ?? '—'}</td><td className="px-3 py-2.5">{nombreArea(t.areaId)}</td><td className="px-3 py-2.5">{formato.nombre(t.creadoPorNombre ?? '')}</td>
+                <td className="px-3 py-2.5 font-mono font-semibold">{t.folio ?? '—'}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></td><td className="px-3 py-2.5">{nombreArea(t.areaId)}</td><td className="px-3 py-2.5">{formato.nombre(t.creadoPorNombre ?? '')}</td>
                 <td className="px-3 py-2.5 whitespace-nowrap">{formatoFecha(`${t.fechaTE}T12:00:00`)}</td><td className="px-3 py-2.5 text-right">{t.resumen?.totalEmpleados ?? 0}</td><td className="px-3 py-2.5 text-right">{t.resumen?.totalHoras ?? 0}</td>
                 <td className="px-3 py-2.5"><BadgeEstatus estatus={t.estatus} modulo="te" /></td>
                 <td className="px-3 py-2.5 text-right"><button type="button" onClick={() => abrir(t)} className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-[var(--border-color)] px-2.5 py-1.5 text-xs font-semibold hover:bg-[var(--bg-surface-hover)]" aria-label={`Ver ${t.folio}`}><Eye className="h-3 w-3" />Ver</button></td>

@@ -205,8 +205,8 @@ describe('Excel de tiempo extra para RH', () => {
   it('Detalle: una fila por empleado con horas, ruta, solicitante, quién firmó y la fecha de autorización', () => {
     const wb = construirLibroTiempoExtra({ ExcelJS, solicitudes: sols, nombresArea, catalogos, filtros: { areaId: 'moldes' } });
     const d = wb.getWorksheet('Detalle');
-    expect(valores(d.getRow(5))).toEqual(['TE-2026-0001', '20/10/2026', 'Moldes', '1', 'EMPLEADO 1', 'OPERADOR', 'A', '7:00', '16:00', 9, 'Sí', 'Sí', 'Norte · Pueblito · Plaza', 'OSCAR PEREZ', 'ANSELMO', 'ADMIN (RH)', '15/10/2026 14:30']);
-    expect(valores(d.getRow(7))).toEqual(['TE-2026-0002', '21/10/2026', 'Moldes', '1', 'EMPLEADO 1', 'OPERADOR', 'A', '16:00', '0:00', 8, 'Sí', 'No', '', 'OSCAR PEREZ', '', '', '']);
+    expect(valores(d.getRow(5))).toEqual(['TE-2026-0001', '20/10/2026', 'Moldes', 'Turno extra', '1', 'EMPLEADO 1', 'OPERADOR', 'A', '7:00', '16:00', 9, 'Sí', 'Sí', 'llegada y salida', 'Norte · Pueblito · Plaza', 'OSCAR PEREZ', 'ANSELMO', 'ADMIN (RH)', '15/10/2026 14:30']);
+    expect(valores(d.getRow(7))).toEqual(['TE-2026-0002', '21/10/2026', 'Moldes', 'Turno extra', '1', 'EMPLEADO 1', 'OPERADOR', 'A', '16:00', '0:00', 8, 'Sí', 'No', '', '', 'OSCAR PEREZ', '', '', '']);
     expect(d.rowCount).toBe(7); // título, subtítulo, vacía, encabezado y 3 empleados
   });
 

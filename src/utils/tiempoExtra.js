@@ -3,6 +3,7 @@
  * Empleado del editor ↔ documento tiempoExtra/{id}/empleados/{nómina}, horas, validaciones, resumen y lotes.
  */
 import { MAX_PASAJEROS, resumenPasajeros } from './solicitudes.js';
+import { rangoSemana } from './fechas.js';
 
 /** Estatus que pueden leer los autorizadores y RH (todos menos borrador: ese solo lo ve su creador) */
 export const ESTATUS_TE_VISIBLES = ['pendiente_aut1', 'pendiente_aut2', 'autorizada', 'devuelta', 'procesada', 'cancelada'];
@@ -30,6 +31,34 @@ export function calcularHoras(entrada, salida) {
   return Math.round((diff / 60) * 100) / 100;
 }
 
+// ── Tipo de tiempo extra: turno extra (viene a la planta) o extensión de turno (ya está en la planta) ──
+
+export const TIPOS_TE = { TURNO_EXTRA: 'turno_extra', EXTENSION: 'extension' };
+export const TIPOS_TE_INFO = [
+  { value: TIPOS_TE.TURNO_EXTRA, label: 'Turno extra / día extra' },
+  { value: TIPOS_TE.EXTENSION, label: 'Extensión de turno' },
+];
+export const MIN_JUSTIFICACION_RUTAS = 15;
+export const esExtension = (t) => t?.tipo === TIPOS_TE.EXTENSION;
+export const normalizarTipo = (tipo) => (tipo === TIPOS_TE.EXTENSION ? TIPOS_TE.EXTENSION : TIPOS_TE.TURNO_EXTRA);
+
+/** Horas en que terminan los bloques de horario, en orden (el último, 7:00, es el de la mañana siguiente) */
+const SECUENCIA_BLOQUES = ['7:00', '16:00', '19:00', '0:00', '7:00'];
+
+/**
+ * Horas de salida posibles de una extensión que EMPIEZA a la hora en que termina el turno normal del empleado: los bloques de salida
+ * posteriores. 16:00 → 19:00, 0:00, 7:00 · 19:00 → 0:00, 7:00 · 0:00 → 7:00 · 7:00 → 16:00, 19:00, 0:00.
+ */
+export function salidasPosteriores(inicio) {
+  const m = minutos(inicio);
+  if (m === null) return [];
+  const i = SECUENCIA_BLOQUES.slice(0, 4).findIndex(h => minutos(h) === m);
+  return i < 0 ? [] : SECUENCIA_BLOQUES.slice(i + 1).filter(h => calcularHoras(inicio, h) > 0);
+}
+
+/** Hora en que termina el turno normal de un empleado según la configuración de turnos de nómina ({ A: { entrada, salida }, … }); '' si falta */
+export const finDeTurno = (turnoNomina, turnos = {}) => turnos[String(turnoNomina ?? '').trim().toUpperCase()]?.salida || '';
+
 export const etiquetaBloque = (e) => (e?.horaEntrada && e?.horaSalida ? `${e.horaEntrada} → ${e.horaSalida}` : 'Sin horario');
 
 /** Id de un borrador nuevo (BR- + 12 caracteres): lo piden las reglas; el folio se asigna hasta enviarlo */
@@ -47,12 +76,26 @@ export function trozos(lista, n = LOTE_EMPLEADOS) {
   return salida;
 }
 
-/** Empleado del editor a partir de un registro del padrón. Si el padrón trae ruta completa y vigente, pide confirmarla */
-export function empleadoDesdePadron(emp, ruta) {
+/** ¿Lleva transporte de llegada o de salida? */
+export const llevaTransporte = (e) => !!(e.transporteLlegada || e.transporteSalida);
+/** 'ambos' | 'llegada' | 'salida' | '' */
+export const sentidoDe = (e) => (e.transporteLlegada && e.transporteSalida ? 'ambos' : e.transporteLlegada ? 'llegada' : e.transporteSalida ? 'salida' : '');
+export const TEXTO_SENTIDO = { ambos: 'llegada y salida', llegada: 'solo llegada', salida: 'solo salida', '': 'sin transporte' };
+/** Recalcula `transporte` (el derivado) después de cambiar alguno de los dos sentidos */
+export const conTransporte = (e) => ({ ...e, transporte: llevaTransporte(e) });
+
+/**
+ * Empleado del editor a partir de un registro del padrón. Si el padrón trae ruta completa y vigente, pide confirmarla.
+ * Turno extra: transporte de llegada y de salida marcados. Extensión: solo salida, y la hora en que empieza (fin de su turno normal)
+ * sale de la configuración de turnos (si falta, se pide a mano).
+ */
+export function empleadoDesdePadron(emp, ruta, { tipo = TIPOS_TE.TURNO_EXTRA, turnos = {} } = {}) {
   const completa = !!(ruta?.rutaId && ruta?.comunidadId && ruta?.puntoReunionId);
+  const extension = tipo === TIPOS_TE.EXTENSION;
   return {
     nomina: String(emp.nomina), nombre: emp.nombre ?? '', puesto: emp.puesto ?? '', turnoNomina: emp.turnoNomina ?? '',
-    horaEntrada: '', horaSalida: '', alimentos: false, transporte: true,
+    horaEntrada: extension ? finDeTurno(emp.turnoNomina, turnos) : '', horaSalida: '', alimentos: false,
+    transporteLlegada: !extension, transporteSalida: true, transporte: true,
     rutaId: ruta?.rutaId ?? '', comunidadId: ruta?.comunidadId ?? '', puntoReunionId: ruta?.puntoReunionId ?? '',
     necesitaConfirmar: completa, confirmada: false,
   };
@@ -60,19 +103,27 @@ export function empleadoDesdePadron(emp, ruta) {
 
 /** Documento tiempoExtra/{id}/empleados/{nómina} (solo los campos que permiten las reglas) */
 export function empleadoADoc(e) {
-  const transporte = !!e.transporte;
+  const transporteLlegada = !!(e.transporteLlegada ?? e.transporte);
+  const transporteSalida = !!(e.transporteSalida ?? e.transporte);
+  const transporte = transporteLlegada || transporteSalida;
   return {
     nombre: e.nombre, puesto: e.puesto ?? '', turnoNomina: e.turnoNomina ?? '', horaEntrada: e.horaEntrada ?? '', horaSalida: e.horaSalida ?? '',
     horas: calcularHoras(e.horaEntrada, e.horaSalida), requiereAlimentos: !!e.alimentos, requiereTransporte: transporte,
+    transporteLlegada: transporte && transporteLlegada, transporteSalida: transporte && transporteSalida,
     rutaId: transporte ? (e.rutaId ?? '') : '', comunidadId: transporte ? (e.comunidadId ?? '') : '', puntoReunionId: transporte ? (e.puntoReunionId ?? '') : '',
   };
 }
 
 /** Empleado del editor a partir de su documento guardado (la ruta guardada ya se confirmó) */
 export function docAEmpleado(nomina, d) {
+  // Los documentos anteriores solo traen requiereTransporte: valía para llegada y salida
+  const antiguo = d.requiereTransporte !== false;
+  const transporteLlegada = d.transporteLlegada ?? antiguo;
+  const transporteSalida = d.transporteSalida ?? antiguo;
   return {
     nomina: String(nomina), nombre: d.nombre ?? '', puesto: d.puesto ?? '', turnoNomina: d.turnoNomina ?? '',
-    horaEntrada: d.horaEntrada ?? '', horaSalida: d.horaSalida ?? '', alimentos: !!d.requiereAlimentos, transporte: d.requiereTransporte !== false,
+    horaEntrada: d.horaEntrada ?? '', horaSalida: d.horaSalida ?? '', alimentos: !!d.requiereAlimentos,
+    transporteLlegada, transporteSalida, transporte: transporteLlegada || transporteSalida,
     rutaId: d.rutaId ?? '', comunidadId: d.comunidadId ?? '', puntoReunionId: d.puntoReunionId ?? '', necesitaConfirmar: false, confirmada: true,
   };
 }
@@ -81,6 +132,37 @@ export function docAEmpleado(nomina, d) {
 export const transporteCompleto = (e) => !e.transporte || (!!e.rutaId && !!e.comunidadId && !!e.puntoReunionId && (!e.necesitaConfirmar || e.confirmada));
 
 /** Totales de la solicitud (el "resumen" que se guarda en la solicitud) */
+/**
+ * Rutas distintas de los empleados que llevan transporte (llegada o salida) y su desglose: por cada ruta, cuántos empleados y cuántos
+ * de llegada y de salida. Cada ruta adicional representa un costo extra para la planta. `nombreRuta`: id → nombre.
+ * @returns {{ rutasDistintas: number, desglose: {rutaId, nombre, empleados, llegada, salida}[] }}
+ */
+export function resumenRutas(empleados, nombreRuta = (id) => id) {
+  const mapa = new Map();
+  for (const e of empleados) {
+    if (!e.transporte || !e.rutaId) continue;
+    const g = mapa.get(e.rutaId) ?? { rutaId: e.rutaId, nombre: nombreRuta(e.rutaId) || e.rutaId, empleados: 0, llegada: 0, salida: 0 };
+    g.empleados++;
+    if (e.transporteLlegada ?? e.transporte) g.llegada++;
+    if (e.transporteSalida ?? e.transporte) g.salida++;
+    mapa.set(e.rutaId, g);
+  }
+  const desglose = [...mapa.values()].sort((a, b) => b.empleados - a.empleados || String(a.nombre).localeCompare(String(b.nombre), 'es'));
+  return { rutasDistintas: desglose.length, desglose };
+}
+
+/** "Esta solicitud usa 3 rutas: LA LIRA (2), LOS HÉROES (1), SAN CLEMENTE (1)" ('' si ninguna lleva transporte) */
+export function textoRutas(desglose = []) {
+  if (!desglose.length) return '';
+  return `Esta solicitud usa ${desglose.length} ${desglose.length === 1 ? 'ruta' : 'rutas'}: ${desglose.map(g => `${g.nombre} (${g.empleados})`).join(', ')}`;
+}
+
+/** Campos que se guardan en la solicitud: tipo, rutasDistintas, desgloseRutas y la justificación (solo si hay más de una ruta) */
+export function datosTE({ tipo, empleados, justificacionRutas = '', nombreRuta }) {
+  const { rutasDistintas, desglose } = resumenRutas(empleados, nombreRuta);
+  return { tipo: normalizarTipo(tipo), rutasDistintas, desgloseRutas: desglose, justificacionRutas: rutasDistintas > 1 ? String(justificacionRutas).trim() : '' };
+}
+
 export function resumenTE(empleados) {
   const porBloque = {};
   let horas = 0, transporte = 0, alimentos = 0;
@@ -99,7 +181,7 @@ export function resumenTE(empleados) {
  * Los errores bloquean el envío; los avisos (otro tiempo extra el mismo día) no.
  * @param {object} p { fechaTE, motivo, comentario, empleados, hoy ('AAAA-MM-DD'), ocupados: Map nómina → { folio, estatus } }
  */
-export function problemasDeEnvio({ areaId, fechaTE, motivo, comentario, empleados, hoy, ocupados = new Map() }) {
+export function problemasDeEnvio({ areaId, fechaTE, motivo, comentario, empleados, hoy, ocupados = new Map(), tipo = TIPOS_TE.TURNO_EXTRA, justificacionRutas = '' }) {
   const p = [];
   const error = (mensaje, nomina) => p.push({ nivel: 'error', mensaje, nomina });
   if (!areaId) error('Elige el área.');
@@ -113,12 +195,20 @@ export function problemasDeEnvio({ areaId, fechaTE, motivo, comentario, empleado
   for (const e of empleados) {
     if (vistos.has(e.nomina)) error(`${e.nombre} está repetido.`, e.nomina);
     vistos.add(e.nomina);
-    if (!e.horaEntrada || !e.horaSalida) error(`${e.nombre}: falta el horario.`, e.nomina);
+    if (tipo === TIPOS_TE.EXTENSION) {
+      // La extensión empieza al terminar su turno normal y se queda hasta un bloque de salida posterior
+      if (!e.horaEntrada) error(`${e.nombre}: falta la hora en que termina su turno.`, e.nomina);
+      else if (!e.horaSalida) error(`${e.nombre}: elige hasta qué hora se queda.`, e.nomina);
+      else if (!salidasPosteriores(e.horaEntrada).some(h => minutos(h) === minutos(e.horaSalida))) error(`${e.nombre}: la salida debe ser posterior al fin de su turno.`, e.nomina);
+    } else if (!e.horaEntrada || !e.horaSalida) error(`${e.nombre}: falta el horario.`, e.nomina);
     else if (e.horaEntrada === e.horaSalida) error(`${e.nombre}: la entrada y la salida no pueden ser iguales.`, e.nomina);
     if (!transporteCompleto(e)) {
       error(e.transporte && e.rutaId && e.comunidadId && e.puntoReunionId
         ? `${e.nombre}: confirma la ruta precargada.` : `${e.nombre}: completa ruta, comunidad y punto de reunión.`, e.nomina);
     }
+  }
+  if (resumenRutas(empleados).rutasDistintas > 1 && String(justificacionRutas).trim().length < MIN_JUSTIFICACION_RUTAS) {
+    error(`Explica por qué se necesita más de una ruta (al menos ${MIN_JUSTIFICACION_RUTAS} caracteres).`);
   }
   for (const e of empleados) {
     const otra = ocupados.get(e.nomina);
@@ -132,7 +222,12 @@ export function aplicarA(empleados, seleccion, cambios) {
   return empleados.map(e => {
     if (seleccion && !seleccion.has(e.nomina)) return e;
     const nuevo = { ...e, ...cambios };
-    if (cambios.transporte === false) Object.assign(nuevo, { necesitaConfirmar: false, confirmada: false });
+    // Compatibilidad: { transporte: true|false } marca o quita los dos sentidos
+    if (typeof cambios.transporte === 'boolean' && cambios.transporteLlegada === undefined && cambios.transporteSalida === undefined) {
+      nuevo.transporteLlegada = cambios.transporte; nuevo.transporteSalida = cambios.transporte;
+    }
+    if ('transporteLlegada' in cambios || 'transporteSalida' in cambios || 'transporte' in cambios) nuevo.transporte = llevaTransporte(nuevo);
+    if (!nuevo.transporte) Object.assign(nuevo, { necesitaConfirmar: false, confirmada: false });
     return nuevo;
   });
 }
@@ -207,7 +302,9 @@ export const totalesDe = (lista) => ({
 export function textoRuta(e, { rutas = [], comunidades = [], puntos = [] } = {}) {
   if (!e.transporte) return 'Sin transporte';
   const n = (lista, id) => lista.find(x => x.id === id)?.nombre ?? '';
-  return [n(rutas, e.rutaId), n(comunidades, e.comunidadId), n(puntos, e.puntoReunionId)].filter(Boolean).join(' · ') || 'Sin ruta';
+  const ruta = [n(rutas, e.rutaId), n(comunidades, e.comunidadId), n(puntos, e.puntoReunionId)].filter(Boolean).join(' · ') || 'Sin ruta';
+  const sentido = sentidoDe(e);
+  return sentido && sentido !== 'ambos' ? `${ruta} (${TEXTO_SENTIDO[sentido]})` : ruta;
 }
 
 // ── Recepción de RH y transporte ──────────────────────────────────────────
@@ -240,12 +337,31 @@ export function horaFormatoRutas(hora) {
   return `${h % 12 === 0 ? 12 : h % 12}:${String(mm).padStart(2, '0')}${h < 12 ? 'AM' : 'PM'}`;
 }
 
-/** Pasajero del transporte (solicitudes/{id}/pasajeros/{nómina}) a partir de un empleado del tiempo extra con transporte */
+export const YA_EN_PLANTA = 'YA EN PLANTA';
+export const SIN_SALIDA = 'NO REQUIERE';
+
+/** Turno de las rutas al que pertenece un fin de turno (el turno que termina a esa hora): 16:00 → 1, 0:00 y 19:00 → 2, 7:00 → 3 */
+export function turnoPorFin(hora) {
+  const m = minutos(hora);
+  if (m === null) return '';
+  if (m > 0 && m <= 7 * 60) return '3';
+  if (m > 7 * 60 && m <= 16 * 60) return '1';
+  return '2';
+}
+
+/**
+ * Pasajero del transporte (solicitudes/{id}/pasajeros/{nómina}) a partir de un empleado del tiempo extra con transporte.
+ * Extensión de turno (ya está en la planta): va en la hoja de su turno normal, con ENTRADA "YA EN PLANTA" si solo pide salida y SALIDA su
+ * hora extendida. Turno extra con solo llegada: SALIDA "NO REQUIERE".
+ */
 export function pasajeroDeEmpleado(e, te) {
+  const sentido = sentidoDe(e) || 'ambos';
   return {
     nomina: String(e.nomina), nombre: e.nombre, puesto: e.puesto ?? '',
-    areaId: te.areaId ?? '', areaNombre: te.areaNombre ?? '',
-    turno: turnoPorEntrada(e.horaEntrada), horaEntrada: horaFormatoRutas(e.horaEntrada), horaSalida: horaFormatoRutas(e.horaSalida),
+    areaId: te.areaId ?? '', areaNombre: te.areaNombre ?? '', sentido,
+    turno: esExtension(te) ? turnoPorFin(e.horaEntrada) : turnoPorEntrada(e.horaEntrada),
+    horaEntrada: sentido === 'salida' ? YA_EN_PLANTA : horaFormatoRutas(e.horaEntrada),
+    horaSalida: sentido === 'llegada' ? SIN_SALIDA : horaFormatoRutas(e.horaSalida),
     alimentos: !!e.alimentos, rutaId: e.rutaId ?? '', comunidadId: e.comunidadId ?? '', puntoReunionId: e.puntoReunionId ?? '',
   };
 }
@@ -289,3 +405,25 @@ export function textoRecibida(t) {
 
 /** "Autorización 2" / "Recursos Humanos (recepción)" */
 export const quienDevolvio = (nivel) => (Number(nivel) === NIVEL_RECEPCION ? 'Recursos Humanos (recepción)' : `Autorización ${nivel}`);
+
+// ── Periodos de la descarga de tiempo extra ───────────────────────────────
+
+export const PERIODOS_DESCARGA = [
+  { id: 'hoy', label: 'Hoy' },
+  { id: 'dia', label: 'Un día (elegir)' },
+  { id: 'semana', label: 'Esta semana' },
+  { id: 'anterior', label: 'Semana anterior' },
+  { id: 'rango', label: 'Rango personalizado' },
+];
+
+/**
+ * Rango { desde, hasta } ('AAAA-MM-DD') de un periodo de la descarga. `dia` usa la fecha elegida; `rango` devuelve null (se captura a mano).
+ * La semana va de lunes a domingo.
+ */
+export function rangoDePeriodo(periodo, hoy, elegida = '') {
+  if (periodo === 'hoy') return { desde: hoy, hasta: hoy };
+  if (periodo === 'dia') return elegida ? { desde: elegida, hasta: elegida } : null;
+  if (periodo === 'semana') return rangoSemana(hoy, 0);
+  if (periodo === 'anterior') return rangoSemana(hoy, -1);
+  return null;
+}
