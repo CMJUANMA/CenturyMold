@@ -22,6 +22,7 @@ const EditorTE = lazy(() => import('./pages/te/EditorTE'));
 const MisSolicitudesTE = lazy(() => import('./pages/te/MisSolicitudesTE'));
 const BandejaTE = lazy(() => import('./pages/te/BandejaTE'));
 const ConsultaTE = lazy(() => import('./pages/te/ConsultaTE'));
+const RecepcionTE = lazy(() => import('./pages/te/RecepcionTE'));
 import RutaCapacidad from './components/RutaCapacidad';
 import Inicio from './pages/Inicio';
 import TiempoExtraInicio from './pages/TiempoExtraInicio';
@@ -89,6 +90,7 @@ const router = createBrowserRouter([
             },
             { element: <RutaCapacidad puede="autorizar" />, children: [{ path: '/tiempo-extra/autorizar', element: <BandejaTE /> }] },
             { element: <RutaCapacidad puede="consultar" />, children: [{ path: '/tiempo-extra/consulta', element: <ConsultaTE /> }] },
+            { element: <RutaCapacidad puede="recibir" />, children: [{ path: '/tiempo-extra/recepcion', element: <RecepcionTE /> }] },
           ],
         },
 

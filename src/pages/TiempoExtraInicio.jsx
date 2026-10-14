@@ -1,10 +1,12 @@
 /**
  * TiempoExtraInicio.jsx — Entrada del módulo de tiempo extra.
- * Por ahora solo muestra qué puede hacer el usuario según sus asignaciones vigentes;
- * las pantallas de captura y de autorización llegan en la siguiente etapa.
+ * Resumen de RH: qué puede hacer según sus asignaciones vigentes y la tarjeta "Autorizadas pendientes de recibir" (en tiempo real),
+ * que lleva a la Recepción.
  */
 import { Link, Navigate } from 'react-router-dom';
 import { useAccesos } from '../hooks/useAccesos';
+import { useAuth } from '../hooks/useAuth';
+import { usePorRecibir } from '../hooks/usePendientes';
 import { useAreas } from '../hooks/useAreas';
 import { puedeAsignarAlgo } from '../utils/asignaciones';
 import Spinner from '../components/Spinner';
@@ -20,6 +22,8 @@ function Bloque({ titulo, children }) {
 
 export default function TiempoExtraInicio() {
   const accesos = useAccesos();
+  const { usuario } = useAuth();
+  const porRecibir = usePorRecibir(usuario, true);
   const { areasSolicitante, areasAut1, esAut2, esRH, cargando, error } = accesos;
   const { nombres, cargando: cargandoAreas } = useAreas();
   const lista = (ids) => ids.map(id => nombres.get(id) ?? id).join(', ');
@@ -49,7 +53,16 @@ export default function TiempoExtraInicio() {
         </Bloque>
       </div>
 
-      <p className="text-xs text-[var(--text-muted)]">Las pantallas de captura y autorización estarán disponibles próximamente.</p>
+      <Link to="/tiempo-extra/recepcion" className="block">
+        <div className={`flex items-center justify-between gap-4 rounded-lg border px-5 py-4 transition-colors hover:border-[var(--cm-red)] ${porRecibir > 0
+          ? 'border-[var(--status-warning-border)] bg-[var(--status-warning-bg)]' : 'border-[var(--border-color)] bg-[var(--bg-surface)]'}`}>
+          <span>
+            <span className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Autorizadas pendientes de recibir</span>
+            <span className="block text-xs text-[var(--text-secondary)]">Recíbelas para generar el transporte de quienes lo pidieron.</span>
+          </span>
+          <span className="text-3xl font-bold text-[var(--text-main)]">{porRecibir}</span>
+        </div>
+      </Link>
       <div className="flex flex-wrap gap-4">
         <Link to="/accesos/organigrama" className="text-xs font-semibold text-[var(--cm-red)] hover:underline">Ver organigrama de autorización</Link>
         {puedeAsignarAlgo(accesos) && (

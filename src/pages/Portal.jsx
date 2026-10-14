@@ -65,7 +65,7 @@ export default function Portal() {
         <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Elige el proceso con el que quieres trabajar.</p>
       </div>
 
-      <Link to="/tiempo-extra" className="block">
+      <Link to="/tiempo-extra/recepcion" className="block">
         <div className={`flex items-center justify-between gap-4 rounded-lg border px-5 py-4 transition-colors hover:border-[var(--cm-red)] ${porRecibir > 0
           ? 'border-[var(--status-warning-border)] bg-[var(--status-warning-bg)]' : 'border-[var(--border-color)] bg-[var(--bg-surface)]'}`}>
           <span>

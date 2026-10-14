@@ -8,12 +8,12 @@ import { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, FilePlus, ClipboardList, Layers, Users, Database, LayoutGrid,
-  ShieldCheck, User, LogOut, Menu, X, Sun, Moon, Clock, Network, GitBranch, BadgeCheck, Bus,
+  ShieldCheck, User, LogOut, Menu, X, Sun, Moon, Clock, Network, GitBranch, BadgeCheck, Bus, Inbox,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import { useAccesos } from '../hooks/useAccesos';
-import { usePendientesRutas, usePorAutorizar } from '../hooks/usePendientes';
+import { usePendientesRutas, usePorAutorizar, usePorRecibir } from '../hooks/usePendientes';
 import { useTransporteAnterior } from '../hooks/useTransporteAnterior';
 import { useAreas } from '../hooks/useAreas';
 import { modulosDe, moduloDeRuta } from '../modulos';
@@ -39,6 +39,7 @@ const NAV_ITEMS = [
   { path: '/tiempo-extra/nueva', label: 'Solicitar tiempo extra', icon: FilePlus, modulo: 'tiempo-extra', rh: true },
   { path: '/tiempo-extra/mis-solicitudes', label: 'Mis solicitudes de TE', icon: ClipboardList, modulo: 'tiempo-extra', rh: true },
   { path: '/tiempo-extra/autorizar', label: 'Por autorizar', icon: BadgeCheck, modulo: 'tiempo-extra', rh: true, contador: 'autorizar' },
+  { path: '/tiempo-extra/recepcion', label: 'Recepción', icon: Inbox, modulo: 'tiempo-extra', rh: true, contador: 'recepcion' },
   { path: '/tiempo-extra/consulta', label: 'Consulta de solicitudes', icon: Layers, modulo: 'tiempo-extra', rh: true },
   { path: '/accesos/organigrama', label: 'Organigrama', icon: GitBranch, modulo: 'tiempo-extra' },
 
@@ -66,6 +67,7 @@ export default function Navbar() {
   const { nombres: nombresArea } = useAreas();
   const transporteAnterior = useTransporteAnterior(usuario?.uid, !esRH);
   const porAutorizar = usePorAutorizar(usuario, accesos, true).total;
+  const porRecibir = usePorRecibir(usuario, true);
   const subtitulo = esRH ? (SUBTITULO_MODULO[moduloActual?.id] ?? 'Century Mold Querétaro') : 'Century Mold Querétaro';
   const descripcion = descripcionRoles(accesos, nombresArea);
 
@@ -156,6 +158,11 @@ export default function Navbar() {
                 {item.contador === 'autorizar' && porAutorizar > 0 && (
                   <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-1 text-[9px] font-bold text-[var(--status-warning-text)] shrink-0 shadow-sm">
                     {porAutorizar}
+                  </span>
+                )}
+                {item.contador === 'recepcion' && porRecibir > 0 && (
+                  <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-1 text-[9px] font-bold text-[var(--status-warning-text)] shrink-0 shadow-sm">
+                    {porRecibir}
                   </span>
                 )}
                 {item.path === '/rutas/rh/solicitudes' && pendientesRh > 0 && (

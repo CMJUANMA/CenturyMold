@@ -15,7 +15,7 @@ import BadgeEstatus from '../../components/BadgeEstatus';
 import Modal from '../../components/Modal';
 import Spinner from '../../components/Spinner';
 import { formatoFecha } from '../../utils/asignaciones';
-import { PESTANAS_TE, nivelEnTexto } from '../../utils/tiempoExtra';
+import { PESTANAS_TE, nivelEnTexto, textoRecibida } from '../../utils/tiempoExtra';
 import { useCatalogos } from '../../hooks/useCatalogos';
 import DetalleTE from './DetalleTE';
 import { cancelarSolicitud, eliminarBorrador, leerHistorialTE, leerSolicitudTE } from '../../utils/tiempoExtraDb';
@@ -130,7 +130,7 @@ export default function MisSolicitudesTE() {
                   <td className="px-4 py-2.5 text-right">{t.resumen?.totalEmpleados ?? 0}</td>
                   <td className="px-4 py-2.5 text-right">{t.resumen?.totalHoras ?? 0}</td>
                   <td className="px-4 py-2.5 text-right">{t.resumen?.totalTransporte ?? 0}</td>
-                  <td className="px-4 py-2.5"><BadgeEstatus estatus={t.estatus} modulo="te" /></td>
+                  <td className="px-4 py-2.5"><BadgeEstatus estatus={t.estatus} modulo="te" />{t.estatus === 'procesada' && <p className="mt-1 text-[10px] text-[var(--text-secondary)]">{textoRecibida(t)}</p>}</td>
                   <td className="px-4 py-2.5 text-[var(--text-secondary)]">{nivelEnTexto(t.estatus)}</td>
                   <td className="px-4 py-2.5">
                     <div className="flex flex-wrap justify-end gap-1.5">

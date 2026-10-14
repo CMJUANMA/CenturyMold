@@ -19,7 +19,7 @@ import { esActivo, rutaVigente } from '../../utils/activo';
 import { ymd } from '../../utils/fechas';
 import {
   HORAS_ENTRADA_TE, HORAS_SALIDA_TE, MIN_COMENTARIO_TE, MOTIVOS_TE, aplicarA, empleadoDesdePadron, estatusAlEnviar, nuevoIdBorrador,
-  problemasDeEnvio, resumenTE,
+  problemasDeEnvio, quienDevolvio, resumenTE,
 } from '../../utils/tiempoExtra';
 import { MAX_PASAJEROS } from '../../utils/solicitudes';
 import {
@@ -251,7 +251,7 @@ export default function EditorTE() {
 
       {esDevuelta && servidor.devolucion && (
         <div role="alert" className="rounded-lg border-2 border-[var(--status-error-border)] bg-[var(--status-error-bg)] p-4 text-[var(--status-error-text)]">
-          <p className="flex items-center gap-2 text-sm font-bold"><AlertTriangle className="h-4 w-4" />Devuelta por Autorización {servidor.devolucion.nivel}</p>
+          <p className="flex items-center gap-2 text-sm font-bold"><AlertTriangle className="h-4 w-4" />Devuelta por {quienDevolvio(servidor.devolucion.nivel)}</p>
           <p className="mt-1 text-sm">{servidor.devolucion.motivo}</p>
           <p className="mt-1 text-[11px] opacity-80">Corrige y reenvía: vuelve a empezar en Autorización 1.</p>
         </div>

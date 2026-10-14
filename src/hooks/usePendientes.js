@@ -112,3 +112,21 @@ export function usePorAutorizar(usuario, accesos, activo = true) {
   const aut2 = conteos.aut2 ?? 0;
   return { aut1, aut2, total: aut1 + aut2 };
 }
+
+/** Autorizadas pendientes de recibir por RH (solo RH y admin las leen): contador en vivo para el menú, el portal y el resumen */
+export function usePorRecibir(usuario, activo = true) {
+  const uid = usuario?.uid;
+  const esRH = ROLES_RH.includes(usuario?.rol);
+  const [n, setN] = useState(0);
+
+  useEffect(() => {
+    if (!uid || !activo || !esRH) return;
+    return onSnapshot(
+      query(collection(db, 'tiempoExtra'), where('estatus', '==', ESTATUS_TE.AUTORIZADA)),
+      snap => setN(snap.size),
+      err => console.error('Por recibir:', err),
+    );
+  }, [uid, activo, esRH]);
+
+  return esRH ? n : 0;
+}

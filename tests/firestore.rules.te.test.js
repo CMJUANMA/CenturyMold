@@ -633,21 +633,26 @@ describe('firmas y devoluciones: quién puede y cómo', () => {
   });
 });
 
+// (La recepción con transporte, la devolución y la cancelación de RH se prueban en firestore.rules.recepcion-te.test.js)
 describe('RH recibe: autorizada → procesada', () => {
-  it('RH y admin procesan una autorizada', async () => {
-    await assertSucceeds(transicion('rh', 'TE-2026-0003', { estatus: 'procesada', solicitudRutaId: 'sol-123' }, 'recibida_rh'));
+  const recibida = (uid) => ({ estatus: 'procesada', recibidaPor: { nomina: N[uid], nombre: uid, fecha: ts() }, fechaRecepcion: ts() });
+  it('RH y admin procesan una autorizada sin transporte', async () => {
+    await assertSucceeds(transicion('rh', 'TE-2026-0003', recibida('rh'), 'recibida_rh'));
     await reiniciar();
-    await assertSucceeds(actualizar('admin', 'TE-2026-0003', { estatus: 'procesada' }));
+    await assertSucceeds(actualizar('admin', 'TE-2026-0003', recibida('admin')));
   });
-  it('la Aut. 2 no titular-RH, el Aut. 1 y el solicitante no procesan', async () => {
+  it('la Aut. 2 que no es RH, el Aut. 1 y el solicitante no procesan', async () => {
     for (const uid of ['aut2', 'aut2Sup', 'aut1P', 'solP', 'ajeno']) {
+      await assertFails(actualizar(uid, 'TE-2026-0003', recibida(uid)));
       await assertFails(actualizar(uid, 'TE-2026-0003', { estatus: 'procesada' }));
     }
   });
-  it('solo desde autorizada, y sin tocar otros campos', async () => {
-    await assertFails(actualizar('rh', 'TE-2026-0002', { estatus: 'procesada' }));
-    await assertFails(actualizar('rh', 'TE-2026-0001', { estatus: 'procesada' }));
-    await assertFails(actualizar('rh', 'TE-2026-0003', { estatus: 'procesada', motivo: 'otro' }));
+  it('solo desde autorizada, con la firma de quien recibe y sin tocar otros campos', async () => {
+    await assertFails(actualizar('rh', 'TE-2026-0002', recibida('rh')));
+    await assertFails(actualizar('rh', 'TE-2026-0001', recibida('rh')));
+    await assertFails(actualizar('rh', 'TE-2026-0003', { estatus: 'procesada' })); // sin recibidaPor ni fecha
+    await assertFails(actualizar('rh', 'TE-2026-0003', { ...recibida('rh'), motivo: 'otro' }));
+    await assertFails(actualizar('rh', 'TE-2026-0003', { ...recibida('rh'), recibidaPor: { nomina: N.admin, nombre: 'x', fecha: ts() } })); // firma de otro
   });
 });
 
@@ -812,6 +817,8 @@ describe('historial', () => {
       ['aut2', 'TE-2026-0002', 'autorizada_2', 2],
       ['aut2', 'TE-2026-0002', 'devuelta', 2],
       ['rh', 'TE-2026-0003', 'recibida_rh', 0],
+      ['rh', 'TE-2026-0003', 'cancelada', 0],
+      ['rh', 'TE-2026-0003', 'devuelta', 3],
       ['solP', 'TE-2026-0001', 'cancelada', 0],
       ['solP', 'TE-2026-0004', 'reenviada', 0],
     ]) {

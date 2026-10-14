@@ -33,12 +33,13 @@ describe('mis solicitudes', () => {
       s('TE-C', 'autorizada', { fechaTE: '2026-10-01' }), s('TE-D', 'pendiente_aut1', { fechaTE: '2026-10-16' }), s('TE-E', 'procesada', { fechaTE: '2026-10-20' }),
     ], AHORA);
     expect(lista.map(x => x.folio)).toEqual(['TE-B', 'TE-E', 'TE-A']);
-    expect(lista.map(x => x.transporte)).toEqual(['Sin transporte', 'Solicitado', 'Por solicitar']);
+    expect(lista.map(x => x.transporte)).toEqual(['Sin transporte', 'Recibida por RH · transporte solicitado', 'Por solicitar']);
     expect(lista[0]).toMatchObject({ fecha: '2026-10-15', empleados: 1, horas: 2 });
   });
   it('estado del transporte', () => {
     expect(estadoTransporte(s('x', 'autorizada'))).toBe('Por solicitar');
-    expect(estadoTransporte(s('x', 'autorizada', { solicitudRutaId: 'sol1' }))).toBe('Solicitado');
+    expect(estadoTransporte(s('x', 'procesada'))).toBe('Recibida por RH · transporte solicitado');
+    expect(estadoTransporte(s('x', 'procesada', { resumen: { totalTransporte: 0 } }))).toBe('Recibida por RH · sin transporte');
     expect(estadoTransporte(s('x', 'autorizada', { resumen: { totalTransporte: 0 } }))).toBe('Sin transporte');
   });
 });

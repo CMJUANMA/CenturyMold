@@ -9,7 +9,7 @@ import {
 import { db } from '../../firebase';
 import { useToast } from '../../hooks/useToast';
 import { useAuth } from '../../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Filter, CheckCircle2, XCircle, Loader2, Eye, FileDown, Undo2, Edit, AlertTriangle,
 } from 'lucide-react';
@@ -18,6 +18,7 @@ import BadgeEstatus from '../../components/BadgeEstatus';
 import { toDate, fmtFecha, fmtFechaHora, ymd, sumarDias, rangoSemana } from '../../utils/fechas';
 import { resumenPasajeros, textoConteo } from '../../utils/solicitudes';
 import { useCatalogos } from '../../hooks/useCatalogos';
+import { useAreas } from '../../hooks/useAreas';
 import { useConfirmar } from '../../hooks/useConfirmar';
 import { exportarSolicitudes } from '../../utils/exportarSolicitudes';
 import { ESTATUS_SOLICITUD } from '../../utils/constantes';
@@ -75,7 +76,9 @@ export default function RhSolicitudes() {
   const confirmar = useConfirmar();
   // Solo catálogos (nombres de ruta/comunidad/punto); los empleados no se necesitan aquí
   const { rutas, comunidades, puntos } = useCatalogos({ empleados: false });
-  const catalogos = useMemo(() => ({ rutas, comunidades, puntos }), [rutas, comunidades, puntos]);
+  const { areas } = useAreas();
+  const catalogos = useMemo(() => ({ rutas, comunidades, puntos, areas }), [rutas, comunidades, puntos, areas]);
+  const nombreAreaDe = (id) => areas.find(a => a.id === id)?.nombre ?? '';
 
   const [solicitudes, setSolicitudes] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -84,6 +87,7 @@ export default function RhSolicitudes() {
 
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstatus, setFiltroEstatus] = useState('');
+  const [filtroOrigen, setFiltroOrigen] = useState(''); // '' = todas · 'normal' · 'tiempo_extra'
 
   // Rango de fechaServicio que se escucha en Firestore (por defecto: hace 7 días → dentro de 30)
   // o modo 'pendientes' (todas las pendientes, sin importar la fecha)
@@ -283,7 +287,9 @@ export default function RhSolicitudes() {
 
   const filtradas = solicitudes.filter(s => {
     const q = busqueda.toLowerCase();
-    const okBusq = !q || (s.solicitanteNombre||'').toLowerCase().includes(q) || s.id.toLowerCase().includes(q);
+    const okBusq = !q || (s.solicitanteNombre||'').toLowerCase().includes(q) || s.id.toLowerCase().includes(q) || (s.folioTE||'').toLowerCase().includes(q);
+    const esTE = s.origen === 'tiempo_extra';
+    if ((filtroOrigen === 'tiempo_extra' && !esTE) || (filtroOrigen === 'normal' && esTE)) return false;
     
     // Si no se está filtrando explícitamente por 'cancelada', oculta las canceladas.
     let okEst = false;
@@ -343,6 +349,11 @@ export default function RhSolicitudes() {
           <option value={ESTATUS_SOLICITUD.RECHAZADA}>Rechazadas</option>
           <option value={ESTATUS_SOLICITUD.CANCELADA}>Canceladas</option>
         </select>
+        <select value={filtroOrigen} onChange={e=>setFiltroOrigen(e.target.value)} className={inputCls} aria-label="Origen">
+          <option value="">Todas</option>
+          <option value="normal">Normales</option>
+          <option value="tiempo_extra">Tiempo extra</option>
+        </select>
         <input type="search" value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar..." className={inputCls} />
         <div className="ml-auto flex items-center gap-2">
           <span className="font-semibold text-[var(--text-main)]">{filtradas.length} solicitudes</span>
@@ -373,7 +384,13 @@ export default function RhSolicitudes() {
              filtradas.map(sol => (
               <tr key={sol.id} className="hover:bg-[var(--bg-surface-secondary)]">
                 <td className="px-4 py-3 font-mono">{sol.id.slice(0,8)}</td>
-                <td className="px-4 py-3 font-medium">{sol.solicitanteNombre}</td>
+                <td className="px-4 py-3 font-medium">{sol.solicitanteNombre}
+                  {sol.origen === 'tiempo_extra' && (
+                    <Link to={`/tiempo-extra/consulta?abrir=${sol.tiempoExtraId}`} title="Abrir el tiempo extra"
+                      className="mt-0.5 block w-fit rounded-full border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-2 py-0.5 text-[10px] font-bold text-[var(--status-info-text)] hover:underline">Tiempo extra · {sol.folioTE}</Link>
+                  )}
+                  {sol.requiereRevision && <span className="mt-0.5 block w-fit rounded-full border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-2 py-0.5 text-[10px] font-bold text-[var(--status-warning-text)]" title={sol.motivoRevision}>Revisar: avisar al proveedor</span>}
+                </td>
                 <td className="px-4 py-3 text-[var(--text-secondary)] truncate max-w-[120px]" title={sol._puestosStr}>{sol._puestosStr} <br/><span className="text-[10px] font-bold text-[var(--text-main)]">{sol._turnosStr}</span></td>
                 <td className="px-4 py-3 font-bold">{fmtFechaStr(sol.fechaServicio)}</td>
                 <td className="px-4 py-3 text-center"><span className="rounded-full bg-[var(--bg-surface-secondary)] px-2 py-0.5 border">{sol.totalPasajeros}</span></td>
@@ -385,7 +402,7 @@ export default function RhSolicitudes() {
                 <td className="px-4 py-3 text-right">
                   <div className="inline-flex gap-1">
                     <button onClick={()=>abrirDetalle(sol)} className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)]" title="Ver Detalle"><Eye className="h-4 w-4"/></button>
-                    <button onClick={()=>navigate(`/rutas/solicitud/editar/${sol.id}`)} className="p-1.5 text-blue-600 hover:text-blue-800" title="Editar (RH)"><Edit className="h-4 w-4"/></button>
+                    {sol.origen !== 'tiempo_extra' && <button onClick={()=>navigate(`/rutas/solicitud/editar/${sol.id}`)} className="p-1.5 text-blue-600 hover:text-blue-800" title="Editar (RH)"><Edit className="h-4 w-4"/></button>}
                     {sol.estatus === ESTATUS_SOLICITUD.PENDIENTE && (
                       <>
                         <button onClick={()=>setModalRechazar(sol)} className="p-1.5 text-[var(--status-error-text)] bg-[var(--status-error-bg)] hover:bg-[var(--status-error-bg)] rounded-md" title="Rechazar"><XCircle className="h-4 w-4"/></button>
@@ -522,7 +539,7 @@ export default function RhSolicitudes() {
                 <p className="italic text-sm text-gray-300">Fecha de Solicitud: {fmtIso(detalle.fechaSolicitud)} - Fecha de Servicio: {fmtFechaStr(detalle.fechaServicio)}</p>
               </div>
               <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm bg-[var(--bg-surface-secondary)] border-b border-[var(--border-color)]">
-                <div><strong className="text-[var(--text-muted)] uppercase text-xs block">Solicitante</strong><span className="font-bold text-[var(--text-main)]">{detalle.solicitanteNombre}</span></div>
+                <div><strong className="text-[var(--text-muted)] uppercase text-xs block">Solicitante</strong><span className="font-bold text-[var(--text-main)]">{detalle.solicitanteNombre}{detalle.origen === 'tiempo_extra' ? ` · Tiempo extra ${detalle.folioTE}` : ''}</span></div>
                 <div><strong className="text-[var(--text-muted)] uppercase text-xs block">Turno</strong><span className="font-bold text-[var(--text-main)]">{detalle._turnosStr}</span></div>
                 <div><strong className="text-[var(--text-muted)] uppercase text-xs block">Área</strong><span className="font-bold text-[var(--text-main)]">{detalle._puestosStr}</span></div>
                 <div><strong className="text-[var(--text-muted)] uppercase text-xs block">Estatus</strong><BadgeEstatus estatus={detalle.estatus} conPunto /></div>
@@ -533,6 +550,7 @@ export default function RhSolicitudes() {
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-[var(--cm-red)] text-white">
+                      <th className="p-2 border border-[var(--border-color)] font-bold text-center">AREA</th>
                       <th className="p-2 border border-[var(--border-color)] font-bold text-center">PUESTO</th>
                       <th className="p-2 border border-[var(--border-color)] font-bold text-center">NÓMINA</th>
                       <th className="p-2 border border-[var(--border-color)] font-bold text-center">NOMBRE</th>
@@ -546,7 +564,7 @@ export default function RhSolicitudes() {
                   </thead>
                   <tbody>
                     {detalle.pasajeros === null && (
-                      <tr><td colSpan={9} className="p-6 text-center text-[var(--text-muted)]"><Loader2 className="h-5 w-5 animate-spin mx-auto"/></td></tr>
+                      <tr><td colSpan={10} className="p-6 text-center text-[var(--text-muted)]"><Loader2 className="h-5 w-5 animate-spin mx-auto"/></td></tr>
                     )}
                     {(detalle.pasajeros || []).map((p, idx) => {
                       const bgCls = idx % 2 === 0 ? 'bg-[var(--bg-surface)]' : 'bg-[var(--bg-surface-secondary)]';
@@ -555,6 +573,7 @@ export default function RhSolicitudes() {
                       const nameP = catalogos.puntos.find(pt => pt.id === p.puntoReunionId)?.nombre || '';
                       return (
                         <tr key={p.nomina} className={`${bgCls} text-[var(--text-main)]`}>
+                          <td className="p-2 border border-[var(--border-subtle)] text-center">{nombreAreaDe(p.areaId || detalle.areaId) || p.areaNombre || ''}</td>
                           <td className="p-2 border border-[var(--border-subtle)] font-medium text-center">{p.puesto}</td>
                           <td className="p-2 border border-[var(--border-subtle)] font-mono text-center">{p.nomina}</td>
                           <td className="p-2 border border-[var(--border-subtle)]">{p.nombre}</td>

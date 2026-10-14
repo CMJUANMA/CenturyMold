@@ -102,7 +102,7 @@ export const ESTATUS_TE_MAP = {
     dot: 'bg-[var(--status-error-text)]',
   },
   [ESTATUS_TE.CANCELADA]: { ...ESTATUS_MAP[ESTATUS_SOLICITUD.CANCELADA], label: 'Cancelada' },
-  [ESTATUS_TE.PROCESADA]: { ...ESTATUS_MAP[ESTATUS_SOLICITUD.ENVIADA_PROVEEDOR], label: 'Procesada' },
+  [ESTATUS_TE.PROCESADA]: { ...ESTATUS_MAP[ESTATUS_SOLICITUD.ENVIADA_PROVEEDOR], label: 'Recibida por RH' },
 };
 
 /** Acciones del historial (tiempoExtra/{id}/historial) */
@@ -143,6 +143,10 @@ export const TRANSICIONES_TE = [
   { de: ESTATUS_TE.DEVUELTA, a: ESTATUS_TE.PENDIENTE_AUT1, quien: 'creador', accion: ACCIONES_TE.REENVIADA },
   { de: ESTATUS_TE.DEVUELTA, a: ESTATUS_TE.PENDIENTE_AUT2, quien: 'creador', accion: ACCIONES_TE.REENVIADA, soloSiEsAut1: true },
   { de: ESTATUS_TE.AUTORIZADA, a: ESTATUS_TE.PROCESADA, quien: 'rh', accion: ACCIONES_TE.RECIBIDA_RH },
+  // RH en la recepción: devuelve (motivo obligatorio, nivel 3) o cancela lo ya autorizado o recibido (motivo obligatorio)
+  { de: ESTATUS_TE.AUTORIZADA, a: ESTATUS_TE.DEVUELTA, quien: 'rh', accion: ACCIONES_TE.DEVUELTA, requiereMotivo: true },
+  { de: ESTATUS_TE.AUTORIZADA, a: ESTATUS_TE.CANCELADA, quien: 'rh', accion: ACCIONES_TE.CANCELADA, requiereMotivo: true },
+  { de: ESTATUS_TE.PROCESADA, a: ESTATUS_TE.CANCELADA, quien: 'rh', accion: ACCIONES_TE.CANCELADA, requiereMotivo: true },
   // Enviar a autorización: en un área que no participa (o si el creador es su Aut. 1) va directo a pendiente_aut2
   { de: ESTATUS_TE.BORRADOR, a: ESTATUS_TE.PENDIENTE_AUT1, quien: 'creador', accion: ACCIONES_TE.ENVIADA },
   { de: ESTATUS_TE.BORRADOR, a: ESTATUS_TE.PENDIENTE_AUT2, quien: 'creador', accion: ACCIONES_TE.ENVIADA, soloSiEsAut1: true },

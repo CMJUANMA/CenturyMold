@@ -131,13 +131,34 @@ service cloud.firestore {
         return esRH() || (activo() && (d.get('areaId', null) == null || esSolicitanteDe(d.areaId)));
       }
 
-      // Cada quien lee las suyas aunque su rol de solicitante ya haya vencido
-      allow read: if esRH() || (activo() && esDueno());
+      // Cada quien lee las suyas aunque su rol de solicitante ya haya vencido. La solicitud de transporte que RH genera al recibir un
+      // tiempo extra la lee quien puede leer ese tiempo extra (su solicitante y su Aut. 1 ven el estatus del transporte)
+      allow read: if esRH() || (activo() && esDueno())
+        || (activo() && resource.data.get('origen', '') == 'tiempo_extra'
+            && puedeLeerTE(get(/databases/$(database)/documents/tiempoExtra/$(resource.data.tiempoExtraId)).data));
       // Las solicitudes de transporte sueltas las crean solo RH y admin (los solicitantes piden transporte dentro del
       // tiempo extra). Las anteriores de cada usuario siguen visibles para él, y editables mientras sea solicitante vigente de su área.
+      // Las de origen 'tiempo_extra' las genera RH al recibir un tiempo extra autorizado: nacen aprobadas y el mismo lote/transacción
+      // debe pasar ese tiempo extra a procesada apuntando a ellas (getAfter). Ninguna otra solicitud puede traer 'origen'.
+      function transporteDeTE() {
+        let d = request.resource.data;
+        let te = /databases/$(database)/documents/tiempoExtra/$(d.tiempoExtraId);
+        return d.origen == 'tiempo_extra' && d.estatus == 'aprobada' && d.tiempoExtraId is string
+          && d.keys().hasOnly(['fechaSolicitud', 'fechaServicio', 'solicitanteNombre', 'solicitanteNomina', 'creadoPor', 'creadoPorNombre',
+                               'areaId', 'estatus', 'origen', 'tiempoExtraId', 'folioTE', 'totalPasajeros', 'totalAlimentos',
+                               'conteoTurnos', 'conteoPuestos', 'historial', 'revisadoPor', 'revisadoPorNombre', 'fechaRevision'])
+          && d.fechaSolicitud == request.time
+          && get(te).data.estatus == 'autorizada'
+          && getAfter(te).data.estatus == 'procesada'
+          && getAfter(te).data.get('solicitudTransporteId', null) == solId
+          && d.fechaServicio == get(te).data.fechaTE
+          && d.areaId == get(te).data.areaId
+          && d.folioTE == get(te).data.get('folio', '');
+      }
       allow create: if esRH()
         && request.resource.data.creadoPor == request.auth.uid
-        && request.resource.data.estatus == 'pendiente';
+        && ((request.resource.data.get('origen', null) == null && request.resource.data.estatus == 'pendiente')
+            || transporteDeTE());
       allow update: if esRH()
         // Dueño: cancelar o editar (una aprobada vuelve a pendiente). Lista blanca de campos:
         // lo que escribe EditarSolicitud (fechaServicio, solicitanteNombre, el resumen de pasajeros:
@@ -324,10 +345,44 @@ service cloud.firestore {
         && antes().creadoPor != uid()
         && puedeFirmarAut2() && devolucionValida(despues().devolucion, 2);
 
-      // RH la recibe: autorizada → procesada
+      // RH la recibe: autorizada → procesada, con la solicitud de transporte creada en la MISMA operación (getAfter) y apuntando a este
+      // tiempo extra; si nadie pidió transporte, no lleva solicitud. Solo RH y admin (la Aut. 2 que no es RH no recibe).
+      function transporteGenerado(sid) {
+        let p = /databases/$(database)/documents/solicitudes/$(sid);
+        return existsAfter(p) && !exists(p)
+          && getAfter(p).data.get('origen', '') == 'tiempo_extra'
+          && getAfter(p).data.get('tiempoExtraId', '') == teId;
+      }
       allow update: if antes().estatus == 'autorizada' && despues().estatus == 'procesada'
         && despues().fechaActualizacion == request.time
-        && soloCambia(['estatus', 'solicitudRutaId', 'fechaActualizacion'])
+        && soloCambia(['estatus', 'recibidaPor', 'fechaRecepcion', 'solicitudTransporteId', 'fechaActualizacion'])
+        && despues().fechaRecepcion == request.time
+        && despues().recibidaPor.keys().hasOnly(['nomina', 'nombre', 'fecha'])
+        && despues().recibidaPor.nomina == miNomina() && despues().recibidaPor.fecha == request.time
+        && (despues().get('solicitudTransporteId', null) != null
+            ? transporteGenerado(despues().solicitudTransporteId)
+            : antes().resumen.get('totalTransporte', 0) == 0)
+        && esRH();
+
+      // RH devuelve en la recepción (con motivo de 10+ caracteres, nivel 3): autorizada → devuelta
+      allow update: if antes().estatus == 'autorizada' && despues().estatus == 'devuelta'
+        && despues().fechaActualizacion == request.time
+        && soloCambia(['estatus', 'devolucion', 'fechaActualizacion'])
+        && esRH() && devolucionValida(despues().devolucion, 3);
+
+      // RH cancela lo autorizado o ya recibido, con motivo (10+ caracteres). Si ya había generado transporte, esa solicitud queda en la
+      // misma operación cancelada o marcada para revisión (si ya se envió al proveedor): nada a medias
+      function transporteResuelto(sid) {
+        let p = /databases/$(database)/documents/solicitudes/$(sid);
+        return getAfter(p).data.estatus == 'cancelada' || getAfter(p).data.get('requiereRevision', false) == true;
+      }
+      allow update: if antes().estatus in ['autorizada', 'procesada'] && despues().estatus == 'cancelada'
+        && despues().fechaActualizacion == request.time
+        && soloCambia(['estatus', 'motivoCancelacion', 'canceladaPor', 'fechaActualizacion'])
+        && despues().motivoCancelacion is string && despues().motivoCancelacion.trim().size() >= 10
+        && despues().canceladaPor.keys().hasOnly(['nomina', 'nombre', 'fecha', 'comoRH'])
+        && despues().canceladaPor.nomina == miNomina() && despues().canceladaPor.fecha == request.time
+        && (antes().get('solicitudTransporteId', null) == null || transporteResuelto(antes().solicitudTransporteId))
         && esRH();
 
       // El creador cancela mientras no esté autorizada, siempre con motivo (un borrador no se cancela: se elimina)
@@ -427,9 +482,12 @@ service cloud.firestore {
               && hAntes().estatus == 'pendiente_aut2' && hDespues().estatus == 'autorizada')
             || (h().accion == 'devuelta' && hDespues().estatus == 'devuelta'
               && ((h().nivel == 1 && hAntes().estatus == 'pendiente_aut1' && esAut1De(hAntes().areaId))
-                  || (h().nivel == 2 && hAntes().estatus == 'pendiente_aut2' && puedeFirmarAut2())))
+                  || (h().nivel == 2 && hAntes().estatus == 'pendiente_aut2' && puedeFirmarAut2())
+                  || (h().nivel == 3 && hAntes().estatus == 'autorizada' && esRH())))
             || (h().accion == 'cancelada' && hAntes().creadoPor == uid()
               && hAntes().estatus in ['pendiente_aut1', 'pendiente_aut2', 'devuelta'] && hDespues().estatus == 'cancelada')
+            || (h().accion == 'cancelada' && esRH()
+              && hAntes().estatus in ['autorizada', 'procesada'] && hDespues().estatus == 'cancelada')
             || (h().accion == 'recibida_rh' && esRH()
               && hAntes().estatus == 'autorizada' && hDespues().estatus == 'procesada')
           );

@@ -38,6 +38,7 @@ export default function MisSolicitudes() {
         const data = d.data();
         return { id: d.id, ...data, estatus: data.estatus?.toLowerCase() || ESTATUS_SOLICITUD.PENDIENTE };
       });
+      sols = sols.filter(s => s.origen !== 'tiempo_extra'); // las de tiempo extra las ve RH en Todas las solicitudes
       // Sort client-side avoiding composite index errors
       sols.sort((a,b) => (b.fechaServicio||'').localeCompare(a.fechaServicio||''));
       setSolicitudes(sols);

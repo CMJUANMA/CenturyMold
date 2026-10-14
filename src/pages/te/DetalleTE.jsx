@@ -3,13 +3,45 @@
  * encabezado (folio, área, solicitante, fecha, motivo, comentario), motivo de devolución, tabla de empleados con su ruta,
  * resumen por bloque de horario y línea de tiempo del historial. Las acciones (props.acciones) las pone quien lo usa.
  */
-import { AlertTriangle } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { AlertTriangle, Bus } from 'lucide-react';
 import BadgeEstatus from '../../components/BadgeEstatus';
 import { ACCIONES_TE_LABELS } from '../../utils/constantes';
 import { formatoFecha } from '../../utils/asignaciones';
-import { calcularHoras, etiquetaBloque, firmaTexto, resumenTE, textoRuta } from '../../utils/tiempoExtra';
+import { calcularHoras, etiquetaBloque, firmaTexto, quienDevolvio, resumenTE, textoRuta } from '../../utils/tiempoExtra';
+import { leerTransporteDeTE } from '../../utils/tiempoExtraDb';
 
 const fechaHora = (f) => (f?.toDate ? f.toDate().toLocaleString('es-MX') : '');
+
+/** Solicitud de transporte que RH generó al recibir este tiempo extra, con su estatus (se lee al abrir el detalle) */
+function TransporteDeTE({ t }) {
+  const id = t.solicitudTransporteId;
+  const [lectura, setLectura] = useState({ id: null, sol: null });
+  useEffect(() => {
+    if (!id) return;
+    let vigente = true;
+    leerTransporteDeTE(id).then(sol => { if (vigente) setLectura({ id, sol }); });
+    return () => { vigente = false; };
+  }, [id]);
+
+  if (t.estatus !== 'procesada' && !(t.estatus === 'cancelada' && id)) return null;
+  const sol = lectura.id === id ? lectura.sol : undefined;
+  return (
+    <section aria-label="Transporte">
+      <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Solicitud de transporte</h3>
+      {!id ? <p className="text-[var(--text-secondary)]">Sin empleados con transporte: RH no generó solicitud de transporte.</p>
+        : sol === undefined ? <p className="text-[var(--text-muted)]">Consultando el transporte…</p>
+        : sol === null ? <p className="text-[var(--text-secondary)]">Transporte solicitado (no se pudo leer su estatus).</p> : (
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-3">
+            <Bus className="h-4 w-4 text-[var(--text-muted)]" />
+            <BadgeEstatus estatus={sol.estatus} />
+            <span className="text-[var(--text-main)]">{sol.totalPasajeros ?? 0} pasajeros · fecha de servicio {sol.fechaServicio ? formatoFecha(`${sol.fechaServicio}T12:00:00`) : '—'}</span>
+            {sol.requiereRevision && <span className="rounded-full border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-2 py-0.5 text-[10px] font-bold text-[var(--status-warning-text)]">Requiere revisión: avisar al proveedor</span>}
+          </div>
+        )}
+    </section>
+  );
+}
 
 export default function DetalleTE({ t, historial = [], area, catalogos, formato, acciones, avisoTransporte = false }) {
   const empleados = t.empleados ?? [];
@@ -21,23 +53,24 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
     <div className="space-y-5 text-xs">
       {t.estatus === 'devuelta' && t.devolucion && (
         <div role="alert" className="rounded-lg border-2 border-[var(--status-error-border)] bg-[var(--status-error-bg)] p-4 text-[var(--status-error-text)]">
-          <p className="flex items-center gap-2 text-sm font-bold"><AlertTriangle className="h-4 w-4" />Devuelta por Autorización {t.devolucion.nivel} · {nombre(t.devolucion.nombre)}</p>
+          <p className="flex items-center gap-2 text-sm font-bold"><AlertTriangle className="h-4 w-4" />Devuelta por {quienDevolvio(t.devolucion.nivel)} · {nombre(t.devolucion.nombre)}</p>
           <p className="mt-1 text-sm">{t.devolucion.motivo}</p>
         </div>
       )}
       {devolucionPrevia && (
         <div className="rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-3 text-[var(--status-warning-text)]">
-          <p className="font-bold">Fue devuelta antes (Autorización {t.devolucion.nivel}, {nombre(t.devolucion.nombre)})</p>
+          <p className="font-bold">Fue devuelta antes ({quienDevolvio(t.devolucion.nivel)}, {nombre(t.devolucion.nombre)})</p>
           <p className="mt-0.5">{t.devolucion.motivo}</p>
         </div>
       )}
-      {t.estatus === 'cancelada' && t.motivoCancelacion && <p className="rounded-md bg-[var(--bg-surface-secondary)] p-3 text-[var(--text-secondary)]">Motivo de la cancelación: {t.motivoCancelacion}</p>}
+      {t.estatus === 'cancelada' && t.motivoCancelacion && <p className="rounded-md bg-[var(--bg-surface-secondary)] p-3 text-[var(--text-secondary)]">Motivo de la cancelación{t.canceladaPor ? ` (RH, ${nombre(t.canceladaPor.nombre)})` : ''}: {t.motivoCancelacion}</p>}
 
       <dl className="grid grid-cols-2 gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-4 sm:grid-cols-4">
         {[['Estatus', <BadgeEstatus key="e" estatus={t.estatus} modulo="te" />], ['Área', area], ['Solicitante', nombre(t.creadoPorNombre ?? '—')],
           ['Fecha', t.fechaTE ? formatoFecha(`${t.fechaTE}T12:00:00`) : '—'], ['Motivo', t.motivo || '—'],
           ['Empleados', t.resumen?.totalEmpleados ?? 0], ['Horas', t.resumen?.totalHoras ?? 0], ['Con transporte', t.resumen?.totalTransporte ?? 0],
-          ['Con alimentos', t.resumen?.totalAlimentos ?? 0], ['Firmó nivel 1', firmaTexto(t.aut1, nombre) || '—'], ['Firmó nivel 2', firmaTexto(t.aut2, nombre) || '—']].map(([k, v]) => (
+          ['Con alimentos', t.resumen?.totalAlimentos ?? 0], ['Firmó nivel 1', firmaTexto(t.aut1, nombre) || '—'], ['Firmó nivel 2', firmaTexto(t.aut2, nombre) || '—'],
+          ...(t.recibidaPor ? [['Recibida por RH', `${nombre(t.recibidaPor.nombre)} · ${fechaHora(t.fechaRecepcion)}`]] : [])].map(([k, v]) => (
           <div key={k}><dt className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">{k}</dt><dd className="mt-0.5 font-semibold text-[var(--text-main)]">{v}</dd></div>
         ))}
         {t.comentario && <div className="col-span-full"><dt className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Comentario</dt><dd className="mt-0.5 text-[var(--text-main)]">{t.comentario}</dd></div>}
@@ -45,9 +78,11 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
 
       {avisoTransporte && ['pendiente_aut1', 'pendiente_aut2', 'autorizada'].includes(t.estatus) && (
         <p className="rounded-md border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-3 py-2 text-[var(--status-info-text)]">
-          El transporte se solicitará automáticamente a RH al quedar autorizada.
+          Al quedar autorizada, RH la recibirá y generará la solicitud de transporte de los empleados que lo pidieron.
         </p>
       )}
+
+      <TransporteDeTE t={t} />
 
       <section aria-label="Horarios">
         <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Empleados por horario</h3>

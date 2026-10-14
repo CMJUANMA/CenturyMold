@@ -2,7 +2,7 @@
  * tiempoExtra.js — Reglas de la captura de tiempo extra (sin dependencias del navegador; se prueba en Node).
  * Empleado del editor ↔ documento tiempoExtra/{id}/empleados/{nómina}, horas, validaciones, resumen y lotes.
  */
-import { MAX_PASAJEROS } from './solicitudes.js';
+import { MAX_PASAJEROS, resumenPasajeros } from './solicitudes.js';
 
 /** Estatus que pueden leer los autorizadores y RH (todos menos borrador: ese solo lo ve su creador) */
 export const ESTATUS_TE_VISIBLES = ['pendiente_aut1', 'pendiente_aut2', 'autorizada', 'devuelta', 'procesada', 'cancelada'];
@@ -209,3 +209,83 @@ export function textoRuta(e, { rutas = [], comunidades = [], puntos = [] } = {})
   const n = (lista, id) => lista.find(x => x.id === id)?.nombre ?? '';
   return [n(rutas, e.rutaId), n(comunidades, e.comunidadId), n(puntos, e.puntoReunionId)].filter(Boolean).join(' · ') || 'Sin ruta';
 }
+
+// ── Recepción de RH y transporte ──────────────────────────────────────────
+
+/** Nivel con el que RH devuelve en la recepción (los niveles 1 y 2 son de los autorizadores) */
+export const NIVEL_RECEPCION = 3;
+export const MIN_MOTIVO_CANCELACION_RH = 10;
+/** Estatus que RH descarga en el Excel de tiempo extra: lo autorizado y lo ya recibido */
+export const ESTATUS_DESCARGA = ['autorizada', 'procesada'];
+export const ORIGEN_TIEMPO_EXTRA = 'tiempo_extra';
+
+/**
+ * Turno de las rutas ('1' | '2' | '3') al que pertenece una hora de ENTRADA: el turno que la contiene.
+ *   Turno 1: 7:00 a 15:59 · Turno 2: 16:00 a 23:59 · Turno 3: 0:00 a 6:59
+ * Así 7:00 → 1, 16:00 → 2, 0:00 → 3 y 19:00 (que no inicia turno) cae en el 2, el turno en que entra. '' si la hora no es válida.
+ */
+export function turnoPorEntrada(hora) {
+  const m = minutos(hora);
+  if (m === null) return '';
+  if (m >= 16 * 60) return '2';
+  if (m >= 7 * 60) return '1';
+  return '3';
+}
+
+/** "16:00" → "4:00PM", "0:00" → "12:00AM": el formato de horas que ya usa el formulario de rutas. Si no es una hora, se devuelve igual */
+export function horaFormatoRutas(hora) {
+  const m = minutos(hora);
+  if (m === null) return String(hora ?? '');
+  const h = Math.floor(m / 60), mm = m % 60;
+  return `${h % 12 === 0 ? 12 : h % 12}:${String(mm).padStart(2, '0')}${h < 12 ? 'AM' : 'PM'}`;
+}
+
+/** Pasajero del transporte (solicitudes/{id}/pasajeros/{nómina}) a partir de un empleado del tiempo extra con transporte */
+export function pasajeroDeEmpleado(e, te) {
+  return {
+    nomina: String(e.nomina), nombre: e.nombre, puesto: e.puesto ?? '',
+    areaId: te.areaId ?? '', areaNombre: te.areaNombre ?? '',
+    turno: turnoPorEntrada(e.horaEntrada), horaEntrada: horaFormatoRutas(e.horaEntrada), horaSalida: horaFormatoRutas(e.horaSalida),
+    alimentos: !!e.alimentos, rutaId: e.rutaId ?? '', comunidadId: e.comunidadId ?? '', puntoReunionId: e.puntoReunionId ?? '',
+  };
+}
+
+/** Solo los empleados con transporte pasan a la solicitud de transporte; cada uno con su propio horario */
+export function pasajerosDeTE(empleados, te) {
+  return empleados.filter(e => e.transporte).map(e => pasajeroDeEmpleado(e, te));
+}
+
+/** Documento de la solicitud de transporte de un tiempo extra recibido (sin fechas del servidor: las pone quien escribe) */
+export function datosSolicitudTransporte(te, pasajeros, rh) {
+  return {
+    fechaServicio: te.fechaTE,
+    solicitanteNombre: te.creadoPorNombre ?? '', solicitanteNomina: String(te.creadoPorNomina ?? ''),
+    creadoPor: rh.uid, creadoPorNombre: rh.nombre ?? '',
+    areaId: te.areaId, estatus: 'aprobada',
+    origen: ORIGEN_TIEMPO_EXTRA, tiempoExtraId: te.id, folioTE: te.folio ?? '',
+    ...resumenPasajeros(pasajeros),
+  };
+}
+
+/** Texto del solicitante en el bloque del Excel del proveedor: en tiempo extra, el solicitante original y el folio (no el nombre de RH) */
+export const solicitanteDeTransporte = (sol) =>
+  (sol.origen === ORIGEN_TIEMPO_EXTRA ? `${sol.solicitanteNombre || 'Desconocido'} · Tiempo extra ${sol.folioTE || ''}`.trim() : sol.solicitanteNombre);
+
+/** Agrupa por fecha del tiempo extra, la más próxima primero (y por folio dentro de cada fecha) */
+export function agruparPorFecha(lista) {
+  const grupos = new Map();
+  for (const t of [...lista].sort((a, b) => String(a.fechaTE).localeCompare(String(b.fechaTE)) || String(a.folio).localeCompare(String(b.folio)))) {
+    const f = t.fechaTE ?? '';
+    if (!grupos.has(f)) grupos.set(f, []);
+    grupos.get(f).push(t);
+  }
+  return [...grupos].map(([fecha, items]) => ({ fecha, items }));
+}
+
+/** Lo que ve el solicitante de una solicitud ya recibida por RH */
+export function textoRecibida(t) {
+  return (t.resumen?.totalTransporte ?? 0) > 0 ? 'Recibida por RH · transporte solicitado' : 'Recibida por RH · sin transporte';
+}
+
+/** "Autorización 2" / "Recursos Humanos (recepción)" */
+export const quienDevolvio = (nivel) => (Number(nivel) === NIVEL_RECEPCION ? 'Recursos Humanos (recepción)' : `Autorización ${nivel}`);

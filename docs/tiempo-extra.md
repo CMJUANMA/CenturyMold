@@ -167,6 +167,33 @@ Consultas: las del Aut. 1, la Aut. 2 y RH sobre `tiempoExtra` deben **excluir bo
   semana, empleados y horas autorizados del mes por área) y **Exportar a Excel** (hoja "Resumen" por área y estatus; hoja "Detalle" con una fila por empleado y quién firmó cada nivel).
 - Contadores en vivo en "Por autorizar" (menú, incluido el de RH) y en la tarjeta del Inicio; el Inicio del solicitante se actualiza solo cuando se le devuelve o se le autoriza una solicitud.
 
+## Recepción de RH y transporte
+
+- **`/tiempo-extra/recepcion`** (RH y admin, en tiempo real): lo `autorizada` que falta recibir, agrupado por fecha del TE (la más próxima primero), con empleados, horas, transporte, alimentos y
+  quién firmó cada nivel (con "(RH)" si firmó por su rol). El detalle es el mismo que el de la bandeja. **No se editan empleados**: si algo está mal, RH usa **Devolver** (motivo de 10+ caracteres, `devolucion.nivel = 3`,
+  la solicitud vuelve a su solicitante).
+- **Recibir y generar transporte** (`recibirSolicitud`): crea **una** solicitud de transporte por TE solo con los empleados que pidieron transporte y pasa el TE a `procesada`
+  (`recibidaPor`, `fechaRecepcion`, `solicitudTransporteId`). Si nadie pidió transporte solo marca `procesada`. **Recibir todas de esta fecha** hace lo mismo por cada una, con confirmación y resumen.
+- **Todo o nada**: es una sola `runTransaction` (solicitud, un pasajero por empleado, TE, historial y bitácora, ≤ ~160 escrituras de 500 posibles). Relee el estatus y aborta con "Alguien más ya respondió esta solicitud" si ya no
+  está autorizada. Los empleados se leen antes (una transacción no admite consultas); no pueden cambiar porque solo el creador los edita y solo en borrador o devuelta. Las reglas lo refuerzan con `getAfter`: la
+  solicitud de transporte solo se crea si en la misma operación el TE (hoy `autorizada`) pasa a `procesada` apuntando a ella, y el TE solo pasa a `procesada` con transporte si esa solicitud nace en la misma operación.
+  Un TE con empleados con transporte no puede procesarse sin generarla. Varias a la vez: una transacción cada una.
+- **Solicitud de transporte generada**: `origen: 'tiempo_extra'`, `tiempoExtraId`, `folioTE`, `areaId`, `solicitanteNombre`/`solicitanteNomina` (el solicitante original), `creadoPor` = quien recibió (RH), `estatus: 'aprobada'`,
+  `fechaServicio` = fecha del TE. Cada pasajero lleva su propia entrada y salida (en el formato de rutas, "4:00PM"), alimentos, ruta, comunidad, punto, **área** y **turno**.
+- **Turno por hora de entrada** (el formulario de rutas NO tiene un mapeo: ahí el turno se elige a mano): el turno que contiene la hora — Turno 1: 7:00–15:59 · Turno 2: 16:00–23:59 · Turno 3: 0:00–6:59 (`turnoPorEntrada`).
+  Así 7:00 → 1, 16:00 → 2, 0:00 → 3 y **19:00 → 2** (no inicia turno; entra durante el turno 2).
+- **Cancelación posterior** (RH y admin, desde Recepción o Consulta; `cancelarAutorizada`): "Cancelar tiempo extra autorizado" con motivo de 10+ caracteres, desde `autorizada` o `procesada`. Si ya estaba recibida, en la misma
+  transacción cancela su solicitud de transporte siempre que no esté "enviada al proveedor"; si ya se envió, no toca su estatus, la marca `requiereRevision` y avisa "El transporte de [fecha] ya se envió al proveedor; avísale por teléfono".
+  Queda en el historial del TE y en `bitacora` (`entidad: 'tiempoExtra'`).
+- **Pantalla de transporte de RH** (`/rutas/rh/solicitudes`): las de tiempo extra llevan la insignia "Tiempo extra · TE-…" con enlace al TE (`/tiempo-extra/consulta?abrir=ID`), el filtro de origen Todas / Normales / Tiempo extra,
+  la columna AREA y no se editan ahí. El detalle de un TE (Mis solicitudes, bandeja, recepción y consulta) muestra su solicitud de transporte con su estatus: la regla de lectura de `solicitudes` deja leerla a quien puede leer ese TE.
+- **Excel del proveedor** (`src/utils/libroProveedor.js`, el mismo formato de siempre): se agregó la columna **AREA** al inicio (área del pasajero; en solicitudes viejas, la de la solicitud, o vacía); el pasajero de TE va en la hoja del turno
+  de su entrada; su bloque dice "Solicitante: [original] · Tiempo extra TE-AAAA-NNNN" (un bloque por TE).
+- **Descargar tiempo extra** (Recepción y Consulta, solo RH; `DescargaTE`, `exportarTiempoExtraRH.js`): autorizadas y recibidas de un rango de fechas y un área, con el estilo del formato del proveedor. Hojas: Detalle (una fila por empleado, con
+  turno de nómina, horas, ruta, solicitante, Aut. 1, Aut. 2 y fecha de autorización), Horas por empleado (días con TE y horas totales, para nómina), Alimentos (conteo por fecha y horario, para el comedor) y Resumen (empleados y horas por área y fecha).
+  La consulta usa el índice compuesto `estatus + fechaTE` de `firestore.indexes.json`.
+- El solicitante ve `procesada` como "Recibida por RH · transporte solicitado" (o "· sin transporte"). Menú de RH: "Recepción" con contador; la tarjeta "Autorizadas pendientes de recibir" del portal y del resumen lleva a la recepción.
+
 ### Contador de folios
 
 `contadores/te-AAAA` solo se puede subir de uno en uno y **únicamente dentro del lote o transacción en que una solicitud propia pasa de borrador a pendiente con ese folio**: el documento del
@@ -183,8 +210,9 @@ creadoPor (uid), creadoPorNomina, creadoPorNombre
 fechaTE ('AAAA-MM-DD'), motivo, estatus
 resumen: { totalEmpleados, totalHoras, totalTransporte, totalAlimentos }
 aut1, aut2:  { nomina, nombre, fecha, comentario }      ← se llenan al firmar
-devolucion:  { nivel (1|2), nomina, nombre, motivo, fecha }
-solicitudRutaId       ← la pone RH al procesar
+devolucion:  { nivel (1|2|3), nomina, nombre, motivo, fecha }   ← nivel 3 = RH en la recepción
+recibidaPor:  { nomina, nombre, fecha }, fechaRecepcion, solicitudTransporteId   ← los pone RH al recibir (sin solicitudTransporteId si nadie pidió transporte)
+motivoCancelacion, canceladaPor { nomina, nombre, fecha, comoRH }               ← al cancelar
 fechaCreacion, fechaActualizacion   ← serverTimestamp()
 ```
 
@@ -212,7 +240,9 @@ aplican las reglas. Helpers: `transicionesTE(estatus, quien)` y `estatusInicialT
 |---|---|---|
 | pendiente_aut1 | pendiente_aut2 / devuelta | Aut. 1 vigente del área (no el creador) |
 | pendiente_aut2 | autorizada / devuelta | Aut. 2 vigente o RH (no el creador) |
-| autorizada | procesada | RH |
+| autorizada | procesada | RH/admin (con su solicitud de transporte en la misma operación) |
+| autorizada | devuelta | RH/admin, con motivo de 10+ (nivel 3) |
+| autorizada, procesada | cancelada | RH/admin, con motivo de 10+ (cancela también su transporte) |
 | borrador | pendiente_aut1 (o pendiente_aut2) | el creador: asigna folio, resumen y bitácora en una transacción |
 | pendiente_aut1, pendiente_aut2, devuelta | cancelada | el creador, con motivo |
 | borrador | (se elimina) | el creador |
@@ -242,7 +272,6 @@ aplican las reglas. Helpers: `transicionesTE(estatus, quien)` y `estatusInicialT
 - **Límite de empleados por lote**: ver *Captura: borrador, lotes y folio* (lotes de hasta 10).
 - La captura debe usar `usuario.nomina` (perfil); un usuario sin nómina no pasa ninguna regla de TE ni de asignaciones.
 - Las consultas con `orderBy` sobre `tiempoExtra` necesitarán índices compuestos en `firestore.indexes.json`.
-- Las pantallas de captura y autorización de TE aún no existen (solo las reglas y el modelo).
 - Un solicitante de un área sin participaTE (Administrativo) no se puede asignar: una persona de Administrativo que hoy pide rutas necesita
   decisión de RH (la migración las lista como "por decidir").
 

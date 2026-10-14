@@ -1,4 +1,13 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "tiempoExtra",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "estatus", "order": "ASCENDING" },
+        { "fieldPath": "fechaTE", "order": "ASCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }
