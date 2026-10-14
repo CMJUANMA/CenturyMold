@@ -1,6 +1,8 @@
 // Menú, saludo y descripción por rol. Datos ficticios.
 import { describe, expect, it } from 'vitest';
-import { descripcionRoles, itemsMenuPorRol, nombreDePila, saludoDeHora, veOrganigrama } from '../src/utils/navegacion.js';
+import { descripcionRoles, itemsMenuPorRol, itemsMenuRH, nombreDePila, saludoDeHora, veOrganigrama } from '../src/utils/navegacion.js';
+import { calcularAccesos } from '../src/utils/asignaciones.js';
+import { ROLES_RH } from '../src/utils/constantes.js';
 import { crearFormateadorNombres } from '../src/utils/nombresPersona.js';
 
 const nombres = new Map([['mantenimiento', 'Mantenimiento'], ['moldes', 'Moldes']]);
@@ -64,4 +66,33 @@ describe('saludo y descripción', () => {
     expect(descripcionRoles({ esRH: true, esAdmin: true, areasSolicitante: [], areasAut1: [] }, nombres)).toBe('Administrador');
     expect(descripcionRoles({ esRH: true, areasSolicitante: [], areasAut1: [] }, nombres)).toBe('Recursos Humanos');
   });
+});
+
+// REGLA: admin y RH ven TODO lo que veían antes (más lo nuevo). Si esta prueba falla, se quitó un acceso.
+describe('menú de admin y RH: no se les quita nada', () => {
+  const PATHS_OBLIGATORIOS = [
+    '/', '/rutas', '/rutas/solicitud/nueva', '/rutas/mis-solicitudes', '/rutas/rh/solicitudes', '/rutas/rh/catalogos',
+    '/tiempo-extra', '/tiempo-extra/nueva', '/tiempo-extra/mis-solicitudes', '/tiempo-extra/autorizar',
+    '/tiempo-extra/recepcion', '/tiempo-extra/consulta', '/accesos/organigrama',
+    '/rutas/rh/empleados', '/rutas/rh/estructura', '/accesos',
+  ];
+  const SECCIONES = ['Transporte (rutas)', 'Tiempo extra', 'Administración'];
+  // Mismos criterios que modulos.js: transporte = rol RH/admin; tiempo extra = accesos.tieneAcceso (RH lo trae por su rol)
+  const menuDe = (rol) => {
+    const a = calcularAccesos([], { rol });
+    const idsModulos = new Set([ROLES_RH.includes(rol) && 'rutas', (a.esRH || a.esAut2) && 'tiempo-extra'].filter(Boolean));
+    return itemsMenuRH({ esRH: a.esRH, idsModulos });
+  };
+
+  for (const rol of ['admin', 'rh']) {
+    it(`${rol}: portal, Transporte, Tiempo extra completo, Estructura, Catálogos, Usuarios y accesos, Recepción y Consulta`, () => {
+      const items = menuDe(rol);
+      expect(items.filter(i => !i.section).map(i => i.path)).toEqual(PATHS_OBLIGATORIOS);
+      expect(items.filter(i => i.section).map(i => i.section)).toEqual(SECCIONES);
+    });
+  }
+  it('un usuario común (sin RH ni Aut. 2) no recibe el menú de RH', () => {
+    expect(itemsMenuRH({ esRH: false, idsModulos: new Set() }).map(i => i.path)).toEqual(['/']);
+  });
+  it('admin y RH tienen el mismo menú', () => { expect(menuDe('admin')).toEqual(menuDe('rh')); });
 });

@@ -17,39 +17,10 @@ import { useTransporteAnterior } from '../hooks/useTransporteAnterior';
 import { useAreas } from '../hooks/useAreas';
 import { modulosDe, moduloDeRuta } from '../modulos';
 import { ROLES_RH } from '../utils/roles';
-import { descripcionRoles, itemsMenuPorRol } from '../utils/navegacion';
-
-/**
- * Menú por módulo. `modulo`: el ítem solo se ve si el usuario tiene acceso a ese módulo (modulos.js);
- * `rh`: además exige rol RH/admin. Las secciones (section) se ocultan si no les queda ningún ítem.
- */
-const NAV_ITEMS = [
-  { path: '/', label: 'Inicio (portal)', icon: Home, end: true },
-
-  { section: 'Transporte (rutas)', modulo: 'rutas' },
-  { path: '/rutas', label: 'Resumen', icon: LayoutGrid, modulo: 'rutas', end: true },
-  { path: '/rutas/solicitud/nueva', label: 'Nueva solicitud', icon: FilePlus, modulo: 'rutas' },
-  { path: '/rutas/mis-solicitudes', label: 'Mis solicitudes', icon: ClipboardList, modulo: 'rutas' },
-  { path: '/rutas/rh/solicitudes', label: 'Todas las solicitudes', icon: Layers, modulo: 'rutas', rh: true },
-  { path: '/rutas/rh/catalogos', label: 'Catálogos del sistema', icon: Database, modulo: 'rutas', rh: true },
-
-  { section: 'Tiempo extra', modulo: 'tiempo-extra' },
-  { path: '/tiempo-extra', label: 'Resumen', icon: Clock, modulo: 'tiempo-extra', end: true },
-  { path: '/tiempo-extra/nueva', label: 'Solicitar tiempo extra', icon: FilePlus, modulo: 'tiempo-extra', rh: true },
-  { path: '/tiempo-extra/mis-solicitudes', label: 'Mis solicitudes de TE', icon: ClipboardList, modulo: 'tiempo-extra', rh: true },
-  { path: '/tiempo-extra/autorizar', label: 'Por autorizar', icon: BadgeCheck, modulo: 'tiempo-extra', rh: true, contador: 'autorizar' },
-  { path: '/tiempo-extra/recepcion', label: 'Recepción', icon: Inbox, modulo: 'tiempo-extra', rh: true, contador: 'recepcion' },
-  { path: '/tiempo-extra/consulta', label: 'Consulta de solicitudes', icon: Layers, modulo: 'tiempo-extra', rh: true },
-  { path: '/accesos/organigrama', label: 'Organigrama', icon: GitBranch, modulo: 'tiempo-extra' },
-
-  { section: 'Administración', rh: true },
-  { path: '/rutas/rh/empleados', label: 'Padrón de empleados', icon: Users, rh: true },
-  { path: '/rutas/rh/estructura', label: 'Estructura', icon: Network, rh: true },
-  { path: '/accesos', label: 'Usuarios y accesos', icon: ShieldCheck, rh: true, end: true },
-];
+import { descripcionRoles, itemsMenuPorRol, itemsMenuRH } from '../utils/navegacion';
 
 const SUBTITULO_MODULO = { rutas: 'Transporte', 'tiempo-extra': 'Tiempo extra' };
-const ICONOS_ROL = { Home, FilePlus, ClipboardList, BadgeCheck, Layers, GitBranch, ShieldCheck, Bus };
+const ICONOS = { Home, FilePlus, ClipboardList, BadgeCheck, Layers, GitBranch, ShieldCheck, Bus, LayoutGrid, Database, Clock, Inbox, Users, Network };
 
 export default function Navbar() {
   const { usuario, cerrarSesion } = useAuth();
@@ -70,16 +41,9 @@ export default function Navbar() {
   const descripcion = descripcionRoles(accesos, nombresArea);
 
   const idsModulos = new Set(modulosDe(usuario, accesos).map(m => m.id));
-  const visible = (it) => (!it.modulo || idsModulos.has(it.modulo)) && (!it.rh || esRH);
-  // RH/admin: por secciones (una sección solo se muestra si tiene al menos un ítem visible).
-  // Los demás: menú plano por rol
-  const items = esRH
-    ? NAV_ITEMS.filter(visible).filter((it, i, lista) => {
-      if (!it.section) return true;
-      const siguiente = lista[i + 1];
-      return !!siguiente && !siguiente.section;
-    })
-    : itemsMenuPorRol({ ...accesos, transporteAnterior }).map(it => ({ ...it, icon: ICONOS_ROL[it.icono] ?? Home }));
+  // RH/admin: por secciones (utils/navegacion.js); los demás: menú plano por rol
+  const lista = esRH ? itemsMenuRH({ esRH, idsModulos }) : itemsMenuPorRol({ ...accesos, transporteAnterior });
+  const items = lista.map(it => ({ ...it, icon: ICONOS[it.icono] ?? Home }));
 
   const handleCerrarSesion = async () => {
     await cerrarSesion();
