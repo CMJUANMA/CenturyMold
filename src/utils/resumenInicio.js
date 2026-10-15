@@ -31,11 +31,11 @@ export function contarMisSolicitudes(propias, ahora = new Date()) {
   };
 }
 
-/** Estado del transporte de una solicitud autorizada o ya recibida por RH (lo que ve el solicitante) */
+/** Estado del transporte de una solicitud autorizada o ya confirmada por RH (lo que ve el solicitante) */
 export function estadoTransporte(sol) {
   const conTransporte = (sol.resumen?.totalTransporte ?? 0) > 0;
-  if (sol.estatus === 'procesada') return conTransporte ? 'Recibida por RH · transporte solicitado' : 'Recibida por RH · sin transporte';
-  return conTransporte ? 'Por solicitar' : 'Sin transporte';
+  if (sol.estatus === 'procesada') return conTransporte ? 'Confirmada por RH · transporte solicitado' : 'Confirmada por RH · sin transporte';
+  return conTransporte ? 'Por enviar al proveedor' : 'Sin transporte';
 }
 
 /** Autorizadas (o ya recibidas) con fecha de hoy en adelante, la más próxima primero */

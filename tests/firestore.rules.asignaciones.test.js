@@ -250,3 +250,80 @@ describe('bitácora de asignaciones', () => {
     await assertSucceeds(b.commit());
   });
 });
+
+describe('posición (titular / por ausencia) y puesto guardado', () => {
+  const aut2Id = idDe(N.aut2, 'aut2');
+  const aut1Id = idDe(N.aut1P, 'aut1', 'produccion');
+  const solId = idDe(N.solP, 'solicitante', 'produccion');
+
+  it('al asignar, el admin puede dar posición y puesto a una Aut. 2; RH y la Aut. 2, a un Aut. 1', async () => {
+    await assertSucceeds(asignar('admin', N.nuevo, 'aut2', null, { posicion: 'suplente', puesto: 'GERENTE' }));
+    await assertSucceeds(asignar('rh', N.nuevo, 'aut1', 'calidad', { posicion: 'titular', puesto: 'SUPERVISOR' }));
+    await assertSucceeds(asignar('aut2', N.otro, 'aut1', 'calidad', { posicion: 'suplente' }));
+  });
+  it('la posición solo puede ser titular o suplente, y un solicitante no la lleva', async () => {
+    await assertFails(asignar('admin', N.nuevo, 'aut2', null, { posicion: 'jefe' }));
+    await assertFails(asignar('rh', N.nuevo, 'solicitante', 'calidad', { posicion: 'titular' }));
+    await assertSucceeds(asignar('rh', N.nuevo, 'solicitante', 'calidad', { puesto: 'OPERADOR' }));
+    await assertFails(asignar('rh', N.otro, 'solicitante', 'calidad', { puesto: 12 }));
+  });
+  it('las asignaciones que ya existen (sin posición ni puesto) se pueden revocar y extender como antes', async () => {
+    await assertSucceeds(updateDoc(doc(dbDe('rh'), 'asignaciones', solId), { hasta: en(dia), motivo: 'x' }));
+    await assertSucceeds(updateDoc(doc(dbDe('aut2'), 'asignaciones', aut1Id), { activo: false }));
+    await assertSucceeds(updateDoc(doc(dbDe('admin'), 'asignaciones', aut2Id), { activo: false }));
+  });
+  it('cambiar posición: el admin la de una Aut. 2; RH y la Aut. 2, la de un Aut. 1; nadie más', async () => {
+    await assertSucceeds(updateDoc(doc(dbDe('admin'), 'asignaciones', aut2Id), { posicion: 'titular' }));
+    await assertSucceeds(updateDoc(doc(dbDe('admin'), 'asignaciones', aut2Id), { posicion: 'suplente' }));
+    await assertFails(updateDoc(doc(dbDe('rh'), 'asignaciones', aut2Id), { posicion: 'titular' }));
+    await assertFails(updateDoc(doc(dbDe('aut2'), 'asignaciones', aut2Id), { posicion: 'titular' })); // ni la propia
+    await assertSucceeds(updateDoc(doc(dbDe('rh'), 'asignaciones', aut1Id), { posicion: 'titular' }));
+    await assertSucceeds(updateDoc(doc(dbDe('aut2'), 'asignaciones', aut1Id), { posicion: 'suplente' }));
+    for (const uid of ['aut1P', 'solP', 'ajeno']) await assertFails(updateDoc(doc(dbDe(uid), 'asignaciones', aut1Id), { posicion: 'titular' }));
+  });
+  it('la posición no admite otro valor ni se pone a un solicitante al cambiarla', async () => {
+    await assertFails(updateDoc(doc(dbDe('admin'), 'asignaciones', aut2Id), { posicion: 'jefe' }));
+    await assertFails(updateDoc(doc(dbDe('rh'), 'asignaciones', solId), { posicion: 'titular' }));
+  });
+  it('copiar nombre y puesto del padrón: RH y admin, solo esos dos campos y de cualquier rol (también Aut. 2)', async () => {
+    await assertSucceeds(updateDoc(doc(dbDe('admin'), 'asignaciones', aut2Id), { nombre: 'MALDONADO SALVADOR', puesto: 'DIRECTOR' }));
+    await assertSucceeds(updateDoc(doc(dbDe('rh'), 'asignaciones', aut2Id), { puesto: 'DIRECTOR GENERAL' }));
+    await assertSucceeds(updateDoc(doc(dbDe('rh'), 'asignaciones', solId), { nombre: 'X', puesto: 'OPERADOR' }));
+    await assertFails(updateDoc(doc(dbDe('rh'), 'asignaciones', solId), { puesto: 'OTRO PUESTO', activo: false })); // más campos: no es la copia
+    await assertFails(updateDoc(doc(dbDe('rh'), 'asignaciones', solId), { puesto: 99 }));
+    for (const uid of ['aut2', 'aut1P', 'solP', 'ajeno']) await assertFails(updateDoc(doc(dbDe(uid), 'asignaciones', solId), { puesto: 'HACKER' }));
+  });
+});
+
+describe('privacidad: quién asignó a quién queda en la bitácora, y el Aut. 1 no la lee', () => {
+  const entradas = async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'bitacora', 'b1'), {
+        accion: 'asignar', entidad: 'asignacion', antes: null, despues: { id: idDe(N.solP, 'solicitante', 'produccion') },
+        porUid: 'rh', porNombre: 'RH', fecha: Timestamp.now(),
+      });
+    });
+  };
+  it('un Aut. 1 (y un solicitante) no leen la bitácora: ni abierta ni por la consulta del historial de una asignación', async () => {
+    await entradas();
+    for (const uid of ['aut1P', 'solP']) {
+      await assertFails(getDoc(doc(dbDe(uid), 'bitacora', 'b1')));
+      await assertFails(getDocs(collection(dbDe(uid), 'bitacora')));
+      await assertFails(getDocs(query(collection(dbDe(uid), 'bitacora'), where('entidad', '==', 'asignacion'),
+        where('despues.id', '==', idDe(N.solP, 'solicitante', 'produccion')))));
+    }
+  });
+  it('RH, admin y la Aut. 2 sí leen el historial de una asignación', async () => {
+    await entradas();
+    for (const uid of ['rh', 'admin', 'aut2']) {
+      await assertSucceeds(getDocs(query(collection(dbDe(uid), 'bitacora'), where('entidad', '==', 'asignacion'),
+        where('despues.id', '==', idDe(N.solP, 'solicitante', 'produccion')))));
+    }
+  });
+  it('las consultas del organigrama de un Aut. 1 siguen funcionando: su área, las de Aut. 2 y las suyas', async () => {
+    const col = collection(dbDe('aut1P'), 'asignaciones');
+    await assertSucceeds(getDocs(query(col, where('areaId', 'in', ['produccion']))));
+    await assertSucceeds(getDocs(query(col, where('rol', '==', 'aut2'))));
+    await assertSucceeds(getDocs(query(col, where('nomina', '==', N.aut1P))));
+  });
+});

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import {
   agruparPorFecha, datosSolicitudTransporte, horaFormatoRutas, pasajerosDeTE, quienDevolvio, solicitanteDeTransporte,
-  textoRecibida, turnoPorEntrada,
+  NOMBRE_POR_ENVIAR, mensajeConfirmada, textoConfirmar, textoRecibida, turnoPorEntrada,
 } from '../src/utils/tiempoExtra.js';
 import { ENCABEZADOS_PROVEEDOR, agruparHojas, construirLibroProveedor } from '../src/utils/libroProveedor.js';
 import {
@@ -81,8 +81,8 @@ describe('transporte de un tiempo extra', () => {
     expect(g.map(x => [x.fecha, x.items.map(i => i.folio)])).toEqual([['2026-10-20', ['A', 'C']], ['2026-10-22', ['B']]]);
   });
   it('textos para el solicitante y para la devolución', () => {
-    expect(textoRecibida({ resumen: { totalTransporte: 3 } })).toBe('Recibida por RH · transporte solicitado');
-    expect(textoRecibida({ resumen: { totalTransporte: 0 } })).toBe('Recibida por RH · sin transporte');
+    expect(textoRecibida({ resumen: { totalTransporte: 3 } })).toBe('Confirmada por RH · transporte solicitado');
+    expect(textoRecibida({ resumen: { totalTransporte: 0 } })).toBe('Confirmada por RH · sin transporte');
     expect(quienDevolvio(2)).toBe('Autorización 2');
     expect(quienDevolvio(3)).toBe('Recursos Humanos (recepción)');
   });
@@ -170,6 +170,20 @@ describe('Excel del proveedor', () => {
   });
 });
 
+describe('Por enviar al proveedor (antes Recepción)', () => {
+  it('el botón dice si nadie lleva transporte', () => {
+    expect(textoConfirmar({ resumen: { totalTransporte: 2 } })).toBe('Confirmar y generar transporte');
+    expect(textoConfirmar({ resumen: { totalTransporte: 0 } })).toBe('Confirmar (sin transporte)');
+    expect(textoConfirmar({})).toBe('Confirmar (sin transporte)');
+  });
+  it('el mensaje de "Listo" dice dónde quedó el transporte', () => {
+    expect(NOMBRE_POR_ENVIAR).toBe('Por enviar al proveedor');
+    expect(mensajeConfirmada({ fecha: '2026-10-15', pasajeros: 3 }))
+      .toBe('Listo. El transporte de jueves 15 de octubre ya aparece en Transporte > Solicitudes y se incluirá en el Formato de rutas.');
+    expect(mensajeConfirmada({ fecha: '2026-10-15', pasajeros: 0 })).toContain('sin transporte');
+  });
+});
+
 describe('Excel de tiempo extra para RH', () => {
   const nombresArea = new Map([['moldes', 'Moldes'], ['calidad', 'Calidad']]);
   const firma = (nombre, comoRH = false) => ({ nombre, comoRH, fecha: new Date(2026, 9, 15, 14, 30) });
@@ -227,8 +241,16 @@ describe('Excel de tiempo extra para RH', () => {
     expect(r.total).toEqual(['TOTAL', '', 3, 4, 34]);
   });
 
+  it('solo confirmadas por RH: deja fuera lo que aún no se confirma', () => {
+    expect(filtrarParaDescarga(sols, { estatus: ['procesada'] }).map(t => t.folio)).toEqual(['TE-2026-0002']);
+    const wb = construirLibroTiempoExtra({ ExcelJS, solicitudes: sols, nombresArea, catalogos, filtros: { estatus: ['procesada'] } });
+    expect(wb.getWorksheet('Detalle').getCell('A2').value).toContain('Solo confirmadas por RH');
+    const todas = construirLibroTiempoExtra({ ExcelJS, solicitudes: sols, nombresArea, catalogos, filtros: {} });
+    expect(todas.getWorksheet('Detalle').getCell('A2').value).toContain('Todas las autorizadas');
+  });
+
   it('nombre del archivo con el rango', () => {
-    expect(nombreArchivoTiempoExtra('2026-10-01', '2026-10-31')).toBe('Tiempo_Extra_2026-10-01_a_2026-10-31.xlsx');
-    expect(nombreArchivoTiempoExtra('2026-10-20', '2026-10-20')).toBe('Tiempo_Extra_2026-10-20.xlsx');
+    expect(nombreArchivoTiempoExtra('2026-10-01', '2026-10-31')).toBe('TiempoExtra_2026-10-01_a_2026-10-31.xlsx');
+    expect(nombreArchivoTiempoExtra('2026-10-20', '2026-10-20')).toBe('TiempoExtra_2026-10-20.xlsx');
   });
 });

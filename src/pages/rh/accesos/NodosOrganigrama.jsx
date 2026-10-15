@@ -1,10 +1,11 @@
 /**
  * NodosOrganigrama.jsx — Piezas visuales del organigrama: la jerarquía se ve por posición, tamaño y líneas, no solo por color.
  * Fondos neutros (superficie del tema) con un acento por nivel: borde de color e ícono.
- *   Aut. 2: tarjeta mediana · Aut. 1: la más grande del área · Solicitante: fila compacta.
+ *   Aut. 2: el titular grande y centrado arriba, quienes cubren por ausencia más pequeños debajo · Aut. 1: la más grande del área ·
+ *   Solicitante: fila compacta. Las personas de un nivel superior al de quien mira se dibujan bloqueadas (sin clic).
  */
 import { BadgeCheck, Clock, Plus } from 'lucide-react';
-import { formatoCorto } from '../../../utils/asignaciones';
+import { POSICION, POSICION_LABELS, formatoCorto } from '../../../utils/asignaciones';
 import { COLOR_LINEA, NIVELES } from './nivelesOrganigrama';
 
 
@@ -48,25 +49,62 @@ const claseEstado = ({ resaltado, atenuado, resaltarSin, t }) => [
   atenuado ? 'opacity-40' : '',
 ].join(' ');
 
-/** Tarjeta de Aut. 2 (mediana) o de Aut. 1 (la más grande del área) */
-export function TarjetaPersona({ t, formato, grande = false, estado, onAbrir }) {
+/** "Titular" / "Por ausencia"; sin posición definida, un aviso (solo para quien puede asignar y corregirlo) */
+export function InsigniaPosicion({ posicion, avisarSin = false }) {
+  if (posicion) {
+    const titular = posicion === POSICION.TITULAR;
+    return (
+      <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-bold ${titular
+        ? 'border-[var(--cm-red)] bg-[var(--bg-surface-secondary)] text-[var(--cm-red)]'
+        : 'border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)]'}`}>
+        {POSICION_LABELS[posicion]}
+      </span>
+    );
+  }
+  return avisarSin ? (
+    <span className="inline-flex items-center rounded-full border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--status-warning-text)]">
+      Sin posición · asígnala
+    </span>
+  ) : null;
+}
+
+/**
+ * Tarjeta de Aut. 2 o de Aut. 1. `tamano`: 'titular' (la más grande, centrada arriba), 'normal' o 'compacta' (por ausencia).
+ * `bloqueada` (la persona es de un nivel superior al de quien mira): sin clic ni panel, solo nombre, puesto y el nivel.
+ */
+export function TarjetaPersona({ t, formato, grande = false, tamano = grande ? 'titular' : 'normal', estado, onAbrir, bloqueada = false, avisarSinPosicion = false }) {
   const n = NIVELES[t.rol];
-  return (
-    <button type="button" data-org={t.id} onClick={() => onAbrir(t)} aria-label={`${formato.nombre(t.nombre)}, ${n.etiqueta}. Ver detalle`}
-      className={`group relative w-full cursor-pointer rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] text-left shadow-sm transition-all hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cm-red)] ${grande ? 'p-4' : 'p-3'} ${claseEstado({ ...estado, t })}`}
-      style={{ borderTop: `3px solid ${n.acento}` }}>
+  const g = tamano === 'titular', c = tamano === 'compacta';
+  const cls = `relative w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] text-left shadow-sm ${g ? 'p-5' : c ? 'p-2' : 'p-3'} ${claseEstado({ ...estado, t })}`;
+  const contenido = (
+    <>
       <span className="flex items-start gap-3">
-        <Avatar iniciales={formato.iniciales(t.nombre)} rol={t.rol} tamano={grande ? 48 : 40} />
+        <Avatar iniciales={formato.iniciales(t.nombre)} rol={t.rol} tamano={g ? 56 : c ? 30 : 40} />
         <span className="min-w-0 flex-1">
-          <span className={`block font-bold leading-tight text-[var(--text-main)] ${grande ? 'text-sm' : 'text-xs'}`}>{formato.nombre(t.nombre)}</span>
-          {t.puesto && <span className="mt-0.5 block text-[11px] leading-tight text-[var(--text-secondary)]">{t.puesto}</span>}
-          <span className="mt-0.5 block font-mono text-[10px] text-[var(--text-muted)]">{t.nomina}</span>
+          <span className={`block font-bold leading-tight text-[var(--text-main)] ${g ? 'text-base' : c ? 'text-[11px]' : 'text-xs'}`}>{formato.nombre(t.nombre)}</span>
+          {t.puesto && <span className={`mt-0.5 block leading-tight text-[var(--text-secondary)] ${c ? 'text-[10px]' : 'text-[11px]'}`}>{t.puesto}</span>}
+          {!bloqueada && <span className="mt-0.5 block font-mono text-[10px] text-[var(--text-muted)]">{t.nomina}</span>}
         </span>
-        <span className="flex items-center gap-1"><Indicadores t={t} resaltarSin={estado.resaltarSin} /></span>
+        {!bloqueada && <span className="flex items-center gap-1"><Indicadores t={t} resaltarSin={estado.resaltarSin} /></span>}
       </span>
-      <span className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-        <n.Icono className="h-3 w-3" style={{ color: n.acento }} />{n.etiqueta}
+      <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+          <n.Icono className="h-3 w-3" style={{ color: n.acento }} />{n.etiqueta}
+        </span>
+        <InsigniaPosicion posicion={t.posicion} avisarSin={avisarSinPosicion} />
       </span>
+    </>
+  );
+  if (bloqueada) {
+    return (
+      <div data-org={t.id} aria-label={`${formato.nombre(t.nombre)}, ${n.etiqueta}`} className={cls} style={{ borderTop: `3px solid ${n.acento}` }}>{contenido}</div>
+    );
+  }
+  return (
+    <button type="button" data-org={t.id} onClick={() => onAbrir(t)} aria-label={`${formato.nombre(t.nombre)}, ${n.etiqueta}${t.posicion ? `, ${POSICION_LABELS[t.posicion]}` : ''}. Ver detalle`}
+      className={`group cursor-pointer transition-all hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cm-red)] ${cls}`}
+      style={{ borderTop: `3px solid ${n.acento}` }}>
+      {contenido}
     </button>
   );
 }

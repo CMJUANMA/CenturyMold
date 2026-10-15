@@ -71,7 +71,7 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
           ['Fecha', t.fechaTE ? formatoFecha(`${t.fechaTE}T12:00:00`) : '—'], ['Motivo', t.motivo || '—'],
           ['Empleados', t.resumen?.totalEmpleados ?? 0], ['Horas', t.resumen?.totalHoras ?? 0], ['Con transporte', t.resumen?.totalTransporte ?? 0],
           ['Con alimentos', t.resumen?.totalAlimentos ?? 0], ['Firmó nivel 1', firmaTexto(t.aut1, nombre) || '—'], ['Firmó nivel 2', firmaTexto(t.aut2, nombre) || '—'],
-          ...(t.recibidaPor ? [['Recibida por RH', `${nombre(t.recibidaPor.nombre)} · ${fechaHora(t.fechaRecepcion)}`]] : [])].map(([k, v]) => (
+          ...(t.recibidaPor ? [['Confirmada por RH', `${nombre(t.recibidaPor.nombre)} · ${fechaHora(t.fechaRecepcion)}`]] : [])].map(([k, v]) => (
           <div key={k}><dt className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">{k}</dt><dd className="mt-0.5 font-semibold text-[var(--text-main)]">{v}</dd></div>
         ))}
         {t.comentario && <div className="col-span-full"><dt className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Comentario</dt><dd className="mt-0.5 text-[var(--text-main)]">{t.comentario}</dd></div>}
@@ -79,7 +79,7 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
 
       {avisoTransporte && ['pendiente_aut1', 'pendiente_aut2', 'autorizada'].includes(t.estatus) && (
         <p className="rounded-md border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-3 py-2 text-[var(--status-info-text)]">
-          Al quedar autorizada, RH la recibirá y generará la solicitud de transporte de los empleados que lo pidieron.
+          Al quedar autorizada, RH la confirmará y generará la solicitud de transporte de los empleados que lo pidieron.
         </p>
       )}
 

@@ -5,11 +5,12 @@ import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { ESTATUS_TE, ESTATUS_TE_MAP, etiquetaEstatusTE } from '../src/utils/constantes.js';
 import {
-  MIN_JUSTIFICACION_RUTAS, PERIODOS_DESCARGA, SIN_SALIDA, TIPOS_TE, YA_EN_PLANTA, aplicarA, calcularHoras, datosTE, docAEmpleado, empleadoADoc, empleadoDesdePadron,
+  INCLUIR_DESCARGA, MIN_JUSTIFICACION_RUTAS, PERIODOS_DESCARGA, estatusDeIncluir, SIN_SALIDA, TIPOS_TE, YA_EN_PLANTA, aplicarA, calcularHoras, datosTE, docAEmpleado, empleadoADoc, empleadoDesdePadron,
   finDeTurno, llevaTransporte, pasajerosDeTE, problemasDeEnvio, rangoDePeriodo, resumenRutas, resumenTE, salidasPosteriores, sentidoDe, textoRuta, textoRutas,
   turnoPorFin,
 } from '../src/utils/tiempoExtra.js';
 import { construirLibroProveedor } from '../src/utils/libroProveedor.js';
+import { textoRango } from '../src/utils/fechas.js';
 import { AYUDAS, ayudaDePantalla, recorridoDe, textoAyuda } from '../src/utils/ayudas.js';
 import { PREFERENCIAS_BASE, TAMANOS_LETRA, normalizarPreferencias } from '../src/context/preferenciasStore.js';
 
@@ -27,7 +28,7 @@ describe('etiquetas de estatus de tiempo extra', () => {
     pendiente_aut2: 'En autorización (nivel 2)',
     devuelta: 'Devuelta',
     autorizada: 'Autorizada',
-    procesada: 'Recibida por RH',
+    procesada: 'Confirmada por RH',
     cancelada: 'Cancelada',
   };
   it('recorre TODOS los estatus y cada uno tiene su etiqueta', () => {
@@ -69,12 +70,15 @@ describe('etiquetas de estatus de tiempo extra', () => {
 
 describe('periodos de la descarga de tiempo extra', () => {
   const HOY = '2026-10-14'; // miércoles
-  it('los cinco atajos, en orden', () => {
-    expect(PERIODOS_DESCARGA.map(p => p.label)).toEqual(['Hoy', 'Un día (elegir)', 'Esta semana', 'Semana anterior', 'Rango personalizado']);
+  it('los seis atajos, en orden', () => {
+    expect(PERIODOS_DESCARGA.map(p => p.label)).toEqual(['Hoy', 'Ayer', 'Esta semana', 'Semana anterior', 'Este mes', 'Personalizado']);
   });
-  it('hoy, un día, esta semana y la semana anterior (lunes a domingo)', () => {
+  it('hoy, ayer, esta semana, la semana anterior (lunes a domingo) y este mes', () => {
     expect(rangoDePeriodo('hoy', HOY)).toEqual({ desde: HOY, hasta: HOY });
-    expect(rangoDePeriodo('dia', HOY, '2026-10-20')).toEqual({ desde: '2026-10-20', hasta: '2026-10-20' });
+    expect(rangoDePeriodo('ayer', HOY)).toEqual({ desde: '2026-10-13', hasta: '2026-10-13' });
+    expect(rangoDePeriodo('ayer', '2026-11-01')).toEqual({ desde: '2026-10-31', hasta: '2026-10-31' });
+    expect(rangoDePeriodo('mes', HOY)).toEqual({ desde: '2026-10-01', hasta: '2026-10-31' });
+    expect(rangoDePeriodo('mes', '2026-02-10')).toEqual({ desde: '2026-02-01', hasta: '2026-02-28' });
     expect(rangoDePeriodo('semana', HOY)).toEqual({ desde: '2026-10-12', hasta: '2026-10-18' });
     expect(rangoDePeriodo('anterior', HOY)).toEqual({ desde: '2026-10-05', hasta: '2026-10-11' });
   });
@@ -83,9 +87,20 @@ describe('periodos de la descarga de tiempo extra', () => {
     expect(rangoDePeriodo('semana', '2026-10-18')).toEqual({ desde: '2026-10-12', hasta: '2026-10-18' });
     expect(rangoDePeriodo('anterior', '2026-11-03')).toEqual({ desde: '2026-10-26', hasta: '2026-11-01' });
   });
-  it('un día sin elegir y el rango personalizado no tienen rango propio', () => {
-    expect(rangoDePeriodo('dia', HOY, '')).toBeNull();
+  it('el personalizado no tiene rango propio (se captura a mano)', () => {
     expect(rangoDePeriodo('rango', HOY)).toBeNull();
+  });
+  it('el rango en palabras', () => {
+    expect(textoRango('2026-10-12', '2026-10-18', HOY)).toBe('Del lunes 12 al domingo 18 de octubre');
+    expect(textoRango('2026-10-26', '2026-11-01', HOY)).toBe('Del lunes 26 de octubre al domingo 1 de noviembre');
+    expect(textoRango('2026-10-14', '2026-10-14', HOY)).toBe('El miércoles 14 de octubre');
+    expect(textoRango('2026-12-28', '2027-01-03', HOY)).toBe('Del lunes 28 de diciembre de 2026 al domingo 3 de enero de 2027');
+    expect(textoRango('2025-10-13', '2025-10-19', HOY)).toBe('Del lunes 13 al domingo 19 de octubre de 2025');
+  });
+  it('"incluir": por defecto todas las autorizadas; la otra opción, solo las confirmadas por RH', () => {
+    expect(INCLUIR_DESCARGA[0]).toMatchObject({ id: 'autorizadas', estatus: ['autorizada', 'procesada'] });
+    expect(estatusDeIncluir('confirmadas')).toEqual(['procesada']);
+    expect(estatusDeIncluir('cualquier-cosa')).toEqual(['autorizada', 'procesada']);
   });
 });
 

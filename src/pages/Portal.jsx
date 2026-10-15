@@ -69,8 +69,8 @@ export default function Portal() {
         <div className={`flex items-center justify-between gap-4 rounded-lg border px-5 py-4 transition-colors hover:border-[var(--cm-red)] ${porRecibir > 0
           ? 'border-[var(--status-warning-border)] bg-[var(--status-warning-bg)]' : 'border-[var(--border-color)] bg-[var(--bg-surface)]'}`}>
           <span>
-            <span className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Autorizadas pendientes de recibir</span>
-            <span className="block text-xs text-[var(--text-secondary)]">Tiempo extra ya autorizado que RH debe recibir.</span>
+            <span className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Por enviar al proveedor</span>
+            <span className="block text-xs text-[var(--text-secondary)]">Tiempo extra ya autorizado que RH debe confirmar.</span>
           </span>
           <span className="text-3xl font-bold text-[var(--text-main)]">{porRecibir}</span>
         </div>

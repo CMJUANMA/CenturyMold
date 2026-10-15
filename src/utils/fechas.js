@@ -57,3 +57,35 @@ export function rangoSemana(fechaYmd = ymd(), offsetSemanas = 0) {
   const lunes = sumarDias(fechaYmd, -diasDesdeLunes + 7 * offsetSemanas);
   return { desde: lunes, hasta: sumarDias(lunes, 6) };
 }
+
+const DIAS_SEMANA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+/** Primer y último día del mes de `fechaYmd` */
+export function rangoMes(fechaYmd = ymd()) {
+  const d = fechaLocal(fechaYmd);
+  return { desde: ymd(new Date(d.getFullYear(), d.getMonth(), 1)), hasta: ymd(new Date(d.getFullYear(), d.getMonth() + 1, 0)) };
+}
+
+/** "lunes 12 de octubre" (con " de 2026" si `conAnio`) */
+export function fechaConDia(fechaYmd, conAnio = false) {
+  const d = fechaLocal(fechaYmd);
+  if (!d) return '';
+  return `${DIAS_SEMANA[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]}${conAnio ? ` de ${d.getFullYear()}` : ''}`;
+}
+
+/**
+ * El rango en palabras: "Del lunes 12 al domingo 18 de octubre", "Del lunes 26 de octubre al domingo 1 de noviembre", "El lunes 12 de octubre".
+ * El año solo se dice si el rango no cae en el año de `hoy` (o si cruza de un año a otro).
+ */
+export function textoRango(desde, hasta, hoy = ymd()) {
+  const a = fechaLocal(desde), b = fechaLocal(hasta);
+  if (!a || !b) return '';
+  const anioHoy = fechaLocal(hoy)?.getFullYear();
+  const cruzaAnio = a.getFullYear() !== b.getFullYear();
+  const sufijo = cruzaAnio || b.getFullYear() !== anioHoy ? ` de ${b.getFullYear()}` : '';
+  if (desde === hasta) return `El ${fechaConDia(desde)}${sufijo}`;
+  if (cruzaAnio) return `Del ${fechaConDia(desde, true)} al ${fechaConDia(hasta, true)}`;
+  if (a.getMonth() === b.getMonth()) return `Del ${DIAS_SEMANA[a.getDay()]} ${a.getDate()} al ${DIAS_SEMANA[b.getDay()]} ${b.getDate()} de ${MESES[b.getMonth()]}${sufijo}`;
+  return `Del ${fechaConDia(desde)} al ${fechaConDia(hasta)}${sufijo}`;
+}

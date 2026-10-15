@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   calcularAccesos, construirOrganigrama, estadoAsignacion, etiquetaAsignacion, finDelDia, formatoCorto, idAsignacion, inicioDelDia,
-  motivoNoPuedeAsignar, rolesAsignables,
+  motivoNoPuedeAsignar, nivelDePersona, planActualizarDatos, rolesAsignables, vistaDePersona,
 } from '../src/utils/asignaciones.js';
 import { PROPUESTAS_INICIALES, evaluarPropuestas, nombreCoincide } from '../src/utils/cargaInicial.js';
 
@@ -185,5 +185,104 @@ describe('carga inicial de asignaciones', () => {
     const revocada = creadas.map((a, i) => (i === 0 ? { ...a, activo: false } : a));
     const de = evaluarPropuestas({ empleados: todos, usuarios: null, asignaciones: revocada, ahora: HOY });
     expect(de[0]).toMatchObject({ estado: 'listo', seleccionable: true });
+  });
+});
+
+describe('posición: titular y por ausencia', () => {
+  const emp = new Map();
+  it('el titular va primero, luego quien cubre por ausencia y al final quien aún no tiene posición', () => {
+    const org = construirOrganigrama({
+      asignaciones: [
+        asig('1', 'aut2', null, { nombre: 'ZETA SIN POSICION' }),
+        asig('2', 'aut2', null, { nombre: 'BETA SUPLENTE', posicion: 'suplente' }),
+        asig('3', 'aut2', null, { nombre: 'OMEGA TITULAR', posicion: 'titular' }),
+      ],
+      areas: [], empleados: emp, ahora: HOY,
+    });
+    expect(org.aut2.map(t => t.nombre)).toEqual(['OMEGA TITULAR', 'BETA SUPLENTE', 'ZETA SIN POSICION']);
+    expect(org.aut2Grupos.titulares.map(t => t.nomina)).toEqual(['3']);
+    expect(org.aut2Grupos.suplentes.map(t => t.nomina)).toEqual(['2']);
+    expect(org.aut2Grupos.sinPosicion.map(t => t.nomina)).toEqual(['1']);
+    expect(org.aut2[2].posicion).toBeNull();
+  });
+  it('en un área, el Aut. 1 titular va antes que su suplente; el solicitante nunca lleva posición', () => {
+    const org = construirOrganigrama({
+      asignaciones: [
+        asig('5', 'aut1', 'moldes', { nombre: 'A SUPLENTE', posicion: 'suplente' }),
+        asig('6', 'aut1', 'moldes', { nombre: 'B TITULAR', posicion: 'titular' }),
+        asig('7', 'solicitante', 'moldes', { posicion: 'titular' }),
+      ],
+      areas: [{ id: 'moldes', nombre: 'Moldes', participaTE: true, activa: true }], empleados: emp, ahora: HOY,
+    });
+    expect(org.columnas[0].aut1.map(t => t.nomina)).toEqual(['6', '5']);
+    expect(org.columnas[0].solicitantes[0].posicion).toBeNull();
+  });
+  it('una posición inválida se ignora', () => {
+    const org = construirOrganigrama({ asignaciones: [asig('1', 'aut2', null, { posicion: 'jefe' })], areas: [], empleados: emp, ahora: HOY });
+    expect(org.aut2[0].posicion).toBeNull();
+  });
+});
+
+describe('puesto guardado en la asignación', () => {
+  it('el organigrama muestra el puesto de la asignación aunque quien mira no lea el padrón', () => {
+    const org = construirOrganigrama({
+      asignaciones: [asig('11', 'aut2', null, { puesto: 'DIRECTOR DE PLANTA' })], areas: [], empleados: new Map(), ahora: HOY,
+    });
+    expect(org.aut2[0].puesto).toBe('DIRECTOR DE PLANTA');
+  });
+  it('sin puesto guardado usa el del padrón (si se puede leer) y si no, queda vacío', () => {
+    const con = construirOrganigrama({ asignaciones: [asig('11', 'aut2', null)], areas: [], empleados: new Map([['11', { nombre: 'X', puesto: 'GERENTE' }]]), ahora: HOY });
+    expect(con.aut2[0].puesto).toBe('GERENTE');
+    const sin = construirOrganigrama({ asignaciones: [asig('11', 'aut2', null)], areas: [], empleados: new Map(), ahora: HOY });
+    expect(sin.aut2[0].puesto).toBe('');
+  });
+});
+
+describe('privacidad del organigrama', () => {
+  const rh = { esRH: true, esAdmin: false, esAut2: false, esAut1: false };
+  const aut2 = { esRH: false, esAdmin: false, esAut2: true, esAut1: false };
+  const aut1 = { esRH: false, esAdmin: false, esAut2: false, esAut1: true };
+  it('RH y admin ven todo completo', () => {
+    for (const nivel of [0, 1, 2]) expect(vistaDePersona(rh, nivel)).toBe('completa');
+  });
+  it('el Aut. 1 no puede abrir a la Aut. 2; ve básico a su nivel y a los solicitantes', () => {
+    expect(vistaDePersona(aut1, 2)).toBe('bloqueada');
+    expect(vistaDePersona(aut1, 1)).toBe('basica');
+    expect(vistaDePersona(aut1, 0)).toBe('basica');
+  });
+  it('la Aut. 2 ve completo hacia abajo, pero solo básico a otros Aut. 2', () => {
+    expect(vistaDePersona(aut2, 1)).toBe('completa');
+    expect(vistaDePersona(aut2, 0)).toBe('completa');
+    expect(vistaDePersona(aut2, 2)).toBe('basica');
+  });
+  it('una persona se trata por su nivel más alto vigente', () => {
+    const lista = [asig('9', 'solicitante', 'moldes'), asig('9', 'aut2', null), asig('8', 'aut1', 'moldes', { activo: false })];
+    expect(nivelDePersona('9', lista, HOY)).toBe(2);
+    expect(nivelDePersona('8', lista, HOY)).toBe(-1); // revocada
+    expect(vistaDePersona(aut1, nivelDePersona('9', lista, HOY))).toBe('bloqueada');
+  });
+});
+
+describe('actualizar nombres y puestos de las asignaciones', () => {
+  const padron = [
+    { nomina: '1', nombre: 'ACOSTA MARCOS', puesto: 'SUPERVISOR' },
+    { nomina: '2', nombre: 'BARRIOS LUIS', puesto: '' },
+    { nomina: '3', nombre: 'CARRERA JOEL', puesto: 'OPERADOR' },
+  ];
+  it('copia lo que falta, no toca lo que ya coincide ni a quien no está en el padrón, y un puesto vacío no borra el existente', () => {
+    const plan = planActualizarDatos([
+      asig('1', 'solicitante', 'moldes', { nombre: 'ACOSTA MARCOS' }),                    // falta el puesto
+      asig('2', 'aut1', 'moldes', { nombre: 'BARRIOS', puesto: 'JEFE DE AREA' }),         // el padrón no trae puesto: se conserva
+      asig('3', 'solicitante', 'moldes', { nombre: 'CARRERA JOEL', puesto: 'OPERADOR' }), // ya al día
+      asig('99', 'solicitante', 'moldes', { nombre: 'FUERA' }),                           // no está en el padrón
+    ], padron);
+    expect(plan.cambios.map(c => [c.asignacion.nomina, c.nombre, c.puesto])).toEqual([
+      ['1', 'ACOSTA MARCOS', 'SUPERVISOR'],
+      ['2', 'BARRIOS LUIS', 'JEFE DE AREA'],
+    ]);
+    expect(plan.cambios[0].cambia).toEqual({ puesto: { antes: '', despues: 'SUPERVISOR' } });
+    expect(plan.cambios[1].cambia).toEqual({ nombre: { antes: 'BARRIOS', despues: 'BARRIOS LUIS' } });
+    expect(plan.alDia).toBe(1);
+    expect(plan.sinPadron.map(a => a.nomina)).toEqual(['99']);
   });
 });

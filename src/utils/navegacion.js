@@ -55,7 +55,7 @@ export const ITEMS_MENU_RH = [
   { path: '/tiempo-extra/nueva', label: 'Solicitar tiempo extra', icono: 'FilePlus', modulo: 'tiempo-extra', rh: true },
   { path: '/tiempo-extra/mis-solicitudes', label: 'Mis solicitudes de TE', icono: 'ClipboardList', modulo: 'tiempo-extra', rh: true },
   { path: '/tiempo-extra/autorizar', label: 'Por autorizar', icono: 'BadgeCheck', modulo: 'tiempo-extra', rh: true, contador: 'autorizar' },
-  { path: '/tiempo-extra/recepcion', label: 'Recepción', icono: 'Inbox', modulo: 'tiempo-extra', rh: true, contador: 'recepcion' },
+  { path: '/tiempo-extra/recepcion', label: 'Por enviar al proveedor', icono: 'Inbox', modulo: 'tiempo-extra', rh: true, contador: 'recepcion' },
   { path: '/tiempo-extra/consulta', label: 'Consulta de solicitudes', icono: 'Layers', modulo: 'tiempo-extra', rh: true },
   { path: '/accesos/organigrama', label: 'Organigrama', icono: 'GitBranch', modulo: 'tiempo-extra' },
 

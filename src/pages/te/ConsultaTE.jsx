@@ -26,7 +26,7 @@ import { ESTATUS_TE_VISIBLES, esperaDesde, filtrarSolicitudes } from '../../util
 import { inicioDeMes, inicioDeSemana } from '../../utils/resumenInicio';
 import { leerHistorialTE, leerSolicitudTE } from '../../utils/tiempoExtraDb';
 import AccionesRH from './AccionesRH';
-import DescargaTE from './DescargaTE';
+import { BotonDescargaResumenTE } from './DescargaTE';
 import DetalleTE from './DetalleTE';
 
 const campo = 'rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]';
@@ -50,7 +50,6 @@ export default function ConsultaTE() {
   const toast = useToast();
   const { esRH } = useAccesos();
   const [params, setParams] = useSearchParams();
-  const [descarga, setDescarga] = useState(false);
   const [ahora] = useState(() => new Date());
   const [filtros, setFiltros] = useState({ areaId: '', estatus: '', desde: '', hasta: '', solicitante: '' });
   const [detalle, setDetalle] = useState(null);
@@ -124,11 +123,8 @@ export default function ConsultaTE() {
         <div className="flex flex-wrap items-start gap-4">
           {esRH && (
             <div className="max-w-[16rem]">
-            <button type="button" id="btn-descargar-te-consulta" onClick={() => setDescarga(true)}
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-4 py-2 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]">
-              <FileSpreadsheet className="h-4 w-4" />Descargar tiempo extra
-            </button>
-            <Ayuda clave="descarga.tiempoExtra" />
+            <BotonDescargaResumenTE id="btn-descargar-te-consulta" icono={FileSpreadsheet} areas={areas} nombresArea={nombres}
+              catalogos={{ rutas, comunidades, puntos }} nombre={(x) => formato.nombre(x)} />
             </div>
           )}
           <div className="max-w-[16rem]">
@@ -204,7 +200,6 @@ export default function ConsultaTE() {
           )}
         </Modal>
       )}
-      {descarga && <DescargaTE isOpen onClose={() => setDescarga(false)} areas={areas} nombresArea={nombres} catalogos={{ rutas, comunidades, puntos }} nombre={(x) => formato.nombre(x)} />}
     </div>
   );
 }

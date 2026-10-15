@@ -4,7 +4,7 @@
  * Hojas: "Detalle" (una fila por empleado), "Horas por empleado" (para nómina), "Alimentos" (para el comedor) y "Resumen" (por área y fecha).
  * Sin dependencias del navegador; exceljs se carga con import() dinámico desde la pantalla.
  */
-import { ESTATUS_DESCARGA, TEXTO_SENTIDO, calcularHoras, esExtension, etiquetaBloque, firmaTexto, sentidoDe, textoRuta } from './tiempoExtra.js';
+import { ESTATUS_DESCARGA, INCLUIR_DESCARGA, TEXTO_SENTIDO, calcularHoras, esExtension, etiquetaBloque, firmaTexto, sentidoDe, textoRuta } from './tiempoExtra.js';
 
 export const ENCABEZADOS_DETALLE_RH = [
   'Folio', 'Fecha', 'Área', 'Tipo', 'Nómina', 'Nombre', 'Puesto', 'Turno de nómina', 'Entrada', 'Salida', 'Horas', 'Alimentos', 'Transporte', 'Sentido del transporte', 'Ruta',
@@ -27,12 +27,12 @@ const redondeo = (n) => Math.round(n * 100) / 100;
 export const nombreArchivoTiempoExtra = (desde, hasta, d = new Date()) => {
   const p = (n) => String(n).padStart(2, '0');
   const rango = desde && hasta ? (desde === hasta ? desde : `${desde}_a_${hasta}`) : `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-  return `Tiempo_Extra_${rango}.xlsx`;
+  return `TiempoExtra_${rango}.xlsx`;
 };
 
-/** Solo lo autorizado o ya recibido, dentro del rango de fechas del TE y del área elegida */
-export function filtrarParaDescarga(solicitudes, { desde = '', hasta = '', areaId = '' } = {}) {
-  return solicitudes.filter(t => ESTATUS_DESCARGA.includes(t.estatus)
+/** Solo lo autorizado o ya confirmado por RH (o solo esto último), dentro del rango de fechas del TE y del área elegida */
+export function filtrarParaDescarga(solicitudes, { desde = '', hasta = '', areaId = '', estatus = ESTATUS_DESCARGA } = {}) {
+  return solicitudes.filter(t => estatus.includes(t.estatus)
     && (!desde || String(t.fechaTE ?? '') >= desde) && (!hasta || String(t.fechaTE ?? '') <= hasta) && (!areaId || t.areaId === areaId));
 }
 
@@ -177,14 +177,16 @@ function agregarHoja(wb, nombre, { titulo, subtitulo, headers, filas, totales = 
  * @param {object[]} p.solicitudes  con `empleados` (docAEmpleado); solo autorizadas y procesadas
  * @param {Map<string,string>} p.nombresArea
  * @param {{rutas, comunidades, puntos}} p.catalogos
- * @param {{desde?: string, hasta?: string, areaId?: string}} p.filtros
+ * @param {{desde?: string, hasta?: string, areaId?: string, estatus?: string[]}} p.filtros
  * @param {(n:string)=>string} [p.nombre]
  */
 export function construirLibroTiempoExtra({ ExcelJS, solicitudes, nombresArea, catalogos, filtros = {}, nombre = (x) => x }) {
   const lista = filtrarParaDescarga(solicitudes, filtros);
   const rango = filtros.desde || filtros.hasta ? `Fechas del tiempo extra: ${fmtYMD(filtros.desde) || '…'} al ${fmtYMD(filtros.hasta) || '…'}` : 'Todas las fechas';
   const area = filtros.areaId ? `Área: ${nombresArea.get(filtros.areaId) ?? filtros.areaId}` : 'Todas las áreas';
-  const sub = `${rango} · ${area} · Autorizadas y recibidas por RH`;
+  const incluir = filtros.estatus && filtros.estatus.length === 1 && filtros.estatus[0] === 'procesada'
+    ? INCLUIR_DESCARGA[1].label : 'Todas las autorizadas (incluye las ya confirmadas por RH)';
+  const sub = `${rango} · ${area} · ${incluir}`;
   const wb = new ExcelJS.Workbook();
   wb.creator = 'CenturyMold';
   wb.created = new Date();

@@ -3,17 +3,20 @@
  * Árbol de arriba a abajo: Nivel 2 · Planta (Aut. 2 lado a lado) → una rama por área con participaTE → su Aut. 1 (la tarjeta
  * más grande) → lista compacta de solicitantes. La jerarquía se ve por posición, tamaño y líneas; los colores son solo un acento.
  * Escritorio: árbol completo con riel de niveles; pantallas medianas: scroll horizontal; celular: lista vertical plegable.
- * Clic en una persona abre su panel lateral; quien puede asignar ve los botones "+" y, en el panel, Revocar y Extender.
+ * Clic en una persona abre su panel lateral; quien puede asignar ve los botones "+" y, en el panel, Revocar, Extender y Cambiar posición.
+ * Privacidad: las personas de un nivel SUPERIOR al de quien mira no se abren (solo nombre, puesto y nivel); las de su nivel o inferiores
+ * abren un panel básico, y el completo (quién asignó, cuándo, motivo, historial) es de RH, admin y, hacia abajo, de la Aut. 2.
+ * Aut. 2: el titular va arriba, grande y centrado; quienes cubren por ausencia, debajo y más pequeños; sin posición, al final con un aviso.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { BadgeCheck, ChevronDown, Download, Loader2, Search, ShieldCheck, User } from 'lucide-react';
-import { construirOrganigrama, rolesAsignables, ROL_OP } from '../../../utils/asignaciones';
+import { BadgeCheck, ChevronDown, Search, ShieldCheck, User } from 'lucide-react';
+import {
+  VISTA_PERSONA, construirOrganigrama, nivelDePersona, rolesAsignables, vistaDePersona, ROL_OP,
+} from '../../../utils/asignaciones';
 import { crearFormateadorNombres } from '../../../utils/nombresPersona';
-import { useToast } from '../../../hooks/useToast';
 import { BotonAgregar, FilaSolicitante, SinAut1, TarjetaPersona } from './NodosOrganigrama';
 import { COLOR_LINEA, NIVELES, textoConteo } from './nivelesOrganigrama';
 import PanelPersona from './PanelPersona';
-import { btnSecondary } from './ui';
 
 const sinAcentos = (t) => String(t ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 const linea = { background: COLOR_LINEA };
@@ -44,11 +47,9 @@ function Riel({ rol, texto }) {
 }
 
 export default function TabOrganigrama({ asignaciones, areas, empleados, usuarios, actor, ahora, nombresArea, onAsignar }) {
-  const toast = useToast();
   const [busqueda, setBusqueda] = useState('');
   const [resaltarSin, setResaltarSin] = useState(false);
   const [abierta, setAbierta] = useState(null); // nómina de la persona del panel
-  const [exportando, setExportando] = useState(false);
 
   const asignables = rolesAsignables(actor);
   const empleadosPorNomina = useMemo(() => new Map(empleados.map(e => [String(e.nomina), e])), [empleados]);
@@ -61,7 +62,11 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, usuario
   );
 
   const q = sinAcentos(busqueda).trim();
-  const coincide = (t) => !q || [formato.nombre(t.nombre), t.nombre, t.puesto, t.nomina].some(x => sinAcentos(x).includes(q));
+  // Qué ve quien mira de cada persona: según el nivel más alto que ella tiene (una persona con dos roles se trata por el mayor)
+  const vistaDe = (t) => vistaDePersona(actor, nivelDePersona(t.nomina, asignaciones, ahora));
+  const bloqueada = (t) => vistaDe(t) === VISTA_PERSONA.BLOQUEADA;
+  // De una persona bloqueada no se busca por nómina: esa nómina no se muestra
+  const coincide = (t) => !q || [formato.nombre(t.nombre), t.nombre, t.puesto, bloqueada(t) ? '' : t.nomina].some(x => sinAcentos(x).includes(q));
   const estadoDe = (t) => ({ resaltado: !!q && coincide(t), atenuado: !!q && !coincide(t), resaltarSin });
   const primero = !q ? null
     : [...org.aut2, ...org.columnas.flatMap(c => [...c.aut1, ...c.solicitantes])].find(coincide)?.id ?? null;
@@ -73,21 +78,20 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, usuario
     nodo?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
   }, [primero]);
 
-  const abrir = (t) => setAbierta(t.nomina);
+  const abrir = (t) => { if (!bloqueada(t)) setAbierta(t.nomina); };
   const asignar = (rol, areaId) => onAsignar(areaId ? { rol, areaId } : { rol });
-  const hayDatos = org.aut2.length > 0 || org.columnas.some(c => c.aut1.length || c.solicitantes.length);
   const columnas = Math.max(org.columnas.length, 1);
 
-  const exportar = async () => {
-    setExportando(true);
-    try {
-      const { descargarOrganigrama } = await import('../../../utils/exportarOrganigrama');
-      await descargarOrganigrama(org, (t) => formato.nombre(t.nombre));
-    } catch (err) { toast.error('No se pudo exportar: ' + err.message); } finally { setExportando(false); }
-  };
-
   // Con una sola área los Aut. 2 se apilan (el nodo no excede la columna); con 2 van de dos en dos; con 3 o más, de tres en tres
-  const anchoPlanta = 17 * Math.max(1, Math.min(org.aut2.length, columnas <= 1 ? 1 : columnas === 2 ? 2 : 3)) - 0.75;
+  const { titulares, suplentes, sinPosicion } = org.aut2Grupos;
+  const porFila = columnas <= 1 ? 1 : columnas === 2 ? 2 : 3;
+  const anchoPlanta = Math.max(21 * Math.min(titulares.length, porFila), 14 * Math.min(suplentes.length, porFila + 1), 17 * Math.min(sinPosicion.length, porFila), 17) - 0.75;
+  const puedeAsignarAut2 = asignables.includes(ROL_OP.AUT2);
+  const tarjetaAut2 = (t, tamano, ancho) => (
+    <div key={t.id} className={`${ancho} max-w-full`}>
+      <TarjetaPersona t={t} formato={formato} tamano={tamano} estado={estadoDe(t)} onAbrir={abrir} bloqueada={bloqueada(t)} avisarSinPosicion={puedeAsignarAut2} />
+    </div>
+  );
   const nodoPlanta = (
     <section aria-label="Nivel 2 · Planta" className="mx-auto w-fit max-w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-3">
       <h3 className="mb-2 flex items-center justify-center gap-1.5 text-center text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
@@ -96,11 +100,18 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, usuario
       {org.aut2.length === 0 ? (
         <p className="px-4 py-2 text-center text-xs text-[var(--text-secondary)]">Nadie tiene Autorización 2 vigente (solo RH puede firmar este nivel).</p>
       ) : (
-        <div className="flex flex-wrap justify-center gap-3" style={{ maxWidth: `${anchoPlanta}rem` }}>
-          {org.aut2.map(t => <div key={t.id} className="w-64 max-w-full"><TarjetaPersona t={t} formato={formato} estado={estadoDe(t)} onAbrir={abrir} /></div>)}
+        <div className="mx-auto space-y-3" style={{ maxWidth: `${anchoPlanta}rem` }}>
+          {titulares.length > 0 && <div className="flex flex-wrap justify-center gap-3">{titulares.map(t => tarjetaAut2(t, 'titular', 'w-80'))}</div>}
+          {suplentes.length > 0 && <div className="flex flex-wrap justify-center gap-2">{suplentes.map(t => tarjetaAut2(t, 'compacta', 'w-56'))}</div>}
+          {sinPosicion.length > 0 && (
+            <div className="space-y-1.5">
+              {puedeAsignarAut2 && <p className="text-center text-[10px] font-semibold text-[var(--status-warning-text)]">Sin posición definida: asigna si es titular o va por ausencia (Usuarios y accesos › Asignaciones).</p>}
+              <div className="flex flex-wrap justify-center gap-3">{sinPosicion.map(t => tarjetaAut2(t, 'normal', 'w-64'))}</div>
+            </div>
+          )}
         </div>
       )}
-      {asignables.includes(ROL_OP.AUT2) && <div className="mt-2 flex justify-center"><BotonAgregar onClick={() => asignar(ROL_OP.AUT2)}>Aut. 2</BotonAgregar></div>}
+      {puedeAsignarAut2 && <div className="mt-2 flex justify-center"><BotonAgregar onClick={() => asignar(ROL_OP.AUT2)}>Aut. 2</BotonAgregar></div>}
     </section>
   );
 
@@ -111,7 +122,7 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, usuario
   );
   const bloqueAut1 = (col, grande) => (col.sinAut1
     ? <SinAut1 puedeAsignar={asignables.includes(ROL_OP.AUT1)} onAsignar={() => asignar(ROL_OP.AUT1, col.area.id)} />
-    : <div className="space-y-2">{col.aut1.map(t => <TarjetaPersona key={t.id} t={t} formato={formato} grande={grande} estado={estadoDe(t)} onAbrir={abrir} />)}</div>);
+    : <div className="space-y-2">{col.aut1.map(t => <TarjetaPersona key={t.id} t={t} formato={formato} tamano={grande && t.posicion !== 'suplente' ? 'titular' : 'normal'} estado={estadoDe(t)} onAbrir={abrir} bloqueada={bloqueada(t)} />)}</div>);
   const listaSolicitantes = (col) => (
     <div className="space-y-1">
       {col.solicitantes.map(t => <FilaSolicitante key={t.id} t={t} formato={formato} conTick={false} estado={estadoDe(t)} onAbrir={abrir} />)}
@@ -136,9 +147,6 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, usuario
           </span>
           Resaltar sin usuario
         </button>}
-        <button type="button" id="btn-exportar-organigrama" onClick={exportar} disabled={exportando || !hayDatos} className={btnSecondary}>
-          {exportando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}Exportar organigrama
-        </button>
         <div className="ml-auto"><Leyenda /></div>
       </div>
 
@@ -198,12 +206,13 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, usuario
       </div>
 
       <p className="text-[10px] text-[var(--text-muted)]">
-        Solo muestra asignaciones vigentes hoy. Las temporales dejan de aparecer solas al llegar su fecha final. Clic en una persona para ver su detalle.
+        Solo muestra asignaciones vigentes hoy. Las temporales dejan de aparecer solas al llegar su fecha final. Clic en una persona para ver su detalle (las de un nivel superior al tuyo no se abren).
       </p>
 
       {abierta && (
         <PanelPersona nomina={abierta} asignaciones={asignaciones} empleado={empleadosPorNomina.get(String(abierta))}
           conUsuario={nominasConUsuario ? nominasConUsuario.has(String(abierta)) : undefined} actor={actor} ahora={ahora}
+          vista={vistaDePersona(actor, nivelDePersona(abierta, asignaciones, ahora))}
           nombresArea={nombresArea} formato={formato} onClose={() => setAbierta(null)} />
       )}
     </div>

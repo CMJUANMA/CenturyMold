@@ -3,7 +3,7 @@
  * Empleado del editor ↔ documento tiempoExtra/{id}/empleados/{nómina}, horas, validaciones, resumen y lotes.
  */
 import { MAX_PASAJEROS, resumenPasajeros } from './solicitudes.js';
-import { rangoSemana } from './fechas.js';
+import { fechaConDia, rangoMes, rangoSemana, sumarDias } from './fechas.js';
 
 /** Estatus que pueden leer los autorizadores y RH (todos menos borrador: ese solo lo ve su creador) */
 export const ESTATUS_TE_VISIBLES = ['pendiente_aut1', 'pendiente_aut2', 'autorizada', 'devuelta', 'procesada', 'cancelada'];
@@ -237,7 +237,7 @@ export const estatusAlEnviar = ({ esAut1DeLaArea, areaParticipa }) => (!areaPart
 
 /** Nivel en el que va una solicitud, en texto */
 export function nivelEnTexto(estatus) {
-  return { borrador: 'Sin enviar', pendiente_aut1: 'Autorización 1', pendiente_aut2: 'Autorización 2', autorizada: 'Autorizada', devuelta: 'Devuelta', procesada: 'Recibida por RH', cancelada: 'Cancelada' }[estatus] ?? estatus;
+  return { borrador: 'Sin enviar', pendiente_aut1: 'Autorización 1', pendiente_aut2: 'Autorización 2', autorizada: 'Autorizada', devuelta: 'Devuelta', procesada: 'Confirmada por RH', cancelada: 'Cancelada' }[estatus] ?? estatus;
 }
 
 /** Pestañas de "Mis solicitudes" */
@@ -309,11 +309,17 @@ export function textoRuta(e, { rutas = [], comunidades = [], puntos = [] } = {})
 
 // ── Recepción de RH y transporte ──────────────────────────────────────────
 
-/** Nivel con el que RH devuelve en la recepción (los niveles 1 y 2 son de los autorizadores) */
+/** Nivel con el que RH devuelve desde "Por enviar al proveedor" (los niveles 1 y 2 son de los autorizadores) */
 export const NIVEL_RECEPCION = 3;
 export const MIN_MOTIVO_CANCELACION_RH = 10;
-/** Estatus que RH descarga en el Excel de tiempo extra: lo autorizado y lo ya recibido */
+/** Estatus que RH descarga en el Excel de tiempo extra: lo autorizado y lo ya confirmado por RH ("procesada") */
 export const ESTATUS_DESCARGA = ['autorizada', 'procesada'];
+/** "Incluir" de la descarga: todas las autorizadas (por defecto) o solo las que RH ya confirmó */
+export const INCLUIR_DESCARGA = [
+  { id: 'autorizadas', label: 'Todas las autorizadas', estatus: ESTATUS_DESCARGA },
+  { id: 'confirmadas', label: 'Solo confirmadas por RH', estatus: ['procesada'] },
+];
+export const estatusDeIncluir = (id) => (INCLUIR_DESCARGA.find(i => i.id === id) ?? INCLUIR_DESCARGA[0]).estatus;
 export const ORIGEN_TIEMPO_EXTRA = 'tiempo_extra';
 
 /**
@@ -398,10 +404,22 @@ export function agruparPorFecha(lista) {
   return [...grupos].map(([fecha, items]) => ({ fecha, items }));
 }
 
-/** Lo que ve el solicitante de una solicitud ya recibida por RH */
+/** Lo que ve el solicitante de una solicitud ya confirmada por RH */
 export function textoRecibida(t) {
-  return (t.resumen?.totalTransporte ?? 0) > 0 ? 'Recibida por RH · transporte solicitado' : 'Recibida por RH · sin transporte';
+  return (t.resumen?.totalTransporte ?? 0) > 0 ? 'Confirmada por RH · transporte solicitado' : 'Confirmada por RH · sin transporte';
 }
+
+/** Nombre de la pantalla y del paso donde RH confirma lo autorizado y se genera el transporte (antes "Recepción") */
+export const NOMBRE_POR_ENVIAR = 'Por enviar al proveedor';
+
+/** Mensaje al confirmar: dónde quedó el transporte (o que no hay nada que enviar). `fecha` es la del tiempo extra (AAAA-MM-DD) */
+export function mensajeConfirmada({ fecha, pasajeros }) {
+  if (!(pasajeros > 0)) return 'Listo. Se confirmó sin transporte: no hay nada que enviar al proveedor.';
+  return `Listo. El transporte de ${fechaConDia(fecha)} ya aparece en Transporte > Solicitudes y se incluirá en el Formato de rutas.`;
+}
+
+/** Texto del botón de confirmar: si nadie lleva transporte, lo dice */
+export const textoConfirmar = (t) => ((t.resumen?.totalTransporte ?? 0) > 0 ? 'Confirmar y generar transporte' : 'Confirmar (sin transporte)');
 
 /** "Autorización 2" / "Recursos Humanos (recepción)" */
 export const quienDevolvio = (nivel) => (Number(nivel) === NIVEL_RECEPCION ? 'Recursos Humanos (recepción)' : `Autorización ${nivel}`);
@@ -410,20 +428,22 @@ export const quienDevolvio = (nivel) => (Number(nivel) === NIVEL_RECEPCION ? 'Re
 
 export const PERIODOS_DESCARGA = [
   { id: 'hoy', label: 'Hoy' },
-  { id: 'dia', label: 'Un día (elegir)' },
+  { id: 'ayer', label: 'Ayer' },
   { id: 'semana', label: 'Esta semana' },
   { id: 'anterior', label: 'Semana anterior' },
-  { id: 'rango', label: 'Rango personalizado' },
+  { id: 'mes', label: 'Este mes' },
+  { id: 'rango', label: 'Personalizado' },
 ];
 
 /**
- * Rango { desde, hasta } ('AAAA-MM-DD') de un periodo de la descarga. `dia` usa la fecha elegida; `rango` devuelve null (se captura a mano).
- * La semana va de lunes a domingo.
+ * Rango { desde, hasta } ('AAAA-MM-DD') de un periodo de la descarga. `rango` (personalizado) devuelve null: se captura a mano.
+ * La semana va de lunes a domingo; el mes, del día 1 al último.
  */
-export function rangoDePeriodo(periodo, hoy, elegida = '') {
+export function rangoDePeriodo(periodo, hoy) {
   if (periodo === 'hoy') return { desde: hoy, hasta: hoy };
-  if (periodo === 'dia') return elegida ? { desde: elegida, hasta: elegida } : null;
+  if (periodo === 'ayer') { const ayer = sumarDias(hoy, -1); return { desde: ayer, hasta: ayer }; }
   if (periodo === 'semana') return rangoSemana(hoy, 0);
   if (periodo === 'anterior') return rangoSemana(hoy, -1);
+  if (periodo === 'mes') return rangoMes(hoy);
   return null;
 }

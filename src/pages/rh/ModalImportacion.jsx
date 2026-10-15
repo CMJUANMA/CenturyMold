@@ -9,7 +9,7 @@ import {
   Info, ChevronDown, ChevronUp, Search, UserMinus, ShieldAlert,
 } from 'lucide-react';
 import {
-  doc, serverTimestamp, deleteField,
+  collection, doc, getDocs, serverTimestamp, deleteField,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
@@ -75,6 +75,34 @@ async function descargarLibro(workbook, nombre) {
 
 // ── Guardado ──────────────────────────────────────────────────────────────
 /**
+ * Quien tiene asignaciones guarda su nombre y su puesto dentro de ellas (el Aut. 1 no lee el padrón de otras áreas): si la importación
+ * cambia el puesto o el nombre de alguien, también se actualizan sus asignaciones. Si no se pueden leer, la importación sigue igual.
+ */
+async function opsDatosEnAsignaciones(items) {
+  const cambian = items.filter(it => it.coleccion === 'empleados' && it.accion !== 'sinCambios'
+    && it.cambios?.some(c => c.campo === 'PUESTO' || c.campo === 'NOMBRE'));
+  if (cambian.length === 0) return [];
+  try {
+    const porNomina = new Map(cambian.map(it => [String(it.clave), it]));
+    const snap = await getDocs(collection(db, 'asignaciones'));
+    const ops = [];
+    for (const d of snap.docs) {
+      const a = d.data();
+      const it = porNomina.get(String(a.nomina));
+      if (!it) continue;
+      const nuevo = {};
+      if (it.cambios.some(c => c.campo === 'PUESTO') && it.datos.puesto && it.datos.puesto !== a.puesto) nuevo.puesto = it.datos.puesto;
+      if (it.cambios.some(c => c.campo === 'NOMBRE') && it.datos.nombre && it.datos.nombre !== a.nombre) nuevo.nombre = it.datos.nombre;
+      if (Object.keys(nuevo).length) ops.push(b => b.update(doc(db, 'asignaciones', d.id), nuevo));
+    }
+    return ops;
+  } catch (err) {
+    console.warn('No se actualizaron los puestos guardados en las asignaciones:', err);
+    return [];
+  }
+}
+
+/**
  * Aplica el plan en lotes de 500 (ejecutarEnLotes): puestos nuevos y alias, cambios de área de puestos,
  * altas/cambios (set con merge), bajas lógicas y, al final, la bitácora con el modo, los cambios de área y las excepciones.
  * Si un lote falla, el error indica cuántas operaciones ya se guardaron.
@@ -99,6 +127,8 @@ async function aplicarPlan(plan, idsBaja, usuario, modo) {
     }
     ops.push(b => b.set(doc(db, it.coleccion, it.id), data, { merge: true }));
   }
+
+  ops.push(...await opsDatosEnAsignaciones(plan.items));
 
   const datosBaja = {
     activo: false,

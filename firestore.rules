@@ -101,7 +101,7 @@ service cloud.firestore {
       allow delete: if false;
     }
     // Bitácora: solo se crea. La leen y la crean admin y RH; la Aut. 2 solo lo de asignaciones (ella también asigna).
-    // Nadie la edita ni la borra.
+    // El Aut. 1 y el solicitante NO la leen: ahí queda quién asignó a quién y cuándo. Nadie la edita ni la borra.
     match /bitacora/{id} {
       allow read: if esRH() || (esAut2() && resource.data.get('entidad', '') == 'asignacion');
       allow create: if (esRH() || (esAut2() && request.resource.data.entidad == 'asignacion'))
@@ -249,9 +249,13 @@ service cloud.firestore {
       function n() { return request.resource.data; }
       function idEsperado(d) { return d.nomina + '_' + d.rol + '_' + (d.rol == 'aut2' ? 'planta' : d.areaId); }
       function formaValida() {
-        return n().keys().hasOnly(['nomina', 'nombre', 'rol', 'areaId', 'desde', 'hasta', 'motivo', 'activo', 'asignadoPor', 'fechaAsignacion'])
+        // puesto (copia del padrón) y posicion (titular | por ausencia, solo aut2 y aut1) son opcionales: las asignaciones anteriores no los traen
+        return n().keys().hasOnly(['nomina', 'nombre', 'puesto', 'rol', 'areaId', 'posicion', 'desde', 'hasta', 'motivo', 'activo', 'asignadoPor', 'fechaAsignacion'])
           && n().keys().hasAll(['nomina', 'nombre', 'rol', 'areaId', 'desde', 'hasta', 'motivo', 'activo', 'asignadoPor', 'fechaAsignacion'])
           && n().nomina is string && n().nomina.size() > 0 && n().nombre is string
+          && n().get('puesto', '') is string
+          && n().get('posicion', 'titular') in ['titular', 'suplente']
+          && (n().rol != 'solicitante' || !n().keys().hasAny(['posicion']))
           && n().rol in ['aut2', 'aut1', 'solicitante']
           && (n().rol == 'aut2' ? n().areaId == null : n().areaId is string)
           && asigId == idEsperado(n())
@@ -274,11 +278,24 @@ service cloud.firestore {
         || (activo() && (resource.data.nomina == miNomina() || resource.data.rol == 'aut2' || esAut1De(resource.data.areaId)));
       allow create: if formaValida() && puedeAsignar(n()) && n().activo == true
         && n().fechaAsignacion == request.time && n().asignadoPor.uid == request.auth.uid;
-      // Revocar o extender: solo activo, hasta y motivo; volver a asignar: el documento completo, con fecha y autor nuevos
-      allow update: if formaValida() && puedeAsignar(resource.data) && puedeAsignar(n())
+      // Cada transición es su propio "allow update" (se evalúan en OR) y comprueba lo mínimo: una regla tiene tope de 1000 expresiones.
+      // Revocar, extender o cambiar la posición: solo activo, hasta, motivo y posicion (la persona, el rol y el área no cambian,
+      // así que basta probar una vez quién puede asignar ese rol); lo que se escribe debe seguir siendo válido
+      function cambioValido() {
+        return n().activo is bool
+          && (n().hasta == null || (n().hasta is timestamp && n().hasta >= n().desde))
+          && n().motivo is string && (n().hasta == null || n().motivo.trim().size() > 0)
+          && n().get('posicion', 'titular') in ['titular', 'suplente']
+          && (n().rol != 'solicitante' || !n().keys().hasAny(['posicion']));
+      }
+      allow update: if soloCambia(['activo', 'hasta', 'motivo', 'posicion']) && cambioValido() && puedeAsignar(resource.data);
+      // Volver a asignar: el documento completo, con fecha y autor nuevos
+      allow update: if formaValida() && n().activo == true && n().fechaAsignacion == request.time && n().asignadoPor.uid == request.auth.uid
         && n().nomina == resource.data.nomina && n().rol == resource.data.rol && n().areaId == resource.data.areaId
-        && (soloCambia(['activo', 'hasta', 'motivo'])
-            || (n().activo == true && n().fechaAsignacion == request.time && n().asignadoPor.uid == request.auth.uid));
+        && puedeAsignar(resource.data) && puedeAsignar(n());
+      // Copiar nombre y puesto del padrón (botón del admin e importación del padrón por RH): solo esos dos campos, de cualquier rol
+      allow update: if esRH() && soloCambia(['nombre', 'puesto'])
+        && n().nombre is string && n().get('puesto', '') is string;
       allow delete: if false;
     }
 

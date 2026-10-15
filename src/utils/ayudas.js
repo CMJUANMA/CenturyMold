@@ -47,16 +47,16 @@ export const AYUDAS = {
     'autorizar.devolver': 'La regresa a quien la pidió para que la corrija. Debes escribir el motivo.',
     'autorizar.varias': 'Marca varias solicitudes y autorízalas juntas. Antes te muestra el total de empleados y horas.',
     'autorizar.rutas': 'Cada ruta adicional representa un costo extra. Revisa la justificación antes de autorizar.',
-    // Recepción de RH
-    'recepcion.recibir': 'Recibe la solicitud ya autorizada y crea la solicitud de transporte de los empleados que lo pidieron.',
-    'recepcion.fecha': 'Puedes recibir de una vez todas las solicitudes de la misma fecha.',
-    'recepcion.devolver': 'Si algo está mal, devuélvela con el motivo. En la recepción no se cambian empleados.',
-    'recepcion.descargar': 'Baja un Excel de TODOS los empleados con tiempo extra autorizado, lleven transporte o no. Es para nómina y comedor.',
-    'recepcion.formatoRutas': 'El archivo para el proveedor de transporte está en "Todas las solicitudes" (solo los empleados que llevan transporte).',
+    // Por enviar al proveedor (RH; antes "Recepción")
+    'recepcion.recibir': 'Confirma la solicitud ya autorizada y crea la solicitud de transporte de los empleados que lo pidieron, para que salga en el Formato de rutas.',
+    'recepcion.fecha': 'Puedes confirmar de una vez todas las solicitudes de la misma fecha.',
+    'recepcion.devolver': 'Si algo está mal, devuélvela al solicitante con el motivo. Aquí no se cambian empleados.',
+    'recepcion.descargar': 'Baja un Excel de TODOS los empleados con tiempo extra, lleven transporte o no. Es para nómina y comedor.',
+    'recepcion.formatoRutas': 'El archivo para el proveedor de transporte está en Transporte > Solicitudes (solo los empleados que llevan transporte).',
     // Descargas
-    'descarga.tiempoExtra': 'Para nómina y RH: todos los empleados con tiempo extra autorizado o recibido, lleven transporte o no.',
+    'descarga.tiempoExtra': 'Para nómina y comedor: todos los empleados con tiempo extra autorizado o confirmado por RH, lleven transporte o no. Antes de bajar el archivo ves cuántas solicitudes, horas y alimentos trae.',
     'descarga.formatoRutas': 'Para el proveedor de transporte: solo los empleados que llevan transporte.',
-    'descarga.periodo': 'Elige de qué días quieres el reporte.',
+    'descarga.periodo': 'Elige de qué días quieres el reporte. La semana va de lunes a domingo.',
   },
 
   pantallas: {
@@ -88,12 +88,12 @@ export const AYUDAS = {
       ],
     },
     recepcion: {
-      titulo: 'Cómo recibir el tiempo extra autorizado',
+      titulo: 'Cómo confirmar lo que va al proveedor',
       pasos: [
-        'Aquí están las solicitudes ya autorizadas que RH todavía no recibe, agrupadas por fecha.',
+        'Aquí están las solicitudes que ya tienen las dos autorizaciones y que RH todavía no confirma, agrupadas por fecha.',
         'Toca "Revisar" para ver el detalle. Aquí no se cambian empleados.',
-        'Toca "Recibir y generar transporte": se crea la solicitud de transporte de quienes lo pidieron.',
-        'Si algo está mal, usa "Devolver" con el motivo. Para varias del mismo día, usa "Recibir todas de esta fecha".',
+        'Toca "Confirmar y generar transporte": se crea la solicitud de transporte de quienes lo pidieron y sale en el Formato de rutas del proveedor. Si nadie lleva transporte, el botón dice "Confirmar (sin transporte)".',
+        'Si algo está mal, usa "Devolver" con el motivo. Para varias del mismo día, usa "Confirmar todas las de esta fecha".',
       ],
     },
     consulta: {
@@ -102,7 +102,7 @@ export const AYUDAS = {
         'Aquí ves todas las solicitudes de tiempo extra enviadas, sin importar su estatus.',
         'Usa los filtros de área, estatus, fechas y solicitante para encontrar lo que buscas.',
         'Toca "Ver" para abrir el detalle de una solicitud.',
-        'Usa "Descargar tiempo extra" para nómina y comedor, o "Exportar consulta" para la lista que ves en pantalla.',
+        'Usa "Descargar resumen de horas extra" para nómina y comedor, o "Exportar consulta" para la lista que ves en pantalla.',
       ],
     },
     turnos: {

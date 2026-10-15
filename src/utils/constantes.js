@@ -107,7 +107,7 @@ export const ESTATUS_TE_MAP = {
     dot: 'bg-[var(--status-error-text)]',
   },
   [ESTATUS_TE.CANCELADA]: { ...ESTATUS_MAP[ESTATUS_SOLICITUD.CANCELADA], label: 'Cancelada' },
-  [ESTATUS_TE.PROCESADA]: { ...ESTATUS_MAP[ESTATUS_SOLICITUD.ENVIADA_PROVEEDOR], label: 'Recibida por RH' },
+  [ESTATUS_TE.PROCESADA]: { ...ESTATUS_MAP[ESTATUS_SOLICITUD.ENVIADA_PROVEEDOR], label: 'Confirmada por RH' },
 };
 
 /** Etiqueta de un estatus de tiempo extra (la misma en todas las pantallas y en los Excel) */
@@ -132,7 +132,7 @@ export const ACCIONES_TE_LABELS = {
   [ACCIONES_TE.DEVUELTA]: 'Devuelta',
   [ACCIONES_TE.REENVIADA]: 'Reenviada',
   [ACCIONES_TE.CANCELADA]: 'Cancelada',
-  [ACCIONES_TE.RECIBIDA_RH]: 'Recibida por RH',
+  [ACCIONES_TE.RECIBIDA_RH]: 'Confirmada por RH',
   [ACCIONES_TE.ENVIADA]: 'Enviada a autorización',
 };
 

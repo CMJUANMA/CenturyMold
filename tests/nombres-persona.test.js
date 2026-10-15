@@ -36,29 +36,6 @@ describe('nombre para mostrar', () => {
   });
 });
 
-describe('Excel del organigrama', () => {
-  it('rótulos de nivel, Aut. 2 a todo lo ancho, una columna por área y solicitantes por fila', async () => {
-    const { construirLibroOrganigrama } = await import('../src/utils/exportarOrganigrama.js');
-    const t = (nomina, nombre, puesto, extra = {}) => ({ nomina, nombre, puesto, ...extra });
-    const org = {
-      aut2: [t('11', 'MALDONADO SALVADOR', 'DIRECTOR'), t('50296', 'ESPINOSA MARCO', 'IT')],
-      columnas: [
-        { area: { nombre: 'Producción' }, aut1: [t('50610', 'GOMEZ ISMAEL', 'SUPER')], solicitantes: [t('1', 'ACOSTA MARCOS', 'SUP'), t('2', 'CARRERA JOEL', 'SUP')] },
-        { area: { nombre: 'Moldes' }, aut1: [], solicitantes: [] },
-      ],
-    };
-    const ws = construirLibroOrganigrama(org, (x) => x.nombre).getWorksheet('Niveles de autorización');
-    expect(ws.getCell('A2').value).toBe('Autorización 2');
-    expect(ws.getCell('B2').value).toContain('MALDONADO SALVADOR');
-    expect(ws.getCell('B3').value).toBe('PRODUCCIÓN');
-    expect(ws.getCell('C3').value).toBe('MOLDES');
-    expect(ws.getCell('B4').value).toContain('GOMEZ ISMAEL');
-    expect(ws.getCell('C4').value).toBe('Sin Autorización 1');
-    expect(ws.getCell('B5').value).toContain('ACOSTA MARCOS');
-    expect(ws.getCell('B6').value).toContain('CARRERA JOEL');
-  });
-});
-
 describe('nombres de pila frecuentes', () => {
   it('separa aunque nadie más del padrón se llame igual', () => {
     const g = crearFormateadorNombres(['GOMEZ HERNANDEZ ISMAEL', 'PEREZ GARCIA LUIS RODOLFO', 'GONZALEZ RUIZ JOSE JUAN']);

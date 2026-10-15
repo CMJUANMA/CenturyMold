@@ -1,7 +1,7 @@
 /**
- * AccionesRH.jsx — Botones de RH sobre un tiempo extra autorizado o recibido (los usa Recepción y Consulta):
- *   Recibir y generar transporte · Devolver (motivo obligatorio) · Cancelar tiempo extra autorizado (motivo obligatorio).
- * En la recepción no se editan empleados: si algo está mal, RH devuelve.
+ * AccionesRH.jsx — Botones de RH sobre un tiempo extra autorizado o ya confirmado (los usan "Por enviar al proveedor" y Consulta):
+ *   Confirmar y generar transporte (o "Confirmar (sin transporte)") · Devolver (motivo obligatorio) · Cancelar tiempo extra autorizado (motivo obligatorio).
+ * Aquí no se editan empleados: si algo está mal, RH devuelve.
  */
 import { useState } from 'react';
 import { CheckCircle2, Loader2, Undo2, XCircle } from 'lucide-react';
@@ -9,7 +9,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useConfirmar } from '../../hooks/useConfirmar';
 import { useToast } from '../../hooks/useToast';
 import { formatoFecha } from '../../utils/asignaciones';
-import { MIN_MOTIVO_CANCELACION_RH, MIN_MOTIVO_DEVOLUCION, MSG_YA_RESPONDIDA, NIVEL_RECEPCION } from '../../utils/tiempoExtra';
+import { MIN_MOTIVO_CANCELACION_RH, MIN_MOTIVO_DEVOLUCION, MSG_YA_RESPONDIDA, NIVEL_RECEPCION, mensajeConfirmada, textoConfirmar } from '../../utils/tiempoExtra';
 import { YaRespondida, cancelarAutorizada, devolverSolicitud, recibirSolicitud } from '../../utils/tiempoExtraDb';
 
 const boton = 'inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md px-4 py-2.5 text-sm font-semibold transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50';
@@ -28,8 +28,9 @@ function avisoCancelacion(resultado) {
  * @param {object} props.t                 la solicitud (id, folio, estatus, fechaTE)
  * @param {Array<'recibir'|'devolver'|'cancelar'>} props.acciones  cuáles mostrar
  * @param {() => void} props.onHecho       se llama al terminar (o si alguien más ya respondió): cierra el detalle
+ * @param {(t: object, r: object) => void} [props.onConfirmada]  si se da, la pantalla muestra el aviso "Listo…" con su enlace; si no, un toast
  */
-export default function AccionesRH({ t, acciones, onHecho, onTrabajando }) {
+export default function AccionesRH({ t, acciones, onHecho, onTrabajando, onConfirmada }) {
   const { usuario } = useAuth();
   const confirmar = useConfirmar();
   const toast = useToast();
@@ -44,7 +45,8 @@ export default function AccionesRH({ t, acciones, onHecho, onTrabajando }) {
 
   const recibir = () => ejecutar(async () => {
     const r = await recibirSolicitud({ id: t.id, usuario });
-    toast.success(r.solicitudTransporteId ? `${t.folio} recibida: transporte solicitado para ${r.pasajeros} ${r.pasajeros === 1 ? 'empleado' : 'empleados'}.` : `${t.folio} recibida (sin empleados con transporte).`);
+    if (onConfirmada) onConfirmada(t, r);
+    else toast.success(mensajeConfirmada({ fecha: t.fechaTE, pasajeros: r.pasajeros }), 9000);
     onHecho?.();
   });
 
@@ -60,10 +62,10 @@ export default function AccionesRH({ t, acciones, onHecho, onTrabajando }) {
   });
 
   const cancelar = () => ejecutar(async () => {
-    const recibida = t.estatus === 'procesada';
+    const recibida = t.estatus === 'procesada'; // ya confirmada por RH
     const motivo = await confirmar({
       titulo: `Cancelar ${t.folio}`,
-      mensaje: recibida ? 'Ya fue recibida: también se cancelará su solicitud de transporte, si todavía no se envía al proveedor.' : 'Se cancela el tiempo extra autorizado.',
+      mensaje: recibida ? 'Ya fue confirmada: también se cancelará su solicitud de transporte, si todavía no se envía al proveedor.' : 'Se cancela el tiempo extra autorizado.',
       textoConfirmar: 'Cancelar tiempo extra', peligroso: true,
       campo: { etiqueta: 'Motivo de la cancelación', minLength: MIN_MOTIVO_CANCELACION_RH, multilinea: true },
     });
@@ -86,7 +88,7 @@ export default function AccionesRH({ t, acciones, onHecho, onTrabajando }) {
       )}
       {acciones.includes('recibir') && (
         <button type="button" id="btn-recibir" disabled={trabajando} onClick={recibir} className={`${boton} bg-[var(--cm-red)] text-white hover:bg-[var(--cm-red-hover)]`}>
-          {trabajando ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}Recibir y generar transporte
+          {trabajando ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}{textoConfirmar(t)}
         </button>
       )}
     </div>

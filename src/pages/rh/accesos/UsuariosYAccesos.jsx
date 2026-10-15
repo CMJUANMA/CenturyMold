@@ -4,7 +4,7 @@
  * Los permisos viven en el ROL y se asignan a personas (con área y, si es temporal, con fechas):
  *   Usuarios      RH/admin — cuentas y rol del sistema (admin | rh | usuario)
  *   Asignaciones  quien puede asignar (admin; RH y Aut. 2 vigente solo aut1 y solicitante)
- *   Organigrama   Aut. 2, RH y admin completo; el Aut. 1, solo su área (con el Nivel 2 arriba); el solicitante no lo ve.
+ *   Organigrama   Aut. 2, RH y admin completo; el Aut. 1, solo su área (con el Nivel 2 arriba, sin poder abrirlo); el solicitante no lo ve.
  *                 Generado solo con las asignaciones vigentes
  * Ruta: /accesos/:tab
  */
@@ -75,8 +75,8 @@ export default function UsuariosYAccesos() {
 
   const actor = useMemo(() => ({
     uid: usuario?.uid, nombre: usuario?.nombre ?? '', nomina: usuario?.nomina ?? '',
-    esAdmin: accesos.esAdmin, esRH: accesos.esRH, esAut2: accesos.esAut2,
-  }), [usuario, accesos.esAdmin, accesos.esRH, accesos.esAut2]);
+    esAdmin: accesos.esAdmin, esRH: accesos.esRH, esAut2: accesos.esAut2, esAut1: accesos.areasAut1.length > 0,
+  }), [usuario, accesos.esAdmin, accesos.esRH, accesos.esAut2, accesos.areasAut1.length]);
 
   if (accesos.cargando) return <Spinner />;
   // Un solicitante (o quien no tiene rol) no ve esta pantalla

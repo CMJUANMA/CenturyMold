@@ -28,11 +28,19 @@ Solicitante del área ──captura──► pendiente_aut1 ──Aut. 1──�
 ### `asignaciones/{nomina}_{rol}_{areaId|planta}`
 
 ```
-nomina, nombre, rol ('aut2' | 'aut1' | 'solicitante'), areaId (null en aut2),
-desde, hasta (null = permanente; se guarda como el fin del día), motivo, activo,
+nomina, nombre, puesto, rol ('aut2' | 'aut1' | 'solicitante'), areaId (null en aut2),
+posicion ('titular' | 'suplente'; opcional, solo aut2 y aut1), desde, hasta (null = permanente; se guarda como el fin del día), motivo, activo,
 asignadoPor { uid, nombre }, fechaAsignacion (serverTimestamp)
 ```
 
+- **Posición**: el titular va arriba y centrado en el organigrama, con tarjeta grande; quien cubre "Por ausencia" va debajo, más pequeño; sin posición, al final con un aviso.
+  Los dos pueden firmar igual (la bandeja no distingue; queda registrado quién firmó). Se da al asignar y se cambia con "Cambiar posición" (tabla de Asignaciones y panel de la persona;
+  solo quien puede asignar ese rol: el admin para Aut. 2; RH y Aut. 2 para Aut. 1). Las Aut. 2 anteriores no la traen: el admin las ajusta en Usuarios y accesos › Asignaciones.
+- **Nombre y puesto** se copian del padrón al asignar (el Aut. 1 no lee el padrón de otras áreas): el organigrama los muestra desde la asignación. "Actualizar nombres y puestos de las
+  asignaciones" (admin, Asignaciones) los copia a las ya existentes, con simulación primero; la importación del padrón actualiza también el puesto/nombre guardado si cambian.
+- **Privacidad del organigrama** (`vistaDePersona`): RH y admin ven el panel completo; el Aut. 2, el completo de los niveles inferiores y el básico de otros Aut. 2; el Aut. 1, solo el básico
+  (nombre, puesto, nómina, rol, área y vigencia) de su nivel e inferiores, y las personas de niveles superiores no se abren. La bitácora (quién asignó a quién) no la leen el Aut. 1 ni el solicitante.
+  Límite de Firestore: no hay permisos por campo, así que un Aut. 1 que consulte a mano `asignaciones` podría leer `asignadoPor`, `fechaAsignacion` y `motivo`; la pantalla no los muestra.
 - Una persona puede tener varias (p. ej. solicitante en Mantenimiento y Aut. 1 temporal en Moldes).
 - **Vigente** = `activo`, `desde <= ahora` y (sin `hasta` o `ahora <= hasta`); es lo mismo en `src/utils/asignaciones.js` y en las reglas.
   Una temporal vence sola: la app recalcula cada minuto y las reglas comparan con `request.time`.
@@ -167,7 +175,11 @@ Consultas: las del Aut. 1, la Aut. 2 y RH sobre `tiempoExtra` deben **excluir bo
   semana, empleados y horas autorizados del mes por área) y **Exportar a Excel** (hoja "Resumen" por área y estatus; hoja "Detalle" con una fila por empleado y quién firmó cada nivel).
 - Contadores en vivo en "Por autorizar" (menú, incluido el de RH) y en la tarjeta del Inicio; el Inicio del solicitante se actualiza solo cuando se le devuelve o se le autoriza una solicitud.
 
-## Recepción de RH y transporte
+## Por enviar al proveedor (antes "Recepción") y transporte
+
+> La pantalla y el menú se llaman ahora **Por enviar al proveedor** (la ruta sigue siendo `/tiempo-extra/recepcion`), con una explicación fija y un mini diagrama del flujo.
+> "Recibir" pasó a **Confirmar**: "Confirmar y generar transporte" (o "Confirmar (sin transporte)"), "Confirmar todas las de esta fecha", y el estatus `procesada` se muestra como
+> "Confirmada por RH". Al confirmar sale "Listo. El transporte de [fecha] ya aparece en Transporte > Solicitudes…" con enlace. Los nombres técnicos (`recibirSolicitud`, `recibidaPor`…) no cambian.
 
 - **`/tiempo-extra/recepcion`** (RH y admin, en tiempo real): lo `autorizada` que falta recibir, agrupado por fecha del TE (la más próxima primero), con empleados, horas, transporte, alimentos y
   quién firmó cada nivel (con "(RH)" si firmó por su rol). El detalle es el mismo que el de la bandeja. **No se editan empleados**: si algo está mal, RH usa **Devolver** (motivo de 10+ caracteres, `devolucion.nivel = 3`,
@@ -189,16 +201,18 @@ Consultas: las del Aut. 1, la Aut. 2 y RH sobre `tiempoExtra` deben **excluir bo
   la columna AREA y no se editan ahí. El detalle de un TE (Mis solicitudes, bandeja, recepción y consulta) muestra su solicitud de transporte con su estatus: la regla de lectura de `solicitudes` deja leerla a quien puede leer ese TE.
 - **Excel del proveedor** (`src/utils/libroProveedor.js`, el mismo formato de siempre): se agregó la columna **AREA** al inicio (área del pasajero; en solicitudes viejas, la de la solicitud, o vacía); el pasajero de TE va en la hoja del turno
   de su entrada; su bloque dice "Solicitante: [original] · Tiempo extra TE-AAAA-NNNN" (un bloque por TE).
-- **Descargar tiempo extra** (Recepción y Consulta, solo RH; `DescargaTE`, `exportarTiempoExtraRH.js`): autorizadas y recibidas de un rango de fechas y un área, con el estilo del formato del proveedor. Hojas: Detalle (una fila por empleado, con
+- **Descargar resumen de horas extra** (Por enviar al proveedor y Consulta, solo RH; mismo panel `BotonDescargaResumenTE`/`DescargaTE`, `exportarTiempoExtraRH.js`): periodo (Hoy · Ayer · Esta semana ·
+  Semana anterior · Este mes · Personalizado), área, "Incluir" (todas las autorizadas, por defecto, o solo las confirmadas por RH), vista previa (solicitudes, empleados, horas, alimentos; sin datos no descarga)
+  y una línea por hoja. Archivo `TiempoExtra_AAAA-MM-DD_a_AAAA-MM-DD.xlsx`. Autorizadas y confirmadas de un rango de fechas y un área, con el estilo del formato del proveedor. Hojas: Detalle (una fila por empleado, con
   turno de nómina, horas, ruta, solicitante, Aut. 1, Aut. 2 y fecha de autorización), Horas por empleado (días con TE y horas totales, para nómina), Alimentos (conteo por fecha y horario, para el comedor) y Resumen (empleados y horas por área y fecha).
   La consulta usa el índice compuesto `estatus + fechaTE` de `firestore.indexes.json`.
-- El solicitante ve `procesada` como "Recibida por RH · transporte solicitado" (o "· sin transporte"). Menú de RH: "Recepción" con contador; la tarjeta "Autorizadas pendientes de recibir" del portal y del resumen lleva a la recepción.
+- El solicitante ve `procesada` como "Confirmada por RH · transporte solicitado" (o "· sin transporte"), y lo autorizado con transporte como "Por enviar al proveedor". Menú de RH: "Por enviar al proveedor" con contador; la tarjeta del portal y del resumen lleva a esa pantalla.
 
 ## Ajustes de uso (tipo, rutas, extensión de turno, descargas, ayudas)
 
-- **Estatus**: una sola etiqueta por estatus en todas las pantallas y Excel (`ESTATUS_TE_MAP` / `etiquetaEstatusTE`): Borrador · En autorización (nivel 1) · En autorización (nivel 2) · Devuelta · Autorizada · Recibida por RH · Cancelada.
+- **Estatus**: una sola etiqueta por estatus en todas las pantallas y Excel (`ESTATUS_TE_MAP` / `etiquetaEstatusTE`): Borrador · En autorización (nivel 1) · En autorización (nivel 2) · Devuelta · Autorizada · Confirmada por RH · Cancelada.
   Había un error de orden en el mapa (el estilo de "Cancelada" pisaba la etiqueta de Borrador). La prueba recorre todos los estatus.
-- **Dos descargas distintas**: *Descargar tiempo extra* (nómina y comedor: TODOS los empleados con TE autorizado o recibido, lleven transporte o no; periodo Hoy / Un día / Esta semana / Semana anterior / Rango, y área) y
+- **Dos descargas distintas**: *Descargar resumen de horas extra* (nómina y comedor: TODOS los empleados con TE autorizado o confirmado, lleven transporte o no) y
   *Formato de rutas (proveedor)* en "Todas las solicitudes" (solo quienes llevan transporte). Cada botón lleva su línea de ayuda; "Exportar consulta" (Consulta) es la lista filtrada en pantalla.
 - **Rutas distintas** (control de costo): se cuentan las rutas distintas de los empleados que llevan transporte (llegada o salida) y se muestran en vivo ("Esta solicitud usa 3 rutas: LA LIRA (2), …"). Con más de una,
   la justificación (`justificacionRutas`, 15+ caracteres) es obligatoria para enviar (también en las reglas). Se guardan `rutasDistintas`, `desgloseRutas` [{ rutaId, nombre, empleados, llegada, salida }] y `justificacionRutas`.

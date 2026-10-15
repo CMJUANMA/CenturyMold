@@ -2,7 +2,8 @@
  * asignaciones.js — Roles operativos (aut2 / aut1 / solicitante) asignados a personas. Sin dependencias del navegador.
  *
  *   asignaciones/{nomina}_{rol}_{areaId|planta}
- *     nomina, nombre, rol, areaId (null en aut2), desde, hasta (null = permanente; fin del día),
+ *     nomina, nombre, puesto (copia del padrón al asignar: así el organigrama lo muestra a quien no lee ese padrón),
+ *     rol, areaId (null en aut2), posicion ('titular' | 'suplente', opcional; solo aut2 y aut1), desde, hasta (null = permanente; fin del día),
  *     motivo, activo, asignadoPor {uid, nombre}, fechaAsignacion
  *
  * Los permisos viven en el ROL: el puesto solo sirve para sugerir candidatos. Revocar = activo:false (nunca se borra).
@@ -24,6 +25,13 @@ export const ROL_OP_CORTOS = {
   [ROL_OP.AUT1]: 'Aut. 1',
   [ROL_OP.SOLICITANTE]: 'Solicitante',
 };
+
+/** Posición dentro de un nivel: quién es el titular y quién cubre por ausencia. Opcional; solo en aut2 y aut1 */
+export const POSICION = { TITULAR: 'titular', SUPLENTE: 'suplente' };
+export const POSICIONES = [POSICION.TITULAR, POSICION.SUPLENTE];
+export const POSICION_LABELS = { [POSICION.TITULAR]: 'Titular', [POSICION.SUPLENTE]: 'Por ausencia' };
+export const POSICION_OPCIONES = { [POSICION.TITULAR]: 'Titular', [POSICION.SUPLENTE]: 'Por ausencia (suplente)' };
+export const admitePosicion = (rol) => rol === ROL_OP.AUT2 || rol === ROL_OP.AUT1;
 
 /** Roles del sistema (usuarios/{uid}.rol). Los permisos operativos NO salen de aquí */
 export const ROLES_SISTEMA = ['admin', 'rh', 'usuario'];
@@ -150,6 +158,15 @@ export function etiquetaAsignacion(a, nombresArea = new Map()) {
 
 // ── Organigrama ───────────────────────────────────────────────────────────
 
+/** Separa tarjetas en titulares, quienes cubren por ausencia y quienes aún no tienen posición */
+export function agruparPorPosicion(tarjetas) {
+  return {
+    titulares: tarjetas.filter(t => t.posicion === POSICION.TITULAR),
+    suplentes: tarjetas.filter(t => t.posicion === POSICION.SUPLENTE),
+    sinPosicion: tarjetas.filter(t => !t.posicion),
+  };
+}
+
 /**
  * Organigrama de autorización, SOLO de las asignaciones vigentes (forma de la hoja "Niveles de autorización"):
  * arriba Aut. 2; debajo una columna por área con participaTE (en orden): su Aut. 1 y sus solicitantes.
@@ -171,28 +188,31 @@ export function construirOrganigrama({ asignaciones, areas, empleados, nominasCo
       id: a.id ?? idAsignacion(a.nomina, a.rol, a.areaId),
       nomina: String(a.nomina),
       nombre: e?.nombre ?? a.nombre ?? String(a.nomina),
-      puesto: e?.puesto ?? '',
+      // El puesto guardado en la asignación manda: quien ve el árbol (un Aut. 1) no puede leer el padrón de otras áreas
+      puesto: a.puesto || e?.puesto || '',
       rol: a.rol,
       areaId: a.areaId ?? null,
+      posicion: admitePosicion(a.rol) && POSICIONES.includes(a.posicion) ? a.posicion : null,
       temporalHasta: hasta,
       sinUsuario: nominasConUsuario ? !nominasConUsuario.has(String(a.nomina)) : false,
     };
   };
   const porNombre = (x, y) => x.nombre.localeCompare(y.nombre, 'es');
+  // Titular primero, luego quien cubre por ausencia y al final quien aún no tiene posición
+  const RANGO_POSICION = { [POSICION.TITULAR]: 0, [POSICION.SUPLENTE]: 1 };
+  const porPosicion = (x, y) => (RANGO_POSICION[x.posicion] ?? 2) - (RANGO_POSICION[y.posicion] ?? 2) || porNombre(x, y);
 
   const columnas = [...(areas ?? [])]
     .filter(a => a.participaTE === true && a.activa !== false)
     .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0) || String(a.nombre).localeCompare(String(b.nombre), 'es'))
     .map(area => {
       const de = (rol) => vigentes.filter(a => a.rol === rol && a.areaId === area.id).map(tarjeta).sort(porNombre);
-      const aut1 = de(ROL_OP.AUT1);
+      const aut1 = de(ROL_OP.AUT1).sort(porPosicion);
       return { area, aut1, solicitantes: de(ROL_OP.SOLICITANTE), sinAut1: aut1.length === 0 };
     });
 
-  return {
-    aut2: vigentes.filter(a => a.rol === ROL_OP.AUT2).map(tarjeta).sort(porNombre),
-    columnas,
-  };
+  const aut2 = vigentes.filter(a => a.rol === ROL_OP.AUT2).map(tarjeta).sort(porPosicion);
+  return { aut2, aut2Grupos: agruparPorPosicion(aut2), columnas };
 }
 
 // ── Bitácora ──────────────────────────────────────────────────────────────
@@ -204,7 +224,65 @@ export function resumenParaBitacora(a) {
   return {
     id: a.id ?? idAsignacion(a.nomina, a.rol, a.areaId),
     nomina: String(a.nomina), nombre: a.nombre ?? '', rol: a.rol, areaId: a.areaId ?? null,
+    ...(a.posicion ? { posicion: a.posicion } : {}),
     desde: iso(a.desde), hasta: iso(a.hasta), motivo: a.motivo ?? '', activo: a.activo === true,
     ...(a.motivoRevocacion ? { motivoRevocacion: a.motivoRevocacion } : {}),
   };
+}
+
+// ── Privacidad del organigrama ────────────────────────────────────────────
+
+/** Nivel de autorización de cada rol: quien ve el árbol compara su nivel con el de la persona */
+export const NIVEL_DE_ROL = { [ROL_OP.SOLICITANTE]: 0, [ROL_OP.AUT1]: 1, [ROL_OP.AUT2]: 2 };
+
+export const VISTA_PERSONA = { COMPLETA: 'completa', BASICA: 'basica', BLOQUEADA: 'bloqueada' };
+
+/** Nivel de quien mira: RH y admin ven todo (3); Aut. 2 → 2; Aut. 1 → 1; el resto, 0 */
+export function nivelDeActor({ esRH, esAut2, esAut1 }) {
+  return esRH ? 3 : esAut2 ? 2 : esAut1 ? 1 : 0;
+}
+
+/** Nivel más alto que tiene una persona entre sus asignaciones vigentes (-1 si no tiene ninguna) */
+export function nivelDePersona(nomina, asignaciones, ahora = new Date()) {
+  return (asignaciones ?? [])
+    .filter(a => String(a.nomina) === String(nomina) && esVigente(a, ahora))
+    .reduce((max, a) => Math.max(max, NIVEL_DE_ROL[a.rol] ?? -1), -1);
+}
+
+/**
+ * Qué puede ver `actor` de una persona de nivel `nivelPersona`:
+ *   RH y admin: completa. Niveles superiores al suyo: bloqueada (sin clic ni panel).
+ *   Aut. 2: completa de los niveles inferiores y básica de otros Aut. 2. Aut. 1 y demás: básica de su nivel y de los inferiores.
+ */
+export function vistaDePersona(actor, nivelPersona) {
+  if (actor.esRH) return VISTA_PERSONA.COMPLETA;
+  if (nivelPersona > nivelDeActor(actor)) return VISTA_PERSONA.BLOQUEADA;
+  if (actor.esAut2 && nivelPersona < NIVEL_DE_ROL[ROL_OP.AUT2]) return VISTA_PERSONA.COMPLETA;
+  return VISTA_PERSONA.BASICA;
+}
+
+// ── Nombre y puesto guardados en la asignación ────────────────────────────
+
+/**
+ * Asignaciones cuyo nombre o puesto guardado difiere del padrón ("Actualizar nombres y puestos de las asignaciones").
+ * Quien no está en el padrón no se toca, y un dato vacío del padrón nunca borra el que ya hay.
+ * @returns {{ cambios: { id, asignacion, nombre, puesto, cambia }[], sinPadron: object[], alDia: number }}
+ */
+export function planActualizarDatos(asignaciones, empleados) {
+  const porNomina = empleados instanceof Map ? empleados : new Map((empleados ?? []).map(e => [String(e.nomina), e]));
+  const cambios = [];
+  const sinPadron = [];
+  let alDia = 0;
+  for (const a of asignaciones ?? []) {
+    const e = porNomina.get(String(a.nomina));
+    if (!e) { sinPadron.push(a); continue; }
+    const nombre = String(e.nombre ?? '').trim() || a.nombre || '';
+    const puesto = String(e.puesto ?? '').trim() || a.puesto || '';
+    const cambia = {};
+    if (nombre !== (a.nombre ?? '')) cambia.nombre = { antes: a.nombre ?? '', despues: nombre };
+    if (puesto !== (a.puesto ?? '')) cambia.puesto = { antes: a.puesto ?? '', despues: puesto };
+    if (Object.keys(cambia).length === 0) { alDia++; continue; }
+    cambios.push({ id: a.id ?? idAsignacion(a.nomina, a.rol, a.areaId), asignacion: a, nombre, puesto, cambia });
+  }
+  return { cambios, sinPadron, alDia };
 }

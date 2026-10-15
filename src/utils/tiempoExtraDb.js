@@ -279,7 +279,7 @@ export async function recibirSolicitud({ id, usuario }) {
         ...datosSolicitudTransporte(te, pasajeros, usuario),
         fechaSolicitud: serverTimestamp(),
         revisadoPor: usuario.uid, revisadoPorNombre: usuario.nombre ?? '', fechaRevision: serverTimestamp(),
-        historial: [entradaTransporte(usuario, 'creada', `Generada al recibir el tiempo extra ${te.folio}.`)],
+        historial: [entradaTransporte(usuario, 'creada', `Generada al confirmar el tiempo extra ${te.folio}.`)],
       });
       for (const p of pasajeros) tx.set(doc(db, 'solicitudes', solRef.id, 'pasajeros', p.nomina), { ...p, creadoPor: usuario.uid });
     }

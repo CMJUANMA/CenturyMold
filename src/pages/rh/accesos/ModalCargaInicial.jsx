@@ -42,7 +42,7 @@ function Contenido({ actor, empleados, usuarios, asignaciones, nombresArea, onCl
     for (const f of seleccionadas) {
       try {
         await asignarRol(actor, {
-          nomina: f.empleado.nomina, nombre: f.empleado.nombre, rol: f.rol, areaId: f.areaId, desde, hasta: '', motivo: MOTIVO_CARGA_INICIAL,
+          nomina: f.empleado.nomina, nombre: f.empleado.nombre, puesto: f.empleado.puesto ?? '', rol: f.rol, areaId: f.areaId, desde, hasta: '', motivo: MOTIVO_CARGA_INICIAL,
         }, f.previa);
         creadas++;
       } catch (err) { fallidas.push(`${f.nomina}: ${err.message}`); }
