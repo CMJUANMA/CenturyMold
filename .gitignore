@@ -35,3 +35,6 @@ scripts/salida/
 
 # Emulador de Firebase
 *-debug.log
+
+# Temporales de trabajo (se borran al terminar)
+.tmp/
