@@ -30,7 +30,7 @@ const ICONOS = { Home, FilePlus, ClipboardList, BadgeCheck, Layers, GitBranch, S
 function Contador({ n, aviso = true }) {
   if (!(n > 0)) return null;
   return (
-    <span aria-label={`${n} pendientes`}
+    <span role="img" aria-label={`${n} pendientes`}
       className={`ml-auto flex h-5 min-w-5 shrink-0 items-center justify-center rounded-md px-1.5 text-xs font-medium tabular-nums ${aviso
         ? 'bg-[var(--status-warning-bg)] text-[var(--status-warning-text)]'
         : 'bg-[var(--bg-surface-hover)] text-[var(--text-secondary)]'}`}>

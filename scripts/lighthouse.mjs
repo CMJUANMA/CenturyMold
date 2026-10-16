@@ -1,4 +1,4 @@
-// Corre Lighthouse (escritorio y móvil) sobre el login y el Inicio de RH de la versión de emulador (ver scripts/capturas.mjs).
+// Corre Lighthouse (escritorio y móvil) sobre el login, el Inicio de RH y Solicitar tiempo extra de la versión de emulador (ver scripts/capturas.mjs).
 // Requiere: emuladores sembrados, `npm run capturas:build`, `npx vite preview --outDir .tmp/dist-emulador --port 4174` y Lighthouse en .tmp/lh:
 //   (cd .tmp/lh && npm init -y && npm install lighthouse)
 // Uso: node scripts/lighthouse.mjs <archivo-de-resultados.json>
@@ -56,6 +56,8 @@ await poner('login-nomina', process.env.CAP_USUARIO ?? '90001');
 await poner('login-password', process.env.CAP_PASSWORD ?? 'Prueba123');
 await js("document.getElementById('btn-ingresar').click()"); await esperar(3500);
 for (const f of ['escritorio', 'movil']) await medir('inicio-rh', '/', f);
+// 3) Solicitar tiempo extra (el formulario principal)
+for (const f of ['escritorio', 'movil']) await medir('solicitar', '/tiempo-extra/nueva', f);
 
 writeFileSync(salida, JSON.stringify(resultados, null, 2));
 ws.close(); chrome.kill();

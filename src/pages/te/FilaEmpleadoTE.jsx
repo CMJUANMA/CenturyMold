@@ -46,7 +46,7 @@ export default function FilaEmpleadoTE({ e, tipo = TIPOS_TE.TURNO_EXTRA, finFijo
               <>
                 <label className={etiqueta} htmlFor={`ent-${e.nomina}`}>Termina su turno</label>
                 {finFijo ? (
-                  <p id={`ent-${e.nomina}`} className="py-2 text-sm font-medium text-[var(--text-main)]" aria-label={`Su turno termina a las ${e.horaEntrada} (${e.nombre})`}>{e.horaEntrada || '—'}</p>
+                  <p id={`ent-${e.nomina}`} className="py-2 text-sm font-medium text-[var(--text-main)]"><span className="sr-only">Su turno termina a las {e.horaEntrada} ({e.nombre}). </span><span aria-hidden="true">{e.horaEntrada || '—'}</span></p>
                 ) : (
                   <Selector id={`ent-${e.nomina}`} className={SEL} value={e.horaEntrada} onChange={ev => cambiar({ horaEntrada: ev.target.value, horaSalida: '' })} aria-label={`Fin de turno de ${e.nombre}`}>
                     <option value="">Fin de turno…</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{h}</option>)}
@@ -71,7 +71,7 @@ export default function FilaEmpleadoTE({ e, tipo = TIPOS_TE.TURNO_EXTRA, finFijo
           </div>
           <div className="col-span-2 lg:col-span-1">
             <span className={etiqueta}>Horas</span>
-            <p className="py-2 text-center font-mono text-sm font-medium text-[var(--text-main)]" aria-label={`Horas de ${e.nombre}`}>{horas || '—'}</p>
+            <p className="py-2 text-center font-mono text-sm font-medium text-[var(--text-main)]"><span className="sr-only">Horas de {e.nombre}: </span><span aria-hidden="true">{horas || '—'}</span></p>
           </div>
           <label className="col-span-2 flex min-h-11 cursor-pointer items-center gap-2 text-sm text-[var(--text-main)] lg:col-span-1 lg:min-h-0 lg:justify-center lg:text-xs">
             <input type="checkbox" checked={e.alimentos} onChange={ev => cambiar({ alimentos: ev.target.checked })} className={CASILLA} />Alimentos

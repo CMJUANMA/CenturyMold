@@ -465,14 +465,16 @@ export default function EditorTE() {
           </div>
         )}
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <dl className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
+          <dl className="flex flex-wrap items-center gap-x-5 gap-y-1">
             {[['Empleados', resumen.totalEmpleados], ['Horas', resumen.totalHoras], ['Con transporte', resumen.totalTransporte], ['Con alimentos', resumen.totalAlimentos], ['Rutas', infoRutas.rutasDistintas]].map(([t, v]) => (
               <div key={t} className="flex items-baseline gap-1.5"><dt className="text-[var(--text-secondary)]">{t}</dt><dd className={`text-base font-medium tabular-nums ${t === 'Rutas' && v > 1 ? 'text-[var(--status-warning-text)]' : 'text-[var(--text-main)]'}`}>{v}</dd></div>
             ))}
-            <div className="flex flex-wrap gap-1.5" aria-label="Empleados por horario">
+          </dl>
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Empleados por horario">
               {Object.entries(resumen.porBloque).map(([b, n]) => <Insignia key={b} tono="neutro" sinIcono>{b}: {n}</Insignia>)}
             </div>
-          </dl>
+          </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
             <div className="grid grid-cols-2 gap-2 sm:flex">
               {existe && !esDevuelta && <Boton variante="peligro" icono={Trash2} onClick={eliminarClick} disabled={ocupado}>Eliminar borrador</Boton>}
