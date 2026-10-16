@@ -141,7 +141,7 @@ export default function Login() {
           </form>
         </div>
 
-        <p className="mt-8 text-center text-xs text-[var(--text-muted)]">Century Mold Querétaro · Portal de procesos</p>
+        <p className="mt-8 text-center text-xs text-[var(--text-muted)]">© {new Date().getFullYear()} Century Mold</p>
       </main>
     </div>
   );

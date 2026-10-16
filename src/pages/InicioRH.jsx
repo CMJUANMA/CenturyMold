@@ -27,7 +27,7 @@ import EncabezadoPagina from '../components/ui/EncabezadoPagina';
 import EstadoVacio from '../components/ui/EstadoVacio';
 import { EsqueletoIndicadores, EsqueletoTabla } from '../components/ui/Esqueleto';
 import { Fila, Tabla, Td, Th } from '../components/ui/Tabla';
-import { Indicador } from '../components/ui/Tarjeta';
+import { FilaIndicadores, Indicador, IndicadorCompacto } from '../components/ui/Tarjeta';
 
 function AccesoRapido({ to, Icono, titulo, ayuda }) {
   return (
@@ -54,8 +54,7 @@ export default function InicioRH() {
   const { planta, cargando, error } = useResumenTE();
   const { nombres } = useAreas();
   const { rutasActivas, empleadosActivos, cargando: cargandoCat } = useCatalogos();
-  const nombresPadron = useMemo(() => empleadosActivos.map(e => e.nombre), [empleadosActivos]);
-  const { saludo, nombre, descripcion } = useSaludo(nombresPadron);
+  const { saludo, nombre, descripcion } = useSaludo(empleadosActivos);
   const [ahora] = useState(() => new Date());
   const [transporteMes, setTransporteMes] = useState(null);
 
@@ -63,6 +62,16 @@ export default function InicioRH() {
   const proximos = useMemo(() => proximos7Dias(planta, ahora), [planta, ahora]);
   const { atencion: a, semana: s } = ind;
   const hayAtencion = a.porEnviar + a.vencidas + a.nivel1 + a.nivel2 + a.devueltas > 0;
+  // Los cinco indicadores de atención: tarjeta completa (ámbar) solo los que tienen algo; los que están en 0, en la fila compacta
+  const atencion = [
+    { id: 'enviar', etiqueta: 'Por enviar al proveedor', valor: a.porEnviar, to: RUTAS.teRecepcion, icono: Inbox, ayuda: 'Autorizadas por confirmar' },
+    { id: 'vencidas', etiqueta: 'Fechas vencidas', valor: a.vencidas, to: RUTAS.teRecepcion, icono: CalendarX, ayuda: 'Sin confirmar y con fecha que ya pasó' },
+    { id: 'n1', etiqueta: 'Por autorizar · nivel 1', valor: a.nivel1, to: rutaConsultaTE('pendiente_aut1'), icono: BadgeCheck, ayuda: 'Esperan al Aut. 1 de su área' },
+    { id: 'n2', etiqueta: 'Por autorizar · nivel 2', valor: a.nivel2, to: RUTAS.teAutorizar, icono: ShieldCheck, ayuda: textoDias(a.masAntiguaNivel2) ?? 'Esperan la firma de nivel 2' },
+    { id: 'dev', etiqueta: 'Devueltas sin corregir', valor: a.devueltas, to: rutaConsultaTE('devuelta'), icono: Undo2, ayuda: 'Esperan que el área las corrija' },
+  ];
+  const conAlgo = atencion.filter(x => x.valor > 0);
+  const enCero = atencion.filter(x => x.valor === 0);
 
   // Solicitudes de transporte del mes: conteo en el servidor (fechaSolicitud es Timestamp en las nuevas y texto ISO en las viejas)
   useEffect(() => {
@@ -85,22 +94,26 @@ export default function InicioRH() {
         titulo={`${saludo}${nombre ? `, ${nombre}` : ''}`}
         descripcion="Esto es lo que necesita tu atención hoy."
         ayuda={<AyudaPantalla id="inicio" />}
-        accion={<Boton to={RUTAS.teRecepcion} variante="primario" icono={Inbox}>Por enviar al proveedor</Boton>}
+        // Botón principal (rojo) solo cuando hay algo por enviar al proveedor; con 0 no hay botón arriba
+        accion={a.porEnviar > 0 ? <Boton to={RUTAS.teRecepcion} variante="primario" icono={Inbox}>Por enviar al proveedor ({a.porEnviar})</Boton> : undefined}
       />
 
       {error && <Aviso tono="error" titulo="No se pudieron leer las solicitudes">{error.message}. Revisa tu conexión y vuelve a abrir esta pantalla.</Aviso>}
 
       <Seccion titulo="Requieren atención">
-        {cargando ? <EsqueletoIndicadores cantidad={5} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5" /> : (
+        {cargando ? <EsqueletoIndicadores cantidad={5} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5" /> : (
           <>
             {!hayAtencion && !error && <Aviso tono="exito">Nada pendiente por ahora: todo está al día.</Aviso>}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-              <Indicador etiqueta="Por enviar al proveedor" valor={a.porEnviar} to={RUTAS.teRecepcion} atencion={a.porEnviar > 0} icono={Inbox} ayuda="Autorizadas por confirmar" />
-              <Indicador etiqueta="Fechas vencidas" valor={a.vencidas} to={RUTAS.teRecepcion} atencion={a.vencidas > 0} icono={CalendarX} ayuda="Sin confirmar y con fecha que ya pasó" />
-              <Indicador etiqueta="Por autorizar · nivel 1" valor={a.nivel1} to={rutaConsultaTE('pendiente_aut1')} atencion={a.nivel1 > 0} icono={BadgeCheck} ayuda="Esperan al Aut. 1 de su área" />
-              <Indicador etiqueta="Por autorizar · nivel 2" valor={a.nivel2} to={RUTAS.teAutorizar} atencion={a.nivel2 > 0} icono={ShieldCheck} ayuda={textoDias(a.masAntiguaNivel2) ?? 'Esperan la firma de nivel 2'} />
-              <Indicador etiqueta="Devueltas sin corregir" valor={a.devueltas} to={rutaConsultaTE('devuelta')} atencion={a.devueltas > 0} icono={Undo2} ayuda="Esperan que el área las corrija" />
-            </div>
+            {conAlgo.length > 0 && (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+                {conAlgo.map(x => <Indicador key={x.id} etiqueta={x.etiqueta} valor={x.valor} to={x.to} atencion icono={x.icono} ayuda={x.ayuda} />)}
+              </div>
+            )}
+            {enCero.length > 0 && (
+              <FilaIndicadores>
+                {enCero.map(x => <IndicadorCompacto key={x.id} etiqueta={x.etiqueta} valor={x.valor} to={x.to} />)}
+              </FilaIndicadores>
+            )}
           </>
         )}
       </Seccion>
@@ -133,9 +146,9 @@ export default function InicioRH() {
                   <Td mono><Link to={`${RUTAS.teConsulta}?abrir=${p.id}`} className="font-medium text-[var(--text-main)] underline decoration-[var(--border-color)] underline-offset-4 hover:decoration-[var(--text-main)]">{p.folio}</Link></Td>
                   <Td>{nombres.get(p.areaId) ?? p.areaId}</Td>
                   <Td className="whitespace-nowrap">{formatoFecha(`${p.fecha}T12:00:00`)}</Td>
-                  <Td derecha mono>{p.empleados}</Td>
+                  <Td derecha>{p.empleados}</Td>
                   <Td derecha mono>{p.horas}</Td>
-                  <Td derecha mono>{p.transporte}</Td>
+                  <Td derecha>{p.transporte}</Td>
                   <Td><BadgeEstatus estatus={p.estatus} modulo="te" /></Td>
                 </Fila>
               ))}

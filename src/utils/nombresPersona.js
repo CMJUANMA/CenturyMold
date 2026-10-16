@@ -13,6 +13,7 @@ LAURA CLAUDIA SANDRA VERONICA GABRIELA ALEJANDRA ADRIANA MONICA CRISTINA SILVIA 
 DIEGO EMILIO ERNESTO EFRAIN FELIPE GILBERTO GUILLERMO HUGO IVAN JAIME JULIO LEONARDO LORENZO MAURICIO NESTOR OMAR PABLO RENE SAUL SANTIAGO TOMAS URIEL
 VICENTE XAVIER SAMUEL ISAAC ISRAEL MOISES ELIAS ABIGAIL ALMA AMALIA BERTHA CARMEN CONCEPCION DIANA DOLORES ESTHER EVA FABIOLA GLORIA IRENE JUANA LORENA
 LUZ MARGARITA MARISOL MIRIAM NANCY OLGA PAULA RAQUEL ROCIO SOFIA SUSANA VIRGINIA YOLANDA`.split(/\s+/);
+const sinAcentos = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
 const limpiar = (t) => String(t ?? '').trim().replace(/\s+/g, ' ');
 const titulo = (palabras) => palabras.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ');
 
@@ -26,7 +27,7 @@ const titulo = (palabras) => palabras.map(p => p.charAt(0).toUpperCase() + p.sli
 export function crearFormateadorNombres(nombresPadron = []) {
   const conocidos = new Map(NOMBRES_COMUNES.map(n => [n, 1000])); // nombre de pila → cuántos registros terminan con él
   for (const n of nombresPadron) {
-    const p = limpiar(n).toUpperCase().split(' ');
+    const p = sinAcentos(limpiar(n)).split(' ');
     if (p.length >= 2) conocidos.set(p[p.length - 1], (conocidos.get(p[p.length - 1]) ?? 0) + 1);
   }
 
@@ -53,8 +54,12 @@ export function crearFormateadorNombres(nombresPadron = []) {
     return { nombre, apellidos, completo: `${nombre} ${apellidos}`, separado: true };
   }
 
+  /** ¿Es un nombre de pila conocido? (lista común + últimas palabras del padrón; sin acentos ni mayúsculas) */
+  const esNombreDePila = (palabra) => (conocidos.get(sinAcentos(palabra)) ?? 0) > 0;
+
   return {
     partir,
+    esNombreDePila,
     /** "Ismael Gómez Hernández" (sin acentos: el padrón no los trae) */
     nombre: (nombrePadron) => partir(nombrePadron).completo,
     /** Iniciales de nombre de pila y primer apellido; si no se pudo separar, las dos primeras palabras */

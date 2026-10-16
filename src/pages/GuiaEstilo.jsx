@@ -18,7 +18,7 @@ import { Esqueleto, EsqueletoIndicadores, EsqueletoTabla } from '../components/u
 import Insignia from '../components/ui/Insignia';
 import Pestanas from '../components/ui/Pestanas';
 import { Fila, Tabla, Td, Th } from '../components/ui/Tabla';
-import { Indicador, Tarjeta } from '../components/ui/Tarjeta';
+import { FilaIndicadores, Indicador, IndicadorCompacto, Tarjeta } from '../components/ui/Tarjeta';
 
 const Seccion = ({ id, titulo, descripcion, children }) => (
   <section id={id} className="space-y-4 border-t border-[var(--border-color)] pt-8" aria-labelledby={`${id}-t`}>
@@ -164,12 +164,17 @@ export default function GuiaEstilo() {
         </Tabla>
       </Seccion>
 
-      <Seccion id="tarjetas" titulo="Tarjetas e indicadores" descripcion="Número grande, etiqueta pequeña y enlace. Los que piden atención se resaltan en tono de aviso, con ícono y texto; el rojo de marca no se usa aquí.">
+      <Seccion id="tarjetas" titulo="Tarjetas e indicadores" descripcion="Etiqueta arriba, cifra en posición fija (IBM Plex Sans, cifras tabulares) y descripción abajo de alto fijo. Lo que está en 0 va en la fila compacta. Los que piden atención se resaltan en tono de aviso, con ícono y texto; el rojo de marca no se usa aquí.">
         <div className="grid gap-4 sm:grid-cols-3">
           <Indicador etiqueta="Por enviar al proveedor" valor={3} icono={Inbox} atencion ayuda="Autorizadas por confirmar" to="#tarjetas" />
           <Indicador etiqueta="Empleados con tiempo extra" valor={11} icono={Users} ayuda="autorizados esta semana" to="#tarjetas" />
           <Indicador etiqueta="Cargando" valor={0} cargando />
         </div>
+        <FilaIndicadores>
+          <IndicadorCompacto etiqueta="Fechas vencidas" valor={0} to="#tarjetas" />
+          <IndicadorCompacto etiqueta="Por autorizar · nivel 1" valor={0} to="#tarjetas" />
+          <IndicadorCompacto etiqueta="Devueltas sin corregir" valor={0} to="#tarjetas" />
+        </FilaIndicadores>
         <Tarjeta titulo="Tarjeta con título" accion={<Boton variante="contorno" tamano="sm">Acción</Boton>}>
           <p className="text-sm text-[var(--text-secondary)]">Superficie con borde de 1 px, sin sombra. El espacio interior es de 16 a 24 px.</p>
         </Tarjeta>

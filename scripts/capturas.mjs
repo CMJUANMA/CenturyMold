@@ -31,6 +31,7 @@ const PANTALLAS = [
 ];
 const VISTAS = [
   ['escritorio', { width: 1440, height: 900, deviceScaleFactor: 1.5, mobile: false }],
+  ['escritorio-1366', { width: 1366, height: 768, deviceScaleFactor: 1.5, mobile: false, soloVista: true }], // solo lo que cabe en pantalla: así se ve si el menú necesita scroll
   ['celular', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true }],
 ];
 const TEMAS = ['claro', 'oscuro'];
@@ -53,12 +54,13 @@ const cdp = (method, params = {}) => new Promise(res => { const n = ++id; pend.s
 const js = async (expresion) => (await cdp('Runtime.evaluate', { expression: expresion, returnByValue: true, awaitPromise: true })).result?.result?.value;
 const ir = async (ruta, ms = 2200) => { await cdp('Page.navigate', { url: BASE + ruta }); await esperar(ms); };
 const preparar = async (vista, tema) => {
-  await cdp('Emulation.setDeviceMetricsOverride', vista);
+  const { soloVista, ...metricas } = vista;
+  await cdp('Emulation.setDeviceMetricsOverride', metricas);
   await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: tema === 'oscuro' ? 'dark' : 'light' }] });
 };
 const capturar = async (nombre, vista, tema) => {
-  const alto = await js('Math.min(Math.max(document.documentElement.scrollHeight, document.body.scrollHeight), 3200)');
   const v = VISTAS.find(x => x[0] === vista)[1];
+  const alto = v.soloVista ? v.height : await js('Math.min(Math.max(document.documentElement.scrollHeight, document.body.scrollHeight), 3200)');
   const r = await cdp('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { x: 0, y: 0, width: v.width, height: Math.max(alto, v.height), scale: 1 } });
   writeFileSync(`${salida}/${nombre}-${vista}-${tema}.png`, Buffer.from(r.result.data, 'base64'));
   console.log('captura', nombre, vista, tema);

@@ -63,8 +63,7 @@ export default function InicioRol() {
   const { empleados, cargando: cargandoEmp } = useCatalogos({ empleados: true });
   const resumen = useResumenTE();
   const porAutorizar = usePorAutorizar(usuario, accesos, true);
-  const nombresPadron = useMemo(() => empleados.map(e => e.nombre), [empleados]);
-  const { saludo, nombre, descripcion } = useSaludo(nombresPadron);
+  const { saludo, nombre, descripcion } = useSaludo(empleados);
 
   const esSolicitante = areasSolicitante.length > 0;
   const esAut1 = areasAut1.length > 0;

@@ -105,5 +105,40 @@ export function nombreDePila(nombreCompleto, formato) {
   return p.separado ? p.nombre.split(' ')[0] : '';
 }
 
+/**
+ * Nombre de pila para el saludo, sin adivinar mal el orden:
+ *   1. Si la persona está en el padrón (por nómina), se usa el nombre del padrón (apellidos primero) con el formateador: "Juan" o "Juan Manuel".
+ *   2. Si no, se detecta el orden del nombre de su usuario, que puede venir normal ("Juan Manuel Jaramillo López") o como el padrón
+ *      ("JARAMILLO LÓPEZ JUAN MANUEL"), mirando qué extremo del nombre es un nombre de pila conocido.
+ *   3. Si sigue habiendo duda, '' (el saludo va sin nombre).
+ * @param {{ nombre?: string, nomina?: string|number }} usuario
+ * @param {{ nomina?: string|number, nombre?: string }[]} padron
+ */
+export function nombreParaSaludo(usuario, padron, formato) {
+  const nomina = String(usuario?.nomina ?? '').trim();
+  const enPadron = nomina ? (padron ?? []).find(e => String(e.nomina ?? e.id ?? '').trim() === nomina) : null;
+  if (enPadron?.nombre) {
+    const p = formato.partir(enPadron.nombre);
+    if (p.separado) return p.nombre;
+  }
+  const palabras = String(usuario?.nombre ?? '').trim().split(/\s+/).filter(Boolean);
+  if (palabras.length < 2 || palabras.length > 4) return '';
+  const titulo = (ps) => ps.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ');
+  const primeraEs = formato.esNombreDePila(palabras[0]);
+  const ultimaEs = formato.esNombreDePila(palabras[palabras.length - 1]);
+  if (primeraEs && !ultimaEs) {
+    // Orden normal: el nombre son las primeras palabras que son nombres de pila (hasta dos)
+    const nombre = [palabras[0]];
+    if (palabras.length > 2 && formato.esNombreDePila(palabras[1])) nombre.push(palabras[1]);
+    return titulo(nombre);
+  }
+  if (ultimaEs && !primeraEs) {
+    // Orden del padrón: los apellidos primero
+    const p = formato.partir(palabras.join(' '));
+    return p.separado ? p.nombre.split(' ').slice(0, 2).join(' ') : '';
+  }
+  return '';
+}
+
 /** "Buenos días" / "Buenas tardes" / "Buenas noches" según la hora (0-23) */
 export const saludoDeHora = (hora) => (hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches');

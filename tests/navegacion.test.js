@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { RUTAS } from '../src/rutas.js';
-import { descripcionRoles, itemsMenuPorRol, itemsMenuRH, nombreDePila, saludoDeHora, veOrganigrama } from '../src/utils/navegacion.js';
+import { descripcionRoles, itemsMenuPorRol, itemsMenuRH, nombreDePila, nombreParaSaludo, saludoDeHora, veOrganigrama } from '../src/utils/navegacion.js';
 import { calcularAccesos } from '../src/utils/asignaciones.js';
 import { crearFormateadorNombres } from '../src/utils/nombresPersona.js';
 
@@ -155,5 +155,32 @@ describe('Herramientas y Mi cuenta', () => {
   it('Herramientas está registrada solo para el rol admin', () => {
     const app = readFileSync('src/App.jsx', 'utf8');
     expect(app).toMatch(/RutaRol roles=\{\['admin'\]\}[\s\S]*RUTAS\.herramientas/);
+  });
+});
+
+describe('nombre del saludo: padrón primero, y si no, detectar el orden', () => {
+  const formato = crearFormateadorNombres(['JARAMILLO LOPEZ JUAN MANUEL', 'ESPINOSA MARCO', 'GOMEZ HERNANDEZ ISMAEL']);
+  const padron = [{ nomina: '1', nombre: 'JARAMILLO LOPEZ JUAN MANUEL' }, { nomina: '2', nombre: 'JARAMILLO JUAN' }];
+
+  it('con el padrón (apellidos primero) sale el nombre de pila: "Juan Manuel" o "Juan", nunca el apellido', () => {
+    expect(nombreParaSaludo({ nomina: '1', nombre: 'Juan Manuel Jaramillo López' }, padron, formato)).toBe('Juan Manuel');
+    expect(nombreParaSaludo({ nomina: '2', nombre: 'JUAN JARAMILLO' }, padron, formato)).toBe('Juan');
+    // el nombre del padrón manda aunque el del usuario venga al revés
+    expect(nombreParaSaludo({ nomina: '1', nombre: 'JARAMILLO LOPEZ JUAN MANUEL' }, padron, formato)).toBe('Juan Manuel');
+  });
+  it('sin padrón, el usuario con el nombre en orden normal (nombre y apellidos)', () => {
+    expect(nombreParaSaludo({ nomina: '9', nombre: 'Juan Manuel Jaramillo López' }, [], formato)).toBe('Juan Manuel');
+    expect(nombreParaSaludo({ nomina: '9', nombre: 'Juan Jaramillo' }, [], formato)).toBe('Juan');
+    expect(nombreParaSaludo({ nomina: '9', nombre: 'MARCO ESPINOSA' }, [], formato)).toBe('Marco');
+  });
+  it('sin padrón, el usuario con el orden del padrón (apellidos primero)', () => {
+    expect(nombreParaSaludo({ nomina: '9', nombre: 'JARAMILLO LOPEZ JUAN MANUEL' }, [], formato)).toBe('Juan Manuel');
+    expect(nombreParaSaludo({ nomina: '9', nombre: 'JARAMILLO JUAN' }, [], formato)).toBe('Juan');
+    expect(nombreParaSaludo({ nomina: '9', nombre: 'ESPINOSA MARCO' }, [], formato)).toBe('Marco');
+  });
+  it('si hay duda no adivina: saluda sin nombre', () => {
+    expect(nombreParaSaludo({ nomina: '9', nombre: 'XXX YYY ZZZ' }, [], formato)).toBe('');
+    expect(nombreParaSaludo({ nomina: '9', nombre: '' }, [], formato)).toBe('');
+    expect(nombreParaSaludo({ nomina: '9', nombre: 'Prueba' }, [], formato)).toBe('');
   });
 });

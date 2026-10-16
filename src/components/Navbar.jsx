@@ -95,14 +95,14 @@ export default function Navbar() {
       <aside id="menu-lateral" aria-label="Menú principal"
         className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-[var(--border-color)] bg-[var(--bg-sidebar)] transition-transform duration-200 ease-out lg:z-40 lg:w-72 ${menuAbierto ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
         {/* Logo con su espacio */}
-        <div className="flex h-20 shrink-0 items-center px-6">
+        <div className="flex h-14 shrink-0 items-center px-6">
           <NavLink to={RUTAS.inicio} aria-label="Century Mold, ir al inicio" className="rounded-md"><Logo className="w-40" /></NavLink>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 pb-4" aria-label="Secciones">
+        <nav className="flex-1 overflow-y-auto px-3 pb-2" aria-label="Secciones">
           {items.map((item, idx) => {
             if (item.section) return (
-              <div key={`sec-${idx}`} className="px-3 pb-1.5 pt-5 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+              <div key={`sec-${idx}`} className="px-3 pb-1 pt-3 text-xs font-semibold uppercase leading-4 tracking-wider text-[var(--text-muted)]">
                 {item.section}
               </div>
             );
@@ -110,7 +110,7 @@ export default function Navbar() {
             return (
               <NavLink key={item.path} to={item.path} end={item.end} onClick={cerrarMenu}
                 className={({ isActive }) =>
-                  `group relative flex min-h-11 items-center gap-3 rounded-md px-3 text-sm transition-colors duration-150 lg:min-h-10 ${isActive
+                  `group relative flex min-h-11 items-center gap-3 rounded-md px-3 text-sm transition-colors duration-150 lg:min-h-9 ${isActive
                     ? 'bg-[var(--accent-soft)] font-medium text-[var(--accent-text)]'
                     : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-main)]'}`
                 }>
@@ -130,24 +130,21 @@ export default function Navbar() {
           })}
         </nav>
 
-        {/* Pie: la persona y su cuenta, y cerrar sesión */}
-        <div className="shrink-0 border-t border-[var(--border-color)] p-3">
+        {/* Pie compacto: nombre en una línea, rol pequeño, y cerrar sesión al lado */}
+        <div className="flex shrink-0 items-center gap-1 border-t border-[var(--border-color)] p-2">
           <NavLink to={RUTAS.miCuenta} onClick={cerrarMenu} title="Mi cuenta"
             className={({ isActive }) =>
-              `flex min-h-11 items-center gap-3 rounded-md px-3 py-2 transition-colors duration-150 ${isActive ? 'bg-[var(--bg-surface-hover)]' : 'hover:bg-[var(--bg-surface-hover)]'}`
+              `flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 transition-colors duration-150 lg:min-h-10 ${isActive ? 'bg-[var(--bg-surface-hover)]' : 'hover:bg-[var(--bg-surface-hover)]'}`
             }>
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-secondary)]">
-              <User className="h-4 w-4" aria-hidden="true" />
-            </span>
-            <span className="min-w-0 flex-1">
+            <User className="h-[18px] w-[18px] shrink-0 text-[var(--text-secondary)]" aria-hidden="true" />
+            <span className="min-w-0 flex-1 leading-tight">
               <span className="block truncate text-sm font-medium text-[var(--text-main)]">{usuario?.nombre ?? 'Usuario'}</span>
               <span className="block truncate text-xs text-[var(--text-muted)]" title={descripcion}>{descripcion || 'Mi cuenta'}</span>
             </span>
           </NavLink>
-          <button type="button" id="btn-cerrar-sesion" onClick={handleCerrarSesion}
-            className="mt-1 flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-md px-3 text-sm text-[var(--text-secondary)] transition-colors duration-150 hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-main)] lg:min-h-10">
-            <LogOut className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
-            <span>Cerrar sesión</span>
+          <button type="button" id="btn-cerrar-sesion" onClick={handleCerrarSesion} title="Cerrar sesión" aria-label="Cerrar sesión"
+            className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-md text-[var(--text-secondary)] transition-colors duration-150 hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-main)] lg:h-10 lg:w-10">
+            <LogOut className="h-[18px] w-[18px]" aria-hidden="true" />
           </button>
         </div>
       </aside>
