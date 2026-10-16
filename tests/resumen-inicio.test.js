@@ -1,7 +1,7 @@
 // Números del Inicio por rol. Datos ficticios; con listas vacías todo es 0.
 import { describe, expect, it } from 'vitest';
 import {
-  contarMisSolicitudes, contarPorEstatus, estadoTransporte, inicioDeSemana, proximosAutorizados, semanaPorArea, ultimasDelArea,
+  contarMisSolicitudes, contarPorEstatus, estadoTransporte, indicadoresRH, inicioDeSemana, proximos7Dias, proximosAutorizados, semanaPorArea, ultimasDelArea,
 } from '../src/utils/resumenInicio.js';
 
 const AHORA = new Date(2026, 9, 14, 10); // miércoles 14/oct/2026
@@ -63,5 +63,64 @@ describe('área y planta', () => {
       s('TE-4', 'autorizada', { areaId: 'moldes', fechaCreacion: new Date(2026, 9, 14) }),
     ], areas, AHORA);
     expect(r).toEqual([{ areaId: 'mantenimiento', nombre: 'Mantenimiento', total: 2 }, { areaId: 'moldes', nombre: 'Moldes', total: 1 }]);
+  });
+});
+
+describe('indicadores del Inicio de RH y admin', () => {
+  // AHORA = miércoles 14/oct/2026 10:00 → semana del 12 al 18 de octubre; mes de octubre
+  const hace = (dias) => new Date(AHORA.getTime() - dias * 86400000);
+  const t = (folio, estatus, fechaTE, extra = {}) => s(folio, estatus, { fechaTE, ...extra });
+
+  it('sin solicitudes todo es 0 y no hay "más antigua"', () => {
+    expect(indicadoresRH([], AHORA)).toEqual({
+      atencion: { porEnviar: 0, vencidas: 0, nivel1: 0, nivel2: 0, masAntiguaNivel1: null, masAntiguaNivel2: null, devueltas: 0 },
+      semana: { horasSemana: 0, horasMes: 0, empleadosSemana: 0, transporte7: 0 },
+    });
+    expect(proximos7Dias([], AHORA)).toEqual([]);
+  });
+
+  it('requieren atención: por enviar, vencidas sin confirmar, nivel 1 y 2 con la más antigua, devueltas', () => {
+    const planta = [
+      t('A', 'autorizada', '2026-10-20'), t('B', 'autorizada', '2026-10-13'), t('C', 'autorizada', '2026-10-01'), // 2 vencidas
+      t('D', 'procesada', '2026-10-01'),                                    // confirmada: no cuenta como pendiente
+      t('E', 'pendiente_aut1', '2026-10-21', { fechaActualizacion: hace(1) }),
+      t('F', 'pendiente_aut2', '2026-10-21', { fechaActualizacion: hace(5) }),
+      t('G', 'pendiente_aut2', '2026-10-22', { fechaActualizacion: hace(2) }),
+      t('H', 'devuelta', '2026-10-22'), t('I', 'cancelada', '2026-10-22'),
+    ];
+    expect(indicadoresRH(planta, AHORA).atencion).toEqual({
+      porEnviar: 3, vencidas: 2, nivel1: 1, nivel2: 2, masAntiguaNivel1: 1, masAntiguaNivel2: 5, devueltas: 1,
+    });
+  });
+
+  it('una fecha de hoy no está vencida', () => {
+    expect(indicadoresRH([t('A', 'autorizada', '2026-10-14')], AHORA).atencion.vencidas).toBe(0);
+  });
+
+  it('esta semana: horas de la semana y del mes, empleados de la semana y transporte de los próximos 7 días', () => {
+    const planta = [
+      t('A', 'autorizada', '2026-10-12', { resumen: { totalEmpleados: 4, totalHoras: 10, totalTransporte: 1 } }),  // lunes
+      t('B', 'procesada', '2026-10-18', { resumen: { totalEmpleados: 2, totalHoras: 5.5, totalTransporte: 2 } }),  // domingo
+      t('C', 'autorizada', '2026-10-19', { resumen: { totalEmpleados: 9, totalHoras: 20, totalTransporte: 3 } }),  // semana siguiente, mismo mes
+      t('D', 'autorizada', '2026-09-30', { resumen: { totalEmpleados: 9, totalHoras: 99, totalTransporte: 9 } }),  // mes pasado
+      t('E', 'pendiente_aut2', '2026-10-15', { resumen: { totalEmpleados: 9, totalHoras: 99, totalTransporte: 9 } }), // no autorizada
+      t('F', 'autorizada', '2026-10-21', { resumen: { totalEmpleados: 1, totalHoras: 8, totalTransporte: 1 } }),  // dentro de 7 días
+      t('G', 'autorizada', '2026-10-22', { resumen: { totalEmpleados: 1, totalHoras: 8, totalTransporte: 7 } }),  // 8 días: fuera
+    ];
+    expect(indicadoresRH(planta, AHORA).semana).toEqual({
+      horasSemana: 15.5,          // A + B
+      horasMes: 51.5,             // A + B + C + F + G
+      empleadosSemana: 6,         // A + B
+      transporte7: 2 + 3 + 1,     // hoy (14) a 21/oct: A (12) queda fuera; B (18), C (19) y F (21) entran
+    });
+  });
+
+  it('próximos 7 días: autorizadas y confirmadas, la más próxima primero, con su transporte', () => {
+    const planta = [
+      t('Z', 'autorizada', '2026-10-21'), t('Y', 'procesada', '2026-10-14'), t('X', 'autorizada', '2026-10-13'),
+      t('W', 'pendiente_aut2', '2026-10-15'), t('V', 'autorizada', '2026-10-25'),
+    ];
+    expect(proximos7Dias(planta, AHORA).map(p => p.folio)).toEqual(['Y', 'Z']);
+    expect(proximos7Dias(planta, AHORA)[0]).toMatchObject({ empleados: 3, horas: 6, transporte: 2, estatus: 'procesada' });
   });
 });

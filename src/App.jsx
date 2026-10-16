@@ -1,9 +1,7 @@
 /**
  * App.jsx — Router principal
  *
- * Portal en "/" (una tarjeta por módulo) y cada módulo bajo su ruta base (ver modulos.js):
- *   /rutas/...        Transporte
- *   /tiempo-extra/... Tiempo extra
+ * Un solo Inicio en "/" por rol (RH y admin: indicadores; el resto: su panel). Las URLs salen de rutas.js.
  */
 import { lazy } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
@@ -28,8 +26,6 @@ const ConsultaTE = lazy(() => import('./pages/te/ConsultaTE'));
 const RecepcionTE = lazy(() => import('./pages/te/RecepcionTE'));
 const Configuracion = lazy(() => import('./pages/Configuracion'));
 import RutaCapacidad from './components/RutaCapacidad';
-import Inicio from './pages/Inicio';
-import TiempoExtraInicio from './pages/TiempoExtraInicio';
 import NuevaSolicitud from './pages/NuevaSolicitud';
 import MisSolicitudes from './pages/MisSolicitudes';
 import EditarSolicitud from './pages/EditarSolicitud';
@@ -77,7 +73,6 @@ const router = createBrowserRouter([
         {
           element: <RutaModulo modulo="rutas" />,
           children: [
-            { path: '/rutas', element: <Inicio /> },
             {
               element: <RutaRol roles={ROLES_RH} />,
               children: [
@@ -94,8 +89,6 @@ const router = createBrowserRouter([
         {
           element: <RutaModulo modulo="tiempo-extra" />,
           children: [
-            { path: '/tiempo-extra', element: <TiempoExtraInicio /> },
-            // Pantallas que llegan en los siguientes prompts: por ahora muestran "Próximamente"
             {
               element: <RutaCapacidad puede="solicitar" />,
               children: [

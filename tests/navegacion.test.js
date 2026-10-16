@@ -72,8 +72,8 @@ describe('saludo y descripción', () => {
 // REGLA: admin y RH ven TODO lo que veían antes (más lo nuevo). Si esta prueba falla, se quitó un acceso.
 describe('menú de admin y RH: no se les quita nada', () => {
   const PATHS_OBLIGATORIOS = [
-    '/', '/rutas', '/rutas/rh/solicitudes', '/rutas/rh/catalogos',
-    '/tiempo-extra', '/tiempo-extra/nueva', '/tiempo-extra/mis-solicitudes', '/tiempo-extra/autorizar',
+    '/', '/rutas/rh/solicitudes', '/rutas/rh/catalogos',
+    '/tiempo-extra/nueva', '/tiempo-extra/mis-solicitudes', '/tiempo-extra/autorizar',
     '/tiempo-extra/recepcion', '/tiempo-extra/consulta', '/accesos/organigrama',
     '/rutas/rh/empleados', '/rutas/rh/estructura', '/accesos',
   ];

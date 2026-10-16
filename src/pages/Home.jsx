@@ -1,11 +1,12 @@
 /**
- * Home.jsx — Inicio ("/"): RH y admin entran al portal de módulos; todos los demás, directamente a su panel según su rol.
+ * Home.jsx — Inicio ("/"): un solo Inicio por rol. RH y admin ven el panel de indicadores (InicioRH); todos los demás, su panel
+ * según los roles que tienen hoy (InicioRol).
  */
 import { useAccesos } from '../hooks/useAccesos';
-import Portal from './Portal';
+import InicioRH from './InicioRH';
 import InicioRol from './InicioRol';
 
 export default function Home() {
   const { esRH } = useAccesos();
-  return esRH ? <Portal /> : <InicioRol />;
+  return esRH ? <InicioRH /> : <InicioRol />;
 }

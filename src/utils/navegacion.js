@@ -43,17 +43,15 @@ export function itemsMenuPorRol({ esAut2, areasAut1, areasSolicitante, transport
  * `rh`: además exige rol RH/admin. `funcion`: solo si ese interruptor de funciones.js está encendido. `icono` = nombre de ícono de lucide-react. REGLA: admin y RH ven todo esto; no se quita nada.
  */
 export const ITEMS_MENU_RH = [
-  { path: '/', label: 'Inicio (portal)', icono: 'Home', end: true },
+  { path: '/', label: 'Inicio', icono: 'Home', end: true },
 
   { section: 'Transporte (rutas)', modulo: 'rutas' },
-  { path: '/rutas', label: 'Resumen', icono: 'LayoutGrid', modulo: 'rutas', end: true },
   { path: RUTAS_TRANSPORTE_SUELTO.nueva, label: 'Nueva solicitud', icono: 'FilePlus', modulo: 'rutas', funcion: 'transporteSuelto' },
   { path: RUTAS_TRANSPORTE_SUELTO.misSolicitudes, label: 'Mis solicitudes', icono: 'ClipboardList', modulo: 'rutas', funcion: 'transporteSuelto' },
   { path: '/rutas/rh/solicitudes', label: 'Todas las solicitudes', icono: 'Layers', modulo: 'rutas', rh: true },
   { path: '/rutas/rh/catalogos', label: 'Catálogos del sistema', icono: 'Database', modulo: 'rutas', rh: true },
 
   { section: 'Tiempo extra', modulo: 'tiempo-extra' },
-  { path: '/tiempo-extra', label: 'Resumen', icono: 'Clock', modulo: 'tiempo-extra', end: true },
   { path: '/tiempo-extra/nueva', label: 'Solicitar tiempo extra', icono: 'FilePlus', modulo: 'tiempo-extra', rh: true },
   { path: '/tiempo-extra/mis-solicitudes', label: 'Mis solicitudes de TE', icono: 'ClipboardList', modulo: 'tiempo-extra', rh: true },
   { path: '/tiempo-extra/autorizar', label: 'Por autorizar', icono: 'BadgeCheck', modulo: 'tiempo-extra', rh: true, contador: 'autorizar' },

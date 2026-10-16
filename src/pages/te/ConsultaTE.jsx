@@ -51,7 +51,9 @@ export default function ConsultaTE() {
   const { esRH } = useAccesos();
   const [params, setParams] = useSearchParams();
   const [ahora] = useState(() => new Date());
-  const [filtros, setFiltros] = useState({ areaId: '', estatus: '', desde: '', hasta: '', solicitante: '' });
+  const [filtros, setFiltros] = useState(() => ({
+    areaId: '', estatus: ESTATUS_TE_VISIBLES.includes(params.get('estatus')) ? params.get('estatus') : '', desde: '', hasta: '', solicitante: '',
+  })); // ?estatus=... llega desde los indicadores del Inicio
   const [detalle, setDetalle] = useState(null);
   const [exportando, setExportando] = useState(null); // { hechos, total }
   const formato = useMemo(() => crearFormateadorNombres([]), []);
