@@ -12,13 +12,14 @@ import { CatalogosProvider } from './context/CatalogosContext';
 import { AccesosProvider } from './context/AccesosContext';
 import RutaProtegida from './components/RutaProtegida';
 import RutaRol from './components/RutaRol';
-import RutaModulo from './components/RutaModulo';
-import Redirigir from './components/Redirigir';
+import RutaAcceso from './components/RutaAcceso';
 import RutaFuncion from './components/RutaFuncion';
 import { RUTAS_TRANSPORTE_SUELTO, RUTA_EDITAR_TRANSPORTE } from './funciones';
+import { RUTAS } from './rutas';
 import Layout from './pages/Layout';
 import Login from './pages/Login';
 import Home from './pages/Home';
+import NoEncontrada from './pages/NoEncontrada';
 const EditorTE = lazy(() => import('./pages/te/EditorTE'));
 const MisSolicitudesTE = lazy(() => import('./pages/te/MisSolicitudesTE'));
 const BandejaTE = lazy(() => import('./pages/te/BandejaTE'));
@@ -69,52 +70,42 @@ const router = createBrowserRouter([
         // Configuración personal (ayudas, tamaño de letra y tema): para todos los usuarios
         { path: '/configuracion', element: <Configuracion /> },
 
-        // Módulo de transporte (rutas)
+        // Transporte y personal (solo RH y admin)
         {
-          element: <RutaModulo modulo="rutas" />,
+          element: <RutaRol roles={ROLES_RH} />,
           children: [
-            {
-              element: <RutaRol roles={ROLES_RH} />,
-              children: [
-                { path: '/rutas/rh/solicitudes', element: <RhSolicitudes /> },
-                { path: '/rutas/rh/empleados', element: <RhEmpleados /> },
-                { path: '/rutas/rh/catalogos', element: <RhCatalogos /> },
-                { path: '/rutas/rh/estructura', element: <Estructura /> },
-              ],
-            },
+            { path: RUTAS.transporteSolicitudes, element: <RhSolicitudes /> },
+            { path: RUTAS.transporteCatalogos, element: <RhCatalogos /> },
+            { path: RUTAS.padron, element: <RhEmpleados /> },
+            { path: RUTAS.estructura, element: <Estructura /> },
           ],
         },
 
         // Módulo de tiempo extra (el acceso sale de las asignaciones vigentes, no del puesto)
         {
-          element: <RutaModulo modulo="tiempo-extra" />,
+          element: <RutaAcceso />,
           children: [
             {
               element: <RutaCapacidad puede="solicitar" />,
               children: [
-                { path: '/tiempo-extra/nueva', element: <EditorTE /> },
-                { path: '/tiempo-extra/:id/editar', element: <EditorTE /> },
-                { path: '/tiempo-extra/mis-solicitudes', element: <MisSolicitudesTE /> },
+                { path: RUTAS.teNueva, element: <EditorTE /> },
+                { path: RUTAS.teEditar, element: <EditorTE /> },
+                { path: RUTAS.teMisSolicitudes, element: <MisSolicitudesTE /> },
               ],
             },
-            { element: <RutaCapacidad puede="autorizar" />, children: [{ path: '/tiempo-extra/autorizar', element: <BandejaTE /> }] },
-            { element: <RutaCapacidad puede="consultar" />, children: [{ path: '/tiempo-extra/consulta', element: <ConsultaTE /> }] },
-            { element: <RutaCapacidad puede="recibir" />, children: [{ path: '/tiempo-extra/recepcion', element: <RecepcionTE /> }] },
+            { element: <RutaCapacidad puede="autorizar" />, children: [{ path: RUTAS.teAutorizar, element: <BandejaTE /> }] },
+            { element: <RutaCapacidad puede="consultar" />, children: [{ path: RUTAS.teConsulta, element: <ConsultaTE /> }] },
+            { element: <RutaCapacidad puede="recibir" />, children: [{ path: RUTAS.teRecepcion, element: <RecepcionTE /> }] },
           ],
         },
 
         // Usuarios y accesos: cada pestaña decide qué muestra según los permisos de quien entra
         // (organigrama: todos; asignaciones: quien asigna; usuarios: RH/admin)
-        { path: '/accesos', element: <UsuariosYAccesos /> },
-        { path: '/accesos/:tab', element: <UsuariosYAccesos /> },
+        { path: RUTAS.accesos, element: <UsuariosYAccesos /> },
+        { path: `${RUTAS.accesos}/:tab`, element: <UsuariosYAccesos /> },
 
-        // URLs anteriores a los módulos
-        { path: '/rh/solicitudes', element: <Redirigir a="/rutas/rh/solicitudes" /> },
-        { path: '/rh/empleados', element: <Redirigir a="/rutas/rh/empleados" /> },
-        { path: '/rh/catalogos', element: <Redirigir a="/rutas/rh/catalogos" /> },
-        { path: '/rh/usuarios', element: <Redirigir a="/accesos" /> },
-        { path: '/rutas/rh/usuarios', element: <Redirigir a="/accesos" /> },
-        { path: '/tiempo-extra/niveles', element: <Redirigir a="/accesos/organigrama" /> },
+        // Cualquier otra URL
+        { path: '*', element: <NoEncontrada /> },
       ],
     }],
   },

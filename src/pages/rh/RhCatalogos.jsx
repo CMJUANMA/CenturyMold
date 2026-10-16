@@ -1,5 +1,5 @@
 /**
- * RhCatalogos.jsx — Catálogos de transporte con CRUD y carga masiva
+ * RhCatalogos.jsx — "Rutas y puntos de reunión" (/transporte/catalogos): rutas, comunidades y puntos con CRUD y carga masiva
  * Acceso: roles rh y admin (esPersonalRH)
  */
 import { useState, useEffect, lazy, Suspense } from 'react';
@@ -594,8 +594,8 @@ export default function RhCatalogos() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between border-b border-[var(--border-color)] pb-4">
         <div>
           <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Recursos Humanos</div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Catalogos</h1>
-          <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Administracion de rutas, comunidades y puntos de reunion</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Rutas y puntos de reunión</h1>
+          <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Rutas, comunidades y puntos de reunión del transporte</p>
         </div>
         {puedeCargarMasivo && (
           <div className="flex flex-wrap items-center gap-2">

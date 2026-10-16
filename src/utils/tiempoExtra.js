@@ -431,7 +431,7 @@ export const NOMBRE_POR_ENVIAR = 'Por enviar al proveedor';
 /** Mensaje al confirmar: dónde quedó el transporte (o que no hay nada que enviar). `fecha` es la del tiempo extra (AAAA-MM-DD) */
 export function mensajeConfirmada({ fecha, pasajeros }) {
   if (!(pasajeros > 0)) return 'Listo. Se confirmó sin transporte: no hay nada que enviar al proveedor.';
-  return `Listo. El transporte de ${fechaConDia(fecha)} ya aparece en Transporte > Solicitudes y se incluirá en el Formato de rutas.`;
+  return `Listo. El transporte de ${fechaConDia(fecha)} ya aparece en Solicitudes de transporte y se incluirá en el Formato de rutas.`;
 }
 
 /** Texto del botón de confirmar: si nadie lleva transporte, lo dice */

@@ -117,7 +117,7 @@ export default function ConsultaTE() {
         <div>
           <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Tiempo extra</div>
           <div className="mt-1 flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">Consulta de solicitudes</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">Todas las solicitudes</h1>
             <AyudaPantalla id="consulta" />
           </div>
           <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Todas las solicitudes enviadas (los borradores solo los ve su creador).</p>

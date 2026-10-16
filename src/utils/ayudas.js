@@ -52,7 +52,7 @@ export const AYUDAS = {
     'recepcion.fecha': 'Puedes confirmar de una vez todas las solicitudes de la misma fecha.',
     'recepcion.devolver': 'Si algo está mal, devuélvela al solicitante con el motivo. Aquí no se cambian empleados.',
     'recepcion.descargar': 'Baja un Excel de TODOS los empleados con tiempo extra, lleven transporte o no. Es para nómina y comedor.',
-    'recepcion.formatoRutas': 'El archivo para el proveedor de transporte está en Transporte > Solicitudes (solo los empleados que llevan transporte).',
+    'recepcion.formatoRutas': 'El archivo para el proveedor de transporte se baja aquí mismo, con "Formato de rutas" (solo los empleados que llevan transporte).',
     // Descargas
     'descarga.tiempoExtra': 'Para nómina y comedor: todos los empleados con tiempo extra autorizado o confirmado por RH, lleven transporte o no. Antes de bajar el archivo ves cuántas solicitudes, horas y alimentos trae.',
     'descarga.formatoRutas': 'Para el proveedor de transporte: solo los empleados que llevan transporte.',
@@ -97,7 +97,7 @@ export const AYUDAS = {
       ],
     },
     consulta: {
-      titulo: 'Consulta de solicitudes',
+      titulo: 'Todas las solicitudes',
       pasos: [
         'Aquí ves todas las solicitudes de tiempo extra enviadas, sin importar su estatus.',
         'Usa los filtros de área, estatus, fechas y solicitante para encontrar lo que buscas.',

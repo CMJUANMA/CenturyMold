@@ -1,5 +1,5 @@
 /**
- * usePendientes.js — Contadores de pendientes de cada módulo (para las tarjetas del portal y la barra lateral).
+ * usePendientes.js — Contadores de pendientes de cada módulo (para la barra lateral).
  */
 import { useEffect, useMemo, useState } from 'react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
@@ -116,7 +116,7 @@ export function usePorAutorizar(usuario, accesos, activo = true) {
   return { aut1, aut2, total: aut1 + aut2 };
 }
 
-/** Autorizadas pendientes de recibir por RH (solo RH y admin las leen): contador en vivo para el menú, el portal y el resumen */
+/** Autorizadas pendientes de recibir por RH (solo RH y admin las leen): contador en vivo para el menú */
 export function usePorRecibir(usuario, activo = true) {
   const uid = usuario?.uid;
   const esRH = ROLES_RH.includes(usuario?.rol);

@@ -1,8 +1,9 @@
 // Menú, saludo y descripción por rol. Datos ficticios.
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { RUTAS } from '../src/rutas.js';
 import { descripcionRoles, itemsMenuPorRol, itemsMenuRH, nombreDePila, saludoDeHora, veOrganigrama } from '../src/utils/navegacion.js';
 import { calcularAccesos } from '../src/utils/asignaciones.js';
-import { ROLES_RH } from '../src/utils/constantes.js';
 import { crearFormateadorNombres } from '../src/utils/nombresPersona.js';
 
 const nombres = new Map([['mantenimiento', 'Mantenimiento'], ['moldes', 'Moldes']]);
@@ -69,31 +70,67 @@ describe('saludo y descripción', () => {
   });
 });
 
-// REGLA: admin y RH ven TODO lo que veían antes (más lo nuevo). Si esta prueba falla, se quitó un acceso.
-describe('menú de admin y RH: no se les quita nada', () => {
+// REGLA: admin y RH ven todo su menú (el menú nuevo: Tiempo extra · Transporte · Personal y estructura). Si esta prueba falla, se quitó un acceso.
+describe('menú de admin y RH: ven todo su menú', () => {
   const PATHS_OBLIGATORIOS = [
-    '/', '/rutas/rh/solicitudes', '/rutas/rh/catalogos',
-    '/tiempo-extra/nueva', '/tiempo-extra/mis-solicitudes', '/tiempo-extra/autorizar',
-    '/tiempo-extra/recepcion', '/tiempo-extra/consulta', '/accesos/organigrama',
-    '/rutas/rh/empleados', '/rutas/rh/estructura', '/accesos',
+    '/',
+    '/tiempo-extra/nueva', '/tiempo-extra/mis-solicitudes', '/tiempo-extra/autorizar', '/tiempo-extra/recepcion', '/tiempo-extra/consulta',
+    '/transporte/solicitudes', '/transporte/catalogos',
+    '/personal/padron', '/personal/estructura', '/personal/accesos', '/personal/accesos/organigrama',
   ];
-  const SECCIONES = ['Transporte (rutas)', 'Tiempo extra', 'Administración'];
-  // Mismos criterios que modulos.js: transporte = rol RH/admin; tiempo extra = accesos.tieneAcceso (RH lo trae por su rol)
+  const SECCIONES = ['Tiempo extra', 'Transporte', 'Personal y estructura'];
   const menuDe = (rol) => {
     const a = calcularAccesos([], { rol });
-    const idsModulos = new Set([ROLES_RH.includes(rol) && 'rutas', (a.esRH || a.esAut2) && 'tiempo-extra'].filter(Boolean));
-    return itemsMenuRH({ esRH: a.esRH, idsModulos });
+    return itemsMenuRH({ esRH: a.esRH, esAdmin: a.esAdmin });
   };
 
   for (const rol of ['admin', 'rh']) {
-    it(`${rol}: portal, Transporte, Tiempo extra completo, Estructura, Catálogos, Usuarios y accesos, Recepción y Consulta`, () => {
+    it(`${rol}: Inicio, Tiempo extra completo, Solicitudes de transporte, Rutas y puntos, Padrón, Estructura, Usuarios y accesos y Organigrama`, () => {
       const items = menuDe(rol);
       expect(items.filter(i => !i.section).map(i => i.path)).toEqual(PATHS_OBLIGATORIOS);
       expect(items.filter(i => i.section).map(i => i.section)).toEqual(SECCIONES);
     });
   }
-  it('un usuario común (sin RH ni Aut. 2) no recibe el menú de RH', () => {
-    expect(itemsMenuRH({ esRH: false, idsModulos: new Set() }).map(i => i.path)).toEqual(['/']);
+  it('los nombres son los acordados', () => {
+    expect(menuDe('rh').filter(i => !i.section).map(i => i.label)).toEqual([
+      'Inicio', 'Solicitar tiempo extra', 'Mis solicitudes', 'Por autorizar', 'Por enviar al proveedor', 'Todas las solicitudes',
+      'Solicitudes de transporte', 'Rutas y puntos de reunión', 'Padrón de empleados', 'Estructura', 'Usuarios y accesos', 'Organigrama',
+    ]);
   });
-  it('admin y RH tienen el mismo menú', () => { expect(menuDe('admin')).toEqual(menuDe('rh')); });
+  it('ya no hay dos "Resumen" ni etiquetas repetidas', () => {
+    const etiquetas = menuDe('rh').filter(i => !i.section).map(i => i.label);
+    expect(etiquetas).not.toContain('Resumen');
+    expect(new Set(etiquetas).size).toBe(etiquetas.length);
+  });
+  it('un usuario común (sin RH ni Aut. 2) no recibe el menú de RH', () => {
+    expect(itemsMenuRH({ esRH: false }).map(i => i.path)).toEqual(['/']);
+  });
+});
+
+describe('menú nuevo por rol y rutas', () => {
+  it('Aut. 2: Inicio · Por autorizar · Todas las solicitudes · Organigrama · Asignar roles', () => {
+    expect(itemsMenuPorRol({ ...base, esAut2: true }).map(i => i.label)).toEqual(['Inicio', 'Por autorizar', 'Todas las solicitudes', 'Organigrama', 'Asignar roles']);
+  });
+  it('Aut. 1: Inicio · Solicitar · Mis solicitudes · Por autorizar · Mi área; solicitante: Inicio · Solicitar · Mis solicitudes', () => {
+    expect(itemsMenuPorRol({ ...base, areasAut1: ['moldes'] }).map(i => i.label)).toEqual(['Inicio', 'Solicitar tiempo extra', 'Mis solicitudes', 'Por autorizar', 'Mi área']);
+    expect(itemsMenuPorRol({ ...base, areasSolicitante: ['moldes'] }).map(i => i.label)).toEqual(['Inicio', 'Solicitar tiempo extra', 'Mis solicitudes']);
+  });
+  it('sin rol: solo Inicio', () => {
+    expect(itemsMenuPorRol(base).map(i => i.label)).toEqual(['Inicio']);
+  });
+  it('las URLs viejas /rutas/rh/*, /accesos, /perfil de transporte ya no existen en rutas.js', () => {
+    for (const url of Object.values(RUTAS)) expect(url).not.toMatch(/^\/rutas\/|^\/accesos/);
+  });
+  it('cada URL del menú está registrada en App.jsx (por su nombre en RUTAS) y las pestañas cuelgan de /personal/accesos', () => {
+    const app = readFileSync('src/App.jsx', 'utf8');
+    for (const k of ['transporteSolicitudes', 'transporteCatalogos', 'padron', 'estructura', 'accesos', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'teRecepcion']) {
+      expect(app, k).toContain(`RUTAS.${k}`);
+    }
+    expect(RUTAS.organigrama.startsWith(`${RUTAS.accesos}/`)).toBe(true);
+    expect(RUTAS.asignaciones.startsWith(`${RUTAS.accesos}/`)).toBe(true);
+    expect(app).toContain("path: '*'");
+  });
+  it('no quedan las 9 redirecciones de URLs anteriores', () => {
+    expect(readFileSync('src/App.jsx', 'utf8')).not.toContain('Redirigir');
+  });
 });

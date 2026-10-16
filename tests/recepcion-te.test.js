@@ -179,7 +179,7 @@ describe('Por enviar al proveedor (antes Recepción)', () => {
   it('el mensaje de "Listo" dice dónde quedó el transporte', () => {
     expect(NOMBRE_POR_ENVIAR).toBe('Por enviar al proveedor');
     expect(mensajeConfirmada({ fecha: '2026-10-15', pasajeros: 3 }))
-      .toBe('Listo. El transporte de jueves 15 de octubre ya aparece en Transporte > Solicitudes y se incluirá en el Formato de rutas.');
+      .toBe('Listo. El transporte de jueves 15 de octubre ya aparece en Solicitudes de transporte y se incluirá en el Formato de rutas.');
     expect(mensajeConfirmada({ fecha: '2026-10-15', pasajeros: 0 })).toContain('sin transporte');
   });
 });

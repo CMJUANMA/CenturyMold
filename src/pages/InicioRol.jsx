@@ -1,7 +1,7 @@
 /**
  * InicioRol.jsx — Inicio de quien NO es RH/admin: directamente su panel, según los roles que tiene hoy.
  * Una persona con varios roles ve la unión de lo que le toca a cada uno. Mientras no existan solicitudes de tiempo extra,
- * las tarjetas muestran 0 (sin error). Los enlaces apuntan a pantallas que llegan después (hoy dicen "Próximamente").
+ * las tarjetas muestran 0 (sin error).
  */
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -14,7 +14,7 @@ import { usePorAutorizar } from '../hooks/usePendientes';
 import { useAuth } from '../hooks/useAuth';
 import { useSaludo } from '../hooks/useSaludo';
 import { esActivo } from '../utils/activo';
-import { RUTAS_TE } from '../utils/navegacion';
+import { RUTAS } from '../rutas';
 import { contarMisSolicitudes, proximosAutorizados, semanaPorArea, ultimasDelArea } from '../utils/resumenInicio';
 import { formatoFecha } from '../utils/asignaciones';
 import BadgeEstatus from '../components/BadgeEstatus';
@@ -88,7 +88,7 @@ export default function InicioRol() {
 
       {!tieneRol && (
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-6 text-center text-xs text-[var(--text-secondary)]">
-          Todavía no tienes funciones asignadas. Pide a Recursos Humanos que te den acceso.
+          Pide acceso a Recursos Humanos.
         </div>
       )}
 
@@ -97,7 +97,7 @@ export default function InicioRol() {
       )}
 
       {(esSolicitante || esAut1) && (
-        <Link to={RUTAS_TE.nueva}
+        <Link to={RUTAS.teNueva}
           className="flex items-center justify-between gap-4 rounded-xl bg-[var(--cm-red)] px-6 py-5 text-white shadow-md transition-colors hover:bg-[var(--cm-red-hover)]">
           <span className="flex items-center gap-4">
             <FilePlus className="h-8 w-8" />
@@ -108,7 +108,7 @@ export default function InicioRol() {
       )}
 
       {(esAut1 || esAut2) && (
-        <Link to={RUTAS_TE.autorizar} className="block">
+        <Link to={RUTAS.teAutorizar} className="block">
           <div className={`flex items-center justify-between gap-4 rounded-xl border-2 px-6 py-5 shadow-sm transition-colors hover:border-[var(--cm-red)] ${porAutorizar.total > 0
             ? 'border-[var(--status-warning-border)] bg-[var(--status-warning-bg)]' : 'border-[var(--border-color)] bg-[var(--bg-surface)]'}`}>
             <span className="flex items-center gap-4">
@@ -132,9 +132,9 @@ export default function InicioRol() {
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <Tarjeta titulo="Empleados de mi área" valor={cargandoEmp ? '…' : empleadosDeMiArea} Icono={Users} />
-            <Tarjeta titulo="En borrador" valor={mias.borrador} to={RUTAS_TE.misSolicitudes} ayuda="Aún no las envías" />
-            <Tarjeta titulo="En autorización" valor={mias.enAutorizacion} to={RUTAS_TE.misSolicitudes} Icono={Clock} />
-            <Tarjeta titulo="Devueltas" valor={mias.devueltas} to={RUTAS_TE.misSolicitudes} resaltar={mias.devueltas > 0} Icono={AlertTriangle}
+            <Tarjeta titulo="En borrador" valor={mias.borrador} to={RUTAS.teMisSolicitudes} ayuda="Aún no las envías" />
+            <Tarjeta titulo="En autorización" valor={mias.enAutorizacion} to={RUTAS.teMisSolicitudes} Icono={Clock} />
+            <Tarjeta titulo="Devueltas" valor={mias.devueltas} to={RUTAS.teMisSolicitudes} resaltar={mias.devueltas > 0} Icono={AlertTriangle}
               ayuda={mias.devueltas > 0 ? 'Piden que las corrijas' : undefined} />
             <Tarjeta titulo="Autorizadas este mes" valor={mias.autorizadasMes} Icono={CheckCircle2} />
           </div>
@@ -156,9 +156,9 @@ export default function InicioRol() {
         <section aria-label="Planta" className="space-y-3">
           <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">Planta</h2>
           <div className="grid gap-4 sm:grid-cols-3">
-            <Tarjeta titulo="Por autorizar nivel 2" valor={porAutorizar.aut2} to={RUTAS_TE.autorizar} resaltar={porAutorizar.aut2 > 0} Icono={BadgeCheck} />
+            <Tarjeta titulo="Por autorizar nivel 2" valor={porAutorizar.aut2} to={RUTAS.teAutorizar} resaltar={porAutorizar.aut2 > 0} Icono={BadgeCheck} />
             <Tarjeta titulo="Empleados de planta" valor={cargandoEmp ? '…' : empleadosDePlanta} Icono={Users} />
-            <Tarjeta titulo="Solicitudes de la semana" valor={semanaPorArea(resumen.planta, areas, ahora).reduce((a, x) => a + x.total, 0)} to={RUTAS_TE.consulta} />
+            <Tarjeta titulo="Solicitudes de la semana" valor={semanaPorArea(resumen.planta, areas, ahora).reduce((a, x) => a + x.total, 0)} to={RUTAS.teConsulta} />
           </div>
           <Tabla titulo="Solicitudes de la semana por área" columnas={['Área', 'Solicitudes']}
             filas={semanaPorArea(resumen.planta, areas.filter(a => a.participaTE), ahora).map(x => [x.nombre, x.total])} vacio="Sin áreas con tiempo extra." />

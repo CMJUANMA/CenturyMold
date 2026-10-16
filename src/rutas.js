@@ -17,16 +17,19 @@ export const RUTAS = {
   teRecepcion: '/tiempo-extra/recepcion',
 
   // Transporte
-  transporteSolicitudes: '/rutas/rh/solicitudes',
-  transporteCatalogos: '/rutas/rh/catalogos',
+  transporteSolicitudes: '/transporte/solicitudes',
+  transporteCatalogos: '/transporte/catalogos',
 
   // Personal y estructura
-  padron: '/rutas/rh/empleados',
-  estructura: '/rutas/rh/estructura',
-  accesos: '/accesos',
-  organigrama: '/accesos/organigrama',
-  asignaciones: '/accesos/asignaciones',
+  padron: '/personal/padron',
+  estructura: '/personal/estructura',
+  accesos: '/personal/accesos',
+  organigrama: '/personal/accesos/organigrama',
+  asignaciones: '/personal/accesos/asignaciones',
 };
+
+/** Pestaña de Usuarios y accesos: usuarios · asignaciones · organigrama */
+export const rutaAccesos = (tab) => `${RUTAS.accesos}/${tab}`;
 
 /** Ruta de edición de un tiempo extra concreto */
 export const rutaEditarTE = (id) => RUTAS.teEditar.replace(':id', id);

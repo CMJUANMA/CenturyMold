@@ -6,7 +6,7 @@
  *   Asignaciones  quien puede asignar (admin; RH y Aut. 2 vigente solo aut1 y solicitante)
  *   Organigrama   Aut. 2, RH y admin completo; el Aut. 1, solo su área (con el Nivel 2 arriba, sin poder abrirlo); el solicitante no lo ve.
  *                 Generado solo con las asignaciones vigentes
- * Ruta: /accesos/:tab
+ * Ruta: /personal/accesos/:tab (ver rutas.js)
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
@@ -20,6 +20,7 @@ import { useCatalogos } from '../../../hooks/useCatalogos';
 import { useAsignaciones } from '../../../hooks/useAsignaciones';
 import { useToast } from '../../../hooks/useToast';
 import { puedeAsignarAlgo } from '../../../utils/asignaciones';
+import { RUTAS, rutaAccesos } from '../../../rutas';
 import { veOrganigrama } from '../../../utils/navegacion';
 import Spinner from '../../../components/Spinner';
 import TabUsuarios from './TabUsuarios';
@@ -88,7 +89,7 @@ export default function UsuariosYAccesos() {
   if (accesos.cargando) return <Spinner />;
   // Un solicitante (o quien no tiene rol) no ve esta pantalla
   if (tabs.length === 0) return <Navigate to="/" replace />;
-  if (!tabActiva) return <Navigate to={`/accesos/${tabs[0].id}`} replace />;
+  if (!tabActiva) return <Navigate to={rutaAccesos(tabs[0].id)} replace />;
 
   const cargando = cargandoAsig || cargandoAreas || cargandoEmp || (leeUsuarios && !usuarios && !error);
   const abrirAsignar = (inicial) => setFormAsig(inicial);
@@ -126,7 +127,7 @@ export default function UsuariosYAccesos() {
             const Icono = t.icon;
             const activa = tabActiva === t.id;
             return (
-              <button key={t.id} type="button" onClick={() => navigate(`/accesos/${t.id}`)} aria-current={activa ? 'page' : undefined}
+              <button key={t.id} type="button" onClick={() => navigate(rutaAccesos(t.id))} aria-current={activa ? 'page' : undefined}
                 className={`inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer ${activa ? 'border-[var(--cm-red)] text-[var(--cm-red)]' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:border-[var(--border-color)]'}`}>
                 <Icono className="h-3.5 w-3.5" />{t.label}
               </button>
@@ -147,7 +148,7 @@ export default function UsuariosYAccesos() {
           )}
           {tabActiva === 'asignaciones' && (
             <TabAsignaciones asignaciones={asignaciones} nombresArea={nombresArea} actor={actor} ahora={ahora} onAsignar={abrirAsignar}
-              empleados={empleados} usuarios={usuarios} onCargaTerminada={() => navigate('/accesos/organigrama')} />
+              empleados={empleados} usuarios={usuarios} onCargaTerminada={() => navigate(RUTAS.organigrama)} />
           )}
           {tabActiva === 'organigrama' && (
             <TabOrganigrama asignaciones={asignaciones} areas={areas} empleados={empleados} puestos={puestos} usuarios={usuarios} actor={actor}

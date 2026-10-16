@@ -26,6 +26,7 @@ import { ymd } from '../../utils/fechas';
 import { leerHistorialTE, leerSolicitudTE, recibirVarias } from '../../utils/tiempoExtraDb';
 import AccionesRH from './AccionesRH';
 import { BotonDescargaResumenTE } from './DescargaTE';
+import { RUTAS } from '../../rutas';
 import DetalleTE from './DetalleTE';
 
 const boton = 'inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md px-4 py-2.5 text-sm font-semibold transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50';
@@ -125,7 +126,7 @@ export default function RecepcionTE() {
         </div>
         <div className="max-w-xs">
           <BotonDescargaResumenTE id="btn-descargar-te-recepcion" areas={areas} nombresArea={nombres} catalogos={catalogos} nombre={(x) => formato.nombre(x)} />
-          <p className="mt-1 text-[11px] text-[var(--text-secondary)]">El Excel para el proveedor de transporte (Formato de rutas) está en <Link to="/rutas/rh/solicitudes" className="font-semibold text-[var(--cm-red)] hover:underline">Transporte › Solicitudes</Link>.</p>
+          <p className="mt-1 text-[11px] text-[var(--text-secondary)]">El Excel para el proveedor de transporte (Formato de rutas) está en <Link to={RUTAS.transporteSolicitudes} className="font-semibold text-[var(--cm-red)] hover:underline">Transporte › Solicitudes</Link>.</p>
         </div>
       </header>
 
@@ -225,7 +226,7 @@ export default function RecepcionTE() {
                 ))}
                 {resultado.ok.some(x => !(x.pasajeros > 0)) && <p className="text-sm text-[var(--text-main)]">{mensajeConfirmada({ pasajeros: 0 })}{resultado.ok.some(x => x.pasajeros > 0) ? ` (${resultado.ok.filter(x => !(x.pasajeros > 0)).map(x => x.folio).join(', ')})` : ''}</p>}
                 {resultado.ok.some(x => x.pasajeros > 0) && (
-                  <Link to="/rutas/rh/solicitudes" onClick={() => setResultado(null)} className="inline-block text-sm font-semibold text-[var(--cm-red)] hover:underline">Ir a Transporte › Solicitudes</Link>
+                  <Link to={RUTAS.transporteSolicitudes} onClick={() => setResultado(null)} className="inline-block text-sm font-semibold text-[var(--cm-red)] hover:underline">Ir a Transporte › Solicitudes</Link>
                 )}
               </div>
             )}

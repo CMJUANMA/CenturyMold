@@ -314,7 +314,7 @@ export default function RhSolicitudes() {
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between border-b border-[var(--border-color)] pb-4">
         <div>
           <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Recursos Humanos</div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Todas las solicitudes</h1>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Solicitudes de transporte</h1>
           <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Gestión global de viajes de todos los usuarios.</p>
         </div>
       </div>

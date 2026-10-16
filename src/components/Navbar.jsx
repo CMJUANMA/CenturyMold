@@ -1,11 +1,11 @@
 /**
  * Navbar.jsx — Barra lateral corporativa Century Mold.
- * RH y admin: menú por secciones (Transporte, Tiempo extra, Administración).
+ * RH y admin: menú por secciones (Tiempo extra, Transporte, Personal y estructura).
  * Todos los demás: un menú plano según los roles que tienen hoy (solicitante, Aut. 1, Aut. 2), con la unión de lo que le toca
  * a cada rol (utils/navegacion.js). No hay "portal de procesos" para ellos: su Inicio es su panel.
  */
 import { useState } from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home, FilePlus, ClipboardList, Layers, Users, Database, LayoutGrid,
   ShieldCheck, User, LogOut, Menu, X, Settings, Clock, Network, GitBranch, BadgeCheck, Bus, Inbox,
@@ -15,35 +15,31 @@ import { useAccesos } from '../hooks/useAccesos';
 import { usePendientesRutas, usePorAutorizar, usePorRecibir } from '../hooks/usePendientes';
 import { useTransporteAnterior } from '../hooks/useTransporteAnterior';
 import { useAreas } from '../hooks/useAreas';
-import { modulosDe, moduloDeRuta } from '../modulos';
 import { ROLES_RH } from '../utils/roles';
 import { FUNCIONES, RUTAS_TRANSPORTE_SUELTO } from '../funciones';
+import { RUTAS } from '../rutas';
 import { descripcionRoles, itemsMenuPorRol, itemsMenuRH } from '../utils/navegacion';
 
-const SUBTITULO_MODULO = { rutas: 'Transporte', 'tiempo-extra': 'Tiempo extra' };
 const ICONOS = { Home, FilePlus, ClipboardList, BadgeCheck, Layers, GitBranch, ShieldCheck, Bus, LayoutGrid, Database, Clock, Inbox, Users, Network };
 
 export default function Navbar() {
   const { usuario, cerrarSesion } = useAuth();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [logoError, setLogoError] = useState(false);
   const accesos = useAccesos();
   const { pendientesRh, novedades: novedadesUser } = usePendientesRutas(usuario, accesos);
 
-  const moduloActual = moduloDeRuta(pathname);
   const esRH = ROLES_RH.includes(usuario?.rol);
   const { nombres: nombresArea } = useAreas();
   const transporteAnterior = useTransporteAnterior(usuario?.uid, !esRH && FUNCIONES.transporteSuelto);
   const porAutorizar = usePorAutorizar(usuario, accesos, true).total;
   const porRecibir = usePorRecibir(usuario, true);
-  const subtitulo = esRH ? (SUBTITULO_MODULO[moduloActual?.id] ?? 'Century Mold Querétaro') : 'Century Mold Querétaro';
+  const subtitulo = 'Century Mold Querétaro';
   const descripcion = descripcionRoles(accesos, nombresArea);
 
-  const idsModulos = new Set(modulosDe(usuario, accesos).map(m => m.id));
   // RH/admin: por secciones (utils/navegacion.js); los demás: menú plano por rol
-  const lista = esRH ? itemsMenuRH({ esRH, idsModulos }) : itemsMenuPorRol({ ...accesos, transporteAnterior });
+  const lista = esRH ? itemsMenuRH({ esRH, esAdmin: accesos.esAdmin }) : itemsMenuPorRol({ ...accesos, transporteAnterior });
   const items = lista.map(it => ({ ...it, icon: ICONOS[it.icono] ?? Home }));
 
   const handleCerrarSesion = async () => {
@@ -123,7 +119,7 @@ export default function Navbar() {
                     {porRecibir}
                   </span>
                 )}
-                {item.path === '/rutas/rh/solicitudes' && FUNCIONES.transporteSuelto && pendientesRh > 0 && (
+                {item.path === RUTAS.transporteSolicitudes && FUNCIONES.transporteSuelto && pendientesRh > 0 && (
                   <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-[var(--status-warning-bg)] text-[9px] font-bold text-[var(--status-warning-text)] border border-[var(--status-warning-border)] shrink-0 shadow-sm">
                     {pendientesRh}
                   </span>

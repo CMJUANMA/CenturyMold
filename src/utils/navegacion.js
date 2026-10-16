@@ -1,17 +1,11 @@
 /**
- * navegacion.js — Qué ve cada quien en el menú y cómo se le habla, según su ROL (no según el módulo). Sin dependencias del navegador.
- * Una persona con varios roles ve la unión de lo que le toca a cada uno. RH y admin conservan el menú por secciones.
+ * navegacion.js — Qué ve cada quien en el menú y cómo se le habla, según su ROL. Sin dependencias del navegador.
+ * Una persona con varios roles ve la unión de lo que le toca a cada uno. RH y admin ven el menú por secciones.
+ * Todas las URLs salen de rutas.js (y las del transporte suelto, de funciones.js).
  */
 
 import { FUNCIONES, RUTAS_TRANSPORTE_SUELTO, funcionActiva } from '../funciones.js';
-
-/** Rutas de tiempo extra */
-export const RUTAS_TE = {
-  nueva: '/tiempo-extra/nueva',
-  misSolicitudes: '/tiempo-extra/mis-solicitudes',
-  autorizar: '/tiempo-extra/autorizar',
-  consulta: '/tiempo-extra/consulta',
-};
+import { RUTAS } from '../rutas.js';
 
 /**
  * Elementos del menú de quien NO es RH/admin.
@@ -21,56 +15,57 @@ export const RUTAS_TE = {
 export function itemsMenuPorRol({ esAut2, areasAut1, areasSolicitante, transporteAnterior, funciones = FUNCIONES }) {
   const esAut1 = areasAut1.length > 0;
   const esSolicitante = areasSolicitante.length > 0;
-  const items = [{ id: 'inicio', path: '/', label: 'Inicio', icono: 'Home', end: true }];
+  const items = [{ id: 'inicio', path: RUTAS.inicio, label: 'Inicio', icono: 'Home', end: true }];
   if (esSolicitante || esAut1) {
-    items.push({ id: 'solicitar', path: RUTAS_TE.nueva, label: 'Solicitar tiempo extra', icono: 'FilePlus' });
-    items.push({ id: 'mis', path: RUTAS_TE.misSolicitudes, label: 'Mis solicitudes', icono: 'ClipboardList' });
+    items.push({ id: 'solicitar', path: RUTAS.teNueva, label: 'Solicitar tiempo extra', icono: 'FilePlus' });
+    items.push({ id: 'mis', path: RUTAS.teMisSolicitudes, label: 'Mis solicitudes', icono: 'ClipboardList' });
   }
-  if (esAut1 || esAut2) items.push({ id: 'autorizar', path: RUTAS_TE.autorizar, label: 'Por autorizar', icono: 'BadgeCheck', contador: 'autorizar' });
+  if (esAut1 || esAut2) items.push({ id: 'autorizar', path: RUTAS.teAutorizar, label: 'Por autorizar', icono: 'BadgeCheck', contador: 'autorizar' });
   if (esAut2) {
-    items.push({ id: 'consulta', path: RUTAS_TE.consulta, label: 'Consulta de solicitudes', icono: 'Layers' });
-    items.push({ id: 'organigrama', path: '/accesos/organigrama', label: 'Organigrama', icono: 'GitBranch' });
-    items.push({ id: 'asignar', path: '/accesos/asignaciones', label: 'Asignar roles', icono: 'ShieldCheck' });
+    items.push({ id: 'consulta', path: RUTAS.teConsulta, label: 'Todas las solicitudes', icono: 'Layers' });
+    items.push({ id: 'organigrama', path: RUTAS.organigrama, label: 'Organigrama', icono: 'GitBranch' });
+    items.push({ id: 'asignar', path: RUTAS.asignaciones, label: 'Asignar roles', icono: 'ShieldCheck' });
   } else if (esAut1) {
-    items.push({ id: 'area', path: '/accesos/organigrama', label: 'Mi área', icono: 'GitBranch' });
+    items.push({ id: 'area', path: RUTAS.organigrama, label: 'Mi área', icono: 'GitBranch' });
   }
   if (transporteAnterior && funcionActiva('transporteSuelto', funciones)) items.push({ id: 'transporte', path: RUTAS_TRANSPORTE_SUELTO.misSolicitudes, label: 'Transporte (consulta)', icono: 'Bus' });
   return items;
 }
 
 /**
- * Menú de RH y admin, por secciones. `modulo`: el ítem solo se ve si la persona tiene acceso a ese módulo (modulos.js);
- * `rh`: además exige rol RH/admin. `funcion`: solo si ese interruptor de funciones.js está encendido. `icono` = nombre de ícono de lucide-react. REGLA: admin y RH ven todo esto; no se quita nada.
+ * Menú de RH y admin, por secciones. `admin`: solo el rol admin. `funcion`: solo si ese interruptor de funciones.js está encendido.
+ * `icono` = nombre de ícono de lucide-react. Admin y RH ven el mismo menú; el admin suma "Herramientas".
  */
 export const ITEMS_MENU_RH = [
-  { path: '/', label: 'Inicio', icono: 'Home', end: true },
+  { path: RUTAS.inicio, label: 'Inicio', icono: 'Home', end: true },
 
-  { section: 'Transporte (rutas)', modulo: 'rutas' },
-  { path: RUTAS_TRANSPORTE_SUELTO.nueva, label: 'Nueva solicitud', icono: 'FilePlus', modulo: 'rutas', funcion: 'transporteSuelto' },
-  { path: RUTAS_TRANSPORTE_SUELTO.misSolicitudes, label: 'Mis solicitudes', icono: 'ClipboardList', modulo: 'rutas', funcion: 'transporteSuelto' },
-  { path: '/rutas/rh/solicitudes', label: 'Todas las solicitudes', icono: 'Layers', modulo: 'rutas', rh: true },
-  { path: '/rutas/rh/catalogos', label: 'Catálogos del sistema', icono: 'Database', modulo: 'rutas', rh: true },
+  { section: 'Tiempo extra' },
+  { path: RUTAS.teNueva, label: 'Solicitar tiempo extra', icono: 'FilePlus' },
+  { path: RUTAS.teMisSolicitudes, label: 'Mis solicitudes', icono: 'ClipboardList' },
+  { path: RUTAS.teAutorizar, label: 'Por autorizar', icono: 'BadgeCheck', contador: 'autorizar' },
+  { path: RUTAS.teRecepcion, label: 'Por enviar al proveedor', icono: 'Inbox', contador: 'recepcion' },
+  { path: RUTAS.teConsulta, label: 'Todas las solicitudes', icono: 'Layers' },
 
-  { section: 'Tiempo extra', modulo: 'tiempo-extra' },
-  { path: '/tiempo-extra/nueva', label: 'Solicitar tiempo extra', icono: 'FilePlus', modulo: 'tiempo-extra', rh: true },
-  { path: '/tiempo-extra/mis-solicitudes', label: 'Mis solicitudes de TE', icono: 'ClipboardList', modulo: 'tiempo-extra', rh: true },
-  { path: '/tiempo-extra/autorizar', label: 'Por autorizar', icono: 'BadgeCheck', modulo: 'tiempo-extra', rh: true, contador: 'autorizar' },
-  { path: '/tiempo-extra/recepcion', label: 'Por enviar al proveedor', icono: 'Inbox', modulo: 'tiempo-extra', rh: true, contador: 'recepcion' },
-  { path: '/tiempo-extra/consulta', label: 'Consulta de solicitudes', icono: 'Layers', modulo: 'tiempo-extra', rh: true },
-  { path: '/accesos/organigrama', label: 'Organigrama', icono: 'GitBranch', modulo: 'tiempo-extra' },
+  { section: 'Transporte' },
+  { path: RUTAS.transporteSolicitudes, label: 'Solicitudes de transporte', icono: 'Bus' },
+  { path: RUTAS_TRANSPORTE_SUELTO.nueva, label: 'Nueva solicitud de transporte', icono: 'FilePlus', funcion: 'transporteSuelto' },
+  { path: RUTAS_TRANSPORTE_SUELTO.misSolicitudes, label: 'Mis solicitudes de transporte', icono: 'ClipboardList', funcion: 'transporteSuelto' },
+  { path: RUTAS.transporteCatalogos, label: 'Rutas y puntos de reunión', icono: 'Database' },
 
-  { section: 'Administración', rh: true },
-  { path: '/rutas/rh/empleados', label: 'Padrón de empleados', icono: 'Users', rh: true },
-  { path: '/rutas/rh/estructura', label: 'Estructura', icono: 'Network', rh: true },
-  { path: '/accesos', label: 'Usuarios y accesos', icono: 'ShieldCheck', rh: true, end: true },
+  { section: 'Personal y estructura' },
+  { path: RUTAS.padron, label: 'Padrón de empleados', icono: 'Users' },
+  { path: RUTAS.estructura, label: 'Estructura', icono: 'Network' },
+  { path: RUTAS.accesos, label: 'Usuarios y accesos', icono: 'ShieldCheck', end: true },
+  { path: RUTAS.organigrama, label: 'Organigrama', icono: 'GitBranch' },
 ];
 
 /**
- * Menú de RH/admin: los ítems visibles según rol y módulos; una sección solo aparece si le queda al menos un ítem.
- * @param {{ esRH: boolean, idsModulos: Set<string> }} p
+ * Menú de RH/admin: los ítems visibles según rol y funciones encendidas; una sección solo aparece si le queda al menos un ítem.
+ * @param {{ esRH: boolean, esAdmin?: boolean, funciones?: object }} p
  */
-export function itemsMenuRH({ esRH, idsModulos, funciones = FUNCIONES }) {
-  const visible = (it) => (!it.modulo || idsModulos.has(it.modulo)) && (!it.rh || esRH) && (!it.funcion || funcionActiva(it.funcion, funciones));
+export function itemsMenuRH({ esRH, esAdmin = false, funciones = FUNCIONES }) {
+  if (!esRH) return ITEMS_MENU_RH.slice(0, 1);
+  const visible = (it) => (!it.admin || esAdmin) && (!it.funcion || funcionActiva(it.funcion, funciones));
   return ITEMS_MENU_RH.filter(visible).filter((it, i, lista) => !it.section || (!!lista[i + 1] && !lista[i + 1].section));
 }
 
