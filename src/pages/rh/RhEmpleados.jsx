@@ -8,6 +8,7 @@ import { Search, Plus, Filter, Pencil, Loader2, Trash2, Upload, Download } from 
 import { useToast } from '../../hooks/useToast';
 import { useRecargarCatalogos } from '../../hooks/useCatalogos';
 import Modal from '../../components/Modal';
+import AyudaPantalla from '../../components/AyudaPantalla';
 import { useAuth } from '../../hooks/useAuth';
 import { areaEfectiva } from '../../utils/estructura';
 import { ejecutarEnLotes, leerColeccion, opBitacora } from '../../utils/estructuraDb';
@@ -210,7 +211,10 @@ export default function RhEmpleados() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between border-b border-[var(--border-color)] pb-4">
         <div>
           <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Recursos Humanos</div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Padrón de empleados</h1>
+          <div className="mt-1 flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">Padrón de empleados</h1>
+            <AyudaPantalla id="padron" />
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" id="btn-exportar-padron" onClick={exportarPadron} disabled={exportando}

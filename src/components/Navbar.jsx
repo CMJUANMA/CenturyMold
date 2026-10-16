@@ -10,6 +10,7 @@ import {
   Home, FilePlus, ClipboardList, Layers, Users, Database, LayoutGrid,
   ShieldCheck, User, LogOut, Menu, X, Settings, Clock, Network, GitBranch, BadgeCheck, Bus, Inbox, Wrench,
 } from 'lucide-react';
+import Logo from './Logo';
 import { useAuth } from '../hooks/useAuth';
 import { useAccesos } from '../hooks/useAccesos';
 import { usePendientesRutas, usePorAutorizar, usePorRecibir } from '../hooks/usePendientes';
@@ -26,7 +27,6 @@ export default function Navbar() {
   const { usuario, cerrarSesion } = useAuth();
   const navigate = useNavigate();
   const [menuAbierto, setMenuAbierto] = useState(false);
-  const [logoError, setLogoError] = useState(false);
   const accesos = useAccesos();
   const { pendientesRh, novedades: novedadesUser } = usePendientesRutas(usuario, accesos);
 
@@ -54,9 +54,7 @@ export default function Navbar() {
       <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-[var(--border-color)] bg-[var(--bg-surface)] px-4 lg:hidden">
         <div className="flex items-center gap-2.5">
           <div className="h-4 w-1 bg-[var(--cm-red)] rounded-full" />
-          <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-main)]">Century Mold</span>
-          <span className="text-xs text-[var(--text-muted)]">|</span>
-          <span className="text-xs text-[var(--text-secondary)]">{subtitulo}</span>
+          <Logo className="w-28" />
         </div>
         <div className="flex items-center gap-1">
           <NavLink to={RUTAS.miCuenta} aria-label="Mi cuenta" title="Mi cuenta"
@@ -76,14 +74,7 @@ export default function Navbar() {
       <aside className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-[var(--border-color)] bg-[var(--bg-sidebar)] transition-transform duration-200 ease-in-out ${menuAbierto ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-[var(--border-color)] px-5">
           <div className="flex items-center gap-3">
-            {!logoError ? (
-              <img src="/logo.png" alt="Century Mold" onError={() => setLogoError(true)} className="h-7 w-auto object-contain max-w-[110px]" />
-            ) : (
-              <div className="flex items-center gap-2">
-                <div className="h-6 w-1.5 bg-[var(--cm-red)] rounded-full" />
-                <span className="font-bold text-sm tracking-tight text-[var(--text-main)]">CENTURY MOLD</span>
-              </div>
-            )}
+            <Logo className="w-40" />
           </div>
           
         </div>

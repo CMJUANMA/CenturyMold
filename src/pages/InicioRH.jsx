@@ -18,6 +18,7 @@ import { useSaludo } from '../hooks/useSaludo';
 import { formatoFecha } from '../utils/asignaciones';
 import { indicadoresRH, proximos7Dias } from '../utils/resumenInicio';
 import { RUTAS, rutaConsultaTE } from '../rutas';
+import AyudaPantalla from '../components/AyudaPantalla';
 import BadgeEstatus from '../components/BadgeEstatus';
 import Spinner from '../components/Spinner';
 
@@ -82,7 +83,10 @@ export default function InicioRH() {
     <div className="space-y-6">
       <header className="border-b border-[var(--border-color)] pb-4">
         <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">{descripcion || 'Recursos Humanos'} · Century Mold Querétaro</div>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">{saludo}{nombre ? `, ${nombre}` : ''}</h1>
+        <div className="mt-1 flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">{saludo}{nombre ? `, ${nombre}` : ''}</h1>
+          <AyudaPantalla id="inicio" />
+        </div>
         <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Esto es lo que necesita tu atención hoy.</p>
       </header>
 

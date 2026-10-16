@@ -4,7 +4,7 @@
  *   borrador → Continuar o Eliminar · devuelta → Corregir y reenviar · pendiente → Cancelar (con motivo) · autorizada → solo consulta.
  */
 import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Eye, FilePlus, Loader2, Pencil, Trash2, XCircle } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useResumenTE } from '../../hooks/useResumenTE';
@@ -33,7 +33,9 @@ export default function MisSolicitudesTE() {
   const navigate = useNavigate();
   const confirmar = useConfirmar();
   const toast = useToast();
-  const [pestana, setPestana] = useState('borrador');
+  const [params] = useSearchParams();
+  // ?pestana=... llega desde las tarjetas del Inicio
+  const [pestana, setPestana] = useState(() => (PESTANAS_TE.some(p => p.id === params.get('pestana')) ? params.get('pestana') : 'borrador'));
   const [detalle, setDetalle] = useState(null); // { solicitud, historial, cargando }
   const [ocupadoId, setOcupadoId] = useState(null);
 

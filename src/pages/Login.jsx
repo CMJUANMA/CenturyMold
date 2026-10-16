@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { Eye, EyeOff, AlertCircle, Sun, Moon } from 'lucide-react';
+import Logo from '../components/Logo';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 
@@ -44,7 +45,6 @@ export default function Login() {
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [mostrarPass, setMostrarPass] = useState(false);
-  const [logoError, setLogoError] = useState(false);
 
   // Redirigir si ya existe sesión activa
   if (!cargando && usuario) {
@@ -92,27 +92,18 @@ export default function Login() {
       </div>
 
       <div className="w-full max-w-sm">
-        {/* Cabecera institucional y espacio para logotipo */}
+        {/* Cabecera institucional: logotipo protagonista */}
         <div className="mb-6 text-center">
-          <div className="mb-3 flex justify-center">
-            {!logoError ? (
-              <img
-                src="/logo.png"
-                alt="Century Mold"
-                onError={() => setLogoError(true)}
-                className="h-12 w-auto object-contain max-w-[200px]"
-              />
-            ) : null}
+          <div className="mb-5 flex justify-center">
+            <Logo className="w-72" />
           </div>
 
           <div className="space-y-1">
-            <div className="inline-block border-b-2 border-[var(--cm-red)] pb-1 font-semibold tracking-wider text-xs uppercase text-[var(--text-secondary)]">
-              Century Mold
-            </div>
-            <h1 className="text-xl font-bold tracking-tight text-[var(--text-main)]">
-              Solicitud de Transporte de Personal
+            <h1 className="border-b-2 border-[var(--cm-red)] pb-1 text-xl font-bold tracking-tight text-[var(--text-main)] inline-block">
+              Portal de procesos
             </h1>
-            <p className="text-xs text-[var(--text-secondary)]">
+            <p className="text-xs font-semibold text-[var(--text-secondary)]">Century Mold Querétaro · Tiempo extra y transporte</p>
+            <p className="pt-1 text-xs text-[var(--text-muted)]">
               Ingrese su número de nómina y contraseña para acceder al sistema
             </p>
           </div>
@@ -209,7 +200,7 @@ export default function Login() {
 
         {/* Pie institucional */}
         <div className="mt-6 text-center text-xs text-[var(--text-muted)]">
-          <p>Century Mold México · Sistema interno de control de transporte</p>
+          <p>Century Mold Querétaro · Portal de procesos</p>
         </div>
       </div>
     </div>

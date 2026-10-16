@@ -60,6 +60,51 @@ export const AYUDAS = {
   },
 
   pantallas: {
+    inicio: {
+      titulo: 'Cómo leer tu Inicio',
+      pasos: [
+        'Arriba están las cosas que necesitan tu atención hoy. Si una tarjeta se pone amarilla, hay algo por atender.',
+        'Toca una tarjeta para ir directo a la pantalla donde se atiende.',
+        'En "Esta semana" ves las horas autorizadas, los empleados con tiempo extra y quiénes llevan transporte los próximos 7 días.',
+        'Abajo están los accesos rápidos y los tiempos extra que vienen en la semana.',
+      ],
+    },
+    inicioRol: {
+      titulo: 'Cómo leer tu Inicio',
+      pasos: [
+        'Aquí ves un resumen de lo tuyo: lo que pediste y, si autorizas, lo que espera tu firma.',
+        'El botón rojo "Solicitar tiempo extra" abre una solicitud nueva.',
+        'Toca una tarjeta para abrir tus solicitudes en esa pestaña: borradores, en autorización, devueltas o autorizadas.',
+        'Las devueltas se resaltan: son las que debes corregir y reenviar.',
+      ],
+    },
+    padron: {
+      titulo: 'Cómo usar el padrón de empleados',
+      pasos: [
+        'Aquí está la lista de todos los empleados. Busca por número de nómina o por nombre.',
+        '"Nuevo empleado" da de alta a una persona; el lápiz cambia sus datos, su puesto y su ruta.',
+        '"Importar empleados" carga un Excel con muchas personas y, antes de guardar, te muestra qué cambiaría.',
+        '"Exportar padrón (respaldo)" baja una copia de todos, activos e inactivos.',
+      ],
+    },
+    organigrama: {
+      titulo: 'Cómo leer el organigrama',
+      pasos: [
+        'Este árbol muestra quién autoriza qué: arriba el nivel 2 de la planta; abajo, el nivel 1 de cada área y sus solicitantes.',
+        'Las personas de un nivel más alto que el tuyo se ven, pero no se pueden abrir.',
+        'Toca a una persona para ver su detalle. Quien puede asignar ve los botones "+" para agregar a alguien.',
+        'El orden dentro de cada nivel sale del nivel de su puesto (en Estructura, Puestos).',
+      ],
+    },
+    asignaciones: {
+      titulo: 'Cómo dar y quitar roles',
+      pasos: [
+        'Aquí se dan y se quitan los permisos: Autorización 1, Autorización 2 o Solicitante, por área.',
+        'Toca "Asignar rol", elige a la persona, el rol y el área. Si es temporal, pon la fecha final y el motivo.',
+        'Con los íconos de cada renglón puedes extender la fecha, revocar el rol o ver su historial.',
+        'Si alguien cambia de nombre o de puesto en el padrón, usa "Actualizar nombres y puestos de las asignaciones".',
+      ],
+    },
     solicitar: {
       titulo: 'Cómo solicitar tiempo extra',
       pasos: [

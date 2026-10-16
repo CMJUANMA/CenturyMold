@@ -32,5 +32,8 @@ export const RUTAS = {
 /** Pestaña de Usuarios y accesos: usuarios · asignaciones · organigrama */
 export const rutaAccesos = (tab) => `${RUTAS.accesos}/${tab}`;
 
+/** Mis solicitudes de tiempo extra abiertas en una pestaña: borrador · autorizacion · devuelta · autorizada · cancelada */
+export const rutaMisSolicitudes = (pestana) => (pestana ? `${RUTAS.teMisSolicitudes}?pestana=${pestana}` : RUTAS.teMisSolicitudes);
+
 /** Consulta de tiempo extra ya filtrada por estatus (lo lee ConsultaTE) */
 export const rutaConsultaTE = (estatus) => (estatus ? `${RUTAS.teConsulta}?estatus=${estatus}` : RUTAS.teConsulta);

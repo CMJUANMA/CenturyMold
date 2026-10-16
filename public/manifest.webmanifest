@@ -1,0 +1,21 @@
+{
+  "name": "Century Mold Querétaro · Portal de procesos",
+  "short_name": "Century Mold",
+  "description": "Tiempo extra y transporte",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#C8102E",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

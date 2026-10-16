@@ -122,7 +122,7 @@ function agregarHojaInstrucciones(wb, { titulo, hojaDatos, columnas, reglas, pue
 
   // Título
   filaCombinada(titulo, { font: { bold: true, size: 14, color: { argb: FMT.blanco } }, fill: FMT.oscuro, alto: 30, wrap: false });
-  filaCombinada('Century Mold · Solicitud de rutas de transporte', { font: { size: 9, color: { argb: FMT.grisMedio } }, alto: 16 });
+  filaCombinada('Century Mold Querétaro · Portal de procesos', { font: { size: 9, color: { argb: FMT.grisMedio } }, alto: 16 });
 
   // Reglas numeradas, una por fila
   seccion('REGLAS PARA LLENAR EL ARCHIVO');

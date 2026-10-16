@@ -53,7 +53,7 @@ export const PASOS_PRIMER_ACCESO = [
   ['2', 'En "Usuario" escribe tu número de nómina, tal como aparece en este archivo (solo números).'],
   ['3', 'En "Contraseña" escribe la contraseña temporal respetando mayúsculas y guiones, por ejemplo CM-7K4P-Q9TX.'],
   ['4', 'La primera vez el sistema te pedirá crear una contraseña nueva. Debe ser distinta de la temporal y de al menos 6 caracteres.'],
-  ['5', 'Después de cambiarla entrarás al portal. La contraseña temporal deja de servir.'],
+  ['5', 'Después de cambiarla entrarás al Portal de procesos. La contraseña temporal deja de servir.'],
   ['6', 'Si no puedes entrar, avisa a Recursos Humanos; no compartas tu contraseña con nadie.'],
   ['', 'ESTE ARCHIVO CONTIENE CONTRASEÑAS: entrégalo en persona o en sobre cerrado y bórralo después. No se puede volver a generar.'],
 ];

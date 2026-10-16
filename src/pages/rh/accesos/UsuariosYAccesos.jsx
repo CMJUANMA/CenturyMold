@@ -23,6 +23,7 @@ import { puedeAsignarAlgo } from '../../../utils/asignaciones';
 import { RUTAS, rutaAccesos } from '../../../rutas';
 import { veOrganigrama } from '../../../utils/navegacion';
 import Spinner from '../../../components/Spinner';
+import AyudaPantalla from '../../../components/AyudaPantalla';
 import TabUsuarios from './TabUsuarios';
 import TabAsignaciones from './TabAsignaciones';
 import TabOrganigrama from './TabOrganigrama';
@@ -99,7 +100,10 @@ export default function UsuariosYAccesos() {
       <div className="border-b border-[var(--border-color)] pb-4">
         {soloMiArea ? (
           <>
-            <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">Mi área</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">Mi área</h1>
+              <AyudaPantalla id="organigrama" />
+            </div>
             <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
               Organigrama de autorización de {areas.map(a => a.nombre).join(', ') || 'tu área'}
             </p>
@@ -107,7 +111,11 @@ export default function UsuariosYAccesos() {
         ) : (
           <>
             <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Seguridad y accesos</div>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Usuarios y accesos</h1>
+            <div className="mt-1 flex items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">Usuarios y accesos</h1>
+              {tabActiva === 'organigrama' && <AyudaPantalla id="organigrama" />}
+              {tabActiva === 'asignaciones' && <AyudaPantalla id="asignaciones" />}
+            </div>
             <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
               Los permisos viven en el rol: se asignan a personas, por área y con fechas si son temporales. El puesto no da permisos.
             </p>

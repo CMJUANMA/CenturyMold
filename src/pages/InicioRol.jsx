@@ -14,9 +14,10 @@ import { usePorAutorizar } from '../hooks/usePendientes';
 import { useAuth } from '../hooks/useAuth';
 import { useSaludo } from '../hooks/useSaludo';
 import { esActivo } from '../utils/activo';
-import { RUTAS } from '../rutas';
+import { RUTAS, rutaMisSolicitudes } from '../rutas';
 import { contarMisSolicitudes, proximosAutorizados, semanaPorArea, ultimasDelArea } from '../utils/resumenInicio';
 import { formatoFecha } from '../utils/asignaciones';
+import AyudaPantalla from '../components/AyudaPantalla';
 import BadgeEstatus from '../components/BadgeEstatus';
 import Spinner from '../components/Spinner';
 
@@ -82,7 +83,10 @@ export default function InicioRol() {
     <div className="space-y-6">
       <header className="border-b border-[var(--border-color)] pb-4">
         <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Century Mold Querétaro</div>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">{saludo}{nombre ? `, ${nombre}` : ''}</h1>
+        <div className="mt-1 flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">{saludo}{nombre ? `, ${nombre}` : ''}</h1>
+          <AyudaPantalla id="inicioRol" />
+        </div>
         <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{descripcion || 'Sin roles asignados por ahora'}</p>
       </header>
 
@@ -132,11 +136,11 @@ export default function InicioRol() {
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <Tarjeta titulo="Empleados de mi área" valor={cargandoEmp ? '…' : empleadosDeMiArea} Icono={Users} />
-            <Tarjeta titulo="En borrador" valor={mias.borrador} to={RUTAS.teMisSolicitudes} ayuda="Aún no las envías" />
-            <Tarjeta titulo="En autorización" valor={mias.enAutorizacion} to={RUTAS.teMisSolicitudes} Icono={Clock} />
-            <Tarjeta titulo="Devueltas" valor={mias.devueltas} to={RUTAS.teMisSolicitudes} resaltar={mias.devueltas > 0} Icono={AlertTriangle}
+            <Tarjeta titulo="En borrador" valor={mias.borrador} to={rutaMisSolicitudes('borrador')} ayuda="Aún no las envías" />
+            <Tarjeta titulo="En autorización" valor={mias.enAutorizacion} to={rutaMisSolicitudes('autorizacion')} Icono={Clock} />
+            <Tarjeta titulo="Devueltas" valor={mias.devueltas} to={rutaMisSolicitudes('devuelta')} resaltar={mias.devueltas > 0} Icono={AlertTriangle}
               ayuda={mias.devueltas > 0 ? 'Piden que las corrijas' : undefined} />
-            <Tarjeta titulo="Autorizadas este mes" valor={mias.autorizadasMes} Icono={CheckCircle2} />
+            <Tarjeta titulo="Autorizadas este mes" valor={mias.autorizadasMes} to={rutaMisSolicitudes('autorizada')} Icono={CheckCircle2} />
           </div>
           <Tabla titulo="Próximos tiempos extra autorizados" columnas={['Folio', 'Fecha', 'Empleados', 'Horas', 'Transporte']}
             filas={proximos.map(p => [<span key="f" className="font-mono font-semibold">{p.folio}</span>, formatoFecha(`${p.fecha}T12:00:00`), p.empleados, p.horas, p.transporte])}
