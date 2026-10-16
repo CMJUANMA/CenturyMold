@@ -347,17 +347,29 @@ service cloud.firestore {
               || (despues().get('justificacionRutas', '') is string && despues().get('justificacionRutas', '').trim().size() >= 15));
       }
 
+      // Motivo "Otro": motivoOtro (¿Cuál?) solo existe con ese motivo, es texto de hasta 60 caracteres y, al enviar, de al menos 3
+      function motivoOtroValido() {
+        return despues().motivo == 'Otro'
+          ? (!despues().keys().hasAny(['motivoOtro'])
+              || (despues().motivoOtro is string && despues().motivoOtro.trim().size() <= 60 && despues().motivoOtro.size() <= 60))
+          : !despues().keys().hasAny(['motivoOtro']);
+      }
+      function motivoOtroCompleto() {
+        return despues().motivo != 'Otro'
+          || (despues().get('motivoOtro', '') is string && despues().get('motivoOtro', '').trim().size() >= 3);
+      }
+
       // Toda solicitud nace como BORRADOR: id propio (BR-…), sin folio y sin firmas, a nombre de quien la crea. Solo un solicitante
       // o el Aut. 1 vigente del área (RH o Aut. 2 si el área no participa en TE). El folio se asigna al enviarla
       allow create: if activo()
         && teId.matches('BR-[A-Za-z0-9]{10,}')
         && despues().keys().hasOnly(['areaId', 'areaNombre', 'creadoPor', 'creadoPorNomina', 'creadoPorNombre',
-                                     'fechaTE', 'motivo', 'comentario', 'estatus', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas',
+                                     'fechaTE', 'motivo', 'motivoOtro', 'comentario', 'estatus', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas',
                                      'fechaCreacion', 'fechaActualizacion'])
         && despues().keys().hasAll(['areaId', 'creadoPor', 'creadoPorNomina', 'fechaTE', 'motivo', 'estatus',
                                     'fechaCreacion', 'fechaActualizacion'])
         && despues().estatus == 'borrador'
-        && tipoValido()
+        && tipoValido() && motivoOtroValido()
         && despues().creadoPor == uid()
         && despues().creadoPorNomina == miNomina()
         && despues().areaId is string
@@ -447,8 +459,8 @@ service cloud.firestore {
       // (y de un borrador, mientras se arma)
       allow update: if antes().estatus in ['devuelta', 'borrador'] && despues().estatus == antes().estatus
         && despues().fechaActualizacion == request.time
-        && soloCambia(['fechaTE', 'motivo', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'fechaActualizacion'])
-        && tipoValido()
+        && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'fechaActualizacion'])
+        && tipoValido() && motivoOtroValido()
         && antes().creadoPor == uid() && activo();
 
       // Enviar a autorización: el borrador recibe su FOLIO (del contador, en el mismo lote), el resumen calculado y el estatus inicial
@@ -456,8 +468,8 @@ service cloud.firestore {
       allow update: if antes().estatus == 'borrador' && despues().estatus in ['pendiente_aut1', 'pendiente_aut2']
         && despues().fechaActualizacion == request.time
         && !despues().keys().hasAny(['aut1', 'aut2'])
-        && soloCambia(['fechaTE', 'motivo', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'folio', 'fechaActualizacion'])
-        && tipoValido() && rutasJustificadas()
+        && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'folio', 'fechaActualizacion'])
+        && tipoValido() && rutasJustificadas() && motivoOtroValido() && motivoOtroCompleto()
         && antes().creadoPor == uid()
         && puedeCapturarTE(antes().areaId)
         && despues().estatus == estatusInicial(antes().areaId)
@@ -467,8 +479,8 @@ service cloud.firestore {
       allow update: if antes().estatus == 'devuelta' && despues().estatus in ['pendiente_aut1', 'pendiente_aut2']
         && despues().fechaActualizacion == request.time
         && !despues().keys().hasAny(['aut1', 'aut2'])
-        && soloCambia(['fechaTE', 'motivo', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'aut1', 'aut2', 'fechaActualizacion'])
-        && tipoValido() && rutasJustificadas()
+        && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'aut1', 'aut2', 'fechaActualizacion'])
+        && tipoValido() && rutasJustificadas() && motivoOtroValido() && motivoOtroCompleto()
         && antes().creadoPor == uid()
         && puedeCapturarTE(antes().areaId)
         && despues().estatus == estatusInicial(antes().areaId);

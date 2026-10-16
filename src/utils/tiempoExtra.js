@@ -10,6 +10,17 @@ export const ESTATUS_TE_VISIBLES = ['pendiente_aut1', 'pendiente_aut2', 'autoriz
 
 export const MOTIVOS_TE = ['Producción', 'Mantenimiento', 'Calidad', 'Inventario', 'Embarques', 'Otro'];
 export const MIN_COMENTARIO_TE = 10;
+/** Con el motivo "Otro", "¿Cuál?" es obligatorio: de 3 a 60 caracteres (se guarda como motivoOtro) */
+export const MOTIVO_OTRO = 'Otro';
+export const MIN_MOTIVO_OTRO = 3;
+export const MAX_MOTIVO_OTRO = 60;
+
+/** Motivo para mostrar: "Otro: lo que escribió" (o solo "Otro" en solicitudes sin el detalle); '' si no hay */
+export function motivoTexto(t) {
+  const motivo = String(t?.motivo ?? '').trim();
+  const otro = String(t?.motivoOtro ?? '').trim();
+  return motivo === MOTIVO_OTRO && otro ? `${MOTIVO_OTRO}: ${otro}` : motivo;
+}
 /** Empleados por lote de escritura (las reglas validan cada uno contra el padrón; el límite de lecturas por lote es 20) */
 export const LOTE_EMPLEADOS = 10;
 
@@ -157,10 +168,10 @@ export function textoRutas(desglose = []) {
   return `Esta solicitud usa ${desglose.length} ${desglose.length === 1 ? 'ruta' : 'rutas'}: ${desglose.map(g => `${g.nombre} (${g.empleados})`).join(', ')}`;
 }
 
-/** Campos que se guardan en la solicitud: tipo, rutasDistintas, desgloseRutas y la justificación (solo si hay más de una ruta) */
-export function datosTE({ tipo, empleados, justificacionRutas = '', nombreRuta }) {
+/** Campos que se guardan en la solicitud: motivoOtro ('' si el motivo no es Otro), tipo, rutasDistintas, desgloseRutas y la justificación (solo si hay más de una ruta) */
+export function datosTE({ tipo, empleados, justificacionRutas = '', nombreRuta, motivo = '', motivoOtro = '' }) {
   const { rutasDistintas, desglose } = resumenRutas(empleados, nombreRuta);
-  return { tipo: normalizarTipo(tipo), rutasDistintas, desgloseRutas: desglose, justificacionRutas: rutasDistintas > 1 ? String(justificacionRutas).trim() : '' };
+  return { motivoOtro: motivo === MOTIVO_OTRO ? String(motivoOtro).trim() : '', tipo: normalizarTipo(tipo), rutasDistintas, desgloseRutas: desglose, justificacionRutas: rutasDistintas > 1 ? String(justificacionRutas).trim() : '' };
 }
 
 export function resumenTE(empleados) {
@@ -181,13 +192,18 @@ export function resumenTE(empleados) {
  * Los errores bloquean el envío; los avisos (otro tiempo extra el mismo día) no.
  * @param {object} p { fechaTE, motivo, comentario, empleados, hoy ('AAAA-MM-DD'), ocupados: Map nómina → { folio, estatus } }
  */
-export function problemasDeEnvio({ areaId, fechaTE, motivo, comentario, empleados, hoy, ocupados = new Map(), tipo = TIPOS_TE.TURNO_EXTRA, justificacionRutas = '' }) {
+export function problemasDeEnvio({ areaId, fechaTE, motivo, motivoOtro = '', comentario, empleados, hoy, ocupados = new Map(), tipo = TIPOS_TE.TURNO_EXTRA, justificacionRutas = '' }) {
   const p = [];
   const error = (mensaje, nomina) => p.push({ nivel: 'error', mensaje, nomina });
   if (!areaId) error('Elige el área.');
   if (!fechaTE) error('Elige la fecha del tiempo extra.');
   else if (fechaTE < hoy) error('La fecha debe ser hoy o futura.');
   if (!MOTIVOS_TE.includes(motivo)) error('Elige el motivo.');
+  else if (motivo === MOTIVO_OTRO) {
+    const n = String(motivoOtro ?? '').trim().length;
+    if (n < MIN_MOTIVO_OTRO) error(`Indica cuál es el motivo (al menos ${MIN_MOTIVO_OTRO} caracteres).`);
+    else if (n > MAX_MOTIVO_OTRO) error(`El motivo "Otro" admite máximo ${MAX_MOTIVO_OTRO} caracteres.`);
+  }
   if (String(comentario ?? '').trim().length < MIN_COMENTARIO_TE) error(`El comentario es obligatorio (al menos ${MIN_COMENTARIO_TE} caracteres).`);
   if (empleados.length === 0) error('Agrega al menos un empleado.');
   if (empleados.length > MAX_PASAJEROS) error(`Máximo ${MAX_PASAJEROS} empleados por solicitud; divídela en dos.`);

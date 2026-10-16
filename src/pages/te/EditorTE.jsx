@@ -24,7 +24,7 @@ import Spinner from '../../components/Spinner';
 import { esActivo, rutaVigente } from '../../utils/activo';
 import { ymd } from '../../utils/fechas';
 import {
-  HORAS_ENTRADA_TE, HORAS_SALIDA_TE, MIN_COMENTARIO_TE, MIN_JUSTIFICACION_RUTAS, MOTIVOS_TE, TIPOS_TE, TIPOS_TE_INFO, aplicarA, conTransporte, datosTE,
+  HORAS_ENTRADA_TE, HORAS_SALIDA_TE, MIN_COMENTARIO_TE, MIN_JUSTIFICACION_RUTAS, MAX_MOTIVO_OTRO, MOTIVO_OTRO, MOTIVOS_TE, TIPOS_TE, TIPOS_TE_INFO, aplicarA, conTransporte, datosTE,
   empleadoDesdePadron, estatusAlEnviar, finDeTurno, normalizarTipo, nuevoIdBorrador, problemasDeEnvio, quienDevolvio, resumenRutas, resumenTE, textoRutas,
 } from '../../utils/tiempoExtra';
 import { MAX_PASAJEROS } from '../../utils/solicitudes';
@@ -58,6 +58,7 @@ export default function EditorTE() {
   const [fechaTE, setFechaTE] = useState('');
   const [tipo, setTipo] = useState(TIPOS_TE.TURNO_EXTRA);
   const [motivo, setMotivo] = useState('');
+  const [motivoOtro, setMotivoOtro] = useState('');
   const [comentario, setComentario] = useState('');
   const [justificacionRutas, setJustificacionRutas] = useState('');
   const [empleados, setEmpleados] = useState([]);
@@ -98,7 +99,7 @@ export default function EditorTE() {
         return;
       }
       setServidor({ existe: true, estatus: t.estatus, folio: t.folio ?? null, devolucion: t.devolucion ?? null });
-      setAreaId(t.areaId); setFechaTE(t.fechaTE ?? ''); setMotivo(t.motivo ?? ''); setComentario(t.comentario ?? '');
+      setAreaId(t.areaId); setFechaTE(t.fechaTE ?? ''); setMotivo(t.motivo ?? ''); setMotivoOtro(t.motivoOtro ?? ''); setComentario(t.comentario ?? '');
       setTipo(normalizarTipo(t.tipo)); setJustificacionRutas(t.justificacionRutas ?? '');
       setEmpleados(t.empleados);
       enServidor.current = new Set(t.empleados.map(e => e.nomina));
@@ -124,8 +125,8 @@ export default function EditorTE() {
   const infoRutas = useMemo(() => resumenRutas(empleados, (rid) => rutas.find(r => r.id === rid)?.nombre ?? ''), [empleados, rutas]);
   const variasRutas = infoRutas.rutasDistintas > 1;
   const problemas = useMemo(
-    () => problemasDeEnvio({ areaId: areaActual, fechaTE, motivo, comentario, empleados, hoy, ocupados, tipo, justificacionRutas }),
-    [areaActual, fechaTE, motivo, comentario, empleados, hoy, ocupados, tipo, justificacionRutas],
+    () => problemasDeEnvio({ areaId: areaActual, fechaTE, motivo, motivoOtro, comentario, empleados, hoy, ocupados, tipo, justificacionRutas }),
+    [areaActual, fechaTE, motivo, motivoOtro, comentario, empleados, hoy, ocupados, tipo, justificacionRutas],
   );
   const errores = problemas.filter(p => p.nivel === 'error');
   const avisoDe = (nomina) => problemas.find(p => p.nivel === 'aviso' && p.nomina === nomina)?.mensaje;
@@ -133,7 +134,7 @@ export default function EditorTE() {
   const faltaJustificacion = variasRutas && justificacionRutas.trim().length < MIN_JUSTIFICACION_RUTAS;
 
   const ocupado = !!trabajo;
-  const extras = () => datosTE({ tipo, empleados, justificacionRutas, nombreRuta });
+  const extras = () => datosTE({ tipo, empleados, justificacionRutas, nombreRuta, motivo, motivoOtro });
 
   // ── Edición ────────────────────────────────────────────────────────────
   const agregar = (lista) => {
@@ -326,11 +327,18 @@ export default function EditorTE() {
           </div>
           <div>
             <label className={lbl} htmlFor="te-motivo">Motivo</label>
-            <select id="te-motivo" value={motivo} onChange={e => setMotivo(e.target.value)} className={inp}>
+            <select id="te-motivo" value={motivo} onChange={e => { setMotivo(e.target.value); if (e.target.value !== MOTIVO_OTRO) setMotivoOtro(''); }} className={inp}>
               <option value="">Elige el motivo…</option>
               {MOTIVOS_TE.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
             <Ayuda clave="solicitar.motivo" />
+            {motivo === MOTIVO_OTRO && (
+              <div className="mt-2">
+                <label className={lbl} htmlFor="te-motivo-otro">¿Cuál? <span className="text-[var(--status-error-text)]">(obligatorio)</span></label>
+                <input id="te-motivo-otro" value={motivoOtro} maxLength={MAX_MOTIVO_OTRO} onChange={e => setMotivoOtro(e.target.value)} className={inp} placeholder="Escribe el motivo" />
+                <p className="mt-0.5 text-right text-[10px] text-[var(--text-muted)]">{motivoOtro.length}/{MAX_MOTIVO_OTRO}</p>
+              </div>
+            )}
           </div>
         </div>
 

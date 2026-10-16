@@ -48,6 +48,13 @@ export async function leerHistorialTE(id) {
  * @param {object} p.extras      tipo, rutasDistintas, desgloseRutas y justificacionRutas (ver datosTE en tiempoExtra.js)
  * @param {(hechos:number,total:number)=>void} [p.onProgreso]
  */
+/** motivoOtro vacío = no aplica: se omite al crear y se borra al actualizar (cambió a otro motivo) */
+const conMotivoOtro = (extras, nuevo) => {
+  const { motivoOtro, ...resto } = extras;
+  if (motivoOtro) return { ...resto, motivoOtro };
+  return nuevo ? resto : { ...resto, motivoOtro: deleteField() };
+};
+
 export async function guardarBorrador({ id, existe, usuario, area, fechaTE, motivo, comentario, empleados, sucios, eliminados, extras = {}, onProgreso }) {
   const porNomina = new Map(empleados.map(e => [e.nomina, e]));
   const porEscribir = [...sucios].filter(n => porNomina.has(n));
@@ -62,11 +69,11 @@ export async function guardarBorrador({ id, existe, usuario, area, fechaTE, moti
   // El primer lote lleva la solicitud (se crea o se actualiza) junto con los primeros empleados
   const primero = writeBatch(db);
   if (existe) {
-    primero.update(refTE(id), { fechaTE, motivo, comentario, resumen, ...extras, fechaActualizacion: serverTimestamp() });
+    primero.update(refTE(id), { fechaTE, motivo, comentario, resumen, ...conMotivoOtro(extras, false), fechaActualizacion: serverTimestamp() });
   } else {
     primero.set(refTE(id), {
       areaId: area.id, areaNombre: area.nombre, creadoPor: usuario.uid, creadoPorNomina: String(usuario.nomina), creadoPorNombre: usuario.nombre ?? '',
-      fechaTE, motivo, comentario, estatus: 'borrador', resumen, ...extras, fechaCreacion: serverTimestamp(), fechaActualizacion: serverTimestamp(),
+      fechaTE, motivo, comentario, estatus: 'borrador', resumen, ...conMotivoOtro(extras, true), fechaCreacion: serverTimestamp(), fechaActualizacion: serverTimestamp(),
     });
   }
   escribirEmpleados(primero, lotesEmp[0] ?? []);
@@ -95,7 +102,7 @@ export async function guardarBorrador({ id, existe, usuario, area, fechaTE, moti
  */
 export async function enviarSolicitud({ id, devuelta, usuario, estatus, fechaTE, motivo, comentario, empleados, extras = {} }) {
   const resumen = resumenTE(empleados);
-  const contenido = { fechaTE, motivo, comentario, resumen, ...extras };
+  const contenido = { fechaTE, motivo, comentario, resumen, ...conMotivoOtro(extras, false) };
   if (devuelta) {
     const b = writeBatch(db);
     b.update(refTE(id), { ...contenido, estatus, aut1: deleteField(), aut2: deleteField(), fechaActualizacion: serverTimestamp() });

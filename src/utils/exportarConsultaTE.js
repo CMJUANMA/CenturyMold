@@ -5,14 +5,14 @@
  */
 import { ESTATUS_TE_MAP } from './constantes.js';
 import { agregarHojaReporte, nuevoLibro } from './formatosImportacion.js';
-import { calcularHoras, etiquetaBloque, firmaTexto, textoRuta } from './tiempoExtra.js';
+import { calcularHoras, etiquetaBloque, firmaTexto, motivoTexto, textoRuta } from './tiempoExtra.js';
 
 const ORDEN_ESTATUS = ['pendiente_aut1', 'pendiente_aut2', 'autorizada', 'procesada', 'devuelta', 'cancelada'];
 const etiqueta = (estatus) => ESTATUS_TE_MAP[estatus]?.label ?? estatus;
 
 export const ENCABEZADOS_RESUMEN = ['Área', 'Estatus', 'Solicitudes', 'Empleados', 'Horas'];
 export const ENCABEZADOS_DETALLE = [
-  'Folio', 'Área', 'Fecha del TE', 'Nómina', 'Empleado', 'Puesto', 'Horario', 'Horas', 'Alimentos', 'Transporte', 'Ruta', 'Estatus', 'Firmó nivel 1', 'Firmó nivel 2',
+  'Folio', 'Área', 'Fecha del TE', 'Motivo', 'Nómina', 'Empleado', 'Puesto', 'Horario', 'Horas', 'Alimentos', 'Transporte', 'Ruta', 'Estatus', 'Firmó nivel 1', 'Firmó nivel 2',
 ];
 
 export const nombreArchivoConsulta = (d = new Date()) => {
@@ -50,7 +50,7 @@ export function construirLibroConsulta({ solicitudes, nombresArea, catalogos, no
   for (const t of [...solicitudes].sort((a, b) => String(a.folio).localeCompare(String(b.folio)))) {
     for (const e of t.empleados ?? []) {
       detalle.push([
-        t.folio ?? '', area(t.areaId), t.fechaTE ?? '', String(e.nomina), nombre(e.nombre), e.puesto ?? '', etiquetaBloque(e), calcularHoras(e.horaEntrada, e.horaSalida),
+        t.folio ?? '', area(t.areaId), t.fechaTE ?? '', motivoTexto(t), String(e.nomina), nombre(e.nombre), e.puesto ?? '', etiquetaBloque(e), calcularHoras(e.horaEntrada, e.horaSalida),
         e.alimentos ? 'Sí' : 'No', e.transporte ? 'Sí' : 'No', e.transporte ? textoRuta(e, catalogos) : '', etiqueta(t.estatus), firmaTexto(t.aut1, nombre), firmaTexto(t.aut2, nombre),
       ]);
     }

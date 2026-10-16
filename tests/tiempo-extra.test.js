@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   HORAS_ENTRADA_TE, HORAS_SALIDA_TE, LOTE_EMPLEADOS, PESTANAS_TE, aplicarA, calcularHoras, docAEmpleado, empleadoADoc, empleadoDesdePadron,
-  estatusAlEnviar, folioDe, nivelEnTexto, nuevoIdBorrador, problemasDeEnvio, resumenTE, transporteCompleto, trozos,
+  datosTE, estatusAlEnviar, folioDe, motivoTexto, nivelEnTexto, nuevoIdBorrador, problemasDeEnvio, resumenTE, transporteCompleto, trozos,
   MIN_MOTIVO_DEVOLUCION, MSG_YA_RESPONDIDA, esPropia, fechaVencida, filtrarSolicitudes, firmaTexto, haceTiempo, masAntiguasPrimero, totalesDe,
 } from '../src/utils/tiempoExtra.js';
 
@@ -62,6 +62,31 @@ describe('empleado ↔ documento', () => {
   });
   it('al reabrir un borrador, lo guardado ya está confirmado', () => {
     expect(docAEmpleado('1', empleadoADoc(emp('1')))).toMatchObject({ nomina: '1', horaEntrada: '16:00', confirmada: true, transporte: true });
+  });
+});
+
+describe('motivo "Otro" (¿Cuál?)', () => {
+  const base = { areaId: 'mantenimiento', fechaTE: '2026-10-20', comentario: 'Pedido urgente del cliente', hoy: '2026-10-14', empleados: [emp('1')] };
+  const errores = (p) => problemasDeEnvio({ ...base, ...p }).filter(x => x.nivel === 'error').map(x => x.mensaje);
+  it('con Otro, ¿Cuál? es obligatorio: de 3 a 60 caracteres (sin contar espacios de los lados)', () => {
+    expect(errores({ motivo: 'Otro' })).toHaveLength(1);
+    expect(errores({ motivo: 'Otro', motivoOtro: '  ab  ' })).toHaveLength(1);
+    expect(errores({ motivo: 'Otro', motivoOtro: 'abc' })).toEqual([]);
+    expect(errores({ motivo: 'Otro', motivoOtro: 'x'.repeat(60) })).toEqual([]);
+    expect(errores({ motivo: 'Otro', motivoOtro: 'x'.repeat(61) })).toHaveLength(1);
+  });
+  it('con otro motivo no se pide', () => {
+    expect(errores({ motivo: 'Calidad', motivoOtro: '' })).toEqual([]);
+  });
+  it('datosTE guarda motivoOtro recortado solo con Otro; si cambia de motivo se limpia', () => {
+    expect(datosTE({ empleados: [emp('1')], motivo: 'Otro', motivoOtro: '  Visita de cliente ' }).motivoOtro).toBe('Visita de cliente');
+    expect(datosTE({ empleados: [emp('1')], motivo: 'Calidad', motivoOtro: 'Visita de cliente' }).motivoOtro).toBe('');
+  });
+  it('se muestra como "Otro: lo que escribió"; los demás motivos, tal cual', () => {
+    expect(motivoTexto({ motivo: 'Otro', motivoOtro: 'Visita de cliente' })).toBe('Otro: Visita de cliente');
+    expect(motivoTexto({ motivo: 'Otro' })).toBe('Otro');
+    expect(motivoTexto({ motivo: 'Calidad', motivoOtro: 'sobra' })).toBe('Calidad');
+    expect(motivoTexto({})).toBe('');
   });
 });
 
@@ -179,7 +204,7 @@ describe('Excel de la consulta', () => {
     const { construirLibroConsulta, ENCABEZADOS_DETALLE } = await import('../src/utils/exportarConsultaTE.js');
     const e = (nomina, extra = {}) => ({ nomina, nombre: `EMP ${nomina}`, puesto: 'OP', horaEntrada: '7:00', horaSalida: '16:00', alimentos: true, transporte: true, rutaId: 'r1', comunidadId: 'c1', puntoReunionId: 'p1', ...extra });
     const solicitudes = [
-      { folio: 'TE-2026-0001', areaId: 'moldes', estatus: 'autorizada', fechaTE: '2026-10-20', resumen: { totalEmpleados: 2, totalHoras: 18 }, empleados: [e('1'), e('2', { transporte: false })],
+      { folio: 'TE-2026-0001', areaId: 'moldes', estatus: 'autorizada', fechaTE: '2026-10-20', motivo: 'Otro', motivoOtro: 'Visita de cliente', resumen: { totalEmpleados: 2, totalHoras: 18 }, empleados: [e('1'), e('2', { transporte: false })],
         aut1: { nombre: 'ANSELMO', comoRH: false }, aut2: { nombre: 'ADMIN', comoRH: true } },
       { folio: 'TE-2026-0002', areaId: 'moldes', estatus: 'pendiente_aut1', fechaTE: '2026-10-21', resumen: { totalEmpleados: 1, totalHoras: 9 }, empleados: [e('3')] },
       { folio: 'TE-2026-0003', areaId: 'calidad', estatus: 'autorizada', fechaTE: '2026-10-22', resumen: { totalEmpleados: 1, totalHoras: 9 }, empleados: [e('4')] },
@@ -195,7 +220,7 @@ describe('Excel de la consulta', () => {
     const d = wb.getWorksheet('Detalle');
     expect(d.getRow(1).values.slice(1)).toEqual(ENCABEZADOS_DETALLE);
     expect(d.rowCount).toBe(5); // encabezado + 4 empleados
-    expect(d.getRow(2).values.slice(1)).toEqual(['TE-2026-0001', 'Moldes', '2026-10-20', '1', 'EMP 1', 'OP', '7:00 → 16:00', 9, 'Sí', 'Sí', 'Norte · Pueblito · Plaza', 'Autorizada', 'ANSELMO', 'ADMIN (RH)']);
+    expect(d.getRow(2).values.slice(1)).toEqual(['TE-2026-0001', 'Moldes', '2026-10-20', 'Otro: Visita de cliente', '1', 'EMP 1', 'OP', '7:00 → 16:00', 9, 'Sí', 'Sí', 'Norte · Pueblito · Plaza', 'Autorizada', 'ANSELMO', 'ADMIN (RH)']);
     expect(d.getRow(3).values.slice(1)).toEqual(expect.arrayContaining(['No', '']));
   });
 });

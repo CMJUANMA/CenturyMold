@@ -9,7 +9,7 @@ import BadgeEstatus from '../../components/BadgeEstatus';
 import InsigniasTE from '../../components/InsigniasTE';
 import { ACCIONES_TE_LABELS } from '../../utils/constantes';
 import { formatoFecha } from '../../utils/asignaciones';
-import { calcularHoras, esExtension, etiquetaBloque, firmaTexto, quienDevolvio, resumenTE, textoRuta, textoRutas } from '../../utils/tiempoExtra';
+import { calcularHoras, esExtension, etiquetaBloque, firmaTexto, motivoTexto, quienDevolvio, resumenTE, textoRuta, textoRutas } from '../../utils/tiempoExtra';
 import { leerTransporteDeTE } from '../../utils/tiempoExtraDb';
 
 const fechaHora = (f) => (f?.toDate ? f.toDate().toLocaleString('es-MX') : '');
@@ -68,7 +68,7 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
 
       <dl className="grid grid-cols-2 gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-4 sm:grid-cols-4">
         {[['Estatus', <span key="e" className="flex flex-wrap items-center gap-1"><BadgeEstatus estatus={t.estatus} modulo="te" /><InsigniasTE t={t} /></span>], ['Tipo', esExtension(t) ? 'Extensión de turno' : 'Turno extra / día extra'], ['Área', area], ['Solicitante', nombre(t.creadoPorNombre ?? '—')],
-          ['Fecha', t.fechaTE ? formatoFecha(`${t.fechaTE}T12:00:00`) : '—'], ['Motivo', t.motivo || '—'],
+          ['Fecha', t.fechaTE ? formatoFecha(`${t.fechaTE}T12:00:00`) : '—'], ['Motivo', motivoTexto(t) || '—'],
           ['Empleados', t.resumen?.totalEmpleados ?? 0], ['Horas', t.resumen?.totalHoras ?? 0], ['Con transporte', t.resumen?.totalTransporte ?? 0],
           ['Con alimentos', t.resumen?.totalAlimentos ?? 0], ['Firmó nivel 1', firmaTexto(t.aut1, nombre) || '—'], ['Firmó nivel 2', firmaTexto(t.aut2, nombre) || '—'],
           ...(t.recibidaPor ? [['Confirmada por RH', `${nombre(t.recibidaPor.nombre)} · ${fechaHora(t.fechaRecepcion)}`]] : [])].map(([k, v]) => (

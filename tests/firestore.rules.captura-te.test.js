@@ -322,3 +322,35 @@ describe('autorizar y devolver (cada acción en su transacción)', () => {
     expect((await getDoc(doc(a2.db, 'tiempoExtra', 'BR-DDDDDDDDDD'))).data().estatus).toBe('autorizada');
   });
 });
+
+describe('motivo "Otro" (¿Cuál?) en las reglas', () => {
+  const lista = empleados(2);
+  const otro = (texto) => ({ motivo: 'Otro', extras: { motivoOtro: texto } });
+  const datosEnvio = (id, extra = {}) => ({ id, devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2026-12-01', motivo: 'Otro', comentario: 'Entrega urgente de pedido', empleados: lista, ...extra });
+
+  it('un borrador con Otro y su ¿Cuál? se guarda y se envía; queda motivoOtro en la solicitud', async () => {
+    const { db, m } = await comoUsuario('solP');
+    await guardarNuevo(m, 'BR-AAAAAAAAAA', lista, otro('Visita de cliente'));
+    await m.enviarSolicitud(datosEnvio('BR-AAAAAAAAAA', { extras: { motivoOtro: 'Visita de cliente' } }));
+    expect((await getDoc(doc(db, 'tiempoExtra', 'BR-AAAAAAAAAA'))).data()).toMatchObject({ motivo: 'Otro', motivoOtro: 'Visita de cliente', estatus: 'pendiente_aut1' });
+  });
+  it('más de 60 caracteres, o motivoOtro con otro motivo, se rechazan al guardar', async () => {
+    const { m } = await comoUsuario('solP');
+    await expect(guardarNuevo(m, 'BR-BBBBBBBBBB', lista, otro('x'.repeat(61)))).rejects.toThrow();
+    await expect(guardarNuevo(m, 'BR-CCCCCCCCCC', lista, { motivo: 'Calidad', extras: { motivoOtro: 'sobra' } })).rejects.toThrow();
+  });
+  it('no se puede enviar con Otro sin ¿Cuál? o con menos de 3 caracteres', async () => {
+    const { m } = await comoUsuario('solP');
+    await guardarNuevo(m, 'BR-DDDDDDDDDD', lista, { motivo: 'Otro' });
+    await expect(m.enviarSolicitud(datosEnvio('BR-DDDDDDDDDD'))).rejects.toThrow();
+    await expect(m.enviarSolicitud(datosEnvio('BR-DDDDDDDDDD', { extras: { motivoOtro: ' ab ' } }))).rejects.toThrow();
+  });
+  it('al cambiar a otro motivo, el campo se borra del borrador', async () => {
+    const { db, m } = await comoUsuario('solP');
+    await guardarNuevo(m, 'BR-EEEEEEEEEE', lista, otro('Visita de cliente'));
+    await m.guardarBorrador(base('BR-EEEEEEEEEE', { existe: true, motivo: 'Calidad', empleados: lista, extras: { motivoOtro: '' } }));
+    const t = (await getDoc(doc(db, 'tiempoExtra', 'BR-EEEEEEEEEE'))).data();
+    expect(t.motivo).toBe('Calidad');
+    expect(t.motivoOtro).toBeUndefined();
+  });
+});
