@@ -62,7 +62,7 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-start gap-2 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] px-3 py-2 text-[11px] text-[var(--text-secondary)] max-w-2xl">
+        <div className="flex items-start gap-2 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] px-3 py-2 text-xs text-[var(--text-secondary)] max-w-2xl">
           <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-[var(--text-muted)]" />
           <span>
             El rol del sistema solo puede ser Usuario, Recursos Humanos o Administrador. Lo que cada quien puede hacer en tiempo extra y
@@ -101,7 +101,7 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
       <div className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold uppercase tracking-wider">
+            <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold">
               <tr>
                 <th className="px-4 py-3">Nómina</th>
                 <th className="px-4 py-3">Nombre</th>
@@ -121,13 +121,13 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
                 </td></tr>
               ) : filtrados.map(u => (
                 <tr key={u.uid} className="hover:bg-[var(--bg-surface-secondary)] transition-colors">
-                  <td className="px-4 py-2.5 font-mono font-bold text-[var(--text-main)]">{u.nomina}</td>
+                  <td className="px-4 py-2.5 font-mono font-semibold text-[var(--text-main)]">{u.nomina}</td>
                   <td className="px-4 py-2.5 text-[var(--text-main)]">{u.nombre}</td>
                   <td className="px-4 py-2.5"><span className={etiquetaCls}>{rolLabel(u.rol)}</span></td>
                   <td className="px-4 py-2.5">
                     <div className="flex flex-wrap gap-1">
                       {vigentesDe(u.nomina).map(a => (
-                        <span key={a.id} className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border border-[var(--status-info-border,var(--border-color))] bg-[var(--status-info-bg,var(--bg-surface-secondary))] text-[var(--status-info-text,var(--text-main))]">
+                        <span key={a.id} className="inline-flex rounded px-1.5 py-0.5 text-xs font-semibold border border-[var(--status-info-border,var(--border-color))] bg-[var(--status-info-bg,var(--bg-surface-secondary))] text-[var(--status-info-text,var(--text-main))]">
                           {etiquetaAsignacion(a, nombresArea)}
                         </span>
                       ))}
@@ -135,7 +135,7 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
                     </div>
                   </td>
                   <td className="px-4 py-2.5">
-                    <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${u.activo !== false ? 'bg-[var(--status-success-bg)] text-[var(--status-success-text)]' : 'bg-[var(--status-error-bg)] text-[var(--status-error-text)]'}`}>
+                    <span className={`inline-flex rounded px-1.5 py-0.5 text-xs font-semibold ${u.activo !== false ? 'bg-[var(--status-success-bg)] text-[var(--status-success-text)]' : 'bg-[var(--status-error-bg)] text-[var(--status-error-text)]'}`}>
                       {u.activo !== false ? 'Activo' : 'Inactivo'}
                     </span>
                   </td>
@@ -144,7 +144,7 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
                       <div className="inline-flex items-center gap-1">
                         <button type="button" onClick={() => setModal({ usuario: u, precarga: null })} className={btnIcon} title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
                         <button type="button" onClick={() => toggleActivo(u)} className={btnIcon} title={u.activo !== false ? 'Desactivar' : 'Activar'}>
-                          {u.activo !== false ? <ToggleRight className="h-4 w-4 text-emerald-500" /> : <ToggleLeft className="h-4 w-4" />}
+                          {u.activo !== false ? <ToggleRight className="h-4 w-4 text-[var(--status-success-text)]" /> : <ToggleLeft className="h-4 w-4" />}
                         </button>
                       </div>
                     )}

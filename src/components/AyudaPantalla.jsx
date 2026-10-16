@@ -38,7 +38,7 @@ export default function AyudaPantalla({ id, listo = true }) {
         <ol className="space-y-3">
           {ayuda.pasos.map((p, i) => (
             <li key={i} className="flex gap-3 text-sm text-[var(--text-main)]">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--cm-red)] text-xs font-bold text-white">{i + 1}</span>
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--cm-red)] text-xs font-semibold text-white">{i + 1}</span>
               <span className="pt-0.5">{p}</span>
             </li>
           ))}

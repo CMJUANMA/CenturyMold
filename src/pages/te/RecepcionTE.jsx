@@ -6,8 +6,7 @@
  * Aquí no se editan empleados: si algo está mal, RH devuelve con motivo. También baja el resumen de horas extra (mismo panel que Consulta).
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { AlertTriangle, CheckCircle2, ChevronRight, Clock, Inbox, Loader2 } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Clock } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useAreas } from '../../hooks/useAreas';
 import { useCatalogos } from '../../hooks/useCatalogos';
@@ -18,7 +17,13 @@ import Ayuda from '../../components/Ayuda';
 import AyudaPantalla from '../../components/AyudaPantalla';
 import InsigniasTE from '../../components/InsigniasTE';
 import Modal from '../../components/Modal';
-import Spinner from '../../components/Spinner';
+import Aviso from '../../components/ui/Aviso';
+import Boton from '../../components/ui/Boton';
+import EncabezadoPagina from '../../components/ui/EncabezadoPagina';
+import EstadoVacio from '../../components/ui/EstadoVacio';
+import { EsqueletoPagina, EsqueletoTabla } from '../../components/ui/Esqueleto';
+import Insignia from '../../components/ui/Insignia';
+import { Fila, Tabla, Td, Th } from '../../components/ui/Tabla';
 import { formatoFecha } from '../../utils/asignaciones';
 import { crearFormateadorNombres } from '../../utils/nombresPersona';
 import { NOMBRE_POR_ENVIAR, firmaTexto, mensajeConfirmada } from '../../utils/tiempoExtra';
@@ -30,7 +35,6 @@ import BotonFormatoRutas from '../../components/FormatoRutas';
 import { RUTAS } from '../../rutas';
 import DetalleTE from './DetalleTE';
 
-const boton = 'inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md px-4 py-2.5 text-sm font-semibold transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50';
 const suma = (lista, campo) => lista.reduce((a, t) => a + (t.resumen?.[campo] ?? 0), 0);
 const fechaLarga = (f) => (f ? formatoFecha(`${f}T12:00:00`) : 'Sin fecha');
 
@@ -38,13 +42,13 @@ const fechaLarga = (f) => (f ? formatoFecha(`${f}T12:00:00`) : 'Sin fecha');
 const PASOS_FLUJO = ['Solicitud', 'Aut. 1', 'Aut. 2', NOMBRE_POR_ENVIAR, 'Formato de rutas'];
 function FlujoPasos() {
   return (
-    <ol aria-label="Pasos de la solicitud" className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
+    <ol aria-label="Pasos de la solicitud" className="flex flex-wrap items-center gap-1.5 text-xs font-medium">
       {PASOS_FLUJO.map((p, i) => {
         const actual = p === NOMBRE_POR_ENVIAR;
         return (
           <li key={p} className="flex items-center gap-1.5" aria-current={actual ? 'step' : undefined}>
             {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-[var(--text-muted)]" aria-hidden="true" />}
-            <span className={actual ? 'rounded-full bg-[var(--cm-red)] px-3 py-1 text-white' : 'rounded-full border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1 text-[var(--text-secondary)]'}>{p}</span>
+            <span className={actual ? 'rounded-md bg-[var(--text-main)] px-3 py-1.5 text-[var(--bg-surface)]' : 'rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-1.5 text-[var(--text-secondary)]'}>{p}</span>
           </li>
         );
       })}
@@ -110,93 +114,89 @@ export default function RecepcionTE() {
     setTrabajando(null); setTimeout(() => { ocupadoRef.current = false; }, 1500);
   };
 
-  if (cargando) return <Spinner />;
+  if (cargando) return <div className="space-y-8"><EsqueletoPagina bloques={0} /><EsqueletoTabla filas={3} columnas={7} /></div>;
   const totalPendientes = lista.length;
   return (
-    <div className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--border-color)] pb-4">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Tiempo extra · Recursos Humanos</div>
-          <div className="mt-1 flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">{NOMBRE_POR_ENVIAR}</h1>
-            <AyudaPantalla id="recepcion" />
+    <div className="space-y-8">
+      <EncabezadoPagina
+        antetitulo="Tiempo extra · Recursos Humanos"
+        titulo={NOMBRE_POR_ENVIAR}
+        descripcion={totalPendientes === 0 ? 'No hay tiempo extra autorizado por confirmar.' : `${totalPendientes} ${totalPendientes === 1 ? 'autorizada por confirmar' : 'autorizadas por confirmar'}, la fecha más próxima primero. Se actualiza sola.`}
+        ayuda={<AyudaPantalla id="recepcion" />}
+        accion={(
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+            <BotonFormatoRutas id="btn-formato-rutas-recepcion" />
+            <div className="max-w-xs">
+              <BotonDescargaResumenTE id="btn-descargar-te-recepcion" areas={areas} nombresArea={nombres} catalogos={catalogos} nombre={(x) => formato.nombre(x)} />
+            </div>
           </div>
-          <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
-            {totalPendientes === 0 ? 'No hay tiempo extra autorizado por confirmar.' : `${totalPendientes} ${totalPendientes === 1 ? 'autorizada por confirmar' : 'autorizadas por confirmar'}, la fecha más próxima primero. Se actualiza sola.`}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-start gap-4">
-          <BotonFormatoRutas id="btn-formato-rutas-recepcion" />
-          <div className="max-w-xs">
-            <BotonDescargaResumenTE id="btn-descargar-te-recepcion" areas={areas} nombresArea={nombres} catalogos={catalogos} nombre={(x) => formato.nombre(x)} />
-          </div>
-        </div>
-      </header>
+        )}
+      />
 
-      <section aria-label="Qué es esta pantalla" className="space-y-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-4">
+      <section aria-label="Qué es esta pantalla" className="space-y-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5">
         <p className="text-sm text-[var(--text-main)]">
           Estas solicitudes ya tienen las dos autorizaciones. Al confirmar, se crea su solicitud de transporte para que aparezca en el Formato de rutas del proveedor. Si algo está mal, puedes devolverla al solicitante.
         </p>
         <FlujoPasos />
       </section>
 
-      {error && <p role="alert" className="flex items-center gap-2 text-xs text-[var(--status-error-text)]"><AlertTriangle className="h-4 w-4" />No se pudo leer la recepción: {error.message}</p>}
+      {error && <Aviso tono="error" titulo="No se pudo leer la lista">{error.message}. Revisa tu conexión y vuelve a abrir esta pantalla.</Aviso>}
 
       {porFecha.length === 0 && !error && (
-        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--bg-surface)] p-10 text-center text-xs text-[var(--text-muted)]">
-          <Inbox className="h-8 w-8" />Nada pendiente de recibir.
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
+          <EstadoVacio titulo="Nada por confirmar" texto="Cuando una solicitud tenga sus dos autorizaciones, aparecerá aquí." accion={{ texto: 'Ver todas las solicitudes', to: RUTAS.teConsulta }} />
         </div>
       )}
 
-      {porFecha.length > 0 && <Ayuda clave="recepcion.fecha" />}
-      {porFecha.map(({ fecha, items }) => (
-        <section key={fecha} aria-label={`Fecha ${fechaLarga(fecha)}`} className="space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="flex flex-wrap items-center gap-2 text-sm font-bold text-[var(--text-main)]">
+      {porFecha.length > 0 && <Ayuda clave="recepcion.fecha" className="-mt-4" />}
+      {porFecha.map(({ fecha, items }, indice) => (
+        <section key={fecha} aria-label={`Fecha ${fechaLarga(fecha)}`} className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="flex flex-wrap items-center gap-3 text-lg font-semibold text-[var(--text-main)]">
               {fechaLarga(fecha)}
-              {fecha < hoy && <span className="inline-flex items-center gap-1 rounded-full border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-2 py-0.5 text-[10px] font-bold text-[var(--status-warning-text)]"><Clock className="h-3 w-3" />Fecha vencida</span>}
-              <span className="rounded-full bg-[var(--bg-surface-secondary)] px-2 py-0.5 text-[11px] font-bold text-[var(--text-secondary)]">{items.length}</span>
+              {fecha < hoy && <Insignia tono="aviso" icono={Clock}>Fecha vencida</Insignia>}
+              <Insignia sinIcono>{items.length}</Insignia>
             </h2>
-            <button type="button" disabled={!!trabajando} onClick={() => recibirFecha({ fecha, items })} className={`${boton} bg-[var(--cm-red)] !py-2 !text-xs text-white hover:bg-[var(--cm-red-hover)]`}>
-              {trabajando === fecha ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}Confirmar todas las de esta fecha ({items.length})
-            </button>
+            {/* La primera fecha (la más próxima) lleva el botón principal; las demás, en contorno */}
+            <Boton variante={indice === 0 ? 'primario' : 'contorno'} icono={CheckCircle2} estado={trabajando === fecha ? 'cargando' : undefined} disabled={!!trabajando} onClick={() => recibirFecha({ fecha, items })}>
+              Confirmar todas las de esta fecha ({items.length})
+            </Boton>
           </div>
 
-          <div className="hidden overflow-x-auto rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] md:block">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-                <tr><th className="px-3 py-3">Folio</th><th className="px-3 py-3">Área</th><th className="px-3 py-3">Solicitante</th><th className="px-3 py-3 text-right">Empleados</th><th className="px-3 py-3 text-right">Horas</th>
-                  <th className="px-3 py-3 text-right">Transporte</th><th className="px-3 py-3 text-right">Alimentos</th><th className="px-3 py-3">Firmaron</th><th className="px-3 py-3" /></tr>
+          <div className="hidden md:block">
+            <Tabla etiqueta={`Solicitudes del ${fechaLarga(fecha)}`}>
+              <thead>
+                <tr><Th>Folio</Th><Th>Área</Th><Th>Solicitante</Th><Th derecha>Empleados</Th><Th derecha>Horas</Th><Th derecha>Transporte</Th><Th derecha>Alimentos</Th><Th>Firmaron</Th><Th /></tr>
               </thead>
-              <tbody className="divide-y divide-[var(--border-subtle)]">
+              <tbody>
                 {items.map(t => (
-                  <tr key={t.id} className="hover:bg-[var(--bg-surface-secondary)]">
-                    <td className="px-3 py-2.5 font-mono font-semibold text-[var(--text-main)]">{t.folio}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></td>
-                    <td className="px-3 py-2.5">{nombreArea(t.areaId)}</td>
-                    <td className="px-3 py-2.5">{formato.nombre(t.creadoPorNombre)}</td>
-                    <td className="px-3 py-2.5 text-right">{t.resumen?.totalEmpleados ?? 0}</td>
-                    <td className="px-3 py-2.5 text-right">{t.resumen?.totalHoras ?? 0}</td>
-                    <td className="px-3 py-2.5 text-right">{t.resumen?.totalTransporte ?? 0}</td>
-                    <td className="px-3 py-2.5 text-right">{t.resumen?.totalAlimentos ?? 0}</td>
-                    <td className="px-3 py-2.5 text-[var(--text-secondary)]">
+                  <Fila key={t.id}>
+                    <Td mono>{t.folio}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></Td>
+                    <Td>{nombreArea(t.areaId)}</Td>
+                    <Td>{formato.nombre(t.creadoPorNombre)}</Td>
+                    <Td derecha>{t.resumen?.totalEmpleados ?? 0}</Td>
+                    <Td derecha mono>{t.resumen?.totalHoras ?? 0}</Td>
+                    <Td derecha>{t.resumen?.totalTransporte ?? 0}</Td>
+                    <Td derecha>{t.resumen?.totalAlimentos ?? 0}</Td>
+                    <Td className="text-[var(--text-secondary)]">
                       <div>Aut. 1: {firmaTexto(t.aut1, (x) => formato.nombre(x)) || '—'}</div>
                       <div>Aut. 2: {firmaTexto(t.aut2, (x) => formato.nombre(x)) || '—'}</div>
-                    </td>
-                    <td className="px-3 py-2.5 text-right"><button type="button" onClick={() => abrir(t)} className="cursor-pointer rounded-md border border-[var(--border-color)] px-3 py-1.5 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]">Revisar</button></td>
-                  </tr>
+                    </Td>
+                    <Td className="text-right"><Boton tamano="sm" onClick={() => abrir(t)}>Revisar</Boton></Td>
+                  </Fila>
                 ))}
               </tbody>
-            </table>
+            </Tabla>
           </div>
           <ul className="space-y-3 md:hidden">
             {items.map(t => (
-              <li key={t.id} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 shadow-sm">
-                <p className="font-mono text-sm font-bold text-[var(--text-main)]">{t.folio}</p>
+              <li key={t.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4">
+                <p className="font-mono text-sm font-medium text-[var(--text-main)]">{t.folio}</p>
                 <p className="text-xs text-[var(--text-secondary)]">{nombreArea(t.areaId)} · {formato.nombre(t.creadoPorNombre)}</p>
                 <InsigniasTE t={t} className="mt-1" />
-                <p className="mt-1 text-xs text-[var(--text-secondary)]"><b>{t.resumen?.totalEmpleados ?? 0}</b> empleados · <b>{t.resumen?.totalHoras ?? 0}</b> h · <b>{t.resumen?.totalTransporte ?? 0}</b> con transporte · <b>{t.resumen?.totalAlimentos ?? 0}</b> con alimentos</p>
-                <p className="mt-1 text-[11px] text-[var(--text-muted)]">Aut. 1: {firmaTexto(t.aut1, (x) => formato.nombre(x)) || '—'} · Aut. 2: {firmaTexto(t.aut2, (x) => formato.nombre(x)) || '—'}</p>
-                <button type="button" onClick={() => abrir(t)} className={`${boton} mt-3 w-full border border-[var(--border-color)] text-[var(--text-main)]`}>Revisar y confirmar</button>
+                <p className="mt-2 text-xs text-[var(--text-secondary)]"><b className="font-medium">{t.resumen?.totalEmpleados ?? 0}</b> empleados · <b className="font-medium">{t.resumen?.totalHoras ?? 0}</b> h · <b className="font-medium">{t.resumen?.totalTransporte ?? 0}</b> con transporte · <b className="font-medium">{t.resumen?.totalAlimentos ?? 0}</b> con alimentos</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Aut. 1: {firmaTexto(t.aut1, (x) => formato.nombre(x)) || '—'} · Aut. 2: {firmaTexto(t.aut2, (x) => formato.nombre(x)) || '—'}</p>
+                <Boton className="mt-3 w-full" onClick={() => abrir(t)}>Revisar y confirmar</Boton>
               </li>
             ))}
           </ul>
@@ -205,7 +205,7 @@ export default function RecepcionTE() {
 
       {detalle && (
         <Modal isOpen onClose={() => trabajando !== 'detalle' && setDetalle(null)} title={detalle.solicitud.folio ?? 'Solicitud'} maxWidth="max-w-4xl" preventCloseOnBackdrop={trabajando === 'detalle'}>
-          {detalle.cargando ? <div className="flex items-center gap-2 py-8 text-xs text-[var(--text-muted)]"><Loader2 className="h-4 w-4 animate-spin" />Cargando…</div> : (
+          {detalle.cargando ? <EsqueletoTabla filas={3} columnas={4} /> : (
             <DetalleTE t={detalle.solicitud} historial={detalle.historial} area={nombreArea(detalle.solicitud.areaId)} catalogos={catalogos} formato={formato}
               acciones={(
                 <>
@@ -220,29 +220,28 @@ export default function RecepcionTE() {
 
       {resultado && (
         <Modal isOpen onClose={() => setResultado(null)} title={resultado.ok.length ? 'Listo' : 'No se pudo confirmar'} maxWidth="max-w-md">
-          <div className="space-y-3 text-sm">
+          <div className="space-y-4 text-sm">
             {resultado.ok.length > 0 && (
-              <div className="space-y-2">
-                <p className="flex items-start gap-2 font-semibold text-[var(--status-success-text)]"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0" />{resultado.ok.length} {resultado.ok.length === 1 ? 'confirmada' : 'confirmadas'}: {resultado.ok.map(x => x.folio).join(', ')}</p>
+              <div className="space-y-3">
+                <Aviso tono="exito">{resultado.ok.length} {resultado.ok.length === 1 ? 'confirmada' : 'confirmadas'}: {resultado.ok.map(x => x.folio).join(', ')}</Aviso>
                 {[...new Set(resultado.ok.filter(x => x.pasajeros > 0).map(x => x.fecha))].map(fecha => (
-                  <p key={fecha} className="text-sm text-[var(--text-main)]">{mensajeConfirmada({ fecha, pasajeros: 1 })}</p>
+                  <p key={fecha} className="text-[var(--text-main)]">{mensajeConfirmada({ fecha, pasajeros: 1 })}</p>
                 ))}
-                {resultado.ok.some(x => !(x.pasajeros > 0)) && <p className="text-sm text-[var(--text-main)]">{mensajeConfirmada({ pasajeros: 0 })}{resultado.ok.some(x => x.pasajeros > 0) ? ` (${resultado.ok.filter(x => !(x.pasajeros > 0)).map(x => x.folio).join(', ')})` : ''}</p>}
+                {resultado.ok.some(x => !(x.pasajeros > 0)) && <p className="text-[var(--text-main)]">{mensajeConfirmada({ pasajeros: 0 })}{resultado.ok.some(x => x.pasajeros > 0) ? ` (${resultado.ok.filter(x => !(x.pasajeros > 0)).map(x => x.folio).join(', ')})` : ''}</p>}
                 {resultado.ok.some(x => x.pasajeros > 0) && (
                   <p className="text-xs text-[var(--text-secondary)]">Para el proveedor, baja el «Formato de rutas (proveedor)» desde esta misma pantalla.</p>
                 )}
                 {resultado.ok.some(x => x.pasajeros > 0) && (
-                  <Link to={RUTAS.transporteSolicitudes} onClick={() => setResultado(null)} className="inline-block text-sm font-semibold text-[var(--accent-text)] hover:underline">Ver en Solicitudes de transporte</Link>
+                  <Boton to={RUTAS.transporteSolicitudes} variante="fantasma" onClick={() => setResultado(null)}>Ver en Solicitudes de transporte</Boton>
                 )}
               </div>
             )}
             {resultado.fallidas.length > 0 && (
-              <div className="rounded-md border border-[var(--status-error-border)] bg-[var(--status-error-bg)] p-3 text-xs text-[var(--status-error-text)]">
-                <p className="mb-1 font-bold">{resultado.fallidas.length} no se pudieron confirmar</p>
-                <ul className="space-y-0.5">{resultado.fallidas.map(f => <li key={f.folio}><b>{f.folio}:</b> {f.motivo}</li>)}</ul>
-              </div>
+              <Aviso tono="error" titulo={`${resultado.fallidas.length} no se pudieron confirmar`}>
+                <ul className="space-y-0.5">{resultado.fallidas.map(f => <li key={f.folio}><b className="font-medium">{f.folio}:</b> {f.motivo}</li>)}</ul>
+              </Aviso>
             )}
-            <div className="flex justify-end"><button type="button" onClick={() => setResultado(null)} className={`${boton} border border-[var(--border-color)] text-[var(--text-main)]`}>Cerrar</button></div>
+            <div className="flex justify-end"><Boton onClick={() => setResultado(null)}>Cerrar</Boton></div>
           </div>
         </Modal>
       )}

@@ -108,7 +108,7 @@ export default function TabAreas({ areas, puestos, empleados, usuario, toast, gu
             {ordenadas.map(a => (
               <tr key={a.id} className="hover:bg-[var(--bg-surface-secondary)]">
                 <td className="px-4 py-2.5 font-semibold text-[var(--text-main)]">
-                  {a.nombre ?? a.id} <span className="font-mono text-[10px] font-normal text-[var(--text-muted)]">{a.id}</span>
+                  {a.nombre ?? a.id} <span className="font-mono text-xs font-normal text-[var(--text-muted)]">{a.id}</span>
                   {a.participaTE === undefined && <span className={`${chipWarn} ml-2`} title="Área de la colección anterior, sin los campos nuevos">heredada</span>}
                 </td>
                 <td className="px-4 py-2.5">{a.participaTE === true ? <span className={chip}>Sí</span> : <span className="text-[var(--text-muted)]">No</span>}</td>

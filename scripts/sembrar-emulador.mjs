@@ -40,7 +40,7 @@ const personas = [
 const uids = {};
 for (const [nomina, nombre, rol] of personas) {
   uids[nomina] = await cuenta(nomina);
-  await guardar(`usuarios/${uids[nomina]}`, { nomina, nombre, rol, activo: true, debeCambiarPassword: false });
+  await guardar(`usuarios/${uids[nomina]}`, { nomina, nombre, rol, activo: true, debeCambiarPassword: false, preferencias: { ayudas: true, tamanoLetra: 'normal', tema: 'auto', recorridosVistos: ['solicitar', 'autorizar'] } });
 }
 
 const areas = [['moldes', 'Moldes', 1], ['produccion', 'Producción', 2], ['calidad', 'Calidad', 3], ['mantenimiento', 'Mantenimiento', 4], ['administrativo', 'Administrativo', 9]];

@@ -4,15 +4,14 @@
  * Aquí no se editan empleados: si algo está mal, RH devuelve.
  */
 import { useState } from 'react';
-import { CheckCircle2, Loader2, Undo2, XCircle } from 'lucide-react';
+import { CheckCircle2, Undo2, XCircle } from 'lucide-react';
+import Boton from '../../components/ui/Boton';
 import { useAuth } from '../../hooks/useAuth';
 import { useConfirmar } from '../../hooks/useConfirmar';
 import { useToast } from '../../hooks/useToast';
 import { formatoFecha } from '../../utils/asignaciones';
 import { MIN_MOTIVO_CANCELACION_RH, MIN_MOTIVO_DEVOLUCION, MSG_YA_RESPONDIDA, NIVEL_RECEPCION, mensajeConfirmada, textoConfirmar } from '../../utils/tiempoExtra';
 import { YaRespondida, cancelarAutorizada, devolverSolicitud, recibirSolicitud } from '../../utils/tiempoExtraDb';
-
-const boton = 'inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md px-4 py-2.5 text-sm font-semibold transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50';
 
 /** Mensaje al cancelar según lo que pasó con el transporte (null si no hay nada que avisar) */
 function avisoCancelacion(resultado) {
@@ -77,19 +76,15 @@ export default function AccionesRH({ t, acciones, onHecho, onTrabajando, onConfi
   });
 
   return (
-    <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+    <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
       {acciones.includes('cancelar') && (
-        <button type="button" id="btn-cancelar-autorizada" disabled={trabajando} onClick={cancelar}
-          className={`${boton} border border-[var(--status-error-border)] bg-[var(--bg-surface)] text-[var(--status-error-text)] hover:bg-[var(--status-error-bg)]`}><XCircle className="h-4 w-4" />Cancelar tiempo extra autorizado</button>
+        <Boton id="btn-cancelar-autorizada" variante="peligro" icono={XCircle} disabled={trabajando} onClick={cancelar}>Cancelar tiempo extra autorizado</Boton>
       )}
       {acciones.includes('devolver') && (
-        <button type="button" id="btn-devolver-recepcion" disabled={trabajando} onClick={devolver}
-          className={`${boton} border border-[var(--status-error-border)] bg-[var(--bg-surface)] text-[var(--status-error-text)] hover:bg-[var(--status-error-bg)]`}><Undo2 className="h-4 w-4" />Devolver</button>
+        <Boton id="btn-devolver-recepcion" variante="peligro" icono={Undo2} disabled={trabajando} onClick={devolver}>Devolver</Boton>
       )}
       {acciones.includes('recibir') && (
-        <button type="button" id="btn-recibir" disabled={trabajando} onClick={recibir} className={`${boton} bg-[var(--cm-red)] text-white hover:bg-[var(--cm-red-hover)]`}>
-          {trabajando ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}{textoConfirmar(t)}
-        </button>
+        <Boton id="btn-recibir" variante="primario" icono={CheckCircle2} estado={trabajando ? 'cargando' : undefined} onClick={recibir}>{textoConfirmar(t)}</Boton>
       )}
     </div>
   );

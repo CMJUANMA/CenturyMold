@@ -16,7 +16,7 @@ export default function Spinner({ fullScreen = false, size = 'md', texto = 'Carg
         aria-label="Cargando"
       />
       {texto && (
-        <p className="text-xs font-medium text-[var(--text-secondary)] tracking-wide">
+        <p className="text-xs font-medium text-[var(--text-secondary)]">
           {texto}
         </p>
       )}

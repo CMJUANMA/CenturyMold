@@ -8,7 +8,7 @@ import { KeyRound, AlertCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 const MIN = 8;
-const inputCls = 'w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--text-main)] outline-none focus:border-[var(--cm-red)] focus:ring-1 focus:ring-[var(--cm-red)]';
+const inputCls = 'w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]';
 
 const ERRORES = {
   'auth/wrong-password': 'La contraseña temporal es incorrecta.',
@@ -57,7 +57,7 @@ export default function CambiarPassword() {
       <div className="w-full max-w-sm rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-6 shadow-sm">
         <div className="mb-4 text-center">
           <KeyRound className="mx-auto h-8 w-8 text-[var(--accent-text)]" />
-          <h1 className="mt-2 text-lg font-bold">Cambia tu contraseña</h1>
+          <h1 className="mt-2 text-lg font-semibold">Cambia tu contraseña</h1>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">
             Es tu primer acceso: define una contraseña nueva para continuar.
           </p>

@@ -112,7 +112,7 @@ export default function MiCuenta() {
     <div className="space-y-6 max-w-2xl">
       {/* ── Encabezado ───────────────────────────────────────────────────── */}
       <div className="border-b border-[var(--border-color)] pb-4">
-        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">
+        <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-main)]">
           Mi cuenta
         </h1>
         <p className="mt-1 text-xs text-[var(--text-secondary)]">
@@ -138,7 +138,7 @@ export default function MiCuenta() {
 
         <div className="divide-y divide-[var(--border-subtle)] text-xs">
           <div className="grid grid-cols-1 sm:grid-cols-3 py-3 gap-1">
-            <span className="font-semibold text-[var(--text-secondary)] uppercase tracking-wider text-[11px]">
+            <span className="font-semibold text-[var(--text-secondary)] text-xs">
               Número de nómina
             </span>
             <span className="sm:col-span-2 font-mono text-[var(--text-main)]">
@@ -147,7 +147,7 @@ export default function MiCuenta() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 py-3 gap-1">
-            <span className="font-semibold text-[var(--text-secondary)] uppercase tracking-wider text-[11px]">
+            <span className="font-semibold text-[var(--text-secondary)] text-xs">
               Rol operativo
             </span>
             <span className="sm:col-span-2 text-[var(--text-main)]">
@@ -156,11 +156,11 @@ export default function MiCuenta() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 py-3 gap-1">
-            <span className="font-semibold text-[var(--text-secondary)] uppercase tracking-wider text-[11px]">
+            <span className="font-semibold text-[var(--text-secondary)] text-xs">
               Estado de la cuenta
             </span>
             <div className="sm:col-span-2">
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-[var(--status-success-border)] bg-[var(--status-success-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--status-success-text)]">
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-[var(--status-success-border)] bg-[var(--status-success-bg)] px-2 py-0.5 text-xs font-medium text-[var(--status-success-text)]">
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 <span>Activo</span>
               </span>
@@ -230,7 +230,7 @@ export default function MiCuenta() {
             <div>
               <label
                 htmlFor="pass-actual"
-                className="mb-1 block text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]"
+                className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]"
               >
                 Contraseña actual
               </label>
@@ -243,7 +243,7 @@ export default function MiCuenta() {
                   value={passActual}
                   onChange={(e) => setPassActual(e.target.value)}
                   placeholder="Ingrese su contraseña actual"
-                  className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 pr-10 text-xs text-[var(--text-main)] placeholder-[var(--text-muted)] outline-none transition focus:border-[var(--cm-red)] focus:ring-1 focus:ring-[var(--cm-red)]"
+                  className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 pr-10 text-xs text-[var(--text-main)] placeholder-[var(--text-muted)] outline-none transition focus:border-[var(--cm-red)]"
                 />
                 <button
                   type="button"
@@ -255,7 +255,7 @@ export default function MiCuenta() {
                 </button>
               </div>
               {erroresCampos.actual && (
-                <p className="mt-1 text-[11px] text-[var(--status-error-text)]">
+                <p className="mt-1 text-xs text-[var(--status-error-text)]">
                   {erroresCampos.actual}
                 </p>
               )}
@@ -265,7 +265,7 @@ export default function MiCuenta() {
             <div>
               <label
                 htmlFor="pass-nueva"
-                className="mb-1 block text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]"
+                className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]"
               >
                 Nueva contraseña
               </label>
@@ -278,7 +278,7 @@ export default function MiCuenta() {
                   value={passNueva}
                   onChange={(e) => setPassNueva(e.target.value)}
                   placeholder="Mínimo 8 caracteres"
-                  className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 pr-10 text-xs text-[var(--text-main)] placeholder-[var(--text-muted)] outline-none transition focus:border-[var(--cm-red)] focus:ring-1 focus:ring-[var(--cm-red)]"
+                  className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 pr-10 text-xs text-[var(--text-main)] placeholder-[var(--text-muted)] outline-none transition focus:border-[var(--cm-red)]"
                 />
                 <button
                   type="button"
@@ -290,7 +290,7 @@ export default function MiCuenta() {
                 </button>
               </div>
               {erroresCampos.nueva && (
-                <p className="mt-1 text-[11px] text-[var(--status-error-text)]">
+                <p className="mt-1 text-xs text-[var(--status-error-text)]">
                   {erroresCampos.nueva}
                 </p>
               )}
@@ -300,7 +300,7 @@ export default function MiCuenta() {
             <div>
               <label
                 htmlFor="pass-confirmar"
-                className="mb-1 block text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]"
+                className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]"
               >
                 Confirmar nueva contraseña
               </label>
@@ -313,7 +313,7 @@ export default function MiCuenta() {
                   value={passConfirm}
                   onChange={(e) => setPassConfirm(e.target.value)}
                   placeholder="Repita la nueva contraseña"
-                  className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 pr-10 text-xs text-[var(--text-main)] placeholder-[var(--text-muted)] outline-none transition focus:border-[var(--cm-red)] focus:ring-1 focus:ring-[var(--cm-red)]"
+                  className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 pr-10 text-xs text-[var(--text-main)] placeholder-[var(--text-muted)] outline-none transition focus:border-[var(--cm-red)]"
                 />
                 <button
                   type="button"
@@ -325,7 +325,7 @@ export default function MiCuenta() {
                 </button>
               </div>
               {erroresCampos.confirm && (
-                <p className="mt-1 text-[11px] text-[var(--status-error-text)]">
+                <p className="mt-1 text-xs text-[var(--status-error-text)]">
                   {erroresCampos.confirm}
                 </p>
               )}

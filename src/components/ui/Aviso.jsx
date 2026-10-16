@@ -4,9 +4,9 @@
  */
 import { TONOS } from './estilos';
 
-export default function Aviso({ tono = 'info', titulo, accion, className = '', children, ...resto }) {
+export default function Aviso({ tono = 'info', titulo, accion, icon, className = '', children, ...resto }) {
   const t = TONOS[tono] ?? TONOS.info;
-  const Icono = t.Icono;
+  const Icono = icon ?? t.Icono;
   return (
     <div role={tono === 'error' ? 'alert' : 'status'} className={`flex items-start gap-3 rounded-lg border p-4 text-sm ${t.caja} ${className}`} {...resto}>
       {Icono && <Icono className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />}

@@ -33,6 +33,9 @@ export const TONOS = {
   },
 };
 
+/** Casilla o radio: 20 px, con el acento de la marca al marcarse */
+export const CASILLA = 'h-5 w-5 shrink-0 cursor-pointer accent-[var(--accent)] disabled:cursor-not-allowed';
+
 /** Campo de formulario: 44 px de alto en celular (área táctil), 40 px en escritorio; el foco lo dibuja el anillo global */
 export const CONTROL =
   'block w-full rounded-md border bg-[var(--bg-surface)] px-3 text-sm text-[var(--text-main)] placeholder:text-[var(--text-muted)] '

@@ -8,16 +8,18 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { Download, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { Download, FileSpreadsheet } from 'lucide-react';
 import { db } from '../../firebase';
 import { useToast } from '../../hooks/useToast';
 import Ayuda from '../../components/Ayuda';
 import Modal from '../../components/Modal';
+import Aviso from '../../components/ui/Aviso';
+import Boton from '../../components/ui/Boton';
+import { Campo, Entrada, Selector } from '../../components/ui/Campo';
+import { Esqueleto } from '../../components/ui/Esqueleto';
 import { INCLUIR_DESCARGA, PERIODOS_DESCARGA, estatusDeIncluir, rangoDePeriodo } from '../../utils/tiempoExtra';
 import { leerSolicitudTE } from '../../utils/tiempoExtraDb';
 import { textoRango, ymd } from '../../utils/fechas';
-
-const campo = 'rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-2 text-sm text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]';
 
 const HOJAS = [
   ['Detalle', 'una fila por empleado y por día: horario, horas, alimentos, transporte, ruta y quién autorizó.'],
@@ -40,10 +42,7 @@ export function BotonDescargaResumenTE({ areas, nombresArea, catalogos, nombre, 
   const [abierto, setAbierto] = useState(false);
   return (
     <>
-      <button type="button" id={id} onClick={() => setAbierto(true)}
-        className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-4 py-2 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]">
-        <Icono className="h-4 w-4" />Descargar resumen de horas extra
-      </button>
+      <Boton id={id} icono={Icono} onClick={() => setAbierto(true)}>Descargar resumen de horas extra</Boton>
       <Ayuda clave="descarga.tiempoExtra" />
       {abierto && <DescargaTE isOpen onClose={() => setAbierto(false)} areas={areas} nombresArea={nombresArea} catalogos={catalogos} nombre={nombre} />}
     </>
@@ -105,45 +104,47 @@ export default function DescargaTE({ isOpen, onClose, areas, nombresArea, catalo
 
   return (
     <Modal isOpen={isOpen} onClose={() => !ocupado && onClose()} title="Descargar resumen de horas extra" maxWidth="max-w-xl" preventCloseOnBackdrop={ocupado}>
-      <div className="space-y-5 text-sm">
-        <p className="text-xs text-[var(--text-secondary)]">
-          Para nómina y comedor: <b>todos</b> los empleados con tiempo extra, lleven transporte o no. El Excel del proveedor (formato de rutas) es otro: solo trae a quienes llevan transporte.
+      <div className="space-y-6 text-sm">
+        <p className="text-sm text-[var(--text-secondary)]">
+          Para nómina y comedor: <b className="font-medium text-[var(--text-main)]">todos</b> los empleados con tiempo extra, lleven transporte o no. El Excel del proveedor (formato de rutas) es otro: solo trae a quienes llevan transporte.
         </p>
 
         <fieldset>
-          <legend className="mb-1.5 block text-xs font-bold text-[var(--text-main)]">Periodo <span className="font-normal text-[var(--text-muted)]">(fecha del tiempo extra)</span></legend>
+          <legend className="mb-2 text-xs font-medium text-[var(--text-secondary)]">Periodo <span className="font-normal text-[var(--text-muted)]">(fecha del tiempo extra)</span></legend>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Periodo">
             {PERIODOS_DESCARGA.map(p => (
               <button key={p.id} type="button" role="radio" aria-checked={periodo === p.id} onClick={() => setPeriodo(p.id)}
-                className={`min-h-12 cursor-pointer rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors ${periodo === p.id ? 'border-[var(--cm-red)] bg-[var(--cm-red)] text-white' : 'border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]'}`}>{p.label}</button>
+                className={`min-h-11 cursor-pointer rounded-md border px-3 text-sm font-medium transition-colors duration-150 ${periodo === p.id
+                  ? 'border-[var(--text-main)] bg-[var(--bg-surface-hover)] text-[var(--text-main)]' : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-main)]'}`}>{p.label}</button>
             ))}
           </div>
           <Ayuda clave="descarga.periodo" />
           {periodo === 'rango' && (
-            <div className="mt-2 grid grid-cols-2 gap-3">
-              <label className="text-[11px] font-medium text-[var(--text-secondary)]">Fecha de inicio<input type="date" value={personalizado.desde} onChange={e => setPersonalizado(r => ({ ...r, desde: e.target.value }))} className={`${campo} mt-0.5 block w-full`} /></label>
-              <label className="text-[11px] font-medium text-[var(--text-secondary)]">Fecha final<input type="date" value={personalizado.hasta} min={personalizado.desde} onChange={e => setPersonalizado(r => ({ ...r, hasta: e.target.value }))} className={`${campo} mt-0.5 block w-full`} /></label>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <Campo etiqueta="Fecha de inicio"><Entrada type="date" value={personalizado.desde} onChange={e => setPersonalizado(r => ({ ...r, desde: e.target.value }))} /></Campo>
+              <Campo etiqueta="Fecha final"><Entrada type="date" value={personalizado.hasta} min={personalizado.desde} onChange={e => setPersonalizado(r => ({ ...r, hasta: e.target.value }))} /></Campo>
             </div>
           )}
           {valido
-            ? <p className="mt-2 text-sm font-semibold text-[var(--text-main)]" aria-live="polite">{textoRango(rango.desde, rango.hasta, hoy)}</p>
-            : <p className="mt-2 text-xs text-[var(--status-warning-text)]">{rango?.desde && rango?.hasta ? 'La fecha de inicio no puede ser posterior a la final.' : 'Elige las dos fechas.'}</p>}
+            ? <p className="mt-3 text-sm font-medium text-[var(--text-main)]" aria-live="polite">{textoRango(rango.desde, rango.hasta, hoy)}</p>
+            : <p className="mt-3 text-xs text-[var(--status-warning-text)]">{rango?.desde && rango?.hasta ? 'La fecha de inicio no puede ser posterior a la final.' : 'Elige las dos fechas.'}</p>}
         </fieldset>
 
-        <label className="block text-xs font-bold text-[var(--text-main)]">Área
-          <select value={areaId} onChange={e => setAreaId(e.target.value)} className={`${campo} mt-1 block w-full font-normal`}>
+        <Campo etiqueta="Área">
+          <Selector value={areaId} onChange={e => setAreaId(e.target.value)}>
             <option value="">Todas las áreas</option>{areas.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
-          </select>
-        </label>
+          </Selector>
+        </Campo>
 
         <fieldset>
-          <legend className="mb-1.5 block text-xs font-bold text-[var(--text-main)]">Incluir</legend>
+          <legend className="mb-2 text-xs font-medium text-[var(--text-secondary)]">Incluir</legend>
           <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Incluir">
             {INCLUIR_DESCARGA.map(i => (
               <button key={i.id} type="button" role="radio" aria-checked={incluir === i.id} onClick={() => setIncluir(i.id)}
-                className={`cursor-pointer rounded-lg border px-3 py-2.5 text-left text-sm font-semibold transition-colors ${incluir === i.id ? 'border-[var(--cm-red)] bg-[var(--bg-surface-secondary)] text-[var(--accent-text)]' : 'border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]'}`}>
+                className={`min-h-11 cursor-pointer rounded-md border px-3 py-2.5 text-left text-sm font-medium transition-colors duration-150 ${incluir === i.id
+                  ? 'border-[var(--text-main)] bg-[var(--bg-surface-hover)] text-[var(--text-main)]' : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-main)]'}`}>
                 {i.label}
-                <span className="mt-0.5 block text-[11px] font-normal text-[var(--text-secondary)]">
+                <span className="mt-0.5 block text-xs font-normal text-[var(--text-secondary)]">
                   {i.id === 'confirmadas' ? 'Solo lo que RH ya confirmó y generó su transporte.' : 'Lo autorizado por la Aut. 2, aunque RH aún no lo confirme.'}
                 </span>
               </button>
@@ -151,41 +152,39 @@ export default function DescargaTE({ isOpen, onClose, areas, nombresArea, catalo
           </div>
         </fieldset>
 
-        <section aria-label="Vista previa" className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-3">
-          <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Vista previa</h3>
+        <section aria-label="Vista previa" className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-4">
+          <h3 className="mb-3 text-sm font-semibold text-[var(--text-main)]">Vista previa</h3>
           {!valido ? <p className="text-xs text-[var(--text-muted)]">Elige un periodo válido para ver cuánto se va a descargar.</p>
-            : cargandoPrevia ? <p className="flex items-center gap-2 text-xs text-[var(--text-muted)]"><Loader2 className="h-3.5 w-3.5 animate-spin" />Calculando…</p>
-            : previa.error ? <p role="alert" className="text-xs text-[var(--status-error-text)]">No se pudo calcular: {previa.error}</p>
-            : sinDatos ? <p className="text-xs font-semibold text-[var(--status-warning-text)]">No hay tiempo extra con esas opciones. Cambia el periodo, el área o lo que se incluye: no se descargará un archivo vacío.</p>
+            : cargandoPrevia ? <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="status" aria-label="Calculando">{[0, 1, 2, 3].map(i => <Esqueleto key={i} className="h-14" />)}</div>
+            : previa.error ? <Aviso tono="error">No se pudo calcular: {previa.error}. Vuelve a intentarlo.</Aviso>
+            : sinDatos ? <Aviso tono="aviso">No hay tiempo extra con esas opciones. Cambia el periodo, el área o lo que se incluye: no se descargará un archivo vacío.</Aviso>
             : (
               <>
                 <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {[['Solicitudes', previa.lista.length], ['Empleados', suma(previa.lista, 'totalEmpleados')], ['Horas totales', redondeo(suma(previa.lista, 'totalHoras'))], ['Alimentos', suma(previa.lista, 'totalAlimentos')]].map(([k, v]) => (
                     <div key={k} className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2">
-                      <dt className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">{k}</dt>
-                      <dd className="text-xl font-bold text-[var(--text-main)]">{v}</dd>
+                      <dt className="text-xs text-[var(--text-muted)]">{k}</dt>
+                      <dd className="text-xl font-medium tabular-nums text-[var(--text-main)]">{v}</dd>
                     </div>
                   ))}
                 </dl>
-                <p className="mt-1.5 text-[10px] text-[var(--text-muted)]">Los empleados se cuentan una vez por cada día en que hacen tiempo extra.</p>
+                <p className="mt-2 text-xs text-[var(--text-muted)]">Los empleados se cuentan una vez por cada día en que hacen tiempo extra.</p>
               </>
             )}
         </section>
 
         <section aria-label="Hojas del Excel">
-          <h3 className="mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]"><FileSpreadsheet className="h-3.5 w-3.5" />El Excel trae 4 hojas</h3>
+          <h3 className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[var(--text-secondary)]"><FileSpreadsheet className="h-3.5 w-3.5" aria-hidden="true" />El Excel trae 4 hojas</h3>
           <ul className="space-y-0.5 text-xs text-[var(--text-secondary)]">
-            {HOJAS.map(([n, d]) => <li key={n}><b className="text-[var(--text-main)]">{n}:</b> {d}</li>)}
+            {HOJAS.map(([n, d]) => <li key={n}><b className="font-medium text-[var(--text-main)]">{n}:</b> {d}</li>)}
           </ul>
         </section>
 
-        <div className="flex justify-end gap-2 border-t border-[var(--border-color)] pt-3">
-          <button type="button" onClick={onClose} disabled={ocupado} className="cursor-pointer rounded-md border border-[var(--border-color)] px-4 py-2 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] disabled:opacity-50">Cerrar</button>
-          <button type="button" id="btn-descargar-te" onClick={descargar} disabled={!valido || ocupado || cargandoPrevia || sinDatos || !!previa?.error}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-[var(--cm-red)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--cm-red-hover)] disabled:cursor-not-allowed disabled:opacity-50">
-            {ocupado ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+        <div className="flex flex-col-reverse gap-2 border-t border-[var(--border-color)] pt-4 sm:flex-row sm:justify-end">
+          <Boton onClick={onClose} disabled={ocupado}>Cerrar</Boton>
+          <Boton id="btn-descargar-te" variante="primario" icono={Download} estado={ocupado ? 'cargando' : undefined} onClick={descargar} disabled={!valido || ocupado || cargandoPrevia || sinDatos || !!previa?.error}>
             {progreso === 'buscando' ? 'Buscando…' : progreso ? `Leyendo empleados ${progreso.hechos}/${progreso.total}…` : 'Descargar Excel'}
-          </button>
+          </Boton>
         </div>
       </div>
     </Modal>

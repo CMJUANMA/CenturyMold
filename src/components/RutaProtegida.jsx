@@ -21,7 +21,7 @@ export default function RutaProtegida() {
       <div className="flex min-h-screen items-center justify-center bg-[var(--bg-app)] px-4">
         <div role="alert" className="w-full max-w-sm rounded-lg border border-[var(--status-error-border)] bg-[var(--bg-surface)] p-6 text-center shadow-sm">
           <AlertCircle className="mx-auto h-8 w-8 text-[var(--status-error-text)]" />
-          <h1 className="mt-3 text-base font-bold text-[var(--text-main)]">No se pudo cargar tu perfil</h1>
+          <h1 className="mt-3 text-base font-semibold text-[var(--text-main)]">No se pudo cargar tu perfil</h1>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">
             {errorPerfil.code === 'permission-denied'
               ? 'No tienes permiso para leer tu perfil. Contacta a RH.'

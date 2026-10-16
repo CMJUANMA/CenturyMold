@@ -113,7 +113,7 @@ export default function TabAsignaciones({ asignaciones, nombresArea, actor, ahor
       <div className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold uppercase tracking-wider">
+            <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold">
               <tr>
                 <th className="px-4 py-3">Persona</th>
                 <th className="px-4 py-3">Rol</th>
@@ -130,7 +130,7 @@ export default function TabAsignaciones({ asignaciones, nombresArea, actor, ahor
               ) : filas.map(a => (
                 <tr key={a.id} className="hover:bg-[var(--bg-surface-secondary)] transition-colors">
                   <td className="px-4 py-2.5">
-                    <span className="font-mono font-bold text-[var(--text-main)]">{a.nomina}</span>{' '}
+                    <span className="font-mono font-semibold text-[var(--text-main)]">{a.nomina}</span>{' '}
                     <span className="text-[var(--text-main)]">{a.nombre}</span>
                   </td>
                   <td className="px-4 py-2.5 text-[var(--text-main)]">
@@ -141,7 +141,7 @@ export default function TabAsignaciones({ asignaciones, nombresArea, actor, ahor
                     {formatoFecha(a.desde)} → {aFecha(a.hasta) ? formatoFecha(a.hasta) : 'permanente'}
                   </td>
                   <td className="px-4 py-2.5">
-                    <span className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-semibold ${ESTADO_CLS[a.estado]}`}>{ESTADO_LABELS[a.estado]}</span>
+                    <span className={`inline-flex rounded border px-1.5 py-0.5 text-xs font-semibold ${ESTADO_CLS[a.estado]}`}>{ESTADO_LABELS[a.estado]}</span>
                   </td>
                   <td className="px-4 py-2.5 text-[var(--text-secondary)] max-w-[220px] truncate" title={a.motivo}>{a.motivo || '—'}</td>
                   <td className="px-4 py-2.5 text-right">
@@ -207,7 +207,7 @@ function ModalActualizarDatos({ asignaciones, empleados, actor, onClose, onTermi
         {plan.cambios.length > 0 && (
           <div className="max-h-72 overflow-auto rounded-md border border-[var(--border-color)]">
             <table className="w-full text-left">
-              <thead className="sticky top-0 bg-[var(--bg-surface-secondary)] text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+              <thead className="sticky top-0 bg-[var(--bg-surface-secondary)] text-xs font-semibold text-[var(--text-secondary)]">
                 <tr><th className="px-3 py-2">Persona</th><th className="px-3 py-2">Rol</th><th className="px-3 py-2">Nombre</th><th className="px-3 py-2">Puesto</th></tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-subtle)]">
@@ -312,8 +312,8 @@ function ModalHistorial({ datos, nombresArea, onClose }) {
                 <span className="text-[var(--text-muted)]">{fecha(f.fecha)}</span>
               </div>
               <div className="text-[var(--text-secondary)]">por {f.porNombre || f.porUid}</div>
-              {f.antes && <div className="text-[10px] text-[var(--text-muted)]">Antes: {detalle(f.antes)}</div>}
-              <div className="text-[10px] text-[var(--text-muted)]">Después: {detalle(f.despues)}</div>
+              {f.antes && <div className="text-xs text-[var(--text-muted)]">Antes: {detalle(f.antes)}</div>}
+              <div className="text-xs text-[var(--text-muted)]">Después: {detalle(f.despues)}</div>
             </li>
           ))}
         </ul>

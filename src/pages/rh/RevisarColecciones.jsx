@@ -113,7 +113,7 @@ export default function RevisarColecciones() {
           <Database className="h-5 w-5" />
         </div>
         <div>
-          <h2 className="text-lg font-bold text-[var(--text-main)]">Diagnóstico de Colecciones</h2>
+          <h2 className="text-lg font-semibold text-[var(--text-main)]">Diagnóstico de Colecciones</h2>
           <p className="text-xs text-[var(--text-secondary)] mt-1 max-w-2xl">
             Herramienta para diagnosticar colecciones, identificar registros huérfanos y migrar documentos antiguos.
           </p>
@@ -150,7 +150,7 @@ export default function RevisarColecciones() {
 
       {exito && (
         <div className="rounded-md border border-amber-300 bg-[var(--status-warning-bg)] p-4 text-xs text-amber-800   ">
-          <div className="flex items-center gap-2 font-bold mb-1">
+          <div className="flex items-center gap-2 font-semibold mb-1">
             <AlertTriangle className="h-4 w-4" />
             ¡Migración completada con éxito!
           </div>
@@ -167,10 +167,10 @@ export default function RevisarColecciones() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 pt-4 border-t border-[var(--border-subtle)]">
           {Object.entries(conteos).map(([colName, count]) => (
             <div key={colName} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-3">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1 truncate">
+              <div className="text-xs font-semibold text-[var(--text-muted)] mb-1 truncate">
                 {colName}
               </div>
-              <div className="text-xl font-bold text-[var(--text-main)]">
+              <div className="text-xl font-semibold text-[var(--text-main)]">
                 {count}
               </div>
             </div>
@@ -180,14 +180,14 @@ export default function RevisarColecciones() {
 
       {huerfanos.length > 0 && (
         <div className="rounded-md border border-[var(--status-error-border)] bg-[var(--status-error-bg)] p-4 text-xs text-[var(--status-error-text)]  ">
-          <div className="flex items-center gap-2 font-bold mb-2 text-sm">
+          <div className="flex items-center gap-2 font-semibold mb-2 text-sm">
             <AlertTriangle className="h-4 w-4" />
             ¡Alerta! Hay {huerfanos.length} puntos de reunión huérfanos
           </div>
           <p className="mb-3">
             Estos puntos están apuntando a un <strong>comunidadId</strong> que no existe actualmente en la base de datos. Esto causará que no aparezcan en el formulario de solicitud.
           </p>
-          <div className="max-h-64 overflow-y-auto bg-[var(--bg-surface)] dark:bg-black/20 border border-[var(--status-error-border)]  rounded p-2 font-mono text-[10px]">
+          <div className="max-h-64 overflow-y-auto bg-[var(--bg-surface)] dark:bg-black/20 border border-[var(--status-error-border)]  rounded p-2 font-mono text-xs">
             {huerfanos.map(h => (
               <div key={h.id} className="py-1 border-b border-red-100  last:border-0">
                 <strong>Clave:</strong> {h.id} | <strong>Nombre:</strong> {h.nombre} | <strong>comunidadId huérfano:</strong> {h.comunidadId}

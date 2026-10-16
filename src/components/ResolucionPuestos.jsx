@@ -8,9 +8,9 @@
 import { useId, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Undo2, Wand2 } from 'lucide-react';
 
-const btn = 'inline-flex items-center gap-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1 text-[11px] font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
-const btnRojo = 'inline-flex items-center gap-1 rounded-md bg-[var(--cm-red)] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[var(--cm-red-hover)] active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
-const campo = 'rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1 text-[11px] text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]';
+const btn = 'inline-flex items-center gap-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
+const btnRojo = 'inline-flex items-center gap-1 rounded-md bg-[var(--cm-red)] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[var(--cm-red-hover)] active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
+const campo = 'rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]';
 
 const quienes = (g) => {
   const [primero, ...resto] = g.empleados;
@@ -58,19 +58,19 @@ export default function ResolucionPuestos({ resolucion, catalogo, areas, decisio
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-xs font-semibold text-[var(--text-main)]">Puestos del archivo</p>
         {pendientes.length > 0
-          ? <span className="inline-flex items-center gap-1 rounded border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--status-warning-text)]">
+          ? <span className="inline-flex items-center gap-1 rounded border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-1.5 py-0.5 text-xs font-semibold text-[var(--status-warning-text)]">
             <AlertTriangle className="h-3 w-3" />{pendientes.length} sin resolver
           </span>
-          : <span className="inline-flex items-center gap-1 rounded border border-[var(--status-success-border)] bg-[var(--status-success-bg)] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--status-success-text)]">
+          : <span className="inline-flex items-center gap-1 rounded border border-[var(--status-success-border)] bg-[var(--status-success-bg)] px-1.5 py-0.5 text-xs font-semibold text-[var(--status-success-text)]">
             <CheckCircle2 className="h-3 w-3" />Todos resueltos
           </span>}
-        <span className="text-[11px] text-[var(--text-muted)]">
+        <span className="text-xs text-[var(--text-muted)]">
           {grupos.length - aResolver.length} coinciden con el catálogo · {aResolver.length} requieren revisión
         </span>
       </div>
 
       {corregidos.length > 0 && (
-        <details className="text-[11px] text-[var(--text-secondary)]">
+        <details className="text-xs text-[var(--text-secondary)]">
           <summary className="cursor-pointer font-semibold"><Wand2 className="mr-1 inline h-3 w-3" />Corregidos automáticamente ({corregidos.length})</summary>
           <ul className="mt-1 max-h-36 divide-y divide-[var(--border-subtle)] overflow-y-auto rounded border border-[var(--border-subtle)]">
             {corregidos.map(g => (
@@ -98,7 +98,7 @@ export default function ResolucionPuestos({ resolucion, catalogo, areas, decisio
                 {resuelto ? (
                   <div className="flex flex-wrap items-center gap-2">
                     <CheckCircle2 className="h-3.5 w-3.5 text-[var(--status-success-text)]" />
-                    <span className="font-mono font-bold">{g.texto}</span>
+                    <span className="font-mono font-semibold">{g.texto}</span>
                     <span className="text-[var(--text-muted)]">→</span>
                     {res.estado === 'omitir'
                       ? <span className="font-semibold">se omiten {g.empleados.length} fila(s)</span>
@@ -125,7 +125,7 @@ export default function ResolucionPuestos({ resolucion, catalogo, areas, decisio
                       El puesto <span className="font-mono">{g.texto}</span> (de {quienes(g)}) no existe.
                     </p>
                     {r.ambiguo && (
-                      <p className="text-[11px] text-[var(--text-secondary)]">
+                      <p className="text-xs text-[var(--text-secondary)]">
                         Se parece a varios por igual ({r.candidatos.map(c => c.nombre).join(', ')}): no se propone ninguno.
                       </p>
                     )}

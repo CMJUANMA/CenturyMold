@@ -226,8 +226,8 @@ export default function RhSolicitudes() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between border-b border-[var(--border-color)] pb-4">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Recursos Humanos</div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Solicitudes de transporte</h1>
+          <div className="text-xs font-semibold text-[var(--text-muted)]">Recursos Humanos</div>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[var(--text-main)]">Solicitudes de transporte</h1>
           <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Gestión global de viajes de todos los usuarios.</p>
         </div>
       </div>
@@ -288,7 +288,7 @@ export default function RhSolicitudes() {
       {/* Tabla */}
       <div className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
         <table className="w-full text-left text-xs">
-          <thead className="bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] uppercase">
+          <thead className="bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)]">
             <tr>
               <th className="px-4 py-3">Folio</th><th className="px-4 py-3">Solicitante</th>
               <th className="px-4 py-3">Puesto / Turnos</th><th className="px-4 py-3">Fecha Servicio</th>
@@ -305,17 +305,17 @@ export default function RhSolicitudes() {
                 <td className="px-4 py-3 font-medium">{sol.solicitanteNombre}
                   {sol.origen === 'tiempo_extra' && (
                     <Link to={`/tiempo-extra/consulta?abrir=${sol.tiempoExtraId}`} title="Abrir el tiempo extra"
-                      className="mt-0.5 block w-fit rounded-full border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-2 py-0.5 text-[10px] font-bold text-[var(--status-info-text)] hover:underline">Tiempo extra · {sol.folioTE}</Link>
+                      className="mt-0.5 block w-fit rounded-full border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-2 py-0.5 text-xs font-semibold text-[var(--status-info-text)] hover:underline">Tiempo extra · {sol.folioTE}</Link>
                   )}
-                  {sol.requiereRevision && <span className="mt-0.5 block w-fit rounded-full border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-2 py-0.5 text-[10px] font-bold text-[var(--status-warning-text)]" title={sol.motivoRevision}>Revisar: avisar al proveedor</span>}
+                  {sol.requiereRevision && <span className="mt-0.5 block w-fit rounded-full border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-2 py-0.5 text-xs font-semibold text-[var(--status-warning-text)]" title={sol.motivoRevision}>Revisar: avisar al proveedor</span>}
                 </td>
-                <td className="px-4 py-3 text-[var(--text-secondary)] truncate max-w-[120px]" title={sol._puestosStr}>{sol._puestosStr} <br/><span className="text-[10px] font-bold text-[var(--text-main)]">{sol._turnosStr}</span></td>
-                <td className="px-4 py-3 font-bold">{fmtFechaStr(sol.fechaServicio)}</td>
+                <td className="px-4 py-3 text-[var(--text-secondary)] truncate max-w-[120px]" title={sol._puestosStr}>{sol._puestosStr} <br/><span className="text-xs font-semibold text-[var(--text-main)]">{sol._turnosStr}</span></td>
+                <td className="px-4 py-3 font-semibold">{fmtFechaStr(sol.fechaServicio)}</td>
                 <td className="px-4 py-3 text-center"><span className="rounded-full bg-[var(--bg-surface-secondary)] px-2 py-0.5 border">{sol.totalPasajeros}</span></td>
                 <td className="px-4 py-3"><BadgeEstatus estatus={sol.estatus} conPunto />
-                  {sol.modificada && <span className="ml-2 inline-flex items-center gap-1 text-[9px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-full uppercase"><AlertTriangle className="h-3 w-3"/> Modificada</span>}
-                  {sol.historial?.some(h=>h.esAviso) && <span className="ml-2 inline-flex items-center gap-1 text-[9px] font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full uppercase" title="El solicitante envió un mensaje">Aviso del solicitante</span>}
-                  {sol.estatus === ESTATUS_SOLICITUD.CANCELADA && sol.historial?.some(h=>h.accion === ESTATUS_SOLICITUD.APROBADA) && <span className="ml-2 inline-flex items-center gap-1 text-[9px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full uppercase" title="Fue cancelada después de ser aprobada">Antes aprobada</span>}
+                  {sol.modificada && <span className="ml-2 inline-flex items-center gap-1 text-xs font-semibold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-full"><AlertTriangle className="h-3 w-3"/> Modificada</span>}
+                  {sol.historial?.some(h=>h.esAviso) && <span className="ml-2 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full" title="El solicitante envió un mensaje">Aviso del solicitante</span>}
+                  {sol.estatus === ESTATUS_SOLICITUD.CANCELADA && sol.historial?.some(h=>h.accion === ESTATUS_SOLICITUD.APROBADA) && <span className="ml-2 inline-flex items-center gap-1 text-xs font-semibold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full" title="Fue cancelada después de ser aprobada">Antes aprobada</span>}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="inline-flex gap-1">
@@ -373,14 +373,14 @@ export default function RhSolicitudes() {
             <div className="border border-[var(--border-color)] mx-5 my-5">
               {/* Encabezado Visual Excel */}
               <div className="bg-[var(--cm-dark)] text-white p-3 border-b border-[var(--border-color)]">
-                <h2 className="font-bold text-lg">Formato de Solicitud de Rutas</h2>
+                <h2 className="font-semibold text-lg">Formato de Solicitud de Rutas</h2>
                 <p className="italic text-sm text-gray-300">Fecha de Solicitud: {fmtIso(detalle.fechaSolicitud)} - Fecha de Servicio: {fmtFechaStr(detalle.fechaServicio)}</p>
               </div>
               <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm bg-[var(--bg-surface-secondary)] border-b border-[var(--border-color)]">
-                <div><strong className="text-[var(--text-muted)] uppercase text-xs block">Solicitante</strong><span className="font-bold text-[var(--text-main)]">{detalle.solicitanteNombre}{detalle.origen === 'tiempo_extra' ? ` · Tiempo extra ${detalle.folioTE}` : ''}</span></div>
-                <div><strong className="text-[var(--text-muted)] uppercase text-xs block">Turno</strong><span className="font-bold text-[var(--text-main)]">{detalle._turnosStr}</span></div>
-                <div><strong className="text-[var(--text-muted)] uppercase text-xs block">Área</strong><span className="font-bold text-[var(--text-main)]">{detalle._puestosStr}</span></div>
-                <div><strong className="text-[var(--text-muted)] uppercase text-xs block">Estatus</strong><BadgeEstatus estatus={detalle.estatus} conPunto /></div>
+                <div><strong className="text-[var(--text-muted)] text-xs block">Solicitante</strong><span className="font-semibold text-[var(--text-main)]">{detalle.solicitanteNombre}{detalle.origen === 'tiempo_extra' ? ` · Tiempo extra ${detalle.folioTE}` : ''}</span></div>
+                <div><strong className="text-[var(--text-muted)] text-xs block">Turno</strong><span className="font-semibold text-[var(--text-main)]">{detalle._turnosStr}</span></div>
+                <div><strong className="text-[var(--text-muted)] text-xs block">Área</strong><span className="font-semibold text-[var(--text-main)]">{detalle._puestosStr}</span></div>
+                <div><strong className="text-[var(--text-muted)] text-xs block">Estatus</strong><BadgeEstatus estatus={detalle.estatus} conPunto /></div>
               </div>
               
               {/* Tabla de Beneficiarios */}
@@ -388,16 +388,16 @@ export default function RhSolicitudes() {
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-[var(--cm-red)] text-white">
-                      <th className="p-2 border border-[var(--border-color)] font-bold text-center">AREA</th>
-                      <th className="p-2 border border-[var(--border-color)] font-bold text-center">PUESTO</th>
-                      <th className="p-2 border border-[var(--border-color)] font-bold text-center">NÓMINA</th>
-                      <th className="p-2 border border-[var(--border-color)] font-bold text-center">NOMBRE</th>
-                      <th className="p-2 border border-[var(--border-color)] font-bold text-center">ENTRADA</th>
-                      <th className="p-2 border border-[var(--border-color)] font-bold text-center">SALIDA</th>
-                      <th className="p-2 border border-[var(--border-color)] font-bold text-center">ALIMENTOS</th>
-                      <th className="p-2 border border-[var(--border-color)] font-bold text-center">RUTA</th>
-                      <th className="p-2 border border-[var(--border-color)] font-bold text-center">COMUNIDAD O COLONIA</th>
-                      <th className="p-2 border border-[var(--border-color)] font-bold text-center">PUNTO DE REUNION</th>
+                      <th className="p-2 border border-[var(--border-color)] font-semibold text-center">AREA</th>
+                      <th className="p-2 border border-[var(--border-color)] font-semibold text-center">PUESTO</th>
+                      <th className="p-2 border border-[var(--border-color)] font-semibold text-center">NÓMINA</th>
+                      <th className="p-2 border border-[var(--border-color)] font-semibold text-center">NOMBRE</th>
+                      <th className="p-2 border border-[var(--border-color)] font-semibold text-center">ENTRADA</th>
+                      <th className="p-2 border border-[var(--border-color)] font-semibold text-center">SALIDA</th>
+                      <th className="p-2 border border-[var(--border-color)] font-semibold text-center">ALIMENTOS</th>
+                      <th className="p-2 border border-[var(--border-color)] font-semibold text-center">RUTA</th>
+                      <th className="p-2 border border-[var(--border-color)] font-semibold text-center">COMUNIDAD O COLONIA</th>
+                      <th className="p-2 border border-[var(--border-color)] font-semibold text-center">PUNTO DE REUNION</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -417,7 +417,7 @@ export default function RhSolicitudes() {
                           <td className="p-2 border border-[var(--border-subtle)]">{p.nombre}</td>
                           <td className="p-2 border border-[var(--border-subtle)] text-center">{p.horaEntrada}</td>
                           <td className="p-2 border border-[var(--border-subtle)] text-center">{p.horaSalida}</td>
-                          <td className={`p-2 border border-[var(--border-subtle)] text-center font-bold ${p.alimentos ? 'bg-[var(--status-success-bg)] text-[var(--status-success-text)]' : ''}`}>{p.alimentos ? 'SI' : 'NO'}</td>
+                          <td className={`p-2 border border-[var(--border-subtle)] text-center font-semibold ${p.alimentos ? 'bg-[var(--status-success-bg)] text-[var(--status-success-text)]' : ''}`}>{p.alimentos ? 'SI' : 'NO'}</td>
                           <td className="p-2 border border-[var(--border-subtle)]">{nameR}</td>
                           <td className="p-2 border border-[var(--border-subtle)]">{nameC}</td>
                           <td className="p-2 border border-[var(--border-subtle)]">{nameP}</td>
@@ -438,15 +438,15 @@ export default function RhSolicitudes() {
 
             {/* Historial */}
             <div className="px-5 pb-5">
-              <h3 className="font-bold text-sm mb-3 uppercase text-[var(--text-muted)]">Historial de la solicitud</h3>
+              <h3 className="font-semibold text-sm mb-3 text-[var(--text-muted)]">Historial de la solicitud</h3>
               <div className="space-y-3">
                 {(detalle.historial || []).map((h, i) => (
                   <div key={i} className={`p-3 rounded-md border text-sm ${h.esAviso ? 'bg-[var(--status-success-bg)] border-[var(--status-success-border)] text-[var(--status-success-text)]' : 'bg-[var(--bg-surface-secondary)] border-[var(--border-color)] text-[var(--text-main)]'}`}>
                     <div className="flex justify-between items-start mb-1">
-                      <span className="font-bold">{h.usuario}</span>
+                      <span className="font-semibold">{h.usuario}</span>
                       <span className="text-xs text-[var(--text-muted)]">{fmtFechaHora(h.fecha)}</span>
                     </div>
-                    <span className="uppercase text-[10px] font-bold text-[var(--text-secondary)] bg-[var(--border-color)] px-1.5 py-0.5 rounded">{h.accion}</span>
+                    <span className="uppercase text-xs font-semibold text-[var(--text-secondary)] bg-[var(--border-color)] px-1.5 py-0.5 rounded">{h.accion}</span>
                     <p className="mt-2 text-[var(--text-main)]">{h.comentario}</p>
                   </div>
                 ))}

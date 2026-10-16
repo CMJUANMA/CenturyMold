@@ -11,10 +11,10 @@ import {
   FILTROS_AREA, GRUPO_SIN_AREA, impactoPuesto, motivoExcepcionPorDefecto, resumenLista,
 } from '../../utils/areasImportacion';
 
-const btn = 'inline-flex items-center gap-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1 text-[11px] font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
-const btnRojo = 'inline-flex items-center gap-1 rounded-md bg-[var(--cm-red)] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[var(--cm-red-hover)] active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
-const campo = 'rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1 text-[11px] text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]';
-const insignia = 'inline-flex items-center rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase whitespace-nowrap';
+const btn = 'inline-flex items-center gap-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
+const btnRojo = 'inline-flex items-center gap-1 rounded-md bg-[var(--cm-red)] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[var(--cm-red-hover)] active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
+const campo = 'rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]';
+const insignia = 'inline-flex items-center rounded border px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap';
 const TONO = {
   nuevo: 'border-[var(--status-success-border)] bg-[var(--status-success-bg)] text-[var(--status-success-text)]',
   cambia: 'border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] text-[var(--status-warning-text)]',
@@ -41,7 +41,7 @@ function DialogoCambio({ plan, dialogo, areas, empleadosBase, onCancelar, onApli
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4" onClick={(e) => { if (e.target === e.currentTarget) onCancelar(); }}>
       <div className="w-full max-w-lg space-y-3 rounded-xl bg-[var(--bg-surface)] p-5 text-xs shadow-2xl">
         <div className="flex items-start justify-between gap-3">
-          <p className="text-sm font-bold text-[var(--text-main)]">Cambiar área de {item.nombre}</p>
+          <p className="text-sm font-semibold text-[var(--text-main)]">Cambiar área de {item.nombre}</p>
           <button type="button" onClick={onCancelar} className="rounded p-1 text-[var(--text-muted)] hover:bg-[var(--bg-surface-secondary)] cursor-pointer"><X className="h-4 w-4" /></button>
         </div>
         <p className="text-[var(--text-secondary)]">
@@ -99,7 +99,7 @@ function FilaEmpleado({ it, areas, onCambiar, onQuitarExcepcion, bloqueado }) {
   return (
     <li className="space-y-1 px-3 py-2 text-xs hover:bg-[var(--bg-surface-secondary)]">
       <div className="grid grid-cols-[4.5rem_1fr_auto] items-center gap-x-3 gap-y-1 sm:grid-cols-[5rem_minmax(0,1.3fr)_minmax(0,1.2fr)_11rem_9rem]">
-        <span className="font-mono font-bold text-[var(--text-main)]">{it.clave}</span>
+        <span className="font-mono font-semibold text-[var(--text-main)]">{it.clave}</span>
         <span className="truncate font-semibold text-[var(--text-main)]" title={it.nombre}>{it.nombre}</span>
         <span className="hidden truncate text-[var(--text-secondary)] sm:block" title={it.puestoNombre}>
           {it.puestoNombre}{it.puestoNuevo && <span className="ml-1 text-[var(--status-warning-text)]">(nuevo)</span>}
@@ -111,7 +111,7 @@ function FilaEmpleado({ it, areas, onCambiar, onQuitarExcepcion, bloqueado }) {
         </select>
         <span className={`${insignia} hidden justify-center sm:inline-flex ${TONO[it.areaEstado]}`}>{ETIQUETA[it.areaEstado]}</span>
       </div>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 pl-[5.5rem] text-[11px] sm:pl-[5.5rem]">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 pl-[5.5rem] text-xs sm:pl-[5.5rem]">
         <span className="text-[var(--text-secondary)] sm:hidden">{it.puestoNombre}</span>
         <span className={`${insignia} sm:hidden ${TONO[it.areaEstado]}`}>{ETIQUETA[it.areaEstado]}</span>
         {it.areaEstado === 'cambia' && (
@@ -192,7 +192,7 @@ export default function ConfirmarAreas({
         <div className="flex flex-wrap gap-1" role="group" aria-label="Filtrar por estado">
           {FILTROS.map(([id, label]) => (
             <button key={id} type="button" onClick={() => setFiltro(id)} aria-pressed={filtro === id}
-              className={`rounded-md border px-2.5 py-1 text-[11px] font-semibold cursor-pointer ${filtro === id ? 'border-[var(--cm-red)] bg-[var(--cm-red-light)] text-[var(--text-main)]' : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-surface-secondary)]'}`}>
+              className={`rounded-md border px-2.5 py-1 text-xs font-semibold cursor-pointer ${filtro === id ? 'border-[var(--cm-red)] bg-[var(--cm-red-light)] text-[var(--text-main)]' : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-surface-secondary)]'}`}>
               {label}
             </button>
           ))}

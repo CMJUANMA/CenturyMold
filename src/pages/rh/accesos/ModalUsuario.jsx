@@ -102,7 +102,7 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
               <label className={labelCls}>Nómina</label>
               <input required value={form.nomina} onChange={e => setForm(f => ({ ...f, nomina: e.target.value }))} className={inputCls} placeholder="ej. 51109" />
             </div>
-            <button type="button" onClick={() => setManual(false)} className="col-span-2 text-left text-[11px] font-semibold text-[var(--accent-text)] hover:underline cursor-pointer">
+            <button type="button" onClick={() => setManual(false)} className="col-span-2 text-left text-xs font-semibold text-[var(--accent-text)] hover:underline cursor-pointer">
               Elegir del padrón
             </button>
           </div>
@@ -112,7 +112,7 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
             {form.nomina ? (
               <div className="flex items-center justify-between gap-2 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] px-3 py-2 text-xs">
                 <span className="min-w-0">
-                  <span className="font-mono font-bold text-[var(--text-main)]">{form.nomina}</span>{' '}
+                  <span className="font-mono font-semibold text-[var(--text-main)]">{form.nomina}</span>{' '}
                   <span className="text-[var(--text-main)]">{form.nombre}</span>
                 </span>
                 <button type="button" onClick={() => setForm(f => ({ ...f, nomina: '', nombre: '' }))} className={btnIcon} title="Cambiar"><X className="h-3.5 w-3.5" /></button>
@@ -127,7 +127,7 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
                 <input required value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} className={inputCls} />
               </div>
             )}
-            <p className="text-[10px] text-[var(--text-muted)]">
+            <p className="text-xs text-[var(--text-muted)]">
               Solo aparecen empleados activos que aún no tienen usuario.{' '}
               <button type="button" onClick={() => setManual(true)} className="font-semibold text-[var(--accent-text)] hover:underline cursor-pointer">Capturar a mano</button>
             </p>
@@ -144,7 +144,7 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
           <select required value={form.rol} onChange={e => setForm(f => ({ ...f, rol: e.target.value }))} className={inputCls} disabled={opcionesRol.length === 1}>
             {opcionesRol.map(r => <option key={r} value={r}>{ROL_LABELS[r]}</option>)}
           </select>
-          <p className="mt-1 text-[10px] text-[var(--text-muted)]">
+          <p className="mt-1 text-xs text-[var(--text-muted)]">
             {esAdmin
               ? 'Solo tú puedes dar o quitar Recursos Humanos y Administrador.'
               : 'Solo un administrador puede dar o quitar Recursos Humanos y Administrador.'}

@@ -106,13 +106,13 @@ export default function MisSolicitudes() {
   return (
     <div className="space-y-6">
       <div className="border-b pb-4">
-        <h1 className="text-2xl font-bold">{soloConsulta ? 'Transporte · mis solicitudes anteriores' : 'Mis solicitudes'}</h1>
+        <h1 className="text-2xl font-semibold">{soloConsulta ? 'Transporte · mis solicitudes anteriores' : 'Mis solicitudes'}</h1>
         <p className="text-sm text-[var(--text-muted)]">Consulta en tiempo real el estatus de tus viajes.</p>
       </div>
 
       <div className="overflow-hidden rounded-lg border bg-[var(--bg-surface)] shadow-sm">
         <table className="w-full text-left text-xs">
-          <thead className="bg-[var(--bg-surface-secondary)] border-b uppercase font-semibold text-[var(--text-secondary)]">
+          <thead className="bg-[var(--bg-surface-secondary)] border-b font-semibold text-[var(--text-secondary)]">
             <tr>
               <th className="px-4 py-3">Novedad</th>
               <th className="px-4 py-3">Folio</th>
@@ -129,19 +129,19 @@ export default function MisSolicitudes() {
               <tr key={sol.id} className={`hover:bg-[var(--bg-surface-hover)] ${sol.vistoPorSolicitante === false ? 'bg-[var(--status-success-bg)] border-l-2 border-l-[var(--status-success-text)]' : ''}`}>
                 <td className="px-4 py-3">{sol.vistoPorSolicitante === false && <BellRing className="h-4 w-4 text-[var(--status-success-text)] shrink-0"/>}</td>
                 <td className="px-4 py-3 font-mono">{sol.id.slice(0,8)}</td>
-                <td className="px-4 py-3 font-bold">{sol.fechaServicio}</td>
+                <td className="px-4 py-3 font-semibold">{sol.fechaServicio}</td>
                 <td className="px-4 py-3">{sol.totalPasajeros}</td>
                 <td className="px-4 py-3">
                   <BadgeEstatus estatus={sol.estatus} />
-                  {sol.estatus === ESTATUS_SOLICITUD.RECHAZADA && <p className="text-[9px] text-[var(--status-error-text)] mt-1 max-w-[150px] truncate">{sol.motivoRechazo}</p>}
+                  {sol.estatus === ESTATUS_SOLICITUD.RECHAZADA && <p className="text-xs text-[var(--status-error-text)] mt-1 max-w-[150px] truncate">{sol.motivoRechazo}</p>}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <button onClick={()=>abrirDetalle(sol)} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-main)] mr-2" title="Ver Detalle"><Eye className="h-4 w-4"/></button>
                   
                   {!soloConsulta && (sol.estatus === ESTATUS_SOLICITUD.ENVIADA_PROVEEDOR ? (
                     <div className="mt-1 flex flex-col items-end gap-1">
-                      <span className="text-[9px] text-[var(--text-muted)] max-w-[120px]">Ya fue enviada al proveedor.</span>
-                      <button onClick={()=>avisarARH(sol)} className="inline-flex items-center gap-1 text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"><MessageSquareWarning className="h-3 w-3"/> Avisar a RH</button>
+                      <span className="text-xs text-[var(--text-muted)] max-w-[120px]">Ya fue enviada al proveedor.</span>
+                      <button onClick={()=>avisarARH(sol)} className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"><MessageSquareWarning className="h-3 w-3"/> Avisar a RH</button>
                     </div>
                   ) : (
                     (sol.estatus === ESTATUS_SOLICITUD.PENDIENTE || sol.estatus === ESTATUS_SOLICITUD.APROBADA) && sol.fechaServicio >= hoy && (
@@ -168,11 +168,11 @@ export default function MisSolicitudes() {
               {detalle.estatus === ESTATUS_SOLICITUD.RECHAZADA && <p className="col-span-2 text-[var(--status-error-text)]"><strong>Motivo de rechazo:</strong> {detalle.motivoRechazo}</p>}
             </div>
             
-            <h3 className="font-bold text-sm mb-2 text-[var(--text-main)]">Historial</h3>
+            <h3 className="font-semibold text-sm mb-2 text-[var(--text-main)]">Historial</h3>
             <div className="space-y-2">
               {(detalle.historial || []).map((h, i) => (
                 <div key={i} className={`p-2 rounded text-xs border ${h.esAviso ? 'bg-[var(--status-success-bg)] border-[var(--status-success-border)] text-[var(--status-success-text)]' : 'bg-[var(--bg-surface-secondary)] border-[var(--border-subtle)]'}`}>
-                  <span className="font-bold text-[var(--text-main)]">{h.usuario}</span> <span className="text-[var(--text-secondary)]">el {fmtFechaHora(h.fecha)}</span> — <span className="uppercase font-semibold text-[var(--text-main)]">{h.accion}</span>
+                  <span className="font-semibold text-[var(--text-main)]">{h.usuario}</span> <span className="text-[var(--text-secondary)]">el {fmtFechaHora(h.fecha)}</span> — <span className="uppercase font-semibold text-[var(--text-main)]">{h.accion}</span>
                   <p className="mt-1 text-[var(--text-main)]">{h.comentario}</p>
                 </div>
               ))}
@@ -189,8 +189,8 @@ export default function MisSolicitudes() {
             <form onSubmit={confirmarCancelacion}>
               <input type="text" autoFocus required value={motivoCancelacion} onChange={e=>setMotivoCancelacion(e.target.value)} placeholder="Motivo de cancelación..." className="w-full border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-main)] rounded px-3 py-2 text-sm mb-4 outline-none focus:border-[var(--cm-red)]" />
               <div className="flex justify-end gap-2 pt-2 border-t border-[var(--border-color)]">
-                <button type="button" onClick={() => setModalCancelar(null)} className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-main)] rounded text-xs font-bold hover:bg-[var(--bg-surface-hover)]">Cerrar</button>
-                <button type="submit" className="bg-[var(--cm-red)] text-white px-4 py-2 rounded text-xs font-bold hover:bg-[var(--cm-red-hover)]">Confirmar</button>
+                <button type="button" onClick={() => setModalCancelar(null)} className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-main)] rounded text-xs font-semibold hover:bg-[var(--bg-surface-hover)]">Cerrar</button>
+                <button type="submit" className="bg-[var(--cm-red)] text-white px-4 py-2 rounded text-xs font-semibold hover:bg-[var(--cm-red-hover)]">Confirmar</button>
               </div>
             </form>
           </>

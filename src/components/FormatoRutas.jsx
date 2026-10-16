@@ -7,7 +7,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { FileDown, Loader2, XCircle } from 'lucide-react';
+import { FileDown } from 'lucide-react';
 import { db } from '../firebase';
 import { FUNCIONES } from '../funciones';
 import { useAreas } from '../hooks/useAreas';
@@ -17,8 +17,10 @@ import { ESTATUS_SOLICITUD } from '../utils/constantes';
 import { exportarSolicitudes } from '../utils/exportarSolicitudes';
 import Ayuda from './Ayuda';
 import Modal from './Modal';
-
-const inputCls = 'rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]';
+import Aviso from './ui/Aviso';
+import Boton from './ui/Boton';
+import { Campo, Casilla, Entrada, OpcionRadio } from './ui/Campo';
+import { Esqueleto } from './ui/Esqueleto';
 
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 function fechasLocales() {
@@ -100,81 +102,68 @@ export default function BotonFormatoRutas({ id = 'btn-formato-rutas' }) {
 
   return (
     <div className="max-w-[15rem]">
-      <button type="button" id={id} onClick={() => setAbierto(true)}
-        className="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-[var(--status-success-text)] px-3 py-1.5 text-xs text-white hover:opacity-90 active:scale-95 transition-all">
-        <FileDown className="h-3.5 w-3.5" /> Formato de rutas (proveedor)
-      </button>
+      <Boton id={id} icono={FileDown} onClick={() => setAbierto(true)}>Formato de rutas (proveedor)</Boton>
       <Ayuda clave="descarga.formatoRutas" />
 
-      <Modal isOpen={abierto} onClose={() => setAbierto(false)} title="" maxWidth="max-w-md">
-        <div className="-mt-2 space-y-5">
-          <div>
-            <h3 className="flex items-center gap-2 text-lg font-bold text-[var(--text-main)]"><FileDown className="h-5 w-5" /> Formato de rutas (proveedor)</h3>
-            <p className="mt-1 text-xs text-[var(--text-secondary)]">Excel para el proveedor de transporte: solo los empleados que llevan transporte.</p>
-          </div>
+      <Modal isOpen={abierto} onClose={() => setAbierto(false)} title="Formato de rutas (proveedor)" maxWidth="max-w-md">
+        <div className="space-y-6">
+          <p className="text-sm text-[var(--text-secondary)]">Excel para el proveedor de transporte: solo los empleados que llevan transporte.</p>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase text-[var(--text-secondary)]">Fecha de servicio</label>
-              <div className="flex gap-4 text-sm text-[var(--text-main)]">
-                {[['hoy', 'Hoy'], ['manana', 'Mañana'], ['elegir', 'Elegir fecha']].map(([v, texto]) => (
-                  <label key={v} className="flex cursor-pointer items-center gap-1.5">
-                    <input type="radio" name="rFechaFormato" checked={tipoFecha === v} onChange={() => setTipoFecha(v)} className="accent-[var(--cm-red)]" /> {texto}
-                  </label>
-                ))}
-              </div>
-              {tipoFecha === 'elegir' && (
-                <div className="mt-2 space-y-3 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface-secondary)] p-3">
-                  <label className="flex items-center gap-2 text-xs text-[var(--text-main)]">
-                    <input type="checkbox" checked={esRango} onChange={e => setEsRango(e.target.checked)} className="accent-[var(--cm-red)]" /> Rango de fechas
-                  </label>
-                  {!esRango ? (
-                    <input type="date" value={elegida} onChange={e => setElegida(e.target.value)} className={`${inputCls} w-full`} />
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1"><span className="block text-xs text-[var(--text-muted)]">Desde:</span><input type="date" value={desde} onChange={e => setDesde(e.target.value)} className={`${inputCls} w-full`} /></div>
-                      <div className="flex-1"><span className="block text-xs text-[var(--text-muted)]">Hasta:</span><input type="date" value={hasta} onChange={e => setHasta(e.target.value)} className={`${inputCls} w-full`} /></div>
-                    </div>
-                  )}
-                </div>
-              )}
+          <fieldset className="space-y-2">
+            <legend className="mb-1 text-xs font-medium text-[var(--text-secondary)]">Fecha de servicio</legend>
+            <div className="flex flex-wrap gap-x-6">
+              {[['hoy', 'Hoy'], ['manana', 'Mañana'], ['elegir', 'Elegir fecha']].map(([v, texto]) => (
+                <OpcionRadio key={v} name="rFechaFormato" etiqueta={texto} checked={tipoFecha === v} onChange={() => setTipoFecha(v)} />
+              ))}
             </div>
-
-            {conPendientes && (
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase text-[var(--text-secondary)]">Incluir estatus</label>
-                <div className="flex gap-4 text-sm text-[var(--text-main)]">
-                  <label className="flex cursor-pointer items-center gap-1.5"><input type="checkbox" checked={aprobadas} onChange={e => setAprobadas(e.target.checked)} className="accent-[var(--cm-red)]" /> Aprobadas</label>
-                  <label className="flex cursor-pointer items-center gap-1.5"><input type="checkbox" checked={pendientes} onChange={e => setPendientes(e.target.checked)} className="accent-[var(--cm-red)]" /> Pendientes</label>
-                </div>
+            {tipoFecha === 'elegir' && (
+              <div className="space-y-3 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface-secondary)] p-3">
+                <Casilla etiqueta="Rango de fechas" checked={esRango} onChange={e => setEsRango(e.target.checked)} />
+                {!esRango ? (
+                  <Campo etiqueta="Fecha"><Entrada type="date" value={elegida} onChange={e => setElegida(e.target.value)} /></Campo>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <Campo etiqueta="Desde"><Entrada type="date" value={desde} onChange={e => setDesde(e.target.value)} /></Campo>
+                    <Campo etiqueta="Hasta"><Entrada type="date" value={hasta} onChange={e => setHasta(e.target.value)} /></Campo>
+                  </div>
+                )}
               </div>
             )}
+          </fieldset>
 
-            <div className="mt-4 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface-secondary)] p-3 text-sm text-[var(--text-main)]">
-              {!valido ? (
-                <div className="flex items-center gap-1.5 font-semibold text-[var(--status-error-text)]"><XCircle className="h-4 w-4" /> Revisa las fechas.</div>
-              ) : cargando ? (
-                <div className="flex items-center gap-2 text-[var(--text-secondary)]"><Loader2 className="h-4 w-4 animate-spin" /> Buscando solicitudes...</div>
-              ) : paraExportar.length === 0 ? (
-                <div className="flex items-center gap-1.5 font-semibold text-[var(--status-error-text)]"><XCircle className="h-4 w-4" /> No hay solicitudes de transporte para esta fecha. ¿Ya confirmaste el tiempo extra?</div>
-              ) : (
-                <ul className="space-y-1">
-                  <li className="font-semibold">{paraExportar.length} {paraExportar.length === 1 ? 'solicitud encontrada' : 'solicitudes encontradas'}</li>
-                  <li>{totalPasajeros} pasajeros en total</li>
-                  {conPendientes && pendientes && paraExportar.some(s => s.estatus === ESTATUS_SOLICITUD.PENDIENTE) && (
-                    <li className="mt-1 text-xs font-semibold text-[var(--status-warning-text)]">Atención: hay pendientes incluidas.</li>
-                  )}
-                </ul>
-              )}
-            </div>
+          {conPendientes && (
+            <fieldset>
+              <legend className="mb-1 text-xs font-medium text-[var(--text-secondary)]">Incluir estatus</legend>
+              <div className="flex flex-wrap gap-x-6">
+                <Casilla etiqueta="Aprobadas" checked={aprobadas} onChange={e => setAprobadas(e.target.checked)} />
+                <Casilla etiqueta="Pendientes" checked={pendientes} onChange={e => setPendientes(e.target.checked)} />
+              </div>
+            </fieldset>
+          )}
+
+          <div aria-live="polite">
+            {!valido ? (
+              <Aviso tono="error">Revisa las fechas: la inicial no puede ser posterior a la final.</Aviso>
+            ) : cargando ? (
+              <div role="status" aria-label="Buscando solicitudes"><Esqueleto className="h-14 w-full" /></div>
+            ) : paraExportar.length === 0 ? (
+              <Aviso tono="aviso">No hay solicitudes de transporte para esta fecha. ¿Ya confirmaste el tiempo extra?</Aviso>
+            ) : (
+              <div className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface-secondary)] p-3 text-sm text-[var(--text-main)]">
+                <p className="font-medium">{paraExportar.length} {paraExportar.length === 1 ? 'solicitud encontrada' : 'solicitudes encontradas'}</p>
+                <p className="text-[var(--text-secondary)]">{totalPasajeros} pasajeros en total</p>
+                {conPendientes && pendientes && paraExportar.some(s => s.estatus === ESTATUS_SOLICITUD.PENDIENTE) && (
+                  <p className="mt-1 text-xs text-[var(--status-warning-text)]">Atención: hay pendientes incluidas.</p>
+                )}
+              </div>
+            )}
           </div>
 
-          <div className="mt-4 flex justify-end gap-2 border-t border-[var(--border-color)] pt-4">
-            <button type="button" onClick={() => setAbierto(false)} className="rounded-md border border-[var(--border-color)] px-4 py-2 text-xs font-semibold text-[var(--text-main)] transition-colors hover:bg-[var(--bg-surface-hover)]">Cancelar</button>
-            <button type="button" onClick={descargar} disabled={paraExportar.length === 0 || cargando || exportando}
-              className="flex items-center gap-1.5 rounded-md bg-[var(--status-success-text)] px-4 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
-              {exportando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />} {exportando ? 'Generando...' : 'Descargar Excel'}
-            </button>
+          <div className="flex flex-col-reverse gap-2 border-t border-[var(--border-color)] pt-4 sm:flex-row sm:justify-end">
+            <Boton onClick={() => setAbierto(false)}>Cancelar</Boton>
+            <Boton variante="primario" icono={FileDown} estado={exportando ? 'cargando' : undefined} onClick={descargar} disabled={paraExportar.length === 0 || cargando || exportando}>
+              {exportando ? 'Generando…' : 'Descargar Excel'}
+            </Boton>
           </div>
         </div>
       </Modal>

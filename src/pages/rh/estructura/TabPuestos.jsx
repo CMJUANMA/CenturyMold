@@ -168,10 +168,10 @@ export default function TabPuestos({ areas, puestos, empleados, usuario, toast, 
               <th className={`${thCls} text-right`}>Empleados</th>
               <th className={thCls} aria-sort={ordenNivel === 'asc' ? 'ascending' : ordenNivel === 'desc' ? 'descending' : 'none'}>
                 <button type="button" onClick={() => setOrdenNivel(o => (o === null ? 'asc' : o === 'asc' ? 'desc' : null))}
-                  className="inline-flex cursor-pointer items-center gap-1 font-semibold uppercase" title="Ordenar por nivel">
+                  className="inline-flex cursor-pointer items-center gap-1 font-semibold" title="Ordenar por nivel">
                   Nivel{ordenNivel === 'asc' ? <ArrowUp className="h-3 w-3" /> : ordenNivel === 'desc' ? <ArrowDown className="h-3 w-3" /> : null}
                 </button>
-                <span className="block text-[9px] font-normal normal-case tracking-normal text-[var(--text-muted)]">1 es el puesto más alto. Sirve para ordenar el organigrama</span>
+                <span className="block text-xs font-normal normal-case tracking-normal text-[var(--text-muted)]">1 es el puesto más alto. Sirve para ordenar el organigrama</span>
               </th>
               <th className={thCls}>Alias</th>
               <th className={`${thCls} text-right`}>Acciones</th>
@@ -185,7 +185,7 @@ export default function TabPuestos({ areas, puestos, empleados, usuario, toast, 
             )}
             {filtrados.map(p => (
               <tr key={p.id} className={`hover:bg-[var(--bg-surface-secondary)] ${p.activo === false ? 'opacity-60' : ''}`}>
-                <td className="px-4 py-2.5 font-semibold text-[var(--text-main)]">{p.nombre}{p.activo === false && <span className="ml-1 text-[10px] font-normal text-[var(--text-muted)]">(inactivo)</span>}</td>
+                <td className="px-4 py-2.5 font-semibold text-[var(--text-main)]">{p.nombre}{p.activo === false && <span className="ml-1 text-xs font-normal text-[var(--text-muted)]">(inactivo)</span>}</td>
                 <td className="px-4 py-2.5">{areasPorId.has(p.areaId) ? nombreArea(p.areaId) : <span className={chipWarn}>{nombreArea(p.areaId)}</span>}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums">{nEmpleados(p.id)}</td>
                 <td className="px-4 py-2.5">
@@ -219,9 +219,9 @@ export default function TabPuestos({ areas, puestos, empleados, usuario, toast, 
           <div>
             <label className={labelCls}>Nombre (se guarda en mayúsculas)</label>
             <input value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} className={inputCls} autoFocus />
-            {similar?.nivel === 'a' && <p className="mt-1 text-[11px] text-[var(--status-error-text)]">Ya existe «{similar.puesto.nombre}».</p>}
-            {similar?.nivel === 'b' && <p className="mt-1 text-[11px] text-[var(--status-warning-text)]">Se parece a «{similar.puesto.nombre}»; verifique que no sea el mismo.</p>}
-            {modal?.tipo === 'editar' && <p className="mt-1 text-[10px] text-[var(--text-muted)]">El nombre anterior queda como alias y se actualiza el puesto de sus empleados.</p>}
+            {similar?.nivel === 'a' && <p className="mt-1 text-xs text-[var(--status-error-text)]">Ya existe «{similar.puesto.nombre}».</p>}
+            {similar?.nivel === 'b' && <p className="mt-1 text-xs text-[var(--status-warning-text)]">Se parece a «{similar.puesto.nombre}»; verifique que no sea el mismo.</p>}
+            {modal?.tipo === 'editar' && <p className="mt-1 text-xs text-[var(--text-muted)]">El nombre anterior queda como alias y se actualiza el puesto de sus empleados.</p>}
           </div>
           {modal?.tipo === 'nuevo' && (
             <div>
@@ -258,7 +258,7 @@ export default function TabPuestos({ areas, puestos, empleados, usuario, toast, 
               </p>
               {impacto.mover.length > 0 && (
                 <ul className="max-h-40 divide-y divide-[var(--border-subtle)] overflow-y-auto rounded border border-[var(--border-subtle)]">
-                  {impacto.mover.map(e => <li key={e.id} className="px-2 py-1"><span className="font-mono font-bold">{e.nomina ?? e.id}</span> {e.nombre}</li>)}
+                  {impacto.mover.map(e => <li key={e.id} className="px-2 py-1"><span className="font-mono font-semibold">{e.nomina ?? e.id}</span> {e.nombre}</li>)}
                 </ul>
               )}
               {impacto.conExcepcion.length > 0 && (

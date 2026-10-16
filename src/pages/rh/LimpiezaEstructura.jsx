@@ -39,7 +39,7 @@ export default function LimpiezaEstructura() {
   return (
     <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5 space-y-4" id="limpieza-estructura">
       <div>
-        <h3 className="text-sm font-bold text-[var(--text-main)]">Limpiar estructura vieja</h3>
+        <h3 className="text-sm font-semibold text-[var(--text-main)]">Limpiar estructura vieja</h3>
         <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
           Quita del padrón los campos <b>areaTE</b> y <b>areaTEManual</b>, que ya nada usa (descarga un respaldo antes). Las colecciones anteriores
           (areasTE, config/areasTE, config/tiempoExtra, accesosTE) ya no tienen reglas: si existieran, se borran desde la consola de Firebase.

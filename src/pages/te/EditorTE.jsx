@@ -9,8 +9,8 @@
  * terminar su turno normal y solo lleva transporte de salida). Rutas: se cuentan las rutas distintas; con más de una se exige justificarlo.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { AlertTriangle, Loader2, Plus, Route, Save, Send, Trash2, Users } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { AlertTriangle, Loader2, Plus, Route, Save, Send, Trash2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useAccesos } from '../../hooks/useAccesos';
 import { useAreas } from '../../hooks/useAreas';
@@ -20,7 +20,15 @@ import { useToast } from '../../hooks/useToast';
 import { useTurnosNomina } from '../../hooks/useTurnosNomina';
 import Ayuda from '../../components/Ayuda';
 import AyudaPantalla from '../../components/AyudaPantalla';
-import Spinner from '../../components/Spinner';
+import Aviso from '../../components/ui/Aviso';
+import Boton from '../../components/ui/Boton';
+import { AreaTexto, Campo, Entrada, Selector } from '../../components/ui/Campo';
+import EncabezadoPagina from '../../components/ui/EncabezadoPagina';
+import EstadoVacio from '../../components/ui/EstadoVacio';
+import { EsqueletoPagina } from '../../components/ui/Esqueleto';
+import { CASILLA } from '../../components/ui/estilos';
+import Insignia from '../../components/ui/Insignia';
+import { Tarjeta } from '../../components/ui/Tarjeta';
 import { esActivo, rutaVigente } from '../../utils/activo';
 import { ymd } from '../../utils/fechas';
 import {
@@ -33,10 +41,6 @@ import {
 } from '../../utils/tiempoExtraDb';
 import FilaEmpleadoTE, { COLUMNAS_FILA } from './FilaEmpleadoTE';
 import SelectorEmpleadosTE from './SelectorEmpleadosTE';
-
-const inp = 'w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 text-xs text-[var(--text-main)] focus:border-[var(--cm-red)] focus:outline-none focus:ring-1 focus:ring-[var(--cm-red)] disabled:opacity-60';
-const lbl = 'mb-1 block text-xs font-medium text-[var(--text-secondary)]';
-const btn = 'inline-flex cursor-pointer items-center gap-1.5 rounded-md px-4 py-2 text-xs font-semibold transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50';
 
 export default function EditorTE() {
   const { id: idParam } = useParams();
@@ -279,212 +283,204 @@ export default function EditorTE() {
     catch (err) { toast.error('No se pudo cancelar: ' + err.message); }
   };
 
-  if (accesos.cargando || cargandoAreas || cargandoCat || cargandoDoc || cargandoTurnos) return <Spinner />;
+  if (accesos.cargando || cargandoAreas || cargandoCat || cargandoDoc || cargandoTurnos) return <EsqueletoPagina />;
   if (areasCaptura.length === 0 && !idParam) {
-    return <p className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-6 text-center text-xs text-[var(--text-secondary)]">No tienes un área asignada para capturar tiempo extra.</p>;
+    return <EstadoVacio titulo="No tienes un área asignada" texto="Para solicitar tiempo extra necesitas un área asignada. Pide a Recursos Humanos que te la asignen." accion={{ texto: 'Volver al inicio', to: '/' }} />;
   }
   const nombreArea = area?.nombre ?? areasCaptura.find(a => a.id === areaActual)?.nombre ?? areaActual;
   const sinGuardar = sucios.size > 0 || eliminados.size > 0;
 
   return (
-    <div className="space-y-5 pb-4">
-      <header className="border-b border-[var(--border-color)] pb-4">
-        <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Tiempo extra</div>
-        <div className="mt-1 flex items-center gap-2">
-          <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">
-            {esDevuelta ? `Corregir ${servidor.folio ?? 'solicitud devuelta'}` : existe ? 'Continuar borrador' : 'Solicitar tiempo extra'}
-          </h1>
-          <AyudaPantalla id="solicitar" />
-        </div>
-        <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Área: <b>{nombreArea || '—'}</b>{esAut1DeLaArea ? ' · Al enviarla pasa directo a Autorización 2 (eres su Aut. 1).' : ''}</p>
-      </header>
+    <div className="space-y-6 pb-4">
+      <EncabezadoPagina
+        antetitulo="Tiempo extra"
+        titulo={esDevuelta ? `Corregir ${servidor.folio ?? 'solicitud devuelta'}` : existe ? 'Continuar borrador' : 'Solicitar tiempo extra'}
+        descripcion={<>Área: <b className="font-medium text-[var(--text-main)]">{nombreArea || '—'}</b>{esAut1DeLaArea ? ' · Al enviarla pasa directo a Autorización 2 (eres su Aut. 1).' : ''}</>}
+        ayuda={<AyudaPantalla id="solicitar" />}
+      />
 
       {esDevuelta && servidor.devolucion && (
-        <div role="alert" className="rounded-lg border-2 border-[var(--status-error-border)] bg-[var(--status-error-bg)] p-4 text-[var(--status-error-text)]">
-          <p className="flex items-center gap-2 text-sm font-bold"><AlertTriangle className="h-4 w-4" />Devuelta por {quienDevolvio(servidor.devolucion.nivel)}</p>
-          <p className="mt-1 text-sm">{servidor.devolucion.motivo}</p>
-          <p className="mt-1 text-[11px] opacity-80">Corrige y reenvía: vuelve a empezar en Autorización 1.</p>
-        </div>
+        <Aviso tono="aviso" titulo={`Devuelta por ${quienDevolvio(servidor.devolucion.nivel)}`}>
+          <p>{servidor.devolucion.motivo}</p>
+          <p className="mt-1 text-xs opacity-90">Corrige y reenvía: vuelve a empezar en Autorización 1.</p>
+        </Aviso>
       )}
 
-      <section aria-label="Datos generales" data-tour="solicitar-datos" className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5 shadow-sm">
-        <h2 className="mb-4 border-b border-[var(--border-subtle)] pb-2 text-sm font-semibold text-[var(--text-main)]">Datos generales</h2>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div>
-            <label className={lbl} htmlFor="te-area">Área</label>
-            {areasCaptura.length > 1 && !idParam ? (
-              <select id="te-area" value={areaActual} onChange={e => { setAreaId(e.target.value); if (empleados.length) toast.warning('Cambiar de área quita los empleados agregados.'); setEmpleados([]); setSucios(new Set()); setEliminados(new Set()); }} className={inp}>
-                <option value="">Elige el área…</option>
-                {areasCaptura.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
-              </select>
-            ) : <input id="te-area" value={nombreArea} disabled className={inp} readOnly />}
-            <Ayuda clave="solicitar.area" />
+      <Tarjeta titulo="Datos generales" className="" cuerpoClassName="p-5 sm:p-6">
+        <section aria-label="Datos generales" data-tour="solicitar-datos">
+          <div className="grid gap-5 sm:grid-cols-3">
+            <div>
+              <Campo etiqueta="Área">
+                {areasCaptura.length > 1 && !idParam ? (
+                  <Selector id="te-area" value={areaActual} onChange={e => { setAreaId(e.target.value); if (empleados.length) toast.warning('Cambiar de área quita los empleados agregados.'); setEmpleados([]); setSucios(new Set()); setEliminados(new Set()); }}>
+                    <option value="">Elige el área…</option>
+                    {areasCaptura.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                  </Selector>
+                ) : <Entrada id="te-area" value={nombreArea} disabled readOnly />}
+              </Campo>
+              <Ayuda clave="solicitar.area" />
+            </div>
+            <div>
+              <Campo etiqueta="Fecha del tiempo extra">
+                <Entrada id="te-fecha" type="date" min={hoy} value={fechaTE} onChange={e => setFechaTE(e.target.value)} />
+              </Campo>
+              <Ayuda clave="solicitar.fecha" />
+            </div>
+            <div>
+              <Campo etiqueta="Motivo">
+                <Selector id="te-motivo" value={motivo} onChange={e => { setMotivo(e.target.value); if (e.target.value !== MOTIVO_OTRO) setMotivoOtro(''); }}>
+                  <option value="">Elige el motivo…</option>
+                  {MOTIVOS_TE.map(m => <option key={m} value={m}>{m}</option>)}
+                </Selector>
+              </Campo>
+              <Ayuda clave="solicitar.motivo" />
+              {motivo === MOTIVO_OTRO && (
+                <Campo className="mt-3" etiqueta="¿Cuál?" obligatorio ayuda={`${motivoOtro.length}/${MAX_MOTIVO_OTRO} caracteres`}>
+                  <Entrada id="te-motivo-otro" value={motivoOtro} maxLength={MAX_MOTIVO_OTRO} onChange={e => setMotivoOtro(e.target.value)} placeholder="Escribe el motivo" />
+                </Campo>
+              )}
+            </div>
           </div>
-          <div>
-            <label className={lbl} htmlFor="te-fecha">Fecha del tiempo extra</label>
-            <input id="te-fecha" type="date" min={hoy} value={fechaTE} onChange={e => setFechaTE(e.target.value)} className={inp} />
-            <Ayuda clave="solicitar.fecha" />
+
+          <fieldset className="mt-6">
+            <legend className="mb-2 text-xs font-medium text-[var(--text-secondary)]">Tipo de tiempo extra</legend>
+            <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Tipo de tiempo extra">
+              {TIPOS_TE_INFO.map(t => (
+                <label key={t.value} className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors duration-150 ${tipo === t.value
+                  ? 'border-[var(--text-main)] bg-[var(--bg-surface-hover)]' : 'border-[var(--border-color)] hover:bg-[var(--bg-surface-hover)]'}`}>
+                  <input type="radio" name="te-tipo" value={t.value} checked={tipo === t.value} onChange={() => cambiarTipo(t.value)} disabled={ocupado} className={`${CASILLA} mt-0.5`} />
+                  <span>
+                    <span className="block text-sm font-medium text-[var(--text-main)]">{t.label}</span>
+                    <span className="mt-0.5 block text-xs text-[var(--text-secondary)]">{t.value === TIPOS_TE.EXTENSION ? 'El empleado ya está en la planta y se queda más tiempo.' : 'El empleado viene a la planta para el tiempo extra.'}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <Ayuda clave="solicitar.tipo" />
+          </fieldset>
+
+          <div className="mt-6">
+            <Campo etiqueta="Comentario" obligatorio ayuda={`Al menos ${MIN_COMENTARIO_TE} caracteres (llevas ${comentario.trim().length}).`}>
+              <AreaTexto id="te-comentario" rows={3} value={comentario} onChange={e => setComentario(e.target.value)} placeholder="¿Por qué se necesita el tiempo extra?" />
+            </Campo>
+            <Ayuda clave="solicitar.comentario" />
           </div>
-          <div>
-            <label className={lbl} htmlFor="te-motivo">Motivo</label>
-            <select id="te-motivo" value={motivo} onChange={e => { setMotivo(e.target.value); if (e.target.value !== MOTIVO_OTRO) setMotivoOtro(''); }} className={inp}>
-              <option value="">Elige el motivo…</option>
-              {MOTIVOS_TE.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-            <Ayuda clave="solicitar.motivo" />
-            {motivo === MOTIVO_OTRO && (
-              <div className="mt-2">
-                <label className={lbl} htmlFor="te-motivo-otro">¿Cuál? <span className="text-[var(--status-error-text)]">(obligatorio)</span></label>
-                <input id="te-motivo-otro" value={motivoOtro} maxLength={MAX_MOTIVO_OTRO} onChange={e => setMotivoOtro(e.target.value)} className={inp} placeholder="Escribe el motivo" />
-                <p className="mt-0.5 text-right text-[10px] text-[var(--text-muted)]">{motivoOtro.length}/{MAX_MOTIVO_OTRO}</p>
+        </section>
+      </Tarjeta>
+
+      <Tarjeta
+        titulo={<>Empleados <span className="ml-1 font-mono text-[var(--text-secondary)]">{empleados.length}</span></>}
+        accion={<Boton id="btn-agregar-empleados" data-tour="solicitar-agregar" icono={Plus} disabled={!areaActual || ocupado} onClick={() => setSelectorAbierto(true)}>Agregar empleados</Boton>}
+        cuerpoClassName="p-5 sm:p-6"
+      >
+        <section aria-label="Empleados">
+          <Ayuda clave="solicitar.agregar" className="-mt-2 mb-3" />
+
+          {empleados.length > 0 && (
+            <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface-secondary)] p-4" role="group" aria-label="Aplicar a todos o a los seleccionados">
+              <span className="w-full text-xs font-medium text-[var(--text-secondary)]">Aplicar a {seleccion.size ? `los ${seleccion.size} seleccionados` : 'todos'}:</span>
+              {!extension && (
+                <Selector aria-label="Entrada para aplicar" value={bulk.entrada} onChange={e => setBulk(b => ({ ...b, entrada: e.target.value }))} className="!w-auto">
+                  <option value="">Entrada…</option>{HORAS_ENTRADA_TE.map(h => <option key={h} value={h}>{h}</option>)}
+                </Selector>
+              )}
+              <Selector aria-label={extension ? 'Hora hasta la que se quedan, para aplicar' : 'Salida para aplicar'} value={bulk.salida} onChange={e => setBulk(b => ({ ...b, salida: e.target.value }))} className="!w-auto">
+                <option value="">{extension ? 'Se quedan hasta…' : 'Salida…'}</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{h}</option>)}
+              </Selector>
+              <Boton tamano="sm" onClick={aplicarHorario}>Aplicar horario</Boton>
+              <Boton tamano="sm" onClick={() => aplicarMasivo({ alimentos: true })}>Con alimentos</Boton>
+              <Boton tamano="sm" onClick={() => aplicarMasivo({ alimentos: false })}>Sin alimentos</Boton>
+              <Boton tamano="sm" onClick={() => aplicarMasivo({ transporteLlegada: !extension, transporteSalida: true })}>Con transporte</Boton>
+              <Boton tamano="sm" onClick={() => aplicarMasivo({ transporteLlegada: false, transporteSalida: false })}>Sin transporte</Boton>
+              {empleados.some(e => e.transporte && e.necesitaConfirmar && !e.confirmada) && (
+                <Boton tamano="sm" variante="secundario" icono={AlertTriangle} onClick={confirmarRutasPrecargadas}>Confirmar las rutas del padrón</Boton>
+              )}
+              {seleccion.size > 0 && <Boton tamano="sm" variante="fantasma" onClick={() => setSeleccion(new Set())}>Quitar selección</Boton>}
+              <Ayuda clave="solicitar.aplicar" className="w-full" />
+            </div>
+          )}
+
+          {empleados.length === 0 ? (
+            <div data-tour="solicitar-empleados" className="rounded-lg border border-dashed border-[var(--border-color)]">
+              <EstadoVacio texto="Aún no hay empleados. Usa «Agregar empleados» para elegir a quienes harán tiempo extra." />
+            </div>
+          ) : (
+            <div className="space-y-3" data-tour="solicitar-empleados">
+              <div className={`hidden px-3 text-xs font-medium text-[var(--text-muted)] ${COLUMNAS_FILA}`}>
+                <span /><span>Empleado</span>
+                <span>{extension ? 'Termina su turno' : 'Entrada'}<Ayuda clave={extension ? 'solicitar.finTurno' : 'solicitar.entrada'} className="normal-case tracking-normal font-normal" /></span>
+                <span>{extension ? 'Se queda hasta' : 'Salida'}<Ayuda clave={extension ? 'solicitar.hasta' : 'solicitar.salida'} className="normal-case tracking-normal font-normal" /></span>
+                <span className="text-center">Horas<Ayuda clave="solicitar.horas" className="normal-case tracking-normal font-normal" /></span>
+                <span className="text-center">Alimentos<Ayuda clave="solicitar.alimentos" className="normal-case tracking-normal font-normal" /></span>
+                <span className="text-center">Transporte<Ayuda clave="solicitar.transporte" className="normal-case tracking-normal font-normal" /></span><span />
               </div>
-            )}
-          </div>
-        </div>
-
-        <fieldset className="mt-4">
-          <legend className={lbl}>Tipo de tiempo extra</legend>
-          <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Tipo de tiempo extra">
-            {TIPOS_TE_INFO.map(t => (
-              <label key={t.value} className={`flex cursor-pointer items-start gap-2.5 rounded-lg border-2 p-3 text-xs ${tipo === t.value ? 'border-[var(--cm-red)] bg-[var(--cm-red-light)]' : 'border-[var(--border-color)] hover:border-[var(--text-muted)]'}`}>
-                <input type="radio" name="te-tipo" value={t.value} checked={tipo === t.value} onChange={() => cambiarTipo(t.value)} disabled={ocupado} className="mt-0.5 h-4 w-4 accent-[var(--cm-red)]" />
-                <span>
-                  <span className="block text-sm font-bold text-[var(--text-main)]">{t.label}</span>
-                  <span className="mt-0.5 block text-[var(--text-secondary)]">{t.value === TIPOS_TE.EXTENSION ? 'El empleado ya está en la planta y se queda más tiempo.' : 'El empleado viene a la planta para el tiempo extra.'}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-          <Ayuda clave="solicitar.tipo" />
-        </fieldset>
-
-        <div className="mt-4">
-          <label className={lbl} htmlFor="te-comentario">Comentario <span className="text-[var(--status-error-text)]">*</span> <span className="text-[var(--text-muted)]">(al menos {MIN_COMENTARIO_TE} caracteres: {comentario.trim().length})</span></label>
-          <textarea id="te-comentario" rows={2} value={comentario} onChange={e => setComentario(e.target.value)} className={inp} placeholder="¿Por qué se necesita el tiempo extra?" />
-          <Ayuda clave="solicitar.comentario" />
-        </div>
-      </section>
-
-      <section aria-label="Empleados" className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5 shadow-sm">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-subtle)] pb-2">
-          <h2 className="text-sm font-semibold text-[var(--text-main)]">Empleados <span className="ml-1 text-[var(--accent-text)]">{empleados.length}</span></h2>
-          <button type="button" id="btn-agregar-empleados" data-tour="solicitar-agregar" disabled={!areaActual || ocupado} onClick={() => setSelectorAbierto(true)}
-            className={`${btn} border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]`}><Plus className="h-3.5 w-3.5" />Agregar empleados</button>
-        </div>
-        <Ayuda clave="solicitar.agregar" className="-mt-2 mb-3" />
-
-        {empleados.length > 0 && (
-          <div className="mb-3 flex flex-wrap items-end gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface-secondary)] p-3" role="group" aria-label="Aplicar a todos o a los seleccionados">
-            <span className="w-full text-[11px] font-semibold text-[var(--text-secondary)]">Aplicar a {seleccion.size ? `los ${seleccion.size} seleccionados` : 'todos'}:</span>
-            {!extension && (
-              <select aria-label="Entrada para aplicar" value={bulk.entrada} onChange={e => setBulk(b => ({ ...b, entrada: e.target.value }))} className={`${inp} !w-auto`}>
-                <option value="">Entrada…</option>{HORAS_ENTRADA_TE.map(h => <option key={h} value={h}>{h}</option>)}
-              </select>
-            )}
-            <select aria-label={extension ? 'Hora hasta la que se quedan, para aplicar' : 'Salida para aplicar'} value={bulk.salida} onChange={e => setBulk(b => ({ ...b, salida: e.target.value }))} className={`${inp} !w-auto`}>
-              <option value="">{extension ? 'Se quedan hasta…' : 'Salida…'}</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{h}</option>)}
-            </select>
-            <button type="button" onClick={aplicarHorario} className={`${btn} border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] !px-3`}>Aplicar horario</button>
-            <button type="button" onClick={() => aplicarMasivo({ alimentos: true })} className={`${btn} border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] !px-3`}>Con alimentos</button>
-            <button type="button" onClick={() => aplicarMasivo({ alimentos: false })} className={`${btn} border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] !px-3`}>Sin alimentos</button>
-            <button type="button" onClick={() => aplicarMasivo({ transporteLlegada: !extension, transporteSalida: true })} className={`${btn} border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] !px-3`}>Con transporte</button>
-            <button type="button" onClick={() => aplicarMasivo({ transporteLlegada: false, transporteSalida: false })} className={`${btn} border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] !px-3`}>Sin transporte</button>
-            {empleados.some(e => e.transporte && e.necesitaConfirmar && !e.confirmada) && (
-              <button type="button" onClick={confirmarRutasPrecargadas} className={`${btn} bg-[var(--status-warning-text)] text-white !px-3`}>Confirmar las rutas del padrón</button>
-            )}
-            {seleccion.size > 0 && <button type="button" onClick={() => setSeleccion(new Set())} className="text-[11px] font-semibold text-[var(--accent-text)] hover:underline cursor-pointer">Quitar selección</button>}
-            <Ayuda clave="solicitar.aplicar" className="w-full" />
-          </div>
-        )}
-
-        {empleados.length === 0 ? (
-          <div data-tour="solicitar-empleados" className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-[var(--border-color)] py-10 text-center text-xs text-[var(--text-secondary)]">
-            <Users className="h-8 w-8 text-[var(--text-muted)]" />Aún no hay empleados. Usa "Agregar empleados" para elegir a quienes harán tiempo extra.
-          </div>
-        ) : (
-          <div className="space-y-2" data-tour="solicitar-empleados">
-            <div className={`hidden px-3 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] ${COLUMNAS_FILA}`}>
-              <span /><span>Empleado</span>
-              <span>{extension ? 'Termina su turno' : 'Entrada'}<Ayuda clave={extension ? 'solicitar.finTurno' : 'solicitar.entrada'} className="normal-case tracking-normal font-normal" /></span>
-              <span>{extension ? 'Se queda hasta' : 'Salida'}<Ayuda clave={extension ? 'solicitar.hasta' : 'solicitar.salida'} className="normal-case tracking-normal font-normal" /></span>
-              <span className="text-center">Horas<Ayuda clave="solicitar.horas" className="normal-case tracking-normal font-normal" /></span>
-              <span className="text-center">Alimentos<Ayuda clave="solicitar.alimentos" className="normal-case tracking-normal font-normal" /></span>
-              <span className="text-center">Transporte<Ayuda clave="solicitar.transporte" className="normal-case tracking-normal font-normal" /></span><span />
+              <div className="space-y-1 rounded-md bg-[var(--bg-surface-secondary)] p-2 lg:hidden">
+                <Ayuda clave={extension ? 'solicitar.finTurno' : 'solicitar.entrada'} className="!mt-0" />
+                <Ayuda clave={extension ? 'solicitar.hasta' : 'solicitar.salida'} className="!mt-0" />
+                <Ayuda clave="solicitar.alimentos" className="!mt-0" />
+                <Ayuda clave="solicitar.transporte" className="!mt-0" />
+              </div>
+              {empleados.map(e => (
+                <FilaEmpleadoTE key={e.nomina} e={e} tipo={tipo} finFijo={!!finDeTurno(e.turnoNomina, turnos)} rutas={rutas} comunidades={comunidades} puntos={puntos} seleccionado={seleccion.has(e.nomina)}
+                  aviso={avisoDe(e.nomina)} error={errorDe(e.nomina)} onSeleccionar={alternarSeleccion} onCambio={cambiar} onQuitar={quitar} />
+              ))}
+              <Ayuda clave="solicitar.ruta" />
             </div>
-            <div className="space-y-1 rounded-md bg-[var(--bg-surface-secondary)] p-2 lg:hidden">
-              <Ayuda clave={extension ? 'solicitar.finTurno' : 'solicitar.entrada'} className="!mt-0" />
-              <Ayuda clave={extension ? 'solicitar.hasta' : 'solicitar.salida'} className="!mt-0" />
-              <Ayuda clave="solicitar.alimentos" className="!mt-0" />
-              <Ayuda clave="solicitar.transporte" className="!mt-0" />
-            </div>
-            {empleados.map(e => (
-              <FilaEmpleadoTE key={e.nomina} e={e} tipo={tipo} finFijo={!!finDeTurno(e.turnoNomina, turnos)} rutas={rutas} comunidades={comunidades} puntos={puntos} seleccionado={seleccion.has(e.nomina)}
-                aviso={avisoDe(e.nomina)} error={errorDe(e.nomina)} onSeleccionar={alternarSeleccion} onCambio={cambiar} onQuitar={quitar} />
-            ))}
-            <Ayuda clave="solicitar.ruta" />
-          </div>
-        )}
-      </section>
+          )}
+        </section>
+      </Tarjeta>
 
       {/* Rutas distintas: cada ruta adicional cuesta, así que más de una se justifica */}
       {infoRutas.rutasDistintas > 0 && (
-        <section aria-label="Rutas" className={`rounded-lg border p-4 ${variasRutas ? 'border-[var(--status-warning-border)] bg-[var(--status-warning-bg)]' : 'border-[var(--border-color)] bg-[var(--bg-surface)]'}`}>
-          <p className={`flex items-center gap-2 text-sm font-semibold ${variasRutas ? 'text-[var(--status-warning-text)]' : 'text-[var(--text-main)]'}`}><Route className="h-4 w-4" />{textoRutas(infoRutas.desglose)}</p>
-          {variasRutas && (
-            <div className="mt-3 space-y-2">
-              <p className="text-xs font-medium text-[var(--status-warning-text)]">Cada ruta adicional representa un costo extra. Los autorizadores decidirán si se aprueba.</p>
-              <label className="block text-xs font-medium text-[var(--status-warning-text)]" htmlFor="te-justificacion-rutas">
-                ¿Por qué se necesita más de una ruta? <span className="text-[var(--status-error-text)]">*</span> <span className="opacity-80">(al menos {MIN_JUSTIFICACION_RUTAS} caracteres: {justificacionRutas.trim().length})</span>
-              </label>
-              <textarea id="te-justificacion-rutas" rows={2} value={justificacionRutas} onChange={e => setJustificacionRutas(e.target.value)} aria-invalid={intentoEnvio && faltaJustificacion}
-                className={`${inp} ${intentoEnvio && faltaJustificacion ? '!border-[var(--status-error-text)]' : ''}`} placeholder="Explica por qué no basta una sola ruta…" />
+        <section aria-label="Rutas">
+          {variasRutas ? (
+            <Aviso tono="aviso" titulo={textoRutas(infoRutas.desglose)} icon={Route}>
+              <p>Cada ruta adicional representa un costo extra. Los autorizadores decidirán si se aprueba.</p>
+              <Campo className="mt-3" etiqueta="¿Por qué se necesita más de una ruta?" obligatorio ayuda={`Al menos ${MIN_JUSTIFICACION_RUTAS} caracteres (llevas ${justificacionRutas.trim().length}).`}
+                error={intentoEnvio && faltaJustificacion ? 'Explica por qué no basta una sola ruta.' : undefined}>
+                <AreaTexto id="te-justificacion-rutas" rows={2} value={justificacionRutas} onChange={e => setJustificacionRutas(e.target.value)} placeholder="Explica por qué no basta una sola ruta…" />
+              </Campo>
               <Ayuda clave="solicitar.justificacionRutas" className="!text-[var(--status-warning-text)]" />
-            </div>
+            </Aviso>
+          ) : (
+            <div className="flex items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] px-5 py-3 text-sm font-medium text-[var(--text-main)]"><Route className="h-4 w-4 text-[var(--text-muted)]" aria-hidden="true" />{textoRutas(infoRutas.desglose)}</div>
           )}
         </section>
       )}
 
       {intentoEnvio && errores.length > 0 && (
-        <div id="problemas-te" role="alert" className="rounded-lg border border-[var(--status-error-border)] bg-[var(--status-error-bg)] p-4 text-xs text-[var(--status-error-text)]">
-          <p className="mb-1 font-bold">Antes de enviar corrige:</p>
-          <ul className="list-disc space-y-0.5 pl-5">{errores.slice(0, 12).map((p, i) => <li key={i}>{p.mensaje}</li>)}{errores.length > 12 && <li>…y {errores.length - 12} más</li>}</ul>
+        <div id="problemas-te">
+          <Aviso tono="error" titulo="Antes de enviar corrige:">
+            <ul className="list-disc space-y-1 pl-5">{errores.slice(0, 12).map((p, i) => <li key={i}>{p.mensaje}</li>)}{errores.length > 12 && <li>…y {errores.length - 12} más</li>}</ul>
+          </Aviso>
         </div>
       )}
 
-      {/* Resumen fijo abajo */}
-      <div data-tour="solicitar-resumen" className="sticky bottom-0 z-20 -mx-4 border-t border-[var(--border-color)] bg-[var(--bg-surface)] px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8" aria-label="Resumen">
+      {/* Barra fija abajo: el resumen y las acciones (la principal, Enviar, es el único botón rojo) */}
+      <div data-tour="solicitar-resumen" className="sticky bottom-0 z-20 -mx-4 border-t border-[var(--border-color)] bg-[var(--bg-surface)] px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10" aria-label="Resumen">
         {trabajo && (
-          <div className="mb-2" role="status">
-            <p className="flex items-center gap-2 text-xs font-semibold text-[var(--text-main)]"><Loader2 className="h-3.5 w-3.5 animate-spin" />{trabajo.texto}… lote {Math.min(trabajo.hechos + 1, trabajo.total)} de {trabajo.total}</p>
-            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[var(--bg-surface-secondary)]"><div className="h-full bg-[var(--cm-red)] transition-all" style={{ width: `${(trabajo.hechos / trabajo.total) * 100}%` }} /></div>
+          <div className="mb-3" role="status">
+            <p className="flex items-center gap-2 text-xs font-medium text-[var(--text-main)]"><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />{trabajo.texto}… lote {Math.min(trabajo.hechos + 1, trabajo.total)} de {trabajo.total}</p>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--bg-surface-hover)]"><div className="h-full bg-[var(--text-secondary)] transition-all duration-200" style={{ width: `${(trabajo.hechos / trabajo.total) * 100}%` }} /></div>
           </div>
         )}
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <dl className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
             {[['Empleados', resumen.totalEmpleados], ['Horas', resumen.totalHoras], ['Con transporte', resumen.totalTransporte], ['Con alimentos', resumen.totalAlimentos], ['Rutas', infoRutas.rutasDistintas]].map(([t, v]) => (
-              <div key={t} className="flex items-baseline gap-1"><dt className="text-[var(--text-secondary)]">{t}</dt><dd className={`text-base font-bold ${t === 'Rutas' && v > 1 ? 'text-[var(--status-warning-text)]' : 'text-[var(--text-main)]'}`}>{v}</dd></div>
+              <div key={t} className="flex items-baseline gap-1.5"><dt className="text-[var(--text-secondary)]">{t}</dt><dd className={`text-base font-medium tabular-nums ${t === 'Rutas' && v > 1 ? 'text-[var(--status-warning-text)]' : 'text-[var(--text-main)]'}`}>{v}</dd></div>
             ))}
             <div className="flex flex-wrap gap-1.5" aria-label="Empleados por horario">
-              {Object.entries(resumen.porBloque).map(([b, n]) => (
-                <span key={b} className="rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-secondary)]">{b}: {n}</span>
-              ))}
+              {Object.entries(resumen.porBloque).map(([b, n]) => <Insignia key={b} tono="neutro" sinIcono>{b}: {n}</Insignia>)}
             </div>
           </dl>
-          <div className="flex flex-wrap gap-2">
-            {existe && !esDevuelta && (
-              <button type="button" onClick={eliminarClick} disabled={ocupado}
-                className={`${btn} border border-[var(--status-error-border)] bg-[var(--bg-surface)] text-[var(--status-error-text)] hover:bg-[var(--status-error-bg)]`}><Trash2 className="h-3.5 w-3.5" />Eliminar borrador</button>
-            )}
-            {esDevuelta && (
-              <button type="button" onClick={cancelarClick} disabled={ocupado}
-                className={`${btn} border border-[var(--status-error-border)] bg-[var(--bg-surface)] text-[var(--status-error-text)] hover:bg-[var(--status-error-bg)]`}>Cancelar solicitud</button>
-            )}
-            <Link to="/tiempo-extra/mis-solicitudes" className={`${btn} border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]`}>Salir</Link>
-            <button type="button" id="btn-guardar-borrador" onClick={guardarBorradorClick} disabled={ocupado || !areaActual}
-              className={`${btn} border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]`}>
-              <Save className="h-3.5 w-3.5" />{esDevuelta ? 'Guardar cambios' : 'Guardar borrador'}{sinGuardar ? ' •' : ''}</button>
-            <button type="button" id="btn-enviar-autorizacion" data-tour="solicitar-enviar" onClick={enviarClick} disabled={ocupado || !areaActual}
-              className={`${btn} bg-[var(--cm-red)] text-white hover:bg-[var(--cm-red-hover)]`}><Send className="h-3.5 w-3.5" />{esDevuelta ? 'Reenviar a autorización' : 'Enviar a autorización'}</button>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+            <div className="grid grid-cols-2 gap-2 sm:flex">
+              {existe && !esDevuelta && <Boton variante="peligro" icono={Trash2} onClick={eliminarClick} disabled={ocupado}>Eliminar borrador</Boton>}
+              {esDevuelta && <Boton variante="peligro" onClick={cancelarClick} disabled={ocupado}>Cancelar solicitud</Boton>}
+              <Boton to="/tiempo-extra/mis-solicitudes" variante="fantasma">Salir</Boton>
+              <Boton id="btn-guardar-borrador" icono={Save} onClick={guardarBorradorClick} disabled={ocupado || !areaActual}>{esDevuelta ? 'Guardar cambios' : 'Guardar borrador'}{sinGuardar ? ' •' : ''}</Boton>
+            </div>
+            <Boton id="btn-enviar-autorizacion" data-tour="solicitar-enviar" variante="primario" icono={Send} onClick={enviarClick} disabled={ocupado || !areaActual}>{esDevuelta ? 'Reenviar a autorización' : 'Enviar a autorización'}</Boton>
           </div>
         </div>
         <Ayuda clave="solicitar.resumen" />

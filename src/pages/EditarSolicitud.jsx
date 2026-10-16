@@ -206,8 +206,8 @@ export default function EditarSolicitud() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="border-b border-[var(--border-color)] pb-4">
-        <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Operacion · Solicitudes</div>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Editar solicitud de transporte</h1>
+        <div className="text-xs font-semibold text-[var(--text-muted)]">Operacion · Solicitudes</div>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[var(--text-main)]">Editar solicitud de transporte</h1>
         <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Folio: {id.slice(0, 8)}</p>
       </div>
 

@@ -24,12 +24,12 @@ const linea = { background: COLOR_LINEA };
 
 function Leyenda() {
   return (
-    <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[var(--text-secondary)]" aria-label="Leyenda">
+    <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-secondary)]" aria-label="Leyenda">
       {[['aut2', 'Nivel 2'], ['aut1', 'Nivel 1'], ['solicitante', 'Solicitante']].map(([rol, texto]) => {
         const n = NIVELES[rol];
         return <li key={rol} className="inline-flex items-center gap-1"><n.Icono className="h-3 w-3" style={{ color: n.acento }} />{texto}</li>;
       })}
-      <li className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-500" />Sin usuario</li>
+      <li className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[var(--status-warning-text)]" />Sin usuario</li>
     </ul>
   );
 }
@@ -39,7 +39,7 @@ function Riel({ rol, texto }) {
   const n = NIVELES[rol];
   return (
     <div className="self-start pt-1 pr-3">
-      <span className="inline-flex items-center gap-1.5 rounded-md border-l-[3px] bg-[var(--bg-surface-secondary)] px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]"
+      <span className="inline-flex items-center gap-1.5 rounded-md border-l-[3px] bg-[var(--bg-surface-secondary)] px-2 py-1 text-xs font-semibold text-[var(--text-secondary)]"
         style={{ borderLeftColor: n.acento }}>
         <n.Icono className="h-3 w-3" style={{ color: n.acento }} />{texto}
       </span>
@@ -86,7 +86,7 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, puestos
   const puedeAsignarAut2 = asignables.includes(ROL_OP.AUT2);
   const nodoPlanta = (
     <section aria-label="Nivel 2 · Planta" className="mx-auto w-fit max-w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-3">
-      <h3 className="mb-2 flex items-center justify-center gap-1.5 text-center text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+      <h3 className="mb-2 flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-[var(--text-secondary)]">
         <ShieldCheck className="h-3.5 w-3.5" style={{ color: NIVELES.aut2.acento }} />Nivel 2 · Planta
       </h3>
       {org.aut2.length === 0 ? (
@@ -103,7 +103,7 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, puestos
   );
 
   const cabeceraArea = (col) => (
-    <h3 className="mb-2 text-center text-xs font-bold uppercase tracking-wider text-[var(--text-main)]">
+    <h3 className="mb-2 text-center text-xs font-semibold text-[var(--text-main)]">
       {col.area.nombre} <span className="font-normal normal-case tracking-normal text-[var(--text-secondary)]">· {textoConteo(col.solicitantes.length)}</span>
     </h3>
   );
@@ -113,7 +113,7 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, puestos
   const listaSolicitantes = (col) => (
     <div className="space-y-1">
       {col.solicitantes.map(t => <FilaSolicitante key={t.id} t={t} formato={formato} conTick={false} estado={estadoDe(t)} onAbrir={abrir} />)}
-      {col.solicitantes.length === 0 && <p className="px-1 py-0.5 text-center text-[10px] text-[var(--text-muted)]">Sin solicitantes</p>}
+      {col.solicitantes.length === 0 && <p className="px-1 py-0.5 text-center text-xs text-[var(--text-muted)]">Sin solicitantes</p>}
       {asignables.includes(ROL_OP.SOLICITANTE) && <div className="pt-0.5"><BotonAgregar onClick={() => asignar(ROL_OP.SOLICITANTE, col.area.id)}>Solicitante</BotonAgregar></div>}
     </div>
   );
@@ -177,22 +177,22 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, puestos
         {org.columnas.map(col => (
           <details key={col.area.id} open className="group rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-main)]">
+              <span className="text-xs font-semibold text-[var(--text-main)]">
                 {col.area.nombre} <span className="font-normal normal-case tracking-normal text-[var(--text-secondary)]">· {textoConteo(col.solicitantes.length)}</span>
               </span>
               <ChevronDown className="h-4 w-4 text-[var(--text-muted)] transition-transform group-open:rotate-180" />
             </summary>
             <div className="space-y-2 border-t border-[var(--border-subtle)] p-3">
-              <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]"><BadgeCheck className="h-3 w-3" />Nivel 1</p>
+              <p className="flex items-center gap-1 text-xs font-semibold text-[var(--text-muted)]"><BadgeCheck className="h-3 w-3" />Nivel 1</p>
               {bloqueAut1(col, false)}
-              <p className="flex items-center gap-1 pt-1 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]"><User className="h-3 w-3" />Solicitantes</p>
+              <p className="flex items-center gap-1 pt-1 text-xs font-semibold text-[var(--text-muted)]"><User className="h-3 w-3" />Solicitantes</p>
               <div className="ml-4 border-l-2 pl-3" style={{ borderColor: COLOR_LINEA }}>{listaSolicitantes(col)}</div>
             </div>
           </details>
         ))}
       </div>
 
-      <p className="text-[10px] text-[var(--text-muted)]">
+      <p className="text-xs text-[var(--text-muted)]">
         Solo muestra asignaciones vigentes hoy. Las temporales dejan de aparecer solas al llegar su fecha final. Clic en una persona para ver su detalle (las de un nivel superior al tuyo no se abren).
       </p>
 

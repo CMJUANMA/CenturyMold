@@ -219,19 +219,19 @@ export default function PuestoCombobox({
             </button>
           </div>
           {!aviso && (
-            <p className="text-[10px] text-[var(--text-muted)]">Se guardara en mayusculas y sin espacios dobles.</p>
+            <p className="text-xs text-[var(--text-muted)]">Se guardara en mayusculas y sin espacios dobles.</p>
           )}
         </div>
       )}
 
       {esNuevo && !modoOtro && !abierto && (
-        <p className="mt-1 flex items-center gap-1 text-[10px] text-[var(--text-muted)]">
+        <p className="mt-1 flex items-center gap-1 text-xs text-[var(--text-muted)]">
           <Sparkles className="h-3 w-3" />Puesto nuevo: se agregara a la lista al guardar.
         </p>
       )}
 
       {aviso?.tipo === 'exacto' && (
-        <div className="mt-1.5 flex items-start gap-1.5 rounded-md bg-[var(--status-success-bg)] border border-[var(--status-success-border)] px-2.5 py-2 text-[10px] text-[var(--status-success-text)]">
+        <div className="mt-1.5 flex items-start gap-1.5 rounded-md bg-[var(--status-success-bg)] border border-[var(--status-success-border)] px-2.5 py-2 text-xs text-[var(--status-success-text)]">
           <Check className="h-3.5 w-3.5 mt-0.5 shrink-0" />
           <span>Ya existe el puesto &quot;<strong>{aviso.puesto}</strong>&quot;. Se usara ese para evitar duplicados.</span>
         </div>
@@ -239,17 +239,17 @@ export default function PuestoCombobox({
 
       {aviso?.tipo === 'similar' && (
         <div className="mt-1.5 rounded-md bg-[var(--status-warning-bg)] border border-[var(--status-warning-border)] px-2.5 py-2 space-y-1.5">
-          <div className="flex items-start gap-1.5 text-[10px] text-[var(--status-warning-text)]">
+          <div className="flex items-start gap-1.5 text-xs text-[var(--status-warning-text)]">
             <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
             <span>¿Quisiste decir &quot;<strong>{aviso.sugerido}</strong>&quot;?</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
             <button type="button" onClick={usarSugerido}
-              className="rounded border border-[var(--status-warning-border)] bg-[var(--bg-surface)] px-2 py-0.5 text-[10px] font-semibold text-[var(--status-warning-text)] hover:bg-[var(--status-warning-bg)] transition-colors">
+              className="rounded border border-[var(--status-warning-border)] bg-[var(--bg-surface)] px-2 py-0.5 text-xs font-semibold text-[var(--status-warning-text)] hover:bg-[var(--status-warning-bg)] transition-colors">
               Usar {aviso.sugerido}
             </button>
             <button type="button" onClick={esDistinto}
-              className="rounded border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-surface-secondary)] transition-colors">
+              className="rounded border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-0.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-secondary)] transition-colors">
               Es distinto
             </button>
           </div>

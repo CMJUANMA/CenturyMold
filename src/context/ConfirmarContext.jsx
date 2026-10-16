@@ -56,7 +56,7 @@ export function ConfirmarProvider({ children }) {
                     className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]" />
                 )}
                 {minLength > 1 && (
-                  <p className="mt-1 text-[10px] text-[var(--text-muted)]">Mínimo {minLength} caracteres ({texto.trim().length}/{minLength}).</p>
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">Mínimo {minLength} caracteres ({texto.trim().length}/{minLength}).</p>
                 )}
               </div>
             )}

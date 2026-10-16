@@ -6,8 +6,8 @@
  * (así llega el enlace desde la pantalla de transporte).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Download, Eye, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Download, Eye, FileSpreadsheet } from 'lucide-react';
 import { useAccesos } from '../../hooks/useAccesos';
 import { useAreas } from '../../hooks/useAreas';
 import { useCatalogos } from '../../hooks/useCatalogos';
@@ -18,7 +18,14 @@ import AyudaPantalla from '../../components/AyudaPantalla';
 import BadgeEstatus from '../../components/BadgeEstatus';
 import InsigniasTE from '../../components/InsigniasTE';
 import Modal from '../../components/Modal';
-import Spinner from '../../components/Spinner';
+import Aviso from '../../components/ui/Aviso';
+import Boton from '../../components/ui/Boton';
+import { Campo, Entrada, Selector } from '../../components/ui/Campo';
+import EncabezadoPagina from '../../components/ui/EncabezadoPagina';
+import EstadoVacio from '../../components/ui/EstadoVacio';
+import { EsqueletoIndicadores, EsqueletoPagina, EsqueletoTabla } from '../../components/ui/Esqueleto';
+import { Fila, Tabla, Td, Th } from '../../components/ui/Tabla';
+import { Indicador } from '../../components/ui/Tarjeta';
 import { ESTATUS_TE_MAP } from '../../utils/constantes';
 import { formatoFecha, aFecha } from '../../utils/asignaciones';
 import { crearFormateadorNombres } from '../../utils/nombresPersona';
@@ -30,19 +37,8 @@ import { RUTAS } from '../../rutas';
 import { BotonDescargaResumenTE } from './DescargaTE';
 import DetalleTE from './DetalleTE';
 
-const campo = 'rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]';
 const AUTORIZADAS = ['autorizada', 'procesada'];
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-function Tarjeta({ titulo, valor, ayuda }) {
-  return (
-    <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 shadow-sm">
-      <h3 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">{titulo}</h3>
-      <p className="mt-2 text-3xl font-bold text-[var(--text-main)]">{valor}</p>
-      {ayuda && <p className="mt-1 text-[11px] text-[var(--text-secondary)]">{ayuda}</p>}
-    </div>
-  );
-}
 
 export default function ConsultaTE() {
   const { planta, cargando, error } = useResumenTE();
@@ -101,7 +97,7 @@ export default function ConsultaTE() {
   const accionesDeRH = (t) => {
     if (!esRH) return null;
     if (t.estatus === 'autorizada') {
-      return <Link to={RUTAS.teRecepcion} className="text-xs font-semibold text-[var(--accent-text)] hover:underline">Esta solicitud está por confirmar: ir a «Por enviar al proveedor»</Link>;
+      return <Boton to={RUTAS.teRecepcion} variante="contorno">Está por confirmar: ir a «Por enviar al proveedor»</Boton>;
     }
     return t.estatus === 'procesada' ? <AccionesRH t={t} acciones={['cancelar']} onHecho={() => setDetalle(null)} /> : null;
   };
@@ -121,93 +117,110 @@ export default function ConsultaTE() {
     } catch (err) { toast.error('No se pudo exportar: ' + err.message, 8000); } finally { setExportando(null); }
   };
 
-  if (cargando) return <Spinner />;
+  if (cargando) return <div className="space-y-8"><EsqueletoPagina bloques={0} /><EsqueletoIndicadores cantidad={3} className="grid gap-4 sm:grid-cols-3" /><EsqueletoTabla filas={5} columnas={7} /></div>;
+  const hayFiltros = Object.values(filtros).some(Boolean);
+  const limpiar = () => setFiltros({ areaId: '', estatus: '', desde: '', hasta: '', solicitante: '' });
   return (
-    <div className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--border-color)] pb-4">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Tiempo extra</div>
-          <div className="mt-1 flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">Todas las solicitudes</h1>
-            <AyudaPantalla id="consulta" />
-          </div>
-          <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Todas las solicitudes enviadas (los borradores solo los ve su creador).</p>
-        </div>
-        <div className="flex flex-wrap items-start gap-4">
-          {esRH && (
-            <div className="max-w-[16rem]">
-            <BotonDescargaResumenTE id="btn-descargar-te-consulta" icono={FileSpreadsheet} areas={areas} nombresArea={nombres}
-              catalogos={{ rutas, comunidades, puntos }} nombre={(x) => formato.nombre(x)} />
+    <div className="space-y-8">
+      <EncabezadoPagina
+        antetitulo="Tiempo extra"
+        titulo="Todas las solicitudes"
+        descripcion="Todas las solicitudes enviadas (los borradores solo los ve su creador)."
+        ayuda={<AyudaPantalla id="consulta" />}
+        accion={(
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+            {esRH && (
+              <div className="max-w-xs">
+                <BotonDescargaResumenTE id="btn-descargar-te-consulta" icono={FileSpreadsheet} areas={areas} nombresArea={nombres}
+                  catalogos={{ rutas, comunidades, puntos }} nombre={(x) => formato.nombre(x)} />
+              </div>
+            )}
+            <div className="max-w-xs">
+              <Boton id="btn-exportar-consulta" icono={Download} estado={exportando ? 'cargando' : undefined} onClick={exportar} disabled={!!exportando || filtradas.length === 0}>
+                {exportando ? `Leyendo empleados ${exportando.hechos}/${exportando.total}…` : `Exportar consulta (${filtradas.length})`}
+              </Boton>
+              <Ayuda>Lista de las solicitudes que ves en pantalla (con los filtros), con su estatus y quién firmó. No es el reporte de nómina.</Ayuda>
             </div>
-          )}
-          <div className="max-w-[16rem]">
-          <button type="button" id="btn-exportar-consulta" onClick={exportar} disabled={!!exportando || filtradas.length === 0}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-4 py-2 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] disabled:opacity-50">
-            {exportando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            {exportando ? `Leyendo empleados ${exportando.hechos}/${exportando.total}…` : `Exportar consulta (${filtradas.length})`}
-          </button>
-          <Ayuda>Lista de las solicitudes que ves en pantalla (con los filtros), con su estatus y quién firmó. No es el reporte de nómina.</Ayuda>
           </div>
-        </div>
-      </header>
+        )}
+      />
 
-      {error && <p role="alert" className="flex items-center gap-2 text-xs text-[var(--status-error-text)]"><AlertTriangle className="h-4 w-4" />No se pudieron leer las solicitudes: {error.message}</p>}
+      {error && <Aviso tono="error" titulo="No se pudieron leer las solicitudes">{error.message}. Revisa tu conexión y vuelve a abrir esta pantalla.</Aviso>}
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Tarjeta titulo="Pendientes por nivel" valor={`${pendientes1} · ${pendientes2}`} ayuda="Nivel 1 · Nivel 2" />
-        <Tarjeta titulo="Autorizadas esta semana" valor={autorizadasSemana} />
-        <Tarjeta titulo="Autorizadas del mes" valor={delMes.reduce((a, x) => a + x.empleados, 0)} ayuda={`empleados · ${Math.round(delMes.reduce((a, x) => a + x.horas, 0) * 100) / 100} horas`} />
-      </div>
-      <div className="overflow-x-auto rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
-        <table className="w-full text-left text-xs">
-          <caption className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] px-4 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Horas y empleados autorizados del mes, por área</caption>
-          <thead className="text-[var(--text-muted)]"><tr><th className="px-4 py-2">Área</th><th className="px-4 py-2 text-right">Empleados</th><th className="px-4 py-2 text-right">Horas</th></tr></thead>
-          <tbody className="divide-y divide-[var(--border-subtle)]">
-            {delMes.map(x => <tr key={x.id}><td className="px-4 py-2">{x.nombre}</td><td className="px-4 py-2 text-right">{x.empleados}</td><td className="px-4 py-2 text-right">{x.horas}</td></tr>)}
-          </tbody>
-        </table>
+        <Indicador etiqueta="Pendientes por nivel" valor={`${pendientes1} · ${pendientes2}`} ayuda="Nivel 1 · Nivel 2" />
+        <Indicador etiqueta="Autorizadas esta semana" valor={autorizadasSemana} ayuda="solicitudes" />
+        <Indicador etiqueta="Autorizadas del mes" valor={delMes.reduce((a, x) => a + x.empleados, 0)} ayuda={`empleados · ${Math.round(delMes.reduce((a, x) => a + x.horas, 0) * 100) / 100} horas`} />
       </div>
 
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-3" role="group" aria-label="Filtros">
-        <label className="text-[11px] font-medium text-[var(--text-secondary)]">Área
-          <select value={filtros.areaId} onChange={e => setFiltros(f => ({ ...f, areaId: e.target.value }))} className={`${campo} mt-0.5 block`}>
-            <option value="">Todas</option>{areas.filter(a => a.participaTE !== undefined).map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
-          </select>
-        </label>
-        <label className="text-[11px] font-medium text-[var(--text-secondary)]">Estatus
-          <select value={filtros.estatus} onChange={e => setFiltros(f => ({ ...f, estatus: e.target.value }))} className={`${campo} mt-0.5 block`}>
-            <option value="">Todos</option>{ESTATUS_TE_VISIBLES.map(s => <option key={s} value={s}>{ESTATUS_TE_MAP[s].label}</option>)}
-          </select>
-        </label>
-        <label className="text-[11px] font-medium text-[var(--text-secondary)]">Fecha del TE desde<input type="date" value={filtros.desde} onChange={e => setFiltros(f => ({ ...f, desde: e.target.value }))} className={`${campo} mt-0.5 block`} /></label>
-        <label className="text-[11px] font-medium text-[var(--text-secondary)]">hasta<input type="date" value={filtros.hasta} min={filtros.desde} onChange={e => setFiltros(f => ({ ...f, hasta: e.target.value }))} className={`${campo} mt-0.5 block`} /></label>
-        <label className="text-[11px] font-medium text-[var(--text-secondary)]">Solicitante
-          <input type="search" value={filtros.solicitante} placeholder="Nombre o nómina" onChange={e => setFiltros(f => ({ ...f, solicitante: e.target.value }))} className={`${campo} mt-0.5 block`} />
-        </label>
-        {Object.values(filtros).some(Boolean) && <button type="button" onClick={() => setFiltros({ areaId: '', estatus: '', desde: '', hasta: '', solicitante: '' })} className="cursor-pointer pb-1.5 text-[11px] font-semibold text-[var(--accent-text)] hover:underline">Limpiar</button>}
-      </div>
-
-      <div className="overflow-x-auto rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] shadow-sm">
-        <table className="w-full text-left text-xs">
-          <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold uppercase tracking-wider">
-            <tr><th className="px-3 py-3">Folio</th><th className="px-3 py-3">Área</th><th className="px-3 py-3">Solicitante</th><th className="px-3 py-3">Fecha del TE</th><th className="px-3 py-3 text-right">Empleados</th><th className="px-3 py-3 text-right">Horas</th><th className="px-3 py-3">Estatus</th><th className="px-3 py-3" /></tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--border-subtle)]">
-            {filtradas.length === 0 ? <tr><td colSpan={8} className="py-10 text-center text-[var(--text-muted)]">No hay solicitudes con esos filtros.</td></tr> : filtradas.map(t => (
-              <tr key={t.id} className="hover:bg-[var(--bg-surface-secondary)]">
-                <td className="px-3 py-2.5 font-mono font-semibold">{t.folio ?? '—'}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></td><td className="px-3 py-2.5">{nombreArea(t.areaId)}</td><td className="px-3 py-2.5">{formato.nombre(t.creadoPorNombre ?? '')}</td>
-                <td className="px-3 py-2.5 whitespace-nowrap">{formatoFecha(`${t.fechaTE}T12:00:00`)}</td><td className="px-3 py-2.5 text-right">{t.resumen?.totalEmpleados ?? 0}</td><td className="px-3 py-2.5 text-right">{t.resumen?.totalHoras ?? 0}</td>
-                <td className="px-3 py-2.5"><BadgeEstatus estatus={t.estatus} modulo="te" /></td>
-                <td className="px-3 py-2.5 text-right"><button type="button" onClick={() => abrir(t)} className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-[var(--border-color)] px-2.5 py-1.5 text-xs font-semibold hover:bg-[var(--bg-surface-hover)]" aria-label={`Ver ${t.folio}`}><Eye className="h-3 w-3" />Ver</button></td>
-              </tr>
-            ))}
+      <section aria-label="Autorizado del mes por área" className="space-y-3">
+        <h2 className="text-lg font-semibold text-[var(--text-main)]">Autorizado del mes, por área</h2>
+        <Tabla etiqueta="Horas y empleados autorizados del mes, por área">
+          <thead><tr><Th>Área</Th><Th derecha>Empleados</Th><Th derecha>Horas</Th></tr></thead>
+          <tbody>
+            {delMes.map(x => <Fila key={x.id}><Td>{x.nombre}</Td><Td derecha>{x.empleados}</Td><Td derecha mono>{x.horas}</Td></Fila>)}
           </tbody>
-        </table>
-      </div>
+        </Tabla>
+      </section>
+
+      <section aria-label="Solicitudes" className="space-y-4">
+        <h2 className="text-lg font-semibold text-[var(--text-main)]">Solicitudes</h2>
+        <div className="grid gap-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 sm:grid-cols-2 lg:grid-cols-5 lg:items-end" role="group" aria-label="Filtros">
+          <Campo etiqueta="Área">
+            <Selector value={filtros.areaId} onChange={e => setFiltros(f => ({ ...f, areaId: e.target.value }))}>
+              <option value="">Todas</option>{areas.filter(a => a.participaTE !== undefined).map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+            </Selector>
+          </Campo>
+          <Campo etiqueta="Estatus">
+            <Selector value={filtros.estatus} onChange={e => setFiltros(f => ({ ...f, estatus: e.target.value }))}>
+              <option value="">Todos</option>{ESTATUS_TE_VISIBLES.map(s => <option key={s} value={s}>{ESTATUS_TE_MAP[s].label}</option>)}
+            </Selector>
+          </Campo>
+          <Campo etiqueta="Fecha del tiempo extra, desde"><Entrada type="date" value={filtros.desde} onChange={e => setFiltros(f => ({ ...f, desde: e.target.value }))} /></Campo>
+          <Campo etiqueta="Hasta"><Entrada type="date" value={filtros.hasta} min={filtros.desde} onChange={e => setFiltros(f => ({ ...f, hasta: e.target.value }))} /></Campo>
+          <Campo etiqueta="Solicitante"><Entrada type="search" value={filtros.solicitante} placeholder="Nombre o nómina" onChange={e => setFiltros(f => ({ ...f, solicitante: e.target.value }))} /></Campo>
+          {hayFiltros && <div className="sm:col-span-2 lg:col-span-5"><Boton variante="fantasma" onClick={limpiar}>Limpiar filtros</Boton></div>}
+        </div>
+
+        {filtradas.length === 0 ? (
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
+            <EstadoVacio texto={hayFiltros ? 'No hay solicitudes con esos filtros.' : 'Todavía no hay solicitudes enviadas.'} accion={hayFiltros ? { texto: 'Limpiar filtros', onClick: limpiar } : undefined} />
+          </div>
+        ) : (
+          <>
+            <div className="hidden md:block">
+              <Tabla etiqueta="Solicitudes de tiempo extra">
+                <thead><tr><Th>Folio</Th><Th>Área</Th><Th>Solicitante</Th><Th>Fecha del TE</Th><Th derecha>Empleados</Th><Th derecha>Horas</Th><Th>Estatus</Th><Th /></tr></thead>
+                <tbody>
+                  {filtradas.map(t => (
+                    <Fila key={t.id}>
+                      <Td mono>{t.folio ?? '—'}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></Td><Td>{nombreArea(t.areaId)}</Td><Td>{formato.nombre(t.creadoPorNombre ?? '')}</Td>
+                      <Td className="whitespace-nowrap">{formatoFecha(`${t.fechaTE}T12:00:00`)}</Td><Td derecha>{t.resumen?.totalEmpleados ?? 0}</Td><Td derecha mono>{t.resumen?.totalHoras ?? 0}</Td>
+                      <Td><BadgeEstatus estatus={t.estatus} modulo="te" /></Td>
+                      <Td className="text-right"><Boton tamano="sm" icono={Eye} onClick={() => abrir(t)} aria-label={`Ver ${t.folio}`}>Ver</Boton></Td>
+                    </Fila>
+                  ))}
+                </tbody>
+              </Tabla>
+            </div>
+            <ul className="space-y-3 md:hidden">
+              {filtradas.map(t => (
+                <li key={t.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4">
+                  <div className="flex items-start justify-between gap-3"><p className="font-mono text-sm font-medium text-[var(--text-main)]">{t.folio ?? '—'}</p><BadgeEstatus estatus={t.estatus} modulo="te" /></div>
+                  <p className="mt-1 text-sm text-[var(--text-secondary)]">{nombreArea(t.areaId)} · {formatoFecha(`${t.fechaTE}T12:00:00`)}</p>
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">{formato.nombre(t.creadoPorNombre ?? '')} · {t.resumen?.totalEmpleados ?? 0} empleados · {t.resumen?.totalHoras ?? 0} h</p>
+                  <InsigniasTE t={t} className="mt-2" />
+                  <Boton className="mt-3 w-full" icono={Eye} onClick={() => abrir(t)} aria-label={`Ver ${t.folio}`}>Ver</Boton>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
 
       {detalle && (
         <Modal isOpen onClose={() => setDetalle(null)} title={detalle.solicitud.folio ?? 'Solicitud'} maxWidth="max-w-4xl">
-          {detalle.cargando ? <div className="flex items-center gap-2 py-8 text-xs text-[var(--text-muted)]"><Loader2 className="h-4 w-4 animate-spin" />Cargando…</div> : (
+          {detalle.cargando ? <EsqueletoTabla filas={3} columnas={4} /> : (
             <DetalleTE t={detalle.solicitud} historial={detalle.historial} area={nombreArea(detalle.solicitud.areaId)} catalogos={{ rutas, comunidades, puntos }} formato={formato}
               acciones={accionesDeRH(detalle.solicitud)} />
           )}

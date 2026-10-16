@@ -84,10 +84,10 @@ export default function PanelPersona({ nomina, asignaciones, empleado, conUsuari
         <header className="flex items-start gap-3 border-b border-[var(--border-color)] p-4">
           <Avatar iniciales={formato.iniciales(nombre)} rol={propias.find(a => a.estado === 'vigente')?.rol ?? 'solicitante'} tamano={48} />
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-bold leading-tight text-[var(--text-main)]">{formato.nombre(nombre)}</h2>
+            <h2 className="text-base font-semibold leading-tight text-[var(--text-main)]">{formato.nombre(nombre)}</h2>
             <p className="text-xs text-[var(--text-secondary)]">{propias.find(a => a.puesto)?.puesto || empleado?.puesto || 'Sin puesto registrado'}</p>
-            <p className="mt-0.5 font-mono text-[11px] text-[var(--text-muted)]">Nómina {nomina}</p>
-            {completa && <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
+            <p className="mt-0.5 font-mono text-xs text-[var(--text-muted)]">Nómina {nomina}</p>
+            {completa && <p className="mt-1 text-xs text-[var(--text-secondary)]">
               Área en el padrón: {empleado?.areaId ? (nombresArea.get(empleado.areaId) ?? empleado.areaId) : '—'}
               {conUsuario === false && <span className="ml-2 inline-flex items-center gap-1 text-[var(--status-warning-text)]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--status-warning-text)]" />Sin usuario</span>}
             </p>}
@@ -97,7 +97,7 @@ export default function PanelPersona({ nomina, asignaciones, empleado, conUsuari
 
         <div className="flex-1 space-y-5 overflow-y-auto p-4">
           <section aria-label="Asignaciones">
-            <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Asignaciones ({propias.length})</h3>
+            <h3 className="mb-2 text-xs font-semibold text-[var(--text-secondary)]">Asignaciones ({propias.length})</h3>
             {propias.length === 0 ? <p className="text-xs text-[var(--text-muted)]">Sin asignaciones.</p> : (
               <ul className="space-y-2">
                 {propias.map(a => (
@@ -106,25 +106,25 @@ export default function PanelPersona({ nomina, asignaciones, empleado, conUsuari
                       <span className="font-semibold text-[var(--text-main)]">
                         {ROL_OP_LABELS[a.rol]}{a.areaId ? ` · ${nombresArea.get(a.areaId) ?? a.areaId}` : ' · toda la planta'}
                       </span>
-                      <span className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold ${ESTADO_CLS[a.estado]}`}>{ESTADO_LABELS[a.estado]}</span>
+                      <span className={`rounded border px-1.5 py-0.5 text-xs font-semibold ${ESTADO_CLS[a.estado]}`}>{ESTADO_LABELS[a.estado]}</span>
                     </div>
                     <p className="mt-1 flex items-center gap-1 text-[var(--text-secondary)]">
                       <Clock className="h-3 w-3" />{formatoFecha(a.desde)} → {aFecha(a.hasta) ? formatoFecha(a.hasta) : 'permanente'}
                     </p>
                     {completa && a.motivo && <p className="mt-0.5 text-[var(--text-secondary)]">Motivo: {a.motivo}</p>}
                     {completa && (
-                      <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
+                      <p className="mt-0.5 text-xs text-[var(--text-muted)]">
                         Asignada por {a.asignadoPor?.nombre || '—'}{a.fechaAsignacion ? ` · ${fechaHora(a.fechaAsignacion)}` : ''}
                       </p>
                     )}
                     {puedeActuar(a) && (
                       <div className="mt-2 flex flex-wrap gap-2">
                         <button type="button" onClick={() => setExtender(a)}
-                          className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1 text-[11px] font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]">
+                          className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]">
                           <CalendarPlus className="h-3 w-3" />Extender
                         </button>
                         <button type="button" onClick={() => revocar(a)}
-                          className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-[var(--status-error-border)] bg-[var(--bg-surface)] px-2 py-1 text-[11px] font-semibold text-[var(--status-error-text)] hover:bg-[var(--status-error-bg)]">
+                          className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-[var(--status-error-border)] bg-[var(--bg-surface)] px-2 py-1 text-xs font-semibold text-[var(--status-error-text)] hover:bg-[var(--status-error-bg)]">
                           <ShieldOff className="h-3 w-3" />Revocar
                         </button>
                       </div>
@@ -137,7 +137,7 @@ export default function PanelPersona({ nomina, asignaciones, empleado, conUsuari
 
           {puedeVerHistorial && (
             <section aria-label="Historial">
-              <h3 className="mb-2 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]"><History className="h-3 w-3" />Historial</h3>
+              <h3 className="mb-2 flex items-center gap-1 text-xs font-semibold text-[var(--text-secondary)]"><History className="h-3 w-3" />Historial</h3>
               {historial.cargando ? (
                 <p className="flex items-center gap-2 text-xs text-[var(--text-muted)]"><Loader2 className="h-3 w-3 animate-spin" />Cargando…</p>
               ) : historial.error ? (
@@ -150,13 +150,13 @@ export default function PanelPersona({ nomina, asignaciones, empleado, conUsuari
                     <li key={f.id} className="rounded-md border border-[var(--border-subtle)] px-3 py-2 text-xs">
                       <div className="flex justify-between gap-2">
                         <span className="font-semibold text-[var(--text-main)]">{ACCIONES[f.accion] ?? f.accion}</span>
-                        <span className="text-[10px] text-[var(--text-muted)]">{fechaHora(f.fecha)}</span>
+                        <span className="text-xs text-[var(--text-muted)]">{fechaHora(f.fecha)}</span>
                       </div>
-                      <div className="text-[11px] text-[var(--text-secondary)]">
+                      <div className="text-xs text-[var(--text-secondary)]">
                         {ROL_OP_LABELS[f.despues?.rol] ?? ''}{f.despues?.areaId ? ` · ${nombresArea.get(f.despues.areaId) ?? f.despues.areaId}` : ''} · por {f.porNombre || f.porUid}
                       </div>
-                      <div className="text-[10px] text-[var(--text-muted)]">{detalle(f.despues)}</div>
-                      {f.despues?.motivoRevocacion && <div className="text-[10px] text-[var(--text-muted)]">Motivo de la revocación: {f.despues.motivoRevocacion}</div>}
+                      <div className="text-xs text-[var(--text-muted)]">{detalle(f.despues)}</div>
+                      {f.despues?.motivoRevocacion && <div className="text-xs text-[var(--text-muted)]">Motivo de la revocación: {f.despues.motivoRevocacion}</div>}
                     </li>
                   ))}
                 </ul>

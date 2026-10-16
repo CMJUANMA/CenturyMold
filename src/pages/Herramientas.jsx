@@ -9,8 +9,8 @@ export default function Herramientas() {
   return (
     <div className="space-y-6">
       <header className="border-b border-[var(--border-color)] pb-4">
-        <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Administrador</div>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Diagnóstico y limpieza</h1>
+        <div className="text-xs font-semibold text-[var(--text-muted)]">Administrador</div>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[var(--text-main)]">Diagnóstico y limpieza</h1>
         <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Herramientas que se usan pocas veces. Léelas con calma antes de ejecutar algo: algunas escriben en la base de datos.</p>
       </header>
       <RevisarColecciones />

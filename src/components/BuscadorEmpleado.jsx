@@ -53,7 +53,7 @@ export default function BuscadorEmpleado({
       {abierto && hayLista && (
         <ul className="absolute left-0 right-0 top-full z-30 mt-1 max-h-60 overflow-y-auto rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] shadow-lg">
           {!q && sugeridos && resultados.length > 0 && (
-            <li className="px-3 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">{etiquetaSugeridos}</li>
+            <li className="px-3 pt-1.5 pb-1 text-xs font-semibold text-[var(--text-muted)]">{etiquetaSugeridos}</li>
           )}
           {resultados.length === 0 ? (
             <li className="px-3 py-2 text-xs text-[var(--text-muted)]">{q ? 'Sin coincidencias en el padron.' : 'Escribe para buscar en el padron.'}</li>
@@ -61,9 +61,9 @@ export default function BuscadorEmpleado({
             <li key={e.nomina}>
               <button type="button" onMouseDown={ev => ev.preventDefault()} onClick={() => elegir(e)}
                 className="flex w-full items-baseline gap-2 px-3 py-1.5 text-left text-xs hover:bg-[var(--bg-surface-hover)] cursor-pointer">
-                <span className="font-mono font-bold text-[var(--text-main)]">{e.nomina}</span>
+                <span className="font-mono font-semibold text-[var(--text-main)]">{e.nomina}</span>
                 <span className="truncate text-[var(--text-main)]">{e.nombre}</span>
-                {e.puesto && <span className="ml-auto shrink-0 text-[10px] text-[var(--text-muted)]">{e.puesto}</span>}
+                {e.puesto && <span className="ml-auto shrink-0 text-xs text-[var(--text-muted)]">{e.puesto}</span>}
               </button>
             </li>
           ))}

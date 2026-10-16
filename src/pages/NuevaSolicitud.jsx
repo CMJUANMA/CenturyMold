@@ -103,8 +103,8 @@ export default function NuevaSolicitud() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="border-b border-[var(--border-color)] pb-4">
-        <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Operacion · Solicitudes</div>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Nueva solicitud de transporte</h1>
+        <div className="text-xs font-semibold text-[var(--text-muted)]">Operacion · Solicitudes</div>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[var(--text-main)]">Nueva solicitud de transporte</h1>
         <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
           Complete los campos para programar el servicio. Solicitante: <span className="font-semibold">{usuario?.nombre}</span>
         </p>
@@ -112,7 +112,7 @@ export default function NuevaSolicitud() {
 
       {areasSolicitante.length > 1 && (
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4">
-          <label htmlFor="area-solicitud" className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1">
+          <label htmlFor="area-solicitud" className="block text-xs font-semibold text-[var(--text-muted)] mb-1">
             Área que solicita
           </label>
           <select id="area-solicitud" value={areaId} onChange={e => setAreaElegida(e.target.value)}

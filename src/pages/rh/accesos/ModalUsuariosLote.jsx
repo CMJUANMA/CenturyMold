@@ -115,7 +115,7 @@ function Contenido({ actor, usuarios, empleados, asignaciones, nombresArea, ahor
           </p>
           <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold uppercase tracking-wider">
+              <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold">
                 <tr>
                   <th className="px-3 py-2" /><th className="px-3 py-2">Nómina</th><th className="px-3 py-2">Nombre (padrón)</th>
                   <th className="px-3 py-2">Puesto</th><th className="px-3 py-2">Área</th><th className="px-3 py-2">Roles operativos</th>
@@ -127,7 +127,7 @@ function Contenido({ actor, usuarios, empleados, asignaciones, nombresArea, ahor
                   <tr key={f.nomina}>
                     <td className="px-3 py-2"><input type="checkbox" checked={marcadas.has(f.nomina)} onChange={() => alternar(f.nomina)}
                       aria-label={`Crear cuenta de ${f.nombre}`} className="h-3.5 w-3.5 accent-[var(--cm-red)]" /></td>
-                    <td className="px-3 py-2 font-mono font-bold">{f.nomina}</td>
+                    <td className="px-3 py-2 font-mono font-semibold">{f.nomina}</td>
                     <td className="px-3 py-2">{f.nombre}</td>
                     <td className="px-3 py-2 text-[var(--text-secondary)]">{f.puesto || '—'}</td>
                     <td className="px-3 py-2 text-[var(--text-secondary)]">{nombreArea(f.areaId) || '—'}</td>
@@ -141,7 +141,7 @@ function Contenido({ actor, usuarios, empleados, asignaciones, nombresArea, ahor
           {otros ? (
             <div className="space-y-1">
               <BuscadorEmpleado empleados={empleados} excluir={[...yaEnLista]} onSelect={agregarExtra} placeholder="Buscar en el padrón a quien no tiene asignación…" />
-              <button type="button" onClick={() => setOtros(false)} className="text-[11px] font-semibold text-[var(--accent-text)] hover:underline cursor-pointer">Listo</button>
+              <button type="button" onClick={() => setOtros(false)} className="text-xs font-semibold text-[var(--accent-text)] hover:underline cursor-pointer">Listo</button>
             </div>
           ) : (
             <button type="button" onClick={() => setOtros(true)} className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--accent-text)] hover:underline cursor-pointer">
@@ -169,7 +169,7 @@ function Contenido({ actor, usuarios, empleados, asignaciones, nombresArea, ahor
           <div className="h-2 overflow-hidden rounded-full bg-[var(--bg-surface-secondary)]">
             <div className="h-full bg-[var(--cm-red)] transition-all" style={{ width: `${avance.total ? (avance.hechas / avance.total) * 100 : 0}%` }} />
           </div>
-          <p className="text-[11px] text-[var(--text-muted)]">No cierres esta ventana: las contraseñas solo existen aquí.</p>
+          <p className="text-xs text-[var(--text-muted)]">No cierres esta ventana: las contraseñas solo existen aquí.</p>
         </div>
       )}
 
@@ -177,7 +177,7 @@ function Contenido({ actor, usuarios, empleados, asignaciones, nombresArea, ahor
         <div className="space-y-4">
           {creadas > 0 && (
             <div role="alert" className="rounded-lg border-2 border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-4 text-[var(--status-warning-text)]">
-              <p className="flex items-center gap-2 text-base font-bold"><ShieldAlert className="h-5 w-5 shrink-0" />Este archivo contiene contraseñas</p>
+              <p className="flex items-center gap-2 text-base font-semibold"><ShieldAlert className="h-5 w-5 shrink-0" />Este archivo contiene contraseñas</p>
               <p className="mt-1 text-sm font-semibold">
                 Entrégalo en persona o en sobre cerrado y bórralo después. No se puede volver a descargar.
               </p>
@@ -193,7 +193,7 @@ function Contenido({ actor, usuarios, empleados, asignaciones, nombresArea, ahor
           </div>
           {fallidas.length > 0 && (
             <div className="space-y-2 rounded-md border border-[var(--status-error-border)] bg-[var(--status-error-bg)] p-3 text-xs text-[var(--status-error-text)]">
-              <p className="flex items-center gap-2 font-bold"><AlertTriangle className="h-4 w-4" />{fallidas.length} no se pudieron crear</p>
+              <p className="flex items-center gap-2 font-semibold"><AlertTriangle className="h-4 w-4" />{fallidas.length} no se pudieron crear</p>
               <ul className="space-y-1">
                 {fallidas.map(f => <li key={f.nomina}><b>{f.nomina} {f.nombre}:</b> {f.error}</li>)}
               </ul>

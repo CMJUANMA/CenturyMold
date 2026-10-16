@@ -13,7 +13,7 @@ import { btnSecondary, chip, chipWarn, tablaWrap, theadCls, thCls } from './ui';
 function Seccion({ titulo, vacio, hijos, children }) {
   return (
     <section className="space-y-2">
-      <h2 className="text-sm font-bold text-[var(--text-main)]">{titulo} <span className="font-normal text-[var(--text-muted)]">({hijos})</span></h2>
+      <h2 className="text-sm font-semibold text-[var(--text-main)]">{titulo} <span className="font-normal text-[var(--text-muted)]">({hijos})</span></h2>
       {hijos === 0 ? <p className="text-xs text-[var(--text-muted)]">{vacio}</p> : children}
     </section>
   );
@@ -27,7 +27,7 @@ function Tabla({ filas, extra }) {
         <tbody className="divide-y divide-[var(--border-subtle)]">
           {filas.slice(0, 300).map(e => (
             <tr key={e.id} className="hover:bg-[var(--bg-surface-secondary)]">
-              <td className="px-4 py-2 font-mono font-bold">{e.nomina ?? e.id}</td>
+              <td className="px-4 py-2 font-mono font-semibold">{e.nomina ?? e.id}</td>
               <td className="px-4 py-2">{e.nombre}</td>
               <td className="px-4 py-2">{e.puesto || '—'}</td>
               {extra && <td className="px-4 py-2">{extra.celda(e)}</td>}
@@ -35,7 +35,7 @@ function Tabla({ filas, extra }) {
           ))}
         </tbody>
       </table>
-      {filas.length > 300 && <p className="px-4 py-2 text-center text-[11px] text-[var(--text-muted)]">Mostrando 300 de {filas.length}.</p>}
+      {filas.length > 300 && <p className="px-4 py-2 text-center text-xs text-[var(--text-muted)]">Mostrando 300 de {filas.length}.</p>}
     </div>
   );
 }

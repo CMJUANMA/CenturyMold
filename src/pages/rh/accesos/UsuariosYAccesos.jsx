@@ -101,7 +101,7 @@ export default function UsuariosYAccesos() {
         {soloMiArea ? (
           <>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">Mi área</h1>
+              <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-main)]">Mi área</h1>
               <AyudaPantalla id="organigrama" />
             </div>
             <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
@@ -110,9 +110,9 @@ export default function UsuariosYAccesos() {
           </>
         ) : (
           <>
-            <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Seguridad y accesos</div>
+            <div className="text-xs font-semibold text-[var(--text-muted)]">Seguridad y accesos</div>
             <div className="mt-1 flex items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">Usuarios y accesos</h1>
+              <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-main)]">Usuarios y accesos</h1>
               {tabActiva === 'organigrama' && <AyudaPantalla id="organigrama" />}
               {tabActiva === 'asignaciones' && <AyudaPantalla id="asignaciones" />}
             </div>

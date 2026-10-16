@@ -66,7 +66,7 @@ function Contenido({ actor, empleados, usuarios, asignaciones, nombresArea, onCl
         )}
         <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
           <table className="w-full text-left text-xs">
-            <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold uppercase tracking-wider">
+            <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold">
               <tr>
                 <th className="px-3 py-2" />
                 <th className="px-3 py-2">Rol</th>
@@ -91,10 +91,10 @@ function Contenido({ actor, empleados, usuarios, asignaciones, nombresArea, onCl
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">{ROL_OP_CORTOS[f.rol]}</td>
                     <td className="px-3 py-2">{f.areaId ? (nombresArea.get(f.areaId) ?? f.areaId) : 'Planta'}</td>
-                    <td className="px-3 py-2 font-mono font-bold">{f.nomina}</td>
+                    <td className="px-3 py-2 font-mono font-semibold">{f.nomina}</td>
                     <td className="px-3 py-2">
                       {f.empleado ? f.nombre : <span className="text-[var(--text-muted)]">{f.nombreHoja} (hoja)</span>}
-                      {f.avisos.includes(ESTADO_FILA.REVISAR_NOMBRE) && <div className="text-[10px] text-[var(--text-muted)]">La hoja dice: {f.nombreHoja}</div>}
+                      {f.avisos.includes(ESTADO_FILA.REVISAR_NOMBRE) && <div className="text-xs text-[var(--text-muted)]">La hoja dice: {f.nombreHoja}</div>}
                     </td>
                     <td className="px-3 py-2 text-[var(--text-secondary)]">{f.puesto || '—'}</td>
                     <td className="px-3 py-2 text-[var(--text-secondary)]">{f.areaPadron ? (nombresArea.get(f.areaPadron) ?? f.areaPadron) : '—'}</td>

@@ -54,8 +54,8 @@ export const ESTATUS_MAP = {
   },
   [ESTATUS_SOLICITUD.ENVIADA_PROVEEDOR]: {
     label: 'Enviada al proveedor',
-    cls: 'bg-purple-100 text-purple-800 border-purple-200',
-    dot: 'bg-purple-800',
+    cls: 'bg-[var(--status-info-bg)] text-[var(--status-info-text)] border-[var(--status-info-border)]',
+    dot: 'bg-[var(--status-info-text)]',
   },
 };
 

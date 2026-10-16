@@ -6,6 +6,21 @@ export function Esqueleto({ className = 'h-4 w-full' }) {
   return <div className={`esqueleto ${className}`} aria-hidden="true" />;
 }
 
+/** Pantalla completa cargando: título, descripción y dos bloques de contenido */
+export function EsqueletoPagina({ bloques = 2 }) {
+  return (
+    <div className="space-y-6" role="status" aria-label="Cargando">
+      <div className="space-y-2"><Esqueleto className="h-3 w-24" /><Esqueleto className="h-8 w-72 max-w-full" /><Esqueleto className="h-4 w-96 max-w-full" /></div>
+      {Array.from({ length: bloques }, (_, i) => (
+        <div key={i} className="space-y-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-6">
+          <Esqueleto className="h-5 w-40" />
+          <div className="grid gap-4 sm:grid-cols-3"><Esqueleto className="h-11" /><Esqueleto className="h-11" /><Esqueleto className="h-11" /></div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function EsqueletoTabla({ filas = 5, columnas = 5, className = '' }) {
   return (
     <div className={`overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] ${className}`} role="status" aria-label="Cargando">

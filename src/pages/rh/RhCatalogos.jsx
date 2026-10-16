@@ -29,7 +29,7 @@ const TABS = [
 ];
 
 // ── Componentes compartidos ───────────────────────────────────────────────
-const inputCls = 'w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 text-xs focus:border-[var(--cm-red)] focus:outline-none focus:ring-1 focus:ring-[var(--cm-red)]';
+const inputCls = 'w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 text-xs focus:border-[var(--cm-red)] focus:outline-none';
 const btnPrimary = 'inline-flex items-center gap-1.5 rounded-md bg-[var(--cm-red)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--cm-red-hover)] active:scale-95 transition-all disabled:opacity-50 cursor-pointer';
 const btnSecondary = 'inline-flex items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] active:scale-95 transition-all cursor-pointer';
 const btnIcon = 'rounded p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-surface-secondary)] hover:text-[var(--text-main)] active:scale-95 transition-all cursor-pointer';
@@ -142,7 +142,7 @@ function TabRutas({ rutas, comunidades, puntos, reload }) {
         : (
           <div className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold uppercase tracking-wider">
+              <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold">
                 <tr>
                   <th className="px-4 py-3">Nombre de la ruta</th>
                   <th className="px-4 py-3 w-24 text-center">Comunidades</th>
@@ -161,7 +161,7 @@ function TabRutas({ rutas, comunidades, puntos, reload }) {
                       <td className="px-4 py-2.5 text-center text-[var(--text-secondary)]">{nComs}</td>
                       <td className="px-4 py-2.5 text-center text-[var(--text-secondary)]">{nPtos}</td>
                       <td className="px-4 py-2.5">
-                        <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${r.activo !== false ? 'bg-[var(--status-success-bg)] text-[var(--status-success-text)]  ' : 'bg-[var(--status-error-bg)] text-[var(--status-error-text)]  '}`}>
+                        <span className={`inline-flex rounded px-1.5 py-0.5 text-xs font-semibold ${r.activo !== false ? 'bg-[var(--status-success-bg)] text-[var(--status-success-text)]  ' : 'bg-[var(--status-error-bg)] text-[var(--status-error-text)]  '}`}>
                           {r.activo !== false ? 'Activa' : 'Inactiva'}
                         </span>
                       </td>
@@ -169,7 +169,7 @@ function TabRutas({ rutas, comunidades, puntos, reload }) {
                         <div className="inline-flex gap-1">
                           <button type="button" onClick={() => abrirEditar(r)} className={btnIcon} title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
                           <button type="button" onClick={() => toggleActivo(r)} className={btnIcon} title={r.activo !== false ? 'Desactivar' : 'Activar'}>
-                            {r.activo !== false ? <ToggleRight className="h-4 w-4 text-emerald-500" /> : <ToggleLeft className="h-4 w-4" />}
+                            {r.activo !== false ? <ToggleRight className="h-4 w-4 text-[var(--status-success-text)]" /> : <ToggleLeft className="h-4 w-4" />}
                           </button>
                         </div>
                       </td>
@@ -189,7 +189,7 @@ function TabRutas({ rutas, comunidades, puntos, reload }) {
             <div>
               <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Nombre de la ruta</label>
               <input required value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} className={inputCls} placeholder="Ej: RUTA NORTE" />
-              <p className="mt-1 text-[10px] text-[var(--text-muted)]">El ID no cambia al editar; solo el nombre visible.</p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">El ID no cambia al editar; solo el nombre visible.</p>
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={() => setModal(null)} className={btnSecondary}>Cancelar</button>
@@ -281,7 +281,7 @@ function TabComunidades({ comunidades, rutas, puntos, reload }) {
         : (
           <div className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold uppercase tracking-wider">
+              <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold">
                 <tr>
                   <th className="px-4 py-3">Comunidad</th>
                   <th className="px-4 py-3">Ruta</th>
@@ -300,7 +300,7 @@ function TabComunidades({ comunidades, rutas, puntos, reload }) {
                       <td className="px-4 py-2.5 text-[var(--text-secondary)]">{rutaNombre}</td>
                       <td className="px-4 py-2.5 text-center text-[var(--text-secondary)]">{nPtos}</td>
                       <td className="px-4 py-2.5">
-                        <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${c.activo !== false ? 'bg-[var(--status-success-bg)] text-[var(--status-success-text)]  ' : 'bg-[var(--status-error-bg)] text-[var(--status-error-text)]  '}`}>
+                        <span className={`inline-flex rounded px-1.5 py-0.5 text-xs font-semibold ${c.activo !== false ? 'bg-[var(--status-success-bg)] text-[var(--status-success-text)]  ' : 'bg-[var(--status-error-bg)] text-[var(--status-error-text)]  '}`}>
                           {c.activo !== false ? 'Activa' : 'Inactiva'}
                         </span>
                       </td>
@@ -308,7 +308,7 @@ function TabComunidades({ comunidades, rutas, puntos, reload }) {
                         <div className="inline-flex gap-1">
                           <button type="button" onClick={() => abrirEditar(c)} className={btnIcon} title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
                           <button type="button" onClick={() => toggleActivo(c)} className={btnIcon} title={c.activo !== false ? 'Desactivar' : 'Activar'}>
-                            {c.activo !== false ? <ToggleRight className="h-4 w-4 text-emerald-500" /> : <ToggleLeft className="h-4 w-4" />}
+                            {c.activo !== false ? <ToggleRight className="h-4 w-4 text-[var(--status-success-text)]" /> : <ToggleLeft className="h-4 w-4" />}
                           </button>
                         </div>
                       </td>
@@ -439,7 +439,7 @@ function TabPuntos({ puntos, comunidades, rutas, reload }) {
         : (
           <div className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold uppercase tracking-wider">
+              <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold">
                 <tr>
                   <th className="px-4 py-3 w-20">Clave</th>
                   <th className="px-4 py-3">Nombre del punto</th>
@@ -455,12 +455,12 @@ function TabPuntos({ puntos, comunidades, rutas, reload }) {
                   const rutaNombre = rutas.find(r => r.id === p.rutaId)?.nombre ?? p.rutaId;
                   return (
                     <tr key={p.id} className="hover:bg-[var(--bg-surface-secondary)] transition-colors">
-                      <td className="px-4 py-2.5 font-mono font-bold text-[var(--accent-text)]">{p.clave}</td>
+                      <td className="px-4 py-2.5 font-mono font-semibold text-[var(--accent-text)]">{p.clave}</td>
                       <td className="px-4 py-2.5 font-medium text-[var(--text-main)]">{p.nombre}</td>
                       <td className="px-4 py-2.5 text-[var(--text-secondary)]">{comNombre}</td>
                       <td className="px-4 py-2.5 text-[var(--text-muted)]">{rutaNombre}</td>
                       <td className="px-4 py-2.5">
-                        <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${p.activo !== false ? 'bg-[var(--status-success-bg)] text-[var(--status-success-text)]  ' : 'bg-[var(--status-error-bg)] text-[var(--status-error-text)]  '}`}>
+                        <span className={`inline-flex rounded px-1.5 py-0.5 text-xs font-semibold ${p.activo !== false ? 'bg-[var(--status-success-bg)] text-[var(--status-success-text)]  ' : 'bg-[var(--status-error-bg)] text-[var(--status-error-text)]  '}`}>
                           {p.activo !== false ? 'Activo' : 'Inactivo'}
                         </span>
                       </td>
@@ -468,7 +468,7 @@ function TabPuntos({ puntos, comunidades, rutas, reload }) {
                         <div className="inline-flex gap-1">
                           <button type="button" onClick={() => abrirEditar(p)} className={btnIcon} title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
                           <button type="button" onClick={() => toggleActivo(p)} className={btnIcon} title={p.activo !== false ? 'Desactivar' : 'Activar'}>
-                            {p.activo !== false ? <ToggleRight className="h-4 w-4 text-emerald-500" /> : <ToggleLeft className="h-4 w-4" />}
+                            {p.activo !== false ? <ToggleRight className="h-4 w-4 text-[var(--status-success-text)]" /> : <ToggleLeft className="h-4 w-4" />}
                           </button>
                         </div>
                       </td>
@@ -511,7 +511,7 @@ function TabPuntos({ puntos, comunidades, rutas, reload }) {
                 </label>
                 <input value={form.clave} onChange={e => setForm(f => ({ ...f, clave: e.target.value }))} className={inputCls} placeholder="Ej: SN01" maxLength={10} />
                 {form.rutaId && form.comunidadId && !form.clave && (
-                  <p className="mt-1 text-[10px] text-[var(--text-muted)]">
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">
                     Se generará: <strong>{generarClave(form.rutaId, form.comunidadId)}</strong>
                   </p>
                 )}
@@ -569,8 +569,8 @@ export default function RhCatalogos() {
       {/* Encabezado */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between border-b border-[var(--border-color)] pb-4">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Recursos Humanos</div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Rutas y puntos de reunión</h1>
+          <div className="text-xs font-semibold text-[var(--text-muted)]">Recursos Humanos</div>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[var(--text-main)]">Rutas y puntos de reunión</h1>
           <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Rutas, comunidades y puntos de reunión del transporte</p>
         </div>
         {puedeCargarMasivo && (

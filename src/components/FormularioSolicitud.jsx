@@ -30,8 +30,8 @@ import {
   fechaMinima, pasajeroVacio, validarSolicitud,
 } from '../utils/solicitudes';
 
-const inputCls = 'w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1.5 text-xs text-[var(--text-main)] focus:border-[var(--cm-red)] focus:outline-none focus:ring-1 focus:ring-[var(--cm-red)] disabled:bg-[var(--bg-surface-secondary)] disabled:opacity-60';
-const labelCls = 'block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1';
+const inputCls = 'w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1.5 text-xs text-[var(--text-main)] focus:border-[var(--cm-red)] focus:outline-none disabled:bg-[var(--bg-surface-secondary)] disabled:opacity-60';
+const labelCls = 'block text-xs font-semibold text-[var(--text-muted)] mb-1';
 
 export default function FormularioSolicitud({
   modo = 'nueva', esRH = false, catalogos, inicial, comentarioObligatorio = false, enviando = false, onSubmit,
@@ -126,7 +126,7 @@ export default function FormularioSolicitud({
             {/* En edición, RH puede dejar fechas pasadas; el resto no */}
             <input type="date" required min={esEdicion && esRH ? undefined : fechaMinima()} value={fechaServicio}
               onChange={e => setFechaServicio(e.target.value)} className={inputCls} />
-            {!esEdicion && <p className="mt-1 text-[10px] text-[var(--text-muted)]">Solo fechas a partir de manana.</p>}
+            {!esEdicion && <p className="mt-1 text-xs text-[var(--text-muted)]">Solo fechas a partir de manana.</p>}
           </div>
         </div>
         {esEdicion && (
@@ -145,7 +145,7 @@ export default function FormularioSolicitud({
         <div className="mb-4 flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
           <h2 className="text-sm font-semibold text-[var(--text-main)]">Padron de Pasajeros</h2>
           <span className="text-xs font-medium text-[var(--text-secondary)]">
-            Total: <span className="text-sm font-bold text-[var(--accent-text)]">{pasajeros.length}</span>
+            Total: <span className="text-sm font-semibold text-[var(--accent-text)]">{pasajeros.length}</span>
           </span>
         </div>
 
@@ -167,7 +167,7 @@ export default function FormularioSolicitud({
                       value={p.searchQuery}
                       onChange={e => handleSearchChange(index, e.target.value)}
                       placeholder="Escriba para buscar..."
-                      className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 text-xs focus:border-[var(--cm-red)] focus:outline-none focus:ring-1 focus:ring-[var(--cm-red)]"
+                      className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 text-xs focus:border-[var(--cm-red)] focus:outline-none"
                     />
                     {p.showResults && p.searchQuery.length > 1 && !p.empleadoSeleccionado && (
                       <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] shadow-lg">
@@ -184,7 +184,7 @@ export default function FormularioSolicitud({
                             : found.map(emp => (
                               <div key={emp.nomina} onClick={() => handleSelectEmpleado(index, emp)}
                                 className="cursor-pointer border-b border-[var(--border-subtle)] px-3 py-2 text-xs last:border-0 hover:bg-[var(--bg-surface-secondary)]">
-                                <span className="font-bold text-[var(--text-main)]">{emp.nomina}</span>
+                                <span className="font-semibold text-[var(--text-main)]">{emp.nomina}</span>
                                 <span className="ml-1 text-[var(--text-secondary)]">— {emp.nombre}</span>
                               </div>
                             ));
@@ -248,7 +248,7 @@ export default function FormularioSolicitud({
 
                 {/* Fila 3: ruta / comunidad / punto — obligatorios para enviar */}
                 <div className="space-y-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2.5">
-                  <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                  <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)]">
                     <MapPin className="h-3 w-3" />Ruta de transporte <span className="text-[var(--status-error-text)]">(obligatorio)</span>
                   </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -289,27 +289,27 @@ export default function FormularioSolicitud({
                   <div className="flex flex-col justify-between gap-3 rounded-md border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[var(--status-warning-text)] sm:flex-row sm:items-center">
                     <div className="flex items-center gap-2">
                       <AlertCircle className="h-4 w-4 shrink-0" />
-                      <span className="text-[11px] font-medium">El empleado ya tiene datos de ruta asignados. Son correctos?</span>
+                      <span className="text-xs font-medium">El empleado ya tiene datos de ruta asignados. Son correctos?</span>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <button type="button" onClick={() => updatePas(index, { needsConfirmation: false })}
-                        className="cursor-pointer rounded border border-[var(--status-warning-border)] px-2 py-1 text-[10px] font-bold uppercase transition-colors hover:opacity-80">
+                        className="cursor-pointer rounded border border-[var(--status-warning-border)] px-2 py-1 text-xs font-semibold transition-colors hover:opacity-80">
                         Modificar
                       </button>
                       <button type="button" onClick={() => updatePas(index, { isConfirmed: true })}
-                        className="flex cursor-pointer items-center gap-1 rounded bg-[var(--status-warning-text)] px-2 py-1 text-[10px] font-bold uppercase text-white transition-colors hover:opacity-90">
+                        className="flex cursor-pointer items-center gap-1 rounded bg-[var(--status-warning-text)] px-2 py-1 text-xs font-semibold text-white transition-colors hover:opacity-90">
                         <CheckCircle2 className="h-3 w-3" />Confirmar
                       </button>
                     </div>
                   </div>
                 )}
                 {p.isConfirmed && (
-                  <div className="flex items-center gap-1 text-[11px] font-medium text-[var(--status-success-text)]">
+                  <div className="flex items-center gap-1 text-xs font-medium text-[var(--status-success-text)]">
                     <CheckCircle2 className="h-3.5 w-3.5" />Datos de ruta confirmados.
                   </div>
                 )}
                 {p.empleadoSeleccionado && !p.needsConfirmation && !p.isConfirmed && (!p.rutaId || !p.comunidadId || !p.puntoReunionId) && (
-                  <div className="flex items-center gap-1 text-[11px] font-medium text-[var(--text-secondary)]">
+                  <div className="flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)]">
                     <MapPin className="h-3.5 w-3.5" />Asigne ruta, comunidad y punto de reunion; se guardaran en el padron del empleado.
                   </div>
                 )}
@@ -330,7 +330,7 @@ export default function FormularioSolicitud({
           Pasajeros listos: <strong className="text-[var(--text-main)]">{pasajeros.filter(p => p.empleadoSeleccionado).length}</strong>
         </div>
         <button type="submit" disabled={enviando}
-          className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-[var(--cm-red)] px-6 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[var(--cm-red-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--cm-red)] focus:ring-offset-2 active:scale-95 disabled:opacity-50">
+          className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-[var(--cm-red)] px-6 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[var(--cm-red-hover)] focus:outline-none focus:ring-offset-2 active:scale-95 disabled:opacity-50">
           {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           {esEdicion ? 'Actualizar Solicitud' : 'Registrar Solicitud'}
         </button>

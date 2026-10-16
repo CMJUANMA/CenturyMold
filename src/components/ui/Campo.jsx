@@ -8,7 +8,7 @@
  */
 import { Children, cloneElement, forwardRef, isValidElement, useId } from 'react';
 import { AlertCircle } from 'lucide-react';
-import { CONTROL, CONTROL_ERROR, CONTROL_OK } from './estilos';
+import { CASILLA, CONTROL, CONTROL_ERROR, CONTROL_OK } from './estilos';
 
 export function Campo({ etiqueta, ayuda, error, obligatorio = false, className = '', children }) {
   const id = useId();
@@ -56,7 +56,7 @@ export const Selector = forwardRef(function Selector({ invalido, className, chil
   return <select ref={ref} className={clase(invalido, `py-2 pr-8 ${className ?? ''}`)} {...resto}>{children}</select>;
 });
 
-const CAJA = 'mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-[var(--accent)] disabled:cursor-not-allowed';
+const CAJA = `mt-0.5 ${CASILLA}`;
 export function Casilla({ etiqueta, ayuda, className = '', ...resto }) {
   return (
     <label className={`flex min-h-11 cursor-pointer items-start gap-3 py-2 md:min-h-0 ${className}`}>

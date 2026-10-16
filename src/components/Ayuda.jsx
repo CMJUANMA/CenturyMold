@@ -11,5 +11,5 @@ export default function Ayuda({ clave, children, className = '' }) {
   if (!preferencias.ayudas) return null;
   const texto = children ?? textoAyuda(clave);
   if (!texto) return null;
-  return <p className={`mt-1 text-[11px] leading-snug text-[var(--text-secondary)] ${className}`} data-ayuda={clave}>{texto}</p>;
+  return <p className={`mt-1 text-xs leading-snug text-[var(--text-secondary)] ${className}`} data-ayuda={clave}>{texto}</p>;
 }

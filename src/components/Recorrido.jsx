@@ -63,8 +63,8 @@ export default function Recorrido({ pasos, onTerminar }) {
         ? <div className="pointer-events-none fixed rounded-lg ring-2 ring-[var(--cm-red)] transition-all" style={{ top: rect.top - 4, left: rect.left - 4, width: rect.width + 8, height: rect.height + 8, boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)' }} />
         : <div className="fixed inset-0 bg-black/55" />}
       <div ref={globoRef} className="fixed rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 shadow-2xl" style={{ top, left, width: ancho }}>
-        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Paso {indice + 1} de {pasos.length}</p>
-        <h3 className="mt-1 text-sm font-bold text-[var(--text-main)]">{paso.titulo}</h3>
+        <p className="text-xs font-semibold text-[var(--text-muted)]">Paso {indice + 1} de {pasos.length}</p>
+        <h3 className="mt-1 text-sm font-semibold text-[var(--text-main)]">{paso.titulo}</h3>
         <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">{paso.texto}</p>
         <div className="mt-3 flex items-center justify-between gap-2">
           <button type="button" onClick={() => onTerminar?.()} className="cursor-pointer rounded-md px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]">Saltar</button>

@@ -55,8 +55,8 @@ export default function Estructura() {
   return (
     <div className="space-y-5">
       <div className="border-b border-[var(--border-color)] pb-4">
-        <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Recursos Humanos</div>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Estructura</h1>
+        <div className="text-xs font-semibold text-[var(--text-muted)]">Recursos Humanos</div>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[var(--text-main)]">Estructura</h1>
         <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Áreas → puestos → empleados: el área de cada empleado sale de su puesto.</p>
       </div>
 

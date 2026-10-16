@@ -185,7 +185,7 @@ function Insignia({ children, tono = 'neutro', title }) {
     success: 'bg-[var(--status-success-bg)] text-[var(--status-success-text)] border-[var(--status-success-border)]',
   };
   return (
-    <span title={title} className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase whitespace-nowrap ${tonos[tono]}`}>
+    <span title={title} className={`inline-flex items-center rounded border px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap ${tonos[tono]}`}>
       {children}
     </span>
   );
@@ -195,16 +195,16 @@ function FilaItem({ it, mostrarEntidad }) {
   return (
     <li className="px-3 py-2 text-xs hover:bg-[var(--bg-surface-secondary)]">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        {it.filaExcel && <span className="font-mono text-[10px] text-[var(--text-muted)]">Fila {it.filaExcel}</span>}
+        {it.filaExcel && <span className="font-mono text-xs text-[var(--text-muted)]">Fila {it.filaExcel}</span>}
         {mostrarEntidad && <Insignia>{it.entidad}</Insignia>}
-        <span className="font-mono font-bold text-[var(--text-main)]">{it.clave}</span>
+        <span className="font-mono font-semibold text-[var(--text-main)]">{it.clave}</span>
         <span className="font-semibold text-[var(--text-main)]">{it.nombre}</span>
         {it.detalle && <span className="text-[var(--text-muted)]">· {it.detalle}</span>}
         {it.areaNombre && <Insignia title="Área (sale del puesto)">{it.areaNombre}</Insignia>}
         {it.puestoNuevo && <Insignia tono="warning" title="El puesto se creará al confirmar">Puesto nuevo</Insignia>}
       </div>
       {it.puestoCorreccion && (
-        <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
+        <p className="mt-1 text-xs text-[var(--text-secondary)]">
           <span className="font-semibold">{it.puestoCorreccion.tipo === 'automatica' ? 'Corregido automáticamente' : 'Equivalencia confirmada'}:</span>{' '}
           <span className="text-[var(--text-muted)] line-through">{it.puestoCorreccion.antes}</span> → <span className="font-semibold text-[var(--text-main)]">{it.puestoCorreccion.despues}</span>
         </p>
@@ -212,7 +212,7 @@ function FilaItem({ it, mostrarEntidad }) {
       {it.cambios?.length > 0 && (
         <ul className="mt-1 space-y-0.5 pl-1">
           {it.cambios.map(c => (
-            <li key={c.campo} className="text-[11px]">
+            <li key={c.campo} className="text-xs">
               <span className="font-semibold text-[var(--text-secondary)]">{c.campo}:</span>{' '}
               <span className="text-[var(--text-muted)] line-through">{c.antes}</span>{' '}
               <span className="text-[var(--text-muted)]">-&gt;</span>{' '}
@@ -221,7 +221,7 @@ function FilaItem({ it, mostrarEntidad }) {
           ))}
         </ul>
       )}
-      {it.mensaje && <p className="mt-1 text-[11px] text-[var(--status-warning-text)]">{it.mensaje}</p>}
+      {it.mensaje && <p className="mt-1 text-xs text-[var(--status-warning-text)]">{it.mensaje}</p>}
     </li>
   );
 }
@@ -230,11 +230,11 @@ function FilaProblema({ f }) {
   return (
     <li className="px-3 py-2 text-xs hover:bg-[var(--bg-surface-secondary)]">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-[10px] text-[var(--text-muted)]">Fila {f.filaExcel}</span>
+        <span className="font-mono text-xs text-[var(--text-muted)]">Fila {f.filaExcel}</span>
         <Insignia tono={f.estado === 'error' ? 'error' : 'warning'}>{f.estado === 'error' ? 'Error · se omite' : 'Advertencia'}</Insignia>
         <span className="text-[var(--text-main)]">{Object.values(f.datos).filter(Boolean).join(' · ') || '(fila sin datos)'}</span>
       </div>
-      <p className={`mt-1 text-[11px] ${f.estado === 'error' ? 'text-[var(--status-error-text)]' : 'text-[var(--status-warning-text)]'}`}>{f.mensaje}</p>
+      <p className={`mt-1 text-xs ${f.estado === 'error' ? 'text-[var(--status-error-text)]' : 'text-[var(--status-warning-text)]'}`}>{f.mensaje}</p>
     </li>
   );
 }
@@ -260,8 +260,8 @@ function Contadores({ resumen, contadores }) {
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
       {contadores.map(([label, clave]) => (
         <div key={label} className="rounded-lg border border-[var(--border-color)] px-3 py-2">
-          <span className="block text-lg font-bold text-[var(--text-main)]">{resumen[clave]}</span>
-          <span className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">{label}</span>
+          <span className="block text-lg font-semibold text-[var(--text-main)]">{resumen[clave]}</span>
+          <span className="block text-xs font-semibold text-[var(--text-secondary)]">{label}</span>
         </div>
       ))}
     </div>
@@ -486,7 +486,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
               <FileSpreadsheet className="h-5 w-5 text-[var(--accent-text)]" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-[var(--text-main)]">{titulo}</h2>
+              <h2 className="text-base font-semibold text-[var(--text-main)]">{titulo}</h2>
               <p className="text-xs text-[var(--text-secondary)] mt-0.5 max-w-xl">{descripcion}</p>
             </div>
           </div>
@@ -547,13 +547,13 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
               </div>
               <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
                 <table className="w-full text-left text-xs">
-                  <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold uppercase tracking-wider">
+                  <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold">
                     <tr><th className="px-3 py-2 w-8">Col.</th><th className="px-3 py-2">Nombre</th><th className="px-3 py-2 w-24">Requerido</th><th className="px-3 py-2">Ejemplo</th></tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border-subtle)]">
                     {colsInfo.map(col => (
                       <tr key={col.letra}>
-                        <td className="px-3 py-2 font-mono font-bold text-[var(--accent-text)]">{col.letra}</td>
+                        <td className="px-3 py-2 font-mono font-semibold text-[var(--accent-text)]">{col.letra}</td>
                         <td className="px-3 py-2 font-semibold text-[var(--text-main)]">{col.nombre}</td>
                         <td className="px-3 py-2"><Insignia tono={col.obligatorio ? 'error' : 'neutro'}>{col.obligatorio ? 'Obligatoria' : 'Opcional'}</Insignia></td>
                         <td className="px-3 py-2 font-mono text-[var(--text-muted)]">{col.ejemplo}</td>
@@ -573,7 +573,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                     <span className="font-mono"> numero_i, nombre, depto, desc_depto, turno, puesto, nivel_g, alta_g</span>.
                     El area de cada empleado sale de su puesto (el departamento queda solo como dato informativo); la ruta, comunidad y punto no se tocan.
                   </p>
-                  <ul className="grid gap-x-4 gap-y-0.5 text-[11px] text-[var(--text-secondary)] sm:grid-cols-2">
+                  <ul className="grid gap-x-4 gap-y-0.5 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
                     {NOMINA_COLS_INFO.map(c => (
                       <li key={c.campo}><span className="font-mono font-semibold text-[var(--text-main)]">{c.campo}</span> → {c.destino}</li>
                     ))}
@@ -585,7 +585,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
 
           {eleccionHoja && archivo && (
             <Aviso tono="warning" icon={AlertTriangle}>
-              <p className="font-bold">Varias hojas del archivo tienen los encabezados del reporte de nómina ({ENCABEZADOS_NOMINA.slice(0, 4).join(', ')}...).</p>
+              <p className="font-semibold">Varias hojas del archivo tienen los encabezados del reporte de nómina ({ENCABEZADOS_NOMINA.slice(0, 4).join(', ')}...).</p>
               <p>Elija cuál leer; no se adivina.</p>
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <select value={eleccionHoja.seleccionada} onChange={e => setEleccionHoja({ ...eleccionHoja, seleccionada: e.target.value })}
@@ -627,10 +627,10 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                 {pestanas.map(p => (
                   <button key={p.id} type="button" onClick={() => { setPestana(p.id); setBusqueda(''); }}
                     className={`rounded-lg border px-3 py-2 text-left transition-colors cursor-pointer ${actual?.id === p.id ? 'border-[var(--cm-red)] bg-[var(--cm-red-light)]' : 'border-[var(--border-color)] hover:bg-[var(--bg-surface-secondary)]'}`}>
-                    <span className={`block text-lg font-bold leading-tight ${p.lista.length && p.tono === 'error' ? 'text-[var(--status-error-text)]' : p.lista.length && p.tono === 'warning' ? 'text-[var(--status-warning-text)]' : 'text-[var(--text-main)]'}`}>
+                    <span className={`block text-lg font-semibold leading-tight ${p.lista.length && p.tono === 'error' ? 'text-[var(--status-error-text)]' : p.lista.length && p.tono === 'warning' ? 'text-[var(--status-warning-text)]' : 'text-[var(--text-main)]'}`}>
                       {p.lista.length}
                     </span>
-                    <span className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">{p.label}</span>
+                    <span className="block text-xs font-semibold text-[var(--text-secondary)]">{p.label}</span>
                   </button>
                 ))}
               </div>
@@ -658,7 +658,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
               <div className="rounded-lg border border-[var(--border-color)]">
                 <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] px-3 py-2">
                   <span className="text-xs font-semibold text-[var(--text-main)]">{actual?.label}</span>
-                  <span className="text-[10px] text-[var(--text-muted)]">
+                  <span className="text-xs text-[var(--text-muted)]">
                     {q ? `${visibles.length} de ${actual?.lista.length}` : actual?.lista.length}
                   </span>
                   <div className="relative ml-auto w-full sm:w-64">
@@ -674,7 +674,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                     <p className="text-xs font-semibold text-[var(--text-main)]">{mensajeBajas}</p>
                     {plan.excedeUmbral && (
                       <Aviso tono="error" icon={ShieldAlert}>
-                        <p className="font-bold">Cantidad inusual de bajas.</p>
+                        <p className="font-semibold">Cantidad inusual de bajas.</p>
                         <p>
                           {plan.umbral.filter(u => u.fraccion > UMBRAL_BAJAS).map(u =>
                             `${u.bajas} de ${u.activos} ${PLURAL[u.entidad]} activos (${Math.round(u.fraccion * 100)} %)`).join('; ')}
@@ -692,13 +692,13 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                         className={decisionBajas === 'mantener' ? btnPrimary : btnSecondary}>
                         <CheckCircle2 className="h-3.5 w-3.5" />Dejarlos activos
                       </button>
-                      <button type="button" className="ml-auto text-[11px] font-semibold text-[var(--text-secondary)] underline cursor-pointer"
+                      <button type="button" className="ml-auto text-xs font-semibold text-[var(--text-secondary)] underline cursor-pointer"
                         onClick={() => setDesmarcadas(seleccionadas.length ? new Set(bajas.map(b => b.key)) : new Set())}>
                         {seleccionadas.length ? 'Desmarcar todos' : 'Marcar todos'}
                       </button>
                     </div>
                     {decisionBajas === 'baja' && (
-                      <p className="text-[11px] text-[var(--text-secondary)]">
+                      <p className="text-xs text-[var(--text-secondary)]">
                         Baja logica: quedan inactivos con fecha, usuario y motivo &quot;{motivoBaja()}&quot;. No se borra nada
                         {!esDir && ' y las solicitudes pasadas conservan el nombre y puesto de sus pasajeros'}.
                       </p>
@@ -707,7 +707,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                       <label className="block text-xs">
                         <span className="font-semibold text-[var(--status-error-text)]">Escriba CONFIRMAR para dar de baja a {seleccionadas.length}:</span>
                         <input value={textoConfirmar} onChange={e => setTextoConfirmar(e.target.value)} autoComplete="off"
-                          className="mt-1 block w-48 rounded-md border border-[var(--status-error-border)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs font-mono uppercase outline-none focus:border-[var(--status-error-text)]" />
+                          className="mt-1 block w-48 rounded-md border border-[var(--status-error-border)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs font-mono outline-none focus:border-[var(--status-error-text)]" />
                       </label>
                     )}
                   </div>
@@ -730,12 +730,12 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                           <span className="space-y-0.5">
                             <span className="flex flex-wrap items-center gap-2">
                               {esDir && <Insignia>{x.entidad}</Insignia>}
-                              <span className="font-mono font-bold text-[var(--text-main)]">{x.clave}</span>
+                              <span className="font-mono font-semibold text-[var(--text-main)]">{x.clave}</span>
                               <span className="font-semibold text-[var(--text-main)]">{x.nombre}</span>
                               {x.detalle && <span className="text-[var(--text-muted)]">· {x.detalle}</span>}
                             </span>
                             {esDir && x.asignados > 0 && (
-                              <span className="block text-[11px] text-[var(--status-warning-text)]">
+                              <span className="block text-xs text-[var(--status-warning-text)]">
                                 {ARTICULO[x.entidad]} tiene {plural(x.asignados, 'empleado asignado', 'empleados asignados')}; si la desactiva,
                                 esos empleados conservaran el dato pero {SUJETO[x.entidad]} no aparecera en nuevas solicitudes.
                               </span>
@@ -746,7 +746,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                     );
                   })}
                   {visibles.length > LIMITE_FILAS && (
-                    <li className="px-3 py-2 text-center text-[11px] text-[var(--text-muted)]">
+                    <li className="px-3 py-2 text-center text-xs text-[var(--text-muted)]">
                       Mostrando {LIMITE_FILAS} de {visibles.length}. Use el buscador para encontrar un registro.
                     </li>
                   )}
@@ -758,7 +758,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                   <p className="text-xs font-semibold text-[var(--text-main)]">Resumen antes de guardar</p>
                   <Contadores resumen={resumenFinal}
                     contadores={CONTADORES_EMPLEADOS.filter(([, c]) => c !== 'bajas' || modo === MODOS.SINCRONIZAR)} />
-                  <p className="text-[11px] text-[var(--text-muted)]">
+                  <p className="text-xs text-[var(--text-muted)]">
                     Un empleado puede contarse en "Actualizados" y en "Cambian de área" a la vez. Nada se guarda hasta pulsar «Confirmar importación».
                   </p>
                 </div>
@@ -776,7 +776,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
           {paso === 'resultado' && resultado && (
             <div className="space-y-4">
               <Aviso tono="success" icon={CheckCircle2}>
-                <p className="text-sm font-bold">Importacion completada</p>
+                <p className="text-sm font-semibold">Importacion completada</p>
                 <p>{modo === MODOS.SINCRONIZAR ? 'Modo: Sincronizar con la lista completa.' : 'Modo: Agregar y actualizar.'}</p>
               </Aviso>
               <Contadores resumen={resultado.resumen}
@@ -816,13 +816,13 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
           </div>
           <div className="flex items-center gap-2">
             {paso === 'previa' && plan && puestosSinResolver > 0 && (
-              <span className="text-[11px] text-[var(--status-warning-text)]">Resuelva {plural(puestosSinResolver, 'puesto', 'puestos')} para confirmar.</span>
+              <span className="text-xs text-[var(--status-warning-text)]">Resuelva {plural(puestosSinResolver, 'puesto', 'puestos')} para confirmar.</span>
             )}
             {paso === 'previa' && plan && !esDir && puestosSinResolver === 0 && !areasConfirmadas && (
-              <span className="text-[11px] text-[var(--status-warning-text)]">Confirme las áreas para continuar.</span>
+              <span className="text-xs text-[var(--status-warning-text)]">Confirme las áreas para continuar.</span>
             )}
             {paso === 'previa' && plan && !bajasResueltas && (
-              <span className="text-[11px] text-[var(--status-warning-text)]">
+              <span className="text-xs text-[var(--status-warning-text)]">
                 {decisionBajas === 'baja' ? 'Escriba CONFIRMAR para continuar.' : 'Decida que hacer con los que ya no aparecen.'}
               </span>
             )}

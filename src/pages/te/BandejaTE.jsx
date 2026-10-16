@@ -6,7 +6,7 @@
  * El Aut. 1 tiene además "Historial de mi área" (lo que ya pasó por su nivel, solo lectura).
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, BadgeCheck, CheckCircle2, Clock, Loader2, Undo2 } from 'lucide-react';
+import { CheckCircle2, Clock, Undo2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useAccesos } from '../../hooks/useAccesos';
 import { useAreas } from '../../hooks/useAreas';
@@ -20,7 +20,16 @@ import AyudaPantalla from '../../components/AyudaPantalla';
 import BadgeEstatus from '../../components/BadgeEstatus';
 import InsigniasTE from '../../components/InsigniasTE';
 import Modal from '../../components/Modal';
-import Spinner from '../../components/Spinner';
+import Aviso from '../../components/ui/Aviso';
+import Boton from '../../components/ui/Boton';
+import { AreaTexto, Campo, Entrada, Selector } from '../../components/ui/Campo';
+import EncabezadoPagina from '../../components/ui/EncabezadoPagina';
+import EstadoVacio from '../../components/ui/EstadoVacio';
+import { EsqueletoPagina, EsqueletoTabla } from '../../components/ui/Esqueleto';
+import { CASILLA } from '../../components/ui/estilos';
+import Insignia from '../../components/ui/Insignia';
+import Pestanas from '../../components/ui/Pestanas';
+import { Fila, Tabla, Td, Th } from '../../components/ui/Tabla';
 import { formatoFecha } from '../../utils/asignaciones';
 import { crearFormateadorNombres } from '../../utils/nombresPersona';
 import {
@@ -30,11 +39,8 @@ import { YaRespondida, autorizarSolicitud, autorizarVarias, devolverSolicitud, l
 import { ymd } from '../../utils/fechas';
 import DetalleTE from './DetalleTE';
 
-const campo = 'rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]';
-const boton = 'inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md px-4 py-2.5 text-sm font-semibold transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50';
-
 function Vencida() {
-  return <span className="inline-flex items-center gap-1 rounded-full border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-2 py-0.5 text-[10px] font-bold text-[var(--status-warning-text)]"><Clock className="h-3 w-3" />Fecha vencida</span>;
+  return <Insignia tono="aviso" icono={Clock}>Fecha vencida</Insignia>;
 }
 
 export default function BandejaTE() {
@@ -136,123 +142,122 @@ export default function BandejaTE() {
     setTrabajando(false); setTimeout(() => { ocupadoRef.current = false; }, 1500);
   };
 
-  if (accesos.cargando || cargando) return <Spinner />;
+  if (accesos.cargando || cargando) return <div className="space-y-8"><EsqueletoPagina bloques={0} /><EsqueletoTabla filas={4} columnas={8} /></div>;
   const totalPendientes = nivel1.length + nivel2.length;
   // La primera solicitud que se puede revisar (no es mía): ahí apunta el recorrido guiado
   const primeraRevisable = secciones.flatMap(s => lista(s.nivel)).find(t => !esPropia(t, usuario.uid))?.id;
   const historialArea = delArea.filter(t => t.estatus !== 'pendiente_aut1' && t.estatus !== 'borrador').sort((a, b) => esperaDesde(b) - esperaDesde(a));
 
   return (
-    <div className="space-y-5">
-      <header className="border-b border-[var(--border-color)] pb-4">
-        <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Tiempo extra</div>
-        <div className="mt-1 flex items-center gap-2">
-          <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">Por autorizar</h1>
-          <AyudaPantalla id="autorizar" />
-        </div>
-        <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{totalPendientes === 0 ? 'No tienes solicitudes pendientes.' : `${totalPendientes} esperando tu firma, las más antiguas primero. Se actualiza solo.`}</p>
-      </header>
+    <div className="space-y-8">
+      <EncabezadoPagina
+        antetitulo="Tiempo extra"
+        titulo="Por autorizar"
+        descripcion={totalPendientes === 0 ? 'No tienes solicitudes pendientes.' : `${totalPendientes} esperando tu firma, las más antiguas primero. Se actualiza sola.`}
+        ayuda={<AyudaPantalla id="autorizar" />}
+      />
 
-      {error && <p role="alert" className="flex items-center gap-2 text-xs text-[var(--status-error-text)]"><AlertTriangle className="h-4 w-4" />No se pudo leer la bandeja: {error.message}</p>}
+      {error && <Aviso tono="error" titulo="No se pudo leer la bandeja">{error.message}. Revisa tu conexión y vuelve a abrir esta pantalla.</Aviso>}
 
       {esAut1 && (
-        <nav className="flex gap-0 border-b border-[var(--border-color)]" aria-label="Secciones">
-          {[['bandeja', 'Por autorizar'], ['historial', 'Historial de mi área']].map(([id, label]) => (
-            <button key={id} type="button" onClick={() => setPestana(id)} aria-current={pestana === id ? 'page' : undefined}
-              className={`-mb-px cursor-pointer border-b-2 px-4 py-2.5 text-xs font-semibold ${pestana === id ? 'border-[var(--cm-red)] text-[var(--accent-text)]' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-main)]'}`}>{label}</button>
-          ))}
-        </nav>
+        <Pestanas etiqueta="Secciones" activa={pestana} onCambio={setPestana} items={[{ id: 'bandeja', etiqueta: 'Por autorizar' }, { id: 'historial', etiqueta: 'Historial de mi área' }]} />
       )}
 
       {pestana === 'bandeja' && (
         <>
-          <div data-tour="autorizar-filtros" className="flex flex-wrap items-end gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-3" role="group" aria-label="Filtros">
-            <label className="text-[11px] font-medium text-[var(--text-secondary)]">Área
-              <select value={filtros.areaId} onChange={e => setFiltros(f => ({ ...f, areaId: e.target.value }))} className={`${campo} mt-0.5 block`}>
-                <option value="">Todas</option>{areasEnBandeja.map(id => <option key={id} value={id}>{nombreArea(id)}</option>)}
-              </select>
-            </label>
-            <label className="text-[11px] font-medium text-[var(--text-secondary)]">Fecha del TE desde
-              <input type="date" value={filtros.desde} onChange={e => setFiltros(f => ({ ...f, desde: e.target.value }))} className={`${campo} mt-0.5 block`} />
-            </label>
-            <label className="text-[11px] font-medium text-[var(--text-secondary)]">hasta
-              <input type="date" value={filtros.hasta} min={filtros.desde} onChange={e => setFiltros(f => ({ ...f, hasta: e.target.value }))} className={`${campo} mt-0.5 block`} />
-            </label>
-            {(filtros.areaId || filtros.desde || filtros.hasta) && <button type="button" onClick={() => setFiltros({ areaId: '', desde: '', hasta: '' })} className="cursor-pointer pb-1.5 text-[11px] font-semibold text-[var(--accent-text)] hover:underline">Limpiar</button>}
+          <div data-tour="autorizar-filtros" className="space-y-2">
+            <div className="grid gap-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end" role="group" aria-label="Filtros">
+              <Campo etiqueta="Área">
+                <Selector value={filtros.areaId} onChange={e => setFiltros(f => ({ ...f, areaId: e.target.value }))}>
+                  <option value="">Todas</option>{areasEnBandeja.map(id => <option key={id} value={id}>{nombreArea(id)}</option>)}
+                </Selector>
+              </Campo>
+              <Campo etiqueta="Fecha del tiempo extra, desde"><Entrada type="date" value={filtros.desde} onChange={e => setFiltros(f => ({ ...f, desde: e.target.value }))} /></Campo>
+              <Campo etiqueta="Hasta"><Entrada type="date" value={filtros.hasta} min={filtros.desde} onChange={e => setFiltros(f => ({ ...f, hasta: e.target.value }))} /></Campo>
+              {(filtros.areaId || filtros.desde || filtros.hasta) && <Boton variante="fantasma" onClick={() => setFiltros({ areaId: '', desde: '', hasta: '' })}>Limpiar filtros</Boton>}
+            </div>
+            <Ayuda clave="autorizar.filtros" />
           </div>
 
-          <Ayuda clave="autorizar.filtros" className="-mt-2" />
-          {secciones.length === 0 && <p className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-6 text-center text-xs text-[var(--text-secondary)]">No tienes un nivel de autorización asignado.</p>}
+          {secciones.length === 0 && (
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]"><EstadoVacio texto="No tienes un nivel de autorización asignado. Si crees que debería tenerlo, pide a Recursos Humanos que te lo asignen." /></div>
+          )}
           {secciones.map(({ nivel, titulo, lista: todas }) => {
             const items = lista(nivel);
             const firmables = items.filter(t => !esPropia(t, usuario.uid));
             const marcadas = firmables.filter(t => seleccion[nivel].has(t.id));
             return (
-              <section key={nivel} aria-label={titulo} data-tour={nivel === secciones[0].nivel ? 'autorizar-lista' : undefined} className="space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="flex items-center gap-2 text-sm font-bold text-[var(--text-main)]"><BadgeCheck className="h-4 w-4 text-[var(--text-muted)]" />{titulo}
-                    <span className="rounded-full bg-[var(--bg-surface-secondary)] px-2 py-0.5 text-[11px] font-bold text-[var(--text-secondary)]">{items.length}{items.length !== todas.length ? ` de ${todas.length}` : ''}</span></h2>
-                  <div className="flex items-center gap-3">
+              <section key={nivel} aria-label={titulo} data-tour={nivel === secciones[0].nivel ? 'autorizar-lista' : undefined} className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 className="flex items-center gap-3 text-lg font-semibold text-[var(--text-main)]">{titulo}
+                    <Insignia sinIcono>{items.length}{items.length !== todas.length ? ` de ${todas.length}` : ''}</Insignia></h2>
+                  <div className="flex flex-wrap items-center gap-4">
                     {firmables.length > 1 && (
-                      <label className="flex cursor-pointer items-center gap-1.5 text-xs text-[var(--text-secondary)]">
-                        <input type="checkbox" checked={marcadas.length === firmables.length && firmables.length > 0} onChange={() => alternarTodas(nivel, firmables.map(t => t.id))} className="h-4 w-4 accent-[var(--cm-red)]" />Todas
+                      <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-[var(--text-secondary)]">
+                        <input type="checkbox" checked={marcadas.length === firmables.length && firmables.length > 0} onChange={() => alternarTodas(nivel, firmables.map(t => t.id))} className={CASILLA} />Todas
                       </label>
                     )}
-                    <button type="button" disabled={!marcadas.length || trabajando} onClick={() => autorizarSeleccion(nivel, items)} className={`${boton} bg-[var(--cm-red)] !py-2 !text-xs text-white hover:bg-[var(--cm-red-hover)]`}>
-                      {trabajando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}Autorizar {marcadas.length || ''} {marcadas.length === 1 ? 'seleccionada' : 'seleccionadas'}
-                    </button>
+                    <Boton variante={marcadas.length ? 'primario' : 'contorno'} estado={trabajando ? 'cargando' : undefined} icono={CheckCircle2} disabled={!marcadas.length || trabajando} onClick={() => autorizarSeleccion(nivel, items)}>
+                      Autorizar {marcadas.length || ''} {marcadas.length === 1 ? 'seleccionada' : 'seleccionadas'}
+                    </Boton>
                   </div>
                 </div>
 
                 <Ayuda clave="autorizar.lista" />
                 {firmables.length > 1 && <Ayuda clave="autorizar.varias" />}
                 {items.length === 0 ? (
-                  <p className="rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--bg-surface)] p-6 text-center text-xs text-[var(--text-muted)]">{todas.length ? 'Ninguna solicitud con esos filtros.' : 'Nada pendiente en este nivel. 🎉'}</p>
+                  <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
+                    <EstadoVacio texto={todas.length ? 'Ninguna solicitud coincide con esos filtros.' : 'Nada pendiente en este nivel. Te avisamos cuando llegue algo.'}
+                      accion={todas.length ? { texto: 'Limpiar filtros', onClick: () => setFiltros({ areaId: '', desde: '', hasta: '' }) } : undefined} />
+                  </div>
                 ) : (
                   <>
-                    <div className="hidden overflow-x-auto rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] md:block">
-                      <table className="w-full text-left text-xs">
-                        <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold uppercase tracking-wider">
-                          <tr><th className="px-3 py-3" /><th className="px-3 py-3">Folio</th><th className="px-3 py-3">Área</th><th className="px-3 py-3">Solicitante</th><th className="px-3 py-3">Fecha del TE</th>
-                            <th className="px-3 py-3 text-right">Empleados</th><th className="px-3 py-3 text-right">Horas</th><th className="px-3 py-3 text-right">Transporte</th><th className="px-3 py-3">Espera</th><th className="px-3 py-3" /></tr>
+                    <div className="hidden md:block">
+                      <Tabla etiqueta={titulo}>
+                        <thead>
+                          <tr><Th /><Th>Folio</Th><Th>Área</Th><Th>Solicitante</Th><Th>Fecha del TE</Th><Th derecha>Empleados</Th><Th derecha>Horas</Th><Th derecha>Transporte</Th><Th>Espera</Th><Th /></tr>
                         </thead>
-                        <tbody className="divide-y divide-[var(--border-subtle)]">
+                        <tbody>
                           {items.map(t => {
                             const propia = esPropia(t, usuario.uid);
                             return (
-                              <tr key={t.id} className={propia ? 'bg-[var(--bg-surface-secondary)] opacity-70' : 'hover:bg-[var(--bg-surface-secondary)]'}>
-                                <td className="px-3 py-2.5">{!propia && <input type="checkbox" aria-label={`Seleccionar ${t.folio}`} checked={seleccion[nivel].has(t.id)} onChange={() => alternar(nivel, t.id)} className="h-4 w-4 accent-[var(--cm-red)]" />}</td>
-                                <td className="px-3 py-2.5 font-mono font-semibold text-[var(--text-main)]">{t.folio}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></td>
-                                <td className="px-3 py-2.5">{nombreArea(t.areaId)}</td>
-                                <td className="px-3 py-2.5">{formato.nombre(t.creadoPorNombre)}</td>
-                                <td className="px-3 py-2.5 whitespace-nowrap">{formatoFecha(`${t.fechaTE}T12:00:00`)} {fechaVencida(t.fechaTE, hoy) && <Vencida />}</td>
-                                <td className="px-3 py-2.5 text-right">{t.resumen?.totalEmpleados ?? 0}</td>
-                                <td className="px-3 py-2.5 text-right">{t.resumen?.totalHoras ?? 0}</td>
-                                <td className="px-3 py-2.5 text-right">{t.resumen?.totalTransporte ?? 0}</td>
-                                <td className="px-3 py-2.5 whitespace-nowrap text-[var(--text-secondary)]">{haceTiempo(esperaDesde(t), ahora)}</td>
-                                <td className="px-3 py-2.5 text-right">
-                                  {propia ? <span className="text-[10px] font-semibold text-[var(--text-muted)]">No puedes autorizar tu propia solicitud</span>
-                                    : <button type="button" data-tour={t.id === primeraRevisable ? 'autorizar-revisar' : undefined} onClick={() => abrir(t, nivel)} className="cursor-pointer rounded-md border border-[var(--border-color)] px-3 py-1.5 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]">Revisar</button>}
-                                </td>
-                              </tr>
+                              <Fila key={t.id} className={propia ? 'opacity-60' : ''}>
+                                <Td>{!propia && <input type="checkbox" aria-label={`Seleccionar ${t.folio}`} checked={seleccion[nivel].has(t.id)} onChange={() => alternar(nivel, t.id)} className={CASILLA} />}</Td>
+                                <Td mono>{t.folio}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></Td>
+                                <Td>{nombreArea(t.areaId)}</Td>
+                                <Td>{formato.nombre(t.creadoPorNombre)}</Td>
+                                <Td className="whitespace-nowrap">{formatoFecha(`${t.fechaTE}T12:00:00`)} {fechaVencida(t.fechaTE, hoy) && <Vencida />}</Td>
+                                <Td derecha>{t.resumen?.totalEmpleados ?? 0}</Td>
+                                <Td derecha mono>{t.resumen?.totalHoras ?? 0}</Td>
+                                <Td derecha>{t.resumen?.totalTransporte ?? 0}</Td>
+                                <Td className="whitespace-nowrap text-[var(--text-secondary)]">{haceTiempo(esperaDesde(t), ahora)}</Td>
+                                <Td className="text-right">
+                                  {propia ? <span className="text-xs text-[var(--text-muted)]">No puedes autorizar tu propia solicitud</span>
+                                    : <Boton tamano="sm" data-tour={t.id === primeraRevisable ? 'autorizar-revisar' : undefined} onClick={() => abrir(t, nivel)}>Revisar</Boton>}
+                                </Td>
+                              </Fila>
                             );
                           })}
                         </tbody>
-                      </table>
+                      </Tabla>
                     </div>
                     <ul className="space-y-3 md:hidden">
                       {items.map(t => {
                         const propia = esPropia(t, usuario.uid);
                         return (
-                          <li key={t.id} className={`rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 shadow-sm ${propia ? 'opacity-70' : ''}`}>
-                            <div className="flex items-start justify-between gap-2">
-                              <div><p className="font-mono text-sm font-bold text-[var(--text-main)]">{t.folio}</p><p className="text-xs text-[var(--text-secondary)]">{nombreArea(t.areaId)} · {formato.nombre(t.creadoPorNombre)}</p><InsigniasTE t={t} className="mt-1" /></div>
-                              {!propia && <input type="checkbox" aria-label={`Seleccionar ${t.folio}`} checked={seleccion[nivel].has(t.id)} onChange={() => alternar(nivel, t.id)} className="h-6 w-6 accent-[var(--cm-red)]" />}
+                          <li key={t.id} className={`rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 ${propia ? 'opacity-60' : ''}`}>
+                            <div className="flex items-start justify-between gap-3">
+                              <div><p className="font-mono text-sm font-medium text-[var(--text-main)]">{t.folio}</p><p className="text-xs text-[var(--text-secondary)]">{nombreArea(t.areaId)} · {formato.nombre(t.creadoPorNombre)}</p><InsigniasTE t={t} className="mt-1" /></div>
+                              {!propia && (
+                                <label className="-m-2 flex h-11 w-11 cursor-pointer items-center justify-center">
+                                  <input type="checkbox" aria-label={`Seleccionar ${t.folio}`} checked={seleccion[nivel].has(t.id)} onChange={() => alternar(nivel, t.id)} className={CASILLA} />
+                                </label>
+                              )}
                             </div>
                             <p className="mt-2 text-sm text-[var(--text-main)]">{formatoFecha(`${t.fechaTE}T12:00:00`)} {fechaVencida(t.fechaTE, hoy) && <Vencida />}</p>
-                            <p className="mt-1 text-xs text-[var(--text-secondary)]"><b>{t.resumen?.totalEmpleados ?? 0}</b> empleados · <b>{t.resumen?.totalHoras ?? 0}</b> h · <b>{t.resumen?.totalTransporte ?? 0}</b> con transporte · {haceTiempo(esperaDesde(t), ahora)}</p>
-                            {propia ? <p className="mt-3 text-xs font-semibold text-[var(--text-muted)]">No puedes autorizar tu propia solicitud</p>
-                              : <button type="button" data-tour={t.id === primeraRevisable ? 'autorizar-revisar' : undefined} onClick={() => abrir(t, nivel)} className={`${boton} mt-3 w-full border border-[var(--border-color)] text-[var(--text-main)]`}>Revisar y responder</button>}
+                            <p className="mt-1 text-xs text-[var(--text-secondary)]"><b className="font-medium">{t.resumen?.totalEmpleados ?? 0}</b> empleados · <b className="font-medium">{t.resumen?.totalHoras ?? 0}</b> h · <b className="font-medium">{t.resumen?.totalTransporte ?? 0}</b> con transporte · {haceTiempo(esperaDesde(t), ahora)}</p>
+                            {propia ? <p className="mt-3 text-xs text-[var(--text-muted)]">No puedes autorizar tu propia solicitud</p>
+                              : <Boton className="mt-3 w-full" data-tour={t.id === primeraRevisable ? 'autorizar-revisar' : undefined} onClick={() => abrir(t, nivel)}>Revisar y responder</Boton>}
                           </li>
                         );
                       })}
@@ -266,49 +271,46 @@ export default function BandejaTE() {
       )}
 
       {pestana === 'historial' && esAut1 && (
-        <section aria-label="Historial de mi área" className="space-y-2">
-          <p className="text-xs text-[var(--text-secondary)]">Lo que ya pasó por tu nivel (en autorización de nivel 2, autorizadas, devueltas y canceladas). Solo lectura.</p>
-          <div className="overflow-x-auto rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold uppercase tracking-wider">
-                <tr><th className="px-3 py-3">Folio</th><th className="px-3 py-3">Área</th><th className="px-3 py-3">Solicitante</th><th className="px-3 py-3">Fecha del TE</th><th className="px-3 py-3 text-right">Empleados</th><th className="px-3 py-3 text-right">Horas</th><th className="px-3 py-3">Estatus</th><th className="px-3 py-3" /></tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-subtle)]">
-                {historialArea.length === 0 ? <tr><td colSpan={8} className="py-8 text-center text-[var(--text-muted)]">Todavía no hay historial en tu área.</td></tr> : historialArea.map(t => (
-                  <tr key={t.id} className="hover:bg-[var(--bg-surface-secondary)]">
-                    <td className="px-3 py-2.5 font-mono font-semibold">{t.folio ?? '—'}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></td><td className="px-3 py-2.5">{nombreArea(t.areaId)}</td><td className="px-3 py-2.5">{formato.nombre(t.creadoPorNombre)}</td>
-                    <td className="px-3 py-2.5">{formatoFecha(`${t.fechaTE}T12:00:00`)}</td><td className="px-3 py-2.5 text-right">{t.resumen?.totalEmpleados ?? 0}</td><td className="px-3 py-2.5 text-right">{t.resumen?.totalHoras ?? 0}</td>
-                    <td className="px-3 py-2.5"><BadgeEstatus estatus={t.estatus} modulo="te" /></td>
-                    <td className="px-3 py-2.5 text-right"><button type="button" onClick={() => abrir(t, 1, true)} className="cursor-pointer rounded-md border border-[var(--border-color)] px-3 py-1.5 text-xs font-semibold hover:bg-[var(--bg-surface-hover)]">Ver</button></td>
-                  </tr>
+        <section aria-label="Historial de mi área" className="space-y-4">
+          <p className="text-sm text-[var(--text-secondary)]">Lo que ya pasó por tu nivel (en autorización de nivel 2, autorizadas, devueltas y canceladas). Solo lectura.</p>
+          {historialArea.length === 0 ? (
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]"><EstadoVacio texto="Todavía no hay historial en tu área." /></div>
+          ) : (
+            <Tabla etiqueta="Historial de mi área">
+              <thead><tr><Th>Folio</Th><Th>Área</Th><Th>Solicitante</Th><Th>Fecha del TE</Th><Th derecha>Empleados</Th><Th derecha>Horas</Th><Th>Estatus</Th><Th /></tr></thead>
+              <tbody>
+                {historialArea.map(t => (
+                  <Fila key={t.id}>
+                    <Td mono>{t.folio ?? '—'}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></Td><Td>{nombreArea(t.areaId)}</Td><Td>{formato.nombre(t.creadoPorNombre)}</Td>
+                    <Td className="whitespace-nowrap">{formatoFecha(`${t.fechaTE}T12:00:00`)}</Td><Td derecha>{t.resumen?.totalEmpleados ?? 0}</Td><Td derecha mono>{t.resumen?.totalHoras ?? 0}</Td>
+                    <Td><BadgeEstatus estatus={t.estatus} modulo="te" /></Td>
+                    <Td className="text-right"><Boton tamano="sm" onClick={() => abrir(t, 1, true)}>Ver</Boton></Td>
+                  </Fila>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </Tabla>
+          )}
         </section>
       )}
 
       {detalle && (
         <Modal isOpen onClose={() => !trabajando && setDetalle(null)} title={detalle.solicitud.folio ?? 'Solicitud'} maxWidth="max-w-4xl" preventCloseOnBackdrop={trabajando}>
-          {detalle.cargando ? <div className="flex items-center gap-2 py-8 text-xs text-[var(--text-muted)]"><Loader2 className="h-4 w-4 animate-spin" />Cargando…</div> : (
+          {detalle.cargando ? <EsqueletoTabla filas={3} columnas={4} /> : (
             <DetalleTE t={detalle.solicitud} historial={detalle.historial} area={nombreArea(detalle.solicitud.areaId)} catalogos={{ rutas, comunidades, puntos }} formato={formato}
               acciones={detalle.soloLectura ? null : esPropia(detalle.solicitud, usuario.uid)
-                ? <p className="text-xs font-semibold text-[var(--text-muted)]">No puedes autorizar tu propia solicitud.</p>
+                ? <p className="text-sm text-[var(--text-muted)]">No puedes autorizar tu propia solicitud.</p>
                 : (
                   <div className="w-full space-y-3">
-                    <label className="block text-xs font-medium text-[var(--text-secondary)]" htmlFor="comentario-firma">
-                      Comentario <span className="text-[var(--text-muted)]">(opcional al autorizar; obligatorio al devolver, mínimo {MIN_MOTIVO_DEVOLUCION} caracteres: {texto.trim().length})</span>
-                    </label>
-                    <textarea id="comentario-firma" rows={2} value={texto} onChange={e => setTexto(e.target.value)} className={`${campo} w-full`} placeholder="Comentario o motivo de la devolución…" />
+                    <Campo etiqueta="Comentario" ayuda={`Opcional al autorizar. Obligatorio al devolver: mínimo ${MIN_MOTIVO_DEVOLUCION} caracteres (llevas ${texto.trim().length}).`}>
+                      <AreaTexto id="comentario-firma" rows={2} value={texto} onChange={e => setTexto(e.target.value)} placeholder="Comentario o motivo de la devolución…" />
+                    </Campo>
                     <Ayuda clave="autorizar.comentario" />
                     <Ayuda clave="autorizar.autorizar" className="!mt-0" />
                     <Ayuda clave="autorizar.devolver" className="!mt-0" />
                     {(detalle.solicitud.rutasDistintas ?? 0) > 1 && <Ayuda clave="autorizar.rutas" className="!mt-0 font-semibold !text-[var(--status-warning-text)]" />}
-                    <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                      <button type="button" id="btn-devolver" disabled={trabajando || texto.trim().length < MIN_MOTIVO_DEVOLUCION} onClick={devolver}
-                        className={`${boton} border border-[var(--status-error-border)] bg-[var(--bg-surface)] text-[var(--status-error-text)] hover:bg-[var(--status-error-bg)]`}><Undo2 className="h-4 w-4" />Devolver</button>
-                      <button type="button" id="btn-autorizar" disabled={trabajando} onClick={autorizar} className={`${boton} bg-[var(--cm-red)] text-white hover:bg-[var(--cm-red-hover)]`}>
-                        {trabajando ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}{detalle.nivel === 1 ? 'Autorizar (pasa a nivel 2)' : 'Autorizar'}</button>
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                      <Boton id="btn-devolver" variante="peligro" icono={Undo2} disabled={trabajando || texto.trim().length < MIN_MOTIVO_DEVOLUCION} onClick={devolver}>Devolver</Boton>
+                      <Boton id="btn-autorizar" variante="primario" icono={CheckCircle2} estado={trabajando ? 'cargando' : undefined} onClick={autorizar}>{detalle.nivel === 1 ? 'Autorizar (pasa a nivel 2)' : 'Autorizar'}</Boton>
                     </div>
                   </div>
                 )} />
@@ -318,15 +320,14 @@ export default function BandejaTE() {
 
       {resultado && (
         <Modal isOpen onClose={() => setResultado(null)} title="Resultado de la autorización" maxWidth="max-w-md">
-          <div className="space-y-3 text-sm">
-            <p className="flex items-center gap-2 font-semibold text-[var(--status-success-text)]"><CheckCircle2 className="h-4 w-4" />{resultado.ok.length} autorizadas{resultado.ok.length ? `: ${resultado.ok.join(', ')}` : ''}</p>
+          <div className="space-y-4 text-sm">
+            <Aviso tono="exito">{resultado.ok.length} autorizadas{resultado.ok.length ? `: ${resultado.ok.join(', ')}` : ''}</Aviso>
             {resultado.fallidas.length > 0 && (
-              <div className="rounded-md border border-[var(--status-error-border)] bg-[var(--status-error-bg)] p-3 text-xs text-[var(--status-error-text)]">
-                <p className="mb-1 font-bold">{resultado.fallidas.length} no se pudieron autorizar</p>
-                <ul className="space-y-0.5">{resultado.fallidas.map(f => <li key={f.folio}><b>{f.folio}:</b> {f.motivo}</li>)}</ul>
-              </div>
+              <Aviso tono="error" titulo={`${resultado.fallidas.length} no se pudieron autorizar`}>
+                <ul className="space-y-0.5">{resultado.fallidas.map(f => <li key={f.folio}><b className="font-medium">{f.folio}:</b> {f.motivo}</li>)}</ul>
+              </Aviso>
             )}
-            <div className="flex justify-end"><button type="button" onClick={() => setResultado(null)} className={`${boton} border border-[var(--border-color)] text-[var(--text-main)]`}>Cerrar</button></div>
+            <div className="flex justify-end"><Boton onClick={() => setResultado(null)}>Cerrar</Boton></div>
           </div>
         </Modal>
       )}

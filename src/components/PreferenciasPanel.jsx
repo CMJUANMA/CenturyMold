@@ -18,7 +18,7 @@ function Opcion({ activa, onClick, icono: Icono, titulo, detalle }) {
         : 'border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-main)] hover:border-[var(--text-muted)]'}`}>
       {Icono && <Icono className={`h-6 w-6 shrink-0 ${activa ? 'text-[var(--accent-text)]' : 'text-[var(--text-secondary)]'}`} />}
       <span className="min-w-0">
-        <span className="block text-sm font-bold">{titulo}</span>
+        <span className="block text-sm font-semibold">{titulo}</span>
         {detalle && <span className="block text-xs text-[var(--text-secondary)]">{detalle}</span>}
       </span>
       <span className={`ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${activa ? 'border-[var(--cm-red)]' : 'border-[var(--border-color)]'}`}>
@@ -31,7 +31,7 @@ function Opcion({ activa, onClick, icono: Icono, titulo, detalle }) {
 function Seccion({ titulo, ayuda, children }) {
   return (
     <section className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5 shadow-sm">
-      <h2 className="text-sm font-bold text-[var(--text-main)]">{titulo}</h2>
+      <h2 className="text-sm font-semibold text-[var(--text-main)]">{titulo}</h2>
       {ayuda && <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{ayuda}</p>}
       <div className="mt-4 grid gap-3 sm:grid-cols-2">{children}</div>
     </section>

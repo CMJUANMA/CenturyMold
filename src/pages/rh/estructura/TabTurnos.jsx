@@ -36,7 +36,7 @@ export default function TabTurnos() {
   return (
     <section className="space-y-4" aria-label="Turnos de nómina">
       <div className="flex items-center gap-2">
-        <h2 className="text-sm font-bold text-[var(--text-main)]">Horario normal de cada turno</h2>
+        <h2 className="text-sm font-semibold text-[var(--text-main)]">Horario normal de cada turno</h2>
         <AyudaPantalla id="turnos" />
       </div>
       <p className="text-xs text-[var(--text-secondary)]">
@@ -44,13 +44,13 @@ export default function TabTurnos() {
       </p>
       <div className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+          <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-xs font-semibold text-[var(--text-secondary)]">
             <tr><th className="px-4 py-3">Turno</th><th className="px-4 py-3">Entrada</th><th className="px-4 py-3">Salida (fin del turno)</th></tr>
           </thead>
           <tbody className="divide-y divide-[var(--border-subtle)]">
             {TURNOS_NOMINA_IDS.map(t => (
               <tr key={t}>
-                <th scope="row" className="px-4 py-3 font-bold text-[var(--text-main)]">Turno {t}</th>
+                <th scope="row" className="px-4 py-3 font-semibold text-[var(--text-main)]">Turno {t}</th>
                 <td className="px-4 py-3">
                   <select aria-label={`Entrada del turno ${t}`} value={form[t].entrada} onChange={e => cambiar(t, 'entrada', e.target.value)} className={sel}>
                     <option value="">Sin configurar</option>{HORAS_ENTRADA_TE.map(h => <option key={h} value={h}>{h}</option>)}
