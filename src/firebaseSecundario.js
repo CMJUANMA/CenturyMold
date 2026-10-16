@@ -4,7 +4,7 @@
  * sin cerrar la sesión del administrador.
  */
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { connectAuthEmulator, getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -22,3 +22,6 @@ const appSecundaria =
   initializeApp(firebaseConfig, APP_NAME);
 
 export const authSecundaria = getAuth(appSecundaria);
+if (import.meta.env.VITE_USE_EMULATORS === 'true' && !authSecundaria.emulatorConfig) {
+  connectAuthEmulator(authSecundaria, 'http://127.0.0.1:9099', { disableWarnings: true });
+}

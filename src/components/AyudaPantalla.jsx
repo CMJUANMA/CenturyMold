@@ -31,7 +31,7 @@ export default function AyudaPantalla({ id, listo = true }) {
   return (
     <>
       <button type="button" onClick={() => setAbierta(true)} aria-label="Ayuda de esta pantalla" title="¿Cómo funciona esta pantalla?"
-        className="inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--cm-red)] hover:text-[var(--cm-red)]">
+        className="inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--cm-red)] hover:text-[var(--accent-text)]">
         <CircleHelp className="h-4 w-4" />
       </button>
       <Modal isOpen={abierta} onClose={() => setAbierta(false)} title={ayuda.titulo} maxWidth="max-w-md">

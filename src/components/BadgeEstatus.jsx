@@ -1,19 +1,33 @@
 /**
- * BadgeEstatus.jsx — Etiqueta de color con el estatus de una solicitud.
- * Con `modulo="te"` usa los estatus de tiempo extra (ESTATUS_TE_MAP).
+ * BadgeEstatus.jsx — Insignia con el estatus de una solicitud: tono apagado + ícono + texto (nunca solo color).
+ * Con `modulo="te"` usa los estatus de tiempo extra. El texto sale de ESTATUS_MAP / ESTATUS_TE_MAP (utils/constantes.js).
+ * `conPunto` se conserva por compatibilidad (el ícono ya cumple esa función).
  */
+import { CheckCheck, CheckCircle2, Clock, PencilLine, Send, Undo2, XCircle } from 'lucide-react';
+import Insignia from './ui/Insignia';
 import { ESTATUS_MAP, ESTATUS_TE_MAP, normalizarEstatus } from '../utils/constantes';
 
-const SIN_CONFIG = { label: '', cls: 'bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] border-[var(--border-color)]', dot: 'bg-[var(--border-color)]' };
+// estatus → tono e ícono. Devuelta y pendiente piden atención (aviso); el error queda para lo rechazado
+const ESTILO = {
+  // transporte
+  pendiente: { tono: 'aviso', icono: Clock },
+  aprobada: { tono: 'exito', icono: CheckCircle2 },
+  rechazada: { tono: 'error', icono: XCircle },
+  cancelada: { tono: 'neutro', icono: XCircle },
+  'enviada al proveedor': { tono: 'info', icono: Send },
+  // tiempo extra
+  borrador: { tono: 'neutro', icono: PencilLine },
+  pendiente_aut1: { tono: 'info', icono: Clock },
+  pendiente_aut2: { tono: 'info', icono: Clock },
+  autorizada: { tono: 'exito', icono: CheckCircle2 },
+  devuelta: { tono: 'aviso', icono: Undo2 },
+  procesada: { tono: 'exito', icono: CheckCheck },
+};
 
-export default function BadgeEstatus({ estatus, modulo = 'rutas', conPunto = false, className = '' }) {
+export default function BadgeEstatus({ estatus, modulo = 'rutas', className = '' }) {
   const norm = normalizarEstatus(estatus);
   const mapa = modulo === 'te' ? ESTATUS_TE_MAP : ESTATUS_MAP;
-  const cfg = mapa[norm] ?? { ...SIN_CONFIG, label: norm };
-  return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${cfg.cls} ${className}`}>
-      {conPunto && <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />}
-      {cfg.label}
-    </span>
-  );
+  const etiqueta = mapa[norm]?.label ?? norm;
+  const estilo = ESTILO[norm] ?? { tono: 'neutro', icono: Clock };
+  return <Insignia tono={estilo.tono} icono={estilo.icono} className={className}>{etiqueta}</Insignia>;
 }

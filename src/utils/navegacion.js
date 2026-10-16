@@ -59,7 +59,8 @@ export const ITEMS_MENU_RH = [
   { path: RUTAS.organigrama, label: 'Organigrama', icono: 'GitBranch' },
 
   { section: 'Herramientas', admin: true },
-  { path: RUTAS.herramientas, label: 'Diagnóstico y limpieza', icono: 'Wrench', admin: true },
+  { path: RUTAS.herramientas, label: 'Diagnóstico y limpieza', icono: 'Wrench', admin: true, end: true },
+  { path: RUTAS.guiaEstilo, label: 'Guía de estilo', icono: 'Palette', admin: true },
 ];
 
 /**

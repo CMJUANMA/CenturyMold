@@ -1,102 +1,160 @@
 @import "tailwindcss";
+/* Tipografía: IBM Plex Sans (todo el texto) e IBM Plex Mono (folios, nóminas y horas), alojadas aquí. Solo los pesos que se usan y solo el
+   subconjunto latino (cubre el español); font-display: swap viene en los archivos de @fontsource. */
+@import "@fontsource/ibm-plex-sans/latin-400.css";
+@import "@fontsource/ibm-plex-sans/latin-500.css";
+@import "@fontsource/ibm-plex-sans/latin-600.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ── Escala tipográfica, radios y sombras (las clases text-*, rounded-* y shadow-* de toda la app salen de aquí) ──
+   Todo en rem: "Letra grande" (Mi cuenta) cambia el tamaño base y la escala completa crece en proporción. */
+@theme {
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  --text-xs: 0.8125rem;            /* 13 px · etiquetas y datos de tabla */
+  --text-xs--line-height: 1.25rem;
+  --text-sm: 0.9375rem;            /* 15 px · cuerpo */
+  --text-sm--line-height: 1.5rem;
+  --text-base: 1rem;               /* 16 px */
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;             /* 18 px · subtítulos */
+  --text-lg--line-height: 1.625rem;
+  --text-xl: 1.25rem;              /* 20 px · subtítulos grandes */
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.875rem;            /* 30 px · título de página */
+  --text-2xl--line-height: 2.25rem;
+  --text-3xl: 2.25rem;             /* 36 px · cifras de indicadores */
+  --text-3xl--line-height: 2.5rem;
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;           /* 6 px */
+  --radius-lg: 0.5rem;             /* 8 px */
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.5rem;
+
+  /* Sombras mínimas: solo menús flotantes y modales */
+  --shadow-2xs: none;
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-md: 0 1px 3px rgb(17 18 20 / 0.10);
+  --shadow-lg: 0 4px 14px rgb(17 18 20 / 0.12);
+  --shadow-xl: 0 8px 24px rgb(17 18 20 / 0.16);
+  --shadow-2xl: 0 8px 24px rgb(17 18 20 / 0.16);
+}
+
+/* ── Tokens de color: TODO el color de la app sale de este bloque y del de .dark ───────────────────────────────────────────────
+   Acento único: el rojo de la marca (#d61110), reservado para la acción principal de cada pantalla, el ítem activo del menú y detalles
+   críticos. Contrastes verificados (WCAG): texto blanco sobre #d61110 = 5.3:1; #d61110 sobre blanco = 5.3:1; en oscuro, el texto rojo
+   (#ff6a63) sobre #1A1C1F = 6.1:1 y sobre #23262A = 5.4:1. */
 :root {
-  /* Identidad Century Mold: Rojo */
-  --cm-red: #C8102E;
-  --cm-red-hover: #A50D26;
-  --cm-red-light: #FBE9EC;
-  --cm-red-dark: #8B0018;
+  --accent: #d61110;               /* fondo de la acción principal (con texto blanco) */
+  --accent-hover: #b80e0e;
+  --accent-soft: #FBEAEA;          /* fondo suave del ítem activo */
+  --accent-text: #d61110;          /* rojo para texto e íconos pequeños */
+  --focus: #d61110;                /* anillo de foco del teclado */
 
-  /* Identidad Century Mold: Grises */
-  --cm-dark: #1F2328;
-  --cm-gray-700: #3D434A;
-  --cm-gray-500: #6B7280;
-  --cm-border: #D1D5DB;
-  --cm-light: #F3F4F6;
-  --cm-white: #FFFFFF;
-
-  /* Variables semánticas - Modo claro */
-  --bg-app: #F3F4F6;
+  /* Superficies y bordes (neutros) */
+  --bg-app: #F5F6F7;
   --bg-surface: #FFFFFF;
-  --bg-surface-secondary: #F8FAFC;
-  --bg-surface-hover: #F3F4F6;
+  --bg-surface-secondary: #FAFAFB;
+  --bg-surface-hover: #F0F1F2;
   --bg-sidebar: #FFFFFF;
-  --border-color: #D1D5DB;
-  --border-subtle: #E5E7EB;
+  --border-color: #D9DCDF;
+  --border-subtle: #E8EAEC;
 
-  --text-main: #1F2328;
-  --text-secondary: #6B7280;
-  --text-muted: #9CA3AF;
+  /* Texto: principal casi negro y dos grises (secundario y apagado, ambos AA sobre blanco) + deshabilitado */
+  --text-main: #111214;
+  --text-secondary: #4B5058;
+  --text-muted: #6B7078;
+  --text-disabled: #9CA1A8;
 
-  /* Estados - Modo claro */
-  --status-success-text: #166534;
-  --status-success-bg: #DCFCE7;
-  --status-success-border: #BBF7D0;
+  /* Estados: tonos apagados, siempre con ícono y texto. El error NO usa el rojo de la marca: es un ladrillo oscuro sobre fondo suave */
+  --status-success-text: #1F6B3A;
+  --status-success-bg: #E8F3EC;
+  --status-success-border: #CBE3D3;
+  --status-warning-text: #8A5A00;
+  --status-warning-bg: #FBF3E1;
+  --status-warning-border: #EBDDB8;
+  --status-error-text: #A3281F;
+  --status-error-bg: #FBEFED;
+  --status-error-border: #F0CFCB;
+  --status-info-text: #2A5A8C;
+  --status-info-bg: #E8F0F8;
+  --status-info-border: #C9DAEC;
 
-  --status-warning-text: #854D0E;
-  --status-warning-bg: #FEF9C3;
-  --status-warning-border: #FEF08A;
-
-  --status-error-text: #8B0018;
-  --status-error-bg: #FEE2E2;
-  --status-error-border: #FECACA;
   /* Organigrama de autorización (colores de la hoja "Niveles de autorización") */
-  --status-info-text: #1E40AF;
-  --status-info-bg: #DBEAFE;
-  --status-info-border: #BFDBFE;
   --org-aut2-bg: #DBEAFE;
   --org-aut2-border: #93C5FD;
   --org-aut1-bg: #FEF08A;
   --org-aut1-border: #FACC15;
   --org-sol-bg: #FBCFE8;
   --org-sol-border: #F9A8D4;
-  --org-text: #1F2328;
+  --org-text: #111214;
+
+  /* Nombres anteriores (siguen funcionando en todo el código) */
+  --cm-red: var(--accent);
+  --cm-red-hover: var(--accent-hover);
+  --cm-red-light: var(--accent-soft);
+  --cm-red-dark: #b80e0e;
+  --cm-dark: #111214;
+  --cm-gray-700: #3D434A;
+  --cm-gray-500: #6B7078;
+  --cm-border: #D9DCDF;
+  --cm-light: #F5F6F7;
+  --cm-white: #FFFFFF;
 }
 
 .dark {
-  /* Variables semánticas - Modo oscuro */
-  --bg-app: #16181D;
-  --bg-surface: #1F2328;
-  --bg-surface-secondary: #1A1D22;
-  --bg-surface-hover: #272C33;
-  --bg-sidebar: #1F2328;
-  --border-color: #3D434A;
-  --border-subtle: #2D333B;
+  /* Gris casi negro (no negro puro) y superficies un poco más claras */
+  --bg-app: #111214;
+  --bg-surface: #1A1C1F;
+  --bg-surface-secondary: #15171A;
+  --bg-surface-hover: #23262A;
+  --bg-sidebar: #15171A;
+  --border-color: #2E3237;
+  --border-subtle: #23262A;
 
   --text-main: #F3F4F6;
-  --text-secondary: #9CA3AF;
-  --text-muted: #6B7280;
+  --text-secondary: #A5AAB1;
+  --text-muted: #8A9098;
+  --text-disabled: #5F656C;
 
-  /* Rojo en modo oscuro (ajuste de contraste para fondos tenues) */
-  --cm-red: #C8102E;
-  --cm-red-hover: #D91837;
-  --cm-red-light: rgba(200, 16, 46, 0.18);
-  --cm-red-dark: #FF6B81;
+  /* El botón rojo con texto blanco conserva #d61110; el rojo para TEXTO e íconos es una variante más clara (AA sobre fondo oscuro) */
+  --accent: #d61110;
+  --accent-hover: #e8312f;
+  --accent-soft: rgb(214 17 16 / 0.16);
+  --accent-text: #ff6a63;
+  --focus: #ff6a63;
 
-  /* Estados - Modo oscuro */
-  --status-success-text: #4ADE80;
-  --status-success-bg: rgba(22, 101, 52, 0.25);
-  --status-success-border: rgba(34, 197, 94, 0.3);
+  --status-success-text: #7FCB98;
+  --status-success-bg: #16251C;
+  --status-success-border: #24412D;
+  --status-warning-text: #E6B45A;
+  --status-warning-bg: #2A2418;
+  --status-warning-border: #4A3D1F;
+  --status-error-text: #F2A29B;
+  --status-error-bg: #2A1A19;
+  --status-error-border: #4D2B28;
+  --status-info-text: #8DB9E8;
+  --status-info-bg: #16202C;
+  --status-info-border: #243A52;
 
-  --status-warning-text: #FACC15;
-  --status-warning-bg: rgba(161, 98, 7, 0.25);
-  --status-warning-border: rgba(234, 179, 8, 0.3);
-
-  --status-error-text: #F87171;
-  --status-error-bg: rgba(139, 0, 24, 0.25);
-  --status-error-border: rgba(239, 68, 68, 0.3);
-  --status-info-text: #93C5FD;
-  --status-info-bg: rgba(30, 64, 175, 0.3);
-  --status-info-border: rgba(96, 165, 250, 0.35);
-  --org-aut2-bg: rgba(59, 130, 246, 0.28);
-  --org-aut2-border: rgba(96, 165, 250, 0.6);
-  --org-aut1-bg: rgba(234, 179, 8, 0.25);
-  --org-aut1-border: rgba(250, 204, 21, 0.55);
-  --org-sol-bg: rgba(236, 72, 153, 0.25);
-  --org-sol-border: rgba(244, 114, 182, 0.55);
+  --org-aut2-bg: rgb(59 130 246 / 0.28);
+  --org-aut2-border: rgb(96 165 250 / 0.6);
+  --org-aut1-bg: rgb(234 179 8 / 0.25);
+  --org-aut1-border: rgb(250 204 21 / 0.55);
+  --org-sol-bg: rgb(236 72 153 / 0.25);
+  --org-sol-border: rgb(244 114 182 / 0.55);
   --org-text: #F3F4F6;
+
+  --cm-red-dark: #ff8a84;
+  --cm-dark: #111214;
+  --cm-gray-700: #3D434A;
+  --cm-border: #2E3237;
 }
 
 @layer base {
@@ -105,31 +163,72 @@
   }
 
   html {
-    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-sans);
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
+    text-size-adjust: 100%;
   }
 
   body {
     background-color: var(--bg-app);
     color: var(--text-main);
     margin: 0;
+    font-size: 0.9375rem;
+    line-height: 1.5rem;
     transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  /* Foco visible y claro con teclado: anillo de la marca en todo (también en campos) */
+  :focus-visible {
+    outline: 2px solid var(--focus) !important;
+    outline-offset: 2px !important;
   }
 
   /* Barras de desplazamiento sobrias */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background-color: var(--cm-border);
+    background-color: var(--border-color);
     border-radius: 4px;
   }
-  .dark ::-webkit-scrollbar-thumb {
-    background-color: var(--cm-gray-700);
+}
+
+/* ── Microinteracciones: sutiles (150–200 ms, ease-out) ─────────────────────────────────────────────────────────────────── */
+@keyframes cm-aparecer {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes cm-aparecer-lado {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes cm-esqueleto {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+.anim-pagina  { animation: cm-aparecer 180ms ease-out both; }
+.anim-modal   { animation: cm-aparecer 170ms ease-out both; }
+.anim-panel   { animation: cm-aparecer-lado 190ms ease-out both; }
+.anim-toast   { animation: cm-aparecer 170ms ease-out both; }
+
+/* Esqueleto de carga: bloque con la forma del contenido (se dimensiona con las clases de alto y ancho) */
+.esqueleto {
+  background-color: var(--bg-surface-hover);
+  border-radius: 6px;
+  animation: cm-esqueleto 1.4s ease-in-out infinite;
+}
+
+/* Quien pidió menos movimiento en su equipo no ve animaciones */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

@@ -141,10 +141,10 @@ function Contenido({ actor, usuarios, empleados, asignaciones, nombresArea, ahor
           {otros ? (
             <div className="space-y-1">
               <BuscadorEmpleado empleados={empleados} excluir={[...yaEnLista]} onSelect={agregarExtra} placeholder="Buscar en el padrón a quien no tiene asignación…" />
-              <button type="button" onClick={() => setOtros(false)} className="text-[11px] font-semibold text-[var(--cm-red)] hover:underline cursor-pointer">Listo</button>
+              <button type="button" onClick={() => setOtros(false)} className="text-[11px] font-semibold text-[var(--accent-text)] hover:underline cursor-pointer">Listo</button>
             </div>
           ) : (
-            <button type="button" onClick={() => setOtros(true)} className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--cm-red)] hover:underline cursor-pointer">
+            <button type="button" onClick={() => setOtros(true)} className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--accent-text)] hover:underline cursor-pointer">
               <UserPlus className="h-3.5 w-3.5" />Agregar otros empleados
             </button>
           )}

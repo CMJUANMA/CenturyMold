@@ -26,6 +26,7 @@ const BandejaTE = lazy(() => import('./pages/te/BandejaTE'));
 const ConsultaTE = lazy(() => import('./pages/te/ConsultaTE'));
 const RecepcionTE = lazy(() => import('./pages/te/RecepcionTE'));
 const Herramientas = lazy(() => import('./pages/Herramientas'));
+const GuiaEstilo = lazy(() => import('./pages/GuiaEstilo'));
 import RutaCapacidad from './components/RutaCapacidad';
 import NuevaSolicitud from './pages/NuevaSolicitud';
 import MisSolicitudes from './pages/MisSolicitudes';
@@ -82,7 +83,10 @@ const router = createBrowserRouter([
         // Herramientas (solo admin)
         {
           element: <RutaRol roles={['admin']} />,
-          children: [{ path: RUTAS.herramientas, element: <Herramientas /> }],
+          children: [
+            { path: RUTAS.herramientas, element: <Herramientas /> },
+            { path: RUTAS.guiaEstilo, element: <GuiaEstilo /> },
+          ],
         },
 
         // Módulo de tiempo extra (el acceso sale de las asignaciones vigentes, no del puesto)

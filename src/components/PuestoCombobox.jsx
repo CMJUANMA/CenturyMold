@@ -186,7 +186,7 @@ export default function PuestoCombobox({
                     op === OTRO ? 'italic text-[var(--text-secondary)]' : 'text-[var(--text-main)]',
                   ].join(' ')}
                 >
-                  {op !== OTRO && clavePuesto(op) === clavePuesto(value) && <Check className="h-3 w-3 text-[var(--cm-red)] shrink-0" />}
+                  {op !== OTRO && clavePuesto(op) === clavePuesto(value) && <Check className="h-3 w-3 text-[var(--accent-text)] shrink-0" />}
                   {op === OTRO ? ETIQUETA_OTRO : op}
                 </button>
               ))}

@@ -124,7 +124,7 @@ export default function InicioRol() {
                 </span>
               </span>
             </span>
-            <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--cm-red)]">Ir a la bandeja <ArrowRight className="h-4 w-4" /></span>
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--accent-text)]">Ir a la bandeja <ArrowRight className="h-4 w-4" /></span>
           </div>
         </Link>
       )}

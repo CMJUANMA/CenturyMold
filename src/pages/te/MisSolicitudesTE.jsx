@@ -109,7 +109,7 @@ export default function MisSolicitudesTE() {
           const resaltar = p.id === 'devuelta' && n > 0;
           return (
             <button key={p.id} type="button" onClick={() => setPestana(p.id)} aria-current={activa.id === p.id ? 'page' : undefined}
-              className={`inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors ${activa.id === p.id ? 'border-[var(--cm-red)] text-[var(--cm-red)]' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-main)]'}`}>
+              className={`inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors ${activa.id === p.id ? 'border-[var(--cm-red)] text-[var(--accent-text)]' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-main)]'}`}>
               {p.label}
               <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${resaltar ? 'border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] text-[var(--status-warning-text)]' : 'bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)]'}`}>{n}</span>
             </button>

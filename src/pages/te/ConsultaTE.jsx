@@ -101,7 +101,7 @@ export default function ConsultaTE() {
   const accionesDeRH = (t) => {
     if (!esRH) return null;
     if (t.estatus === 'autorizada') {
-      return <Link to={RUTAS.teRecepcion} className="text-xs font-semibold text-[var(--cm-red)] hover:underline">Esta solicitud está por confirmar: ir a «Por enviar al proveedor»</Link>;
+      return <Link to={RUTAS.teRecepcion} className="text-xs font-semibold text-[var(--accent-text)] hover:underline">Esta solicitud está por confirmar: ir a «Por enviar al proveedor»</Link>;
     }
     return t.estatus === 'procesada' ? <AccionesRH t={t} acciones={['cancelar']} onHecho={() => setDetalle(null)} /> : null;
   };
@@ -184,7 +184,7 @@ export default function ConsultaTE() {
         <label className="text-[11px] font-medium text-[var(--text-secondary)]">Solicitante
           <input type="search" value={filtros.solicitante} placeholder="Nombre o nómina" onChange={e => setFiltros(f => ({ ...f, solicitante: e.target.value }))} className={`${campo} mt-0.5 block`} />
         </label>
-        {Object.values(filtros).some(Boolean) && <button type="button" onClick={() => setFiltros({ areaId: '', estatus: '', desde: '', hasta: '', solicitante: '' })} className="cursor-pointer pb-1.5 text-[11px] font-semibold text-[var(--cm-red)] hover:underline">Limpiar</button>}
+        {Object.values(filtros).some(Boolean) && <button type="button" onClick={() => setFiltros({ areaId: '', estatus: '', desde: '', hasta: '', solicitante: '' })} className="cursor-pointer pb-1.5 text-[11px] font-semibold text-[var(--accent-text)] hover:underline">Limpiar</button>}
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] shadow-sm">

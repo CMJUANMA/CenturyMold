@@ -159,7 +159,7 @@ export default function BandejaTE() {
         <nav className="flex gap-0 border-b border-[var(--border-color)]" aria-label="Secciones">
           {[['bandeja', 'Por autorizar'], ['historial', 'Historial de mi área']].map(([id, label]) => (
             <button key={id} type="button" onClick={() => setPestana(id)} aria-current={pestana === id ? 'page' : undefined}
-              className={`-mb-px cursor-pointer border-b-2 px-4 py-2.5 text-xs font-semibold ${pestana === id ? 'border-[var(--cm-red)] text-[var(--cm-red)]' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-main)]'}`}>{label}</button>
+              className={`-mb-px cursor-pointer border-b-2 px-4 py-2.5 text-xs font-semibold ${pestana === id ? 'border-[var(--cm-red)] text-[var(--accent-text)]' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-main)]'}`}>{label}</button>
           ))}
         </nav>
       )}
@@ -178,7 +178,7 @@ export default function BandejaTE() {
             <label className="text-[11px] font-medium text-[var(--text-secondary)]">hasta
               <input type="date" value={filtros.hasta} min={filtros.desde} onChange={e => setFiltros(f => ({ ...f, hasta: e.target.value }))} className={`${campo} mt-0.5 block`} />
             </label>
-            {(filtros.areaId || filtros.desde || filtros.hasta) && <button type="button" onClick={() => setFiltros({ areaId: '', desde: '', hasta: '' })} className="cursor-pointer pb-1.5 text-[11px] font-semibold text-[var(--cm-red)] hover:underline">Limpiar</button>}
+            {(filtros.areaId || filtros.desde || filtros.hasta) && <button type="button" onClick={() => setFiltros({ areaId: '', desde: '', hasta: '' })} className="cursor-pointer pb-1.5 text-[11px] font-semibold text-[var(--accent-text)] hover:underline">Limpiar</button>}
           </div>
 
           <Ayuda clave="autorizar.filtros" className="-mt-2" />

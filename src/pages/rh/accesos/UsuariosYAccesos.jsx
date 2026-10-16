@@ -136,7 +136,7 @@ export default function UsuariosYAccesos() {
             const activa = tabActiva === t.id;
             return (
               <button key={t.id} type="button" onClick={() => navigate(rutaAccesos(t.id))} aria-current={activa ? 'page' : undefined}
-                className={`inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer ${activa ? 'border-[var(--cm-red)] text-[var(--cm-red)]' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:border-[var(--border-color)]'}`}>
+                className={`inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer ${activa ? 'border-[var(--cm-red)] text-[var(--accent-text)]' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:border-[var(--border-color)]'}`}>
                 <Icono className="h-3.5 w-3.5" />{t.label}
               </button>
             );

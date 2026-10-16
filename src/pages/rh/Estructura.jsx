@@ -70,7 +70,7 @@ export default function Estructura() {
       <div className="flex gap-1 border-b border-[var(--border-color)]" role="tablist">
         {PESTANAS.map(p => (
           <button key={p.id} type="button" role="tab" aria-selected={pestana === p.id} onClick={() => setPestana(p.id)}
-            className={`-mb-px cursor-pointer border-b-2 px-4 py-2 text-xs font-semibold transition-colors ${pestana === p.id ? 'border-[var(--cm-red)] text-[var(--cm-red)]' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-main)]'}`}>
+            className={`-mb-px cursor-pointer border-b-2 px-4 py-2 text-xs font-semibold transition-colors ${pestana === p.id ? 'border-[var(--cm-red)] text-[var(--accent-text)]' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-main)]'}`}>
             {p.label}
           </button>
         ))}

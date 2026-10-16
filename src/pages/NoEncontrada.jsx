@@ -11,7 +11,7 @@ export default function NoEncontrada() {
       <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--bg-surface-secondary)]"><SearchX className="h-6 w-6 text-[var(--text-muted)]" /></span>
       <h1 className="text-lg font-bold text-[var(--text-main)]">No encontramos esa página</h1>
       <p className="text-xs text-[var(--text-secondary)]">Puede que el enlace esté mal escrito o que ya no exista.</p>
-      <Link to={RUTAS.inicio} className="mt-2 text-xs font-semibold text-[var(--cm-red)] hover:underline">Volver al inicio</Link>
+      <Link to={RUTAS.inicio} className="mt-2 text-xs font-semibold text-[var(--accent-text)] hover:underline">Volver al inicio</Link>
     </div>
   );
 }

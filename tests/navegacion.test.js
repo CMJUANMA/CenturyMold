@@ -88,7 +88,7 @@ describe('menú de admin y RH: ven todo su menú', () => {
     it(`${rol}: Inicio, Tiempo extra completo, Solicitudes de transporte, Rutas y puntos, Padrón, Estructura, Usuarios y accesos y Organigrama`, () => {
       const items = menuDe(rol);
       // el admin suma Herramientas (/herramientas); RH ve exactamente el resto
-      const esperadas = rol === 'admin' ? [...PATHS_OBLIGATORIOS, '/herramientas'] : PATHS_OBLIGATORIOS;
+      const esperadas = rol === 'admin' ? [...PATHS_OBLIGATORIOS, '/herramientas', '/herramientas/guia-de-estilo'] : PATHS_OBLIGATORIOS;
       expect(items.filter(i => !i.section).map(i => i.path)).toEqual(esperadas);
       expect(items.filter(i => i.section).map(i => i.section)).toEqual(rol === 'admin' ? [...SECCIONES, 'Herramientas'] : SECCIONES);
     });

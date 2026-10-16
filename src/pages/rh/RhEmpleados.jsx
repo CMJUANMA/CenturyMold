@@ -421,7 +421,7 @@ export default function RhEmpleados() {
             <label className="flex items-center gap-2 cursor-pointer mt-2 text-xs font-semibold">
               <input type="checkbox" checked={form.activo !== false}
                 onChange={e => setForm(f => ({ ...f, activo: e.target.checked }))}
-                className="h-4 w-4 text-[var(--cm-red)]" />
+                className="h-4 w-4 text-[var(--accent-text)]" />
               Empleado activo
             </label>
           )}

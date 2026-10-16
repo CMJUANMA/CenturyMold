@@ -367,7 +367,7 @@ export default function EditorTE() {
 
       <section aria-label="Empleados" className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5 shadow-sm">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-subtle)] pb-2">
-          <h2 className="text-sm font-semibold text-[var(--text-main)]">Empleados <span className="ml-1 text-[var(--cm-red)]">{empleados.length}</span></h2>
+          <h2 className="text-sm font-semibold text-[var(--text-main)]">Empleados <span className="ml-1 text-[var(--accent-text)]">{empleados.length}</span></h2>
           <button type="button" id="btn-agregar-empleados" data-tour="solicitar-agregar" disabled={!areaActual || ocupado} onClick={() => setSelectorAbierto(true)}
             className={`${btn} border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]`}><Plus className="h-3.5 w-3.5" />Agregar empleados</button>
         </div>
@@ -392,7 +392,7 @@ export default function EditorTE() {
             {empleados.some(e => e.transporte && e.necesitaConfirmar && !e.confirmada) && (
               <button type="button" onClick={confirmarRutasPrecargadas} className={`${btn} bg-[var(--status-warning-text)] text-white !px-3`}>Confirmar las rutas del padrón</button>
             )}
-            {seleccion.size > 0 && <button type="button" onClick={() => setSeleccion(new Set())} className="text-[11px] font-semibold text-[var(--cm-red)] hover:underline cursor-pointer">Quitar selección</button>}
+            {seleccion.size > 0 && <button type="button" onClick={() => setSeleccion(new Set())} className="text-[11px] font-semibold text-[var(--accent-text)] hover:underline cursor-pointer">Quitar selección</button>}
             <Ayuda clave="solicitar.aplicar" className="w-full" />
           </div>
         )}

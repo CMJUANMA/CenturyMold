@@ -232,7 +232,7 @@ export default function RecepcionTE() {
                   <p className="text-xs text-[var(--text-secondary)]">Para el proveedor, baja el «Formato de rutas (proveedor)» desde esta misma pantalla.</p>
                 )}
                 {resultado.ok.some(x => x.pasajeros > 0) && (
-                  <Link to={RUTAS.transporteSolicitudes} onClick={() => setResultado(null)} className="inline-block text-sm font-semibold text-[var(--cm-red)] hover:underline">Ver en Solicitudes de transporte</Link>
+                  <Link to={RUTAS.transporteSolicitudes} onClick={() => setResultado(null)} className="inline-block text-sm font-semibold text-[var(--accent-text)] hover:underline">Ver en Solicitudes de transporte</Link>
                 )}
               </div>
             )}

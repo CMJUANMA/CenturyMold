@@ -455,7 +455,7 @@ function TabPuntos({ puntos, comunidades, rutas, reload }) {
                   const rutaNombre = rutas.find(r => r.id === p.rutaId)?.nombre ?? p.rutaId;
                   return (
                     <tr key={p.id} className="hover:bg-[var(--bg-surface-secondary)] transition-colors">
-                      <td className="px-4 py-2.5 font-mono font-bold text-[var(--cm-red)]">{p.clave}</td>
+                      <td className="px-4 py-2.5 font-mono font-bold text-[var(--accent-text)]">{p.clave}</td>
                       <td className="px-4 py-2.5 font-medium text-[var(--text-main)]">{p.nombre}</td>
                       <td className="px-4 py-2.5 text-[var(--text-secondary)]">{comNombre}</td>
                       <td className="px-4 py-2.5 text-[var(--text-muted)]">{rutaNombre}</td>
@@ -592,7 +592,7 @@ export default function RhCatalogos() {
             const activa = tabActiva === tab.id;
             return (
               <button key={tab.id} type="button" onClick={() => setTabActiva(tab.id)}
-                className={`inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer ${activa ? 'border-[var(--cm-red)] text-[var(--cm-red)]' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:border-[var(--border-color)]'}`}>
+                className={`inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer ${activa ? 'border-[var(--cm-red)] text-[var(--accent-text)]' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:border-[var(--border-color)]'}`}>
                 <Icon className="h-3.5 w-3.5" />{tab.label}
               </button>
             );

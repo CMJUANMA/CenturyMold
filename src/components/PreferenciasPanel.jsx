@@ -16,7 +16,7 @@ function Opcion({ activa, onClick, icono: Icono, titulo, detalle }) {
       className={`flex w-full cursor-pointer items-center gap-3 rounded-lg border-2 p-4 text-left transition-colors ${activa
         ? 'border-[var(--cm-red)] bg-[var(--cm-red-light)] text-[var(--text-main)]'
         : 'border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-main)] hover:border-[var(--text-muted)]'}`}>
-      {Icono && <Icono className={`h-6 w-6 shrink-0 ${activa ? 'text-[var(--cm-red)]' : 'text-[var(--text-secondary)]'}`} />}
+      {Icono && <Icono className={`h-6 w-6 shrink-0 ${activa ? 'text-[var(--accent-text)]' : 'text-[var(--text-secondary)]'}`} />}
       <span className="min-w-0">
         <span className="block text-sm font-bold">{titulo}</span>
         {detalle && <span className="block text-xs text-[var(--text-secondary)]">{detalle}</span>}

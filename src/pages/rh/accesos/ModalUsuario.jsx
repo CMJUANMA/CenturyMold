@@ -102,7 +102,7 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
               <label className={labelCls}>Nómina</label>
               <input required value={form.nomina} onChange={e => setForm(f => ({ ...f, nomina: e.target.value }))} className={inputCls} placeholder="ej. 51109" />
             </div>
-            <button type="button" onClick={() => setManual(false)} className="col-span-2 text-left text-[11px] font-semibold text-[var(--cm-red)] hover:underline cursor-pointer">
+            <button type="button" onClick={() => setManual(false)} className="col-span-2 text-left text-[11px] font-semibold text-[var(--accent-text)] hover:underline cursor-pointer">
               Elegir del padrón
             </button>
           </div>
@@ -129,7 +129,7 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
             )}
             <p className="text-[10px] text-[var(--text-muted)]">
               Solo aparecen empleados activos que aún no tienen usuario.{' '}
-              <button type="button" onClick={() => setManual(true)} className="font-semibold text-[var(--cm-red)] hover:underline cursor-pointer">Capturar a mano</button>
+              <button type="button" onClick={() => setManual(true)} className="font-semibold text-[var(--accent-text)] hover:underline cursor-pointer">Capturar a mano</button>
             </p>
           </div>
         )}

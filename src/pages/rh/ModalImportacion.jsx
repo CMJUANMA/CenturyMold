@@ -483,7 +483,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
         <div className="flex items-start justify-between gap-4 border-b border-[var(--border-color)] px-6 py-4 flex-shrink-0">
           <div className="flex items-start gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--cm-red-light)] flex-shrink-0 mt-0.5">
-              <FileSpreadsheet className="h-5 w-5 text-[var(--cm-red)]" />
+              <FileSpreadsheet className="h-5 w-5 text-[var(--accent-text)]" />
             </div>
             <div>
               <h2 className="text-base font-bold text-[var(--text-main)]">{titulo}</h2>
@@ -553,7 +553,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                   <tbody className="divide-y divide-[var(--border-subtle)]">
                     {colsInfo.map(col => (
                       <tr key={col.letra}>
-                        <td className="px-3 py-2 font-mono font-bold text-[var(--cm-red)]">{col.letra}</td>
+                        <td className="px-3 py-2 font-mono font-bold text-[var(--accent-text)]">{col.letra}</td>
                         <td className="px-3 py-2 font-semibold text-[var(--text-main)]">{col.nombre}</td>
                         <td className="px-3 py-2"><Insignia tono={col.obligatorio ? 'error' : 'neutro'}>{col.obligatorio ? 'Obligatoria' : 'Opcional'}</Insignia></td>
                         <td className="px-3 py-2 font-mono text-[var(--text-muted)]">{col.ejemplo}</td>
@@ -768,7 +768,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
 
           {paso === 'guardando' && (
             <div className="flex flex-col items-center justify-center gap-3 py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-[var(--cm-red)]" />
+              <Loader2 className="h-8 w-8 animate-spin text-[var(--accent-text)]" />
               <p className="text-sm text-[var(--text-secondary)]">Guardando en la base de datos...</p>
             </div>
           )}
@@ -807,7 +807,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                 <input ref={fileRef} type="file" accept=".xlsx" className="hidden"
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }} />
                 <button type="button" onClick={() => fileRef.current?.click()} disabled={parseando || !base}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-[var(--cm-red)] bg-[var(--cm-red-light)] px-3 py-2 text-xs font-semibold text-[var(--cm-red)] hover:bg-[var(--cm-red)] hover:text-white active:scale-95 transition-all disabled:opacity-50 cursor-pointer">
+                  className="inline-flex items-center gap-1.5 rounded-md border border-[var(--cm-red)] bg-[var(--cm-red-light)] px-3 py-2 text-xs font-semibold text-[var(--accent-text)] hover:bg-[var(--cm-red)] hover:text-white active:scale-95 transition-all disabled:opacity-50 cursor-pointer">
                   {parseando || !base ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                   {!base ? 'Leyendo base...' : parseando ? 'Leyendo...' : paso === 'previa' ? 'Elegir otro archivo' : 'Seleccionar archivo (.xlsx)'}
                 </button>

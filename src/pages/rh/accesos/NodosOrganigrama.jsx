@@ -124,7 +124,7 @@ export function SinAut1({ puedeAsignar, onAsignar }) {
 export function BotonAgregar({ onClick, children }) {
   return (
     <button type="button" onClick={onClick}
-      className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-dashed border-[var(--border-color)] px-2 py-1 text-[11px] font-semibold text-[var(--text-secondary)] transition-colors hover:border-[var(--cm-red)] hover:text-[var(--cm-red)]">
+      className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-dashed border-[var(--border-color)] px-2 py-1 text-[11px] font-semibold text-[var(--text-secondary)] transition-colors hover:border-[var(--cm-red)] hover:text-[var(--accent-text)]">
       <Plus className="h-3 w-3" />{children}
     </button>
   );

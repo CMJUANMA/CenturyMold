@@ -7,7 +7,10 @@
  */
 import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { Eye, EyeOff, AlertCircle, Sun, Moon } from 'lucide-react';
+import { Eye, EyeOff, Sun, Moon } from 'lucide-react';
+import Boton from '../components/ui/Boton';
+import { Campo, Entrada } from '../components/ui/Campo';
+import Aviso from '../components/ui/Aviso';
 import Logo from '../components/Logo';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
@@ -77,13 +80,13 @@ export default function Login() {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center bg-[var(--bg-app)] px-4 py-8 text-[var(--text-main)]">
-      {/* Selector de modo claro / oscuro en esquina superior derecha */}
-      <div className="absolute top-4 right-4">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-[var(--bg-app)] px-4 py-10 text-[var(--text-main)]">
+      {/* Cambio de tema, esquina superior derecha */}
+      <div className="absolute right-4 top-4">
         <button
           type="button"
           onClick={alternarTema}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] transition-colors"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-secondary)] transition-colors duration-150 hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-main)]"
           title={esOscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
           aria-label={esOscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
         >
@@ -91,56 +94,23 @@ export default function Login() {
         </button>
       </div>
 
-      <div className="w-full max-w-sm">
-        {/* Cabecera institucional: logotipo protagonista */}
-        <div className="mb-6 text-center">
-          <div className="mb-5 flex justify-center">
-            <Logo className="w-72" />
+      <main className="anim-pagina w-full max-w-md">
+        {/* Marca: el logotipo es el protagonista */}
+        <div className="mb-10 text-center">
+          <div className="mb-8 flex justify-center">
+            <Logo className="w-80" />
           </div>
-
-          <div className="space-y-1">
-            <h1 className="border-b-2 border-[var(--cm-red)] pb-1 text-xl font-bold tracking-tight text-[var(--text-main)] inline-block">
-              Portal de procesos
-            </h1>
-            <p className="text-xs font-semibold text-[var(--text-secondary)]">Century Mold Querétaro · Tiempo extra y transporte</p>
-            <p className="pt-1 text-xs text-[var(--text-muted)]">
-              Ingrese su número de nómina y contraseña para acceder al sistema
-            </p>
-          </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-main)]">Portal de procesos</h1>
+          <p className="mt-1.5 text-sm text-[var(--text-secondary)]">Century Mold Querétaro · Tiempo extra y transporte</p>
         </div>
 
-        {/* Tarjeta de autenticación */}
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-6 shadow-sm">
-          <form id="form-login" onSubmit={handleSubmit} noValidate className="space-y-4">
-            {/* Mensaje de error sobrio */}
-            {!error && mensajeSesion && (
-              <div
-                role="status"
-                className="flex items-start gap-2.5 rounded-md border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-3 text-xs text-[var(--status-warning-text)] leading-relaxed"
-              >
-                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                <span>{mensajeSesion}</span>
-              </div>
-            )}
-            {error && (
-              <div
-                role="alert"
-                className="flex items-start gap-2.5 rounded-md border border-[var(--status-error-border)] bg-[var(--status-error-bg)] p-3 text-xs text-[var(--status-error-text)] leading-relaxed"
-              >
-                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                <span>{error}</span>
-              </div>
-            )}
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-6 sm:p-8">
+          <form id="form-login" onSubmit={handleSubmit} noValidate className="space-y-5">
+            {!error && mensajeSesion && <Aviso tono="aviso">{mensajeSesion}</Aviso>}
+            {error && <Aviso tono="error">{error}</Aviso>}
 
-            {/* Número de nómina */}
-            <div>
-              <label
-                htmlFor="login-nomina"
-                className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]"
-              >
-                Número de nómina
-              </label>
-              <input
+            <Campo etiqueta="Número de nómina" ayuda="Escríbalo tal como aparece en su gafete.">
+              <Entrada
                 id="login-nomina"
                 type="text"
                 inputMode="numeric"
@@ -149,60 +119,48 @@ export default function Login() {
                 value={nomina}
                 onChange={(e) => setNomina(e.target.value)}
                 placeholder="Ejemplo: 12345"
-                className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] outline-none transition focus:border-[var(--cm-red)] focus:ring-1 focus:ring-[var(--cm-red)]"
               />
-            </div>
+            </Campo>
 
-            {/* Contraseña */}
-            <div>
-              <label
-                htmlFor="login-password"
-                className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]"
-              >
-                Contraseña
-              </label>
-              <div className="relative">
-                <input
-                  id="login-password"
-                  type={mostrarPass ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Ingrese su contraseña"
-                  className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 pr-10 text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] outline-none transition focus:border-[var(--cm-red)] focus:ring-1 focus:ring-[var(--cm-red)]"
-                />
-                <button
-                  type="button"
-                  id="btn-toggle-password"
-                  onClick={() => setMostrarPass((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors p-1"
-                  aria-label={mostrarPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                >
-                  {mostrarPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
+            <Campo etiqueta="Contraseña">
+              <EntradaClave
+                id="login-password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Su contraseña"
+                visible={mostrarPass}
+                onAlternar={() => setMostrarPass((v) => !v)}
+              />
+            </Campo>
 
-            {/* Botón de acceso */}
-            <div className="pt-2">
-              <button
-                id="btn-ingresar"
-                type="submit"
-                disabled={enviando}
-                className="w-full rounded-md bg-[var(--cm-red)] py-2.5 px-4 text-sm font-semibold text-white transition-colors hover:bg-[var(--cm-red-hover)] active:bg-[var(--cm-red-dark)] disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {enviando ? 'Verificando información...' : 'Iniciar sesión'}
-              </button>
-            </div>
+            <Boton id="btn-ingresar" type="submit" variante="primario" estado={enviando ? 'cargando' : undefined} className="w-full">
+              {enviando ? 'Verificando…' : 'Iniciar sesión'}
+            </Boton>
           </form>
         </div>
 
-        {/* Pie institucional */}
-        <div className="mt-6 text-center text-xs text-[var(--text-muted)]">
-          <p>Century Mold Querétaro · Portal de procesos</p>
-        </div>
-      </div>
+        <p className="mt-8 text-center text-xs text-[var(--text-muted)]">Century Mold Querétaro · Portal de procesos</p>
+      </main>
+    </div>
+  );
+}
+
+/** Contraseña con botón para mostrarla u ocultarla (el botón mide 44 px para que se pueda tocar bien en el celular) */
+function EntradaClave({ visible, onAlternar, invalido, ...resto }) {
+  return (
+    <div className="relative">
+      <Entrada type={visible ? 'text' : 'password'} className="pr-12" invalido={invalido} {...resto} />
+      <button
+        type="button"
+        id="btn-toggle-password"
+        onClick={onAlternar}
+        className="absolute right-0 top-0 inline-flex h-11 w-11 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors duration-150 hover:text-[var(--text-main)] md:h-10 md:w-10"
+        aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+      >
+        {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
     </div>
   );
 }

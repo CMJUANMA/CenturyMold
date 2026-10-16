@@ -116,7 +116,7 @@ function Contenido({ inicial, actor, areas, empleados, usuarios, asignaciones, o
                     {sinUsuario ? 'Sin usuario' : 'Usuario inactivo'}
                   </span>
                   {sinUsuario && onCrearUsuario && (
-                    <button type="button" onClick={() => onCrearUsuario(empleado)} className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--cm-red)] hover:underline cursor-pointer">
+                    <button type="button" onClick={() => onCrearUsuario(empleado)} className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--accent-text)] hover:underline cursor-pointer">
                       <UserPlus className="h-3 w-3" />Crear usuario
                     </button>
                   )}

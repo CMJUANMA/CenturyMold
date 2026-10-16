@@ -141,7 +141,7 @@ export default function DescargaTE({ isOpen, onClose, areas, nombresArea, catalo
           <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Incluir">
             {INCLUIR_DESCARGA.map(i => (
               <button key={i.id} type="button" role="radio" aria-checked={incluir === i.id} onClick={() => setIncluir(i.id)}
-                className={`cursor-pointer rounded-lg border px-3 py-2.5 text-left text-sm font-semibold transition-colors ${incluir === i.id ? 'border-[var(--cm-red)] bg-[var(--bg-surface-secondary)] text-[var(--cm-red)]' : 'border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]'}`}>
+                className={`cursor-pointer rounded-lg border px-3 py-2.5 text-left text-sm font-semibold transition-colors ${incluir === i.id ? 'border-[var(--cm-red)] bg-[var(--bg-surface-secondary)] text-[var(--accent-text)]' : 'border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]'}`}>
                 {i.label}
                 <span className="mt-0.5 block text-[11px] font-normal text-[var(--text-secondary)]">
                   {i.id === 'confirmadas' ? 'Solo lo que RH ya confirmó y generó su transporte.' : 'Lo autorizado por la Aut. 2, aunque RH aún no lo confirme.'}
