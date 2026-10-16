@@ -8,6 +8,10 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+
+# Caché local de Firebase Hosting y archivos de prueba sueltos
+.firebase/
+/test-solicitudes.xlsx
 dist
 dist-ssr
 *.local

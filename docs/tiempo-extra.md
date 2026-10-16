@@ -55,7 +55,7 @@ asignadoPor { uid, nombre }, fechaAsignacion (serverTimestamp)
 | Aut. 1 y solicitante | nada |
 | Cualquiera, salvo admin | no puede crear ni cambiar sus propias asignaciones |
 
-## Pantalla *Usuarios y accesos* (`/accesos/:tab`)
+## Pantalla *Usuarios y accesos* (`/personal/accesos/:tab`)
 
 - **Usuarios** (RH/admin): tabla de cuentas con rol del sistema y la columna *Roles operativos* (etiquetas vigentes:
   "Solicitante · Producción", "Aut. 1 · Moldes hasta 20/10").
@@ -70,20 +70,20 @@ asignadoPor { uid, nombre }, fechaAsignacion (serverTimestamp)
 
 ## Navegación e Inicio por rol
 
-La app se organiza por **lo que la persona hace**, no por módulos (RH y admin conservan el menú por secciones y el portal). Una persona con varios
+La app se organiza por **lo que la persona hace**, no por módulos (RH y admin tienen el menú por secciones y el panel de indicadores como Inicio). Una persona con varios
 roles ve la unión de lo que le toca a cada uno. Lógica pura en `src/utils/navegacion.js` (con pruebas).
 
 | Rol | Menú | Inicio |
 |---|---|---|
 | Solicitante | Inicio · Solicitar tiempo extra · Mis solicitudes | botón grande "Solicitar tiempo extra"; empleados de mi área; borrador / en autorización / devueltas (resaltadas) / autorizadas del mes; próximos autorizados |
 | Aut. 1 | lo del solicitante + Por autorizar (contador) + Mi área | además "Por autorizar (N)" y "Últimas solicitudes de mi área" |
-| Aut. 2 | Inicio · Por autorizar · Consulta de solicitudes · Organigrama · Asignar roles | por autorizar nivel 2, solicitudes de la semana por área, empleados de planta |
-| RH / admin | Transporte, Tiempo extra, Administración | portal + "Autorizadas pendientes de recibir" |
+| Aut. 2 | Inicio · Por autorizar · Todas las solicitudes · Organigrama · Asignar roles | por autorizar nivel 2, solicitudes de la semana por área, empleados de planta |
+| RH / admin | Inicio · Tiempo extra (Solicitar, Mis solicitudes, Por autorizar, Por enviar al proveedor, Todas las solicitudes) · Transporte (Solicitudes de transporte, Rutas y puntos de reunión) · Personal y estructura (Padrón, Estructura, Usuarios y accesos, Organigrama) · Herramientas (solo admin) | **Requieren atención** (resaltado si >0): por enviar al proveedor, fechas vencidas sin confirmar, por autorizar nivel 1, por autorizar nivel 2 (con la más antigua) y devueltas. **Esta semana**: horas autorizadas (semana y mes), empleados con tiempo extra y con transporte en 7 días. Accesos rápidos y tabla de los próximos 7 días |
+| Sin ningún rol | Inicio | «Pide acceso a Recursos Humanos» |
 
 - El saludo usa el nombre de pila ("Buenas tardes, Oscar") con el formateador de nombres del organigrama; si no puede separar con seguridad, saluda sin nombre.
-- `/tiempo-extra/nueva`, `/mis-solicitudes`, `/autorizar` y `/consulta` muestran "Próximamente" hasta los siguientes prompts.
 - El solicitante pide transporte **solo dentro del tiempo extra** (elige la ruta de cada empleado): la "Nueva solicitud" de transporte suelta la crean solo RH y admin.
-  Quien tenga solicitudes de transporte suyas anteriores conserva "Transporte (consulta)" (solo lectura).
+  "Nueva solicitud", "Mis solicitudes" y "Transporte (consulta)" de transporte están ocultas con `FUNCIONES.transporteSuelto = false` (`src/funciones.js`); ponerlo en `true` las devuelve.
 - **Organigrama**: el solicitante no lo ve; el Aut. 1 ve solo su área (pestaña "Mi área") con el Nivel 2 arriba; Aut. 2, RH y admin, completo.
 
 ### Quién lee qué (reglas)
@@ -99,19 +99,20 @@ roles ve la unión de lo que le toca a cada uno. Lógica pura en `src/utils/nave
 `useAccesos()` (`src/hooks/useAccesos.js`, proveedor `AccesosProvider`) lee **una vez por sesión, en vivo,** las asignaciones de la
 nómina del usuario (`where nomina == la suya`), filtra las vigentes y devuelve
 `{ esAdmin, esRH, esAut2, areasAut1, areasSolicitante }` (ids de área) más `tieneAcceso`, `cargando` y `error`.
-Menú, portal, contadores y suscripciones lo usan: nadie se suscribe a datos que no puede leer.
+Menú, Inicio, contadores y suscripciones lo usan: nadie se suscribe a datos que no puede leer.
 
 - Módulo de **rutas**: lo ven RH/admin y los solicitantes vigentes de cualquier área. Las solicitudes nuevas guardan `areaId`
   (si hay varias áreas, se elige una); las anteriores sin `areaId` siguen funcionando para su dueño.
 - Módulo de **tiempo extra**: RH/admin, Aut. 2, y quien tenga aut1 o solicitante vigente.
 - `useAreas()` entrega el catálogo de áreas (nombres) leído una vez por sesión.
 
-## Portal y módulos
+## URLs
 
-- `/` es el portal: una tarjeta por módulo con el contador de pendientes de ese usuario.
-- `/rutas/...` transporte (las URLs viejas `/solicitud/...`, `/mis-solicitudes`, `/rh/...` redirigen).
-- `/tiempo-extra/...` tiempo extra. `/accesos/...` usuarios, asignaciones y organigrama (`/rutas/rh/usuarios` y `/tiempo-extra/niveles` redirigen).
-- `src/modulos.js` configura cada módulo: `id`, `nombre`, `icono`, `base`, `acceso(usuario, accesos)` y `useContador(...)`.
+Todas salen de `src/rutas.js` (una línea por URL) y las del transporte suelto de `src/funciones.js`. No hay redirecciones de URLs anteriores.
+
+- `/` Inicio por rol · `/tiempo-extra/...` tiempo extra · `/transporte/solicitudes` y `/transporte/catalogos` · `/personal/padron`, `/personal/estructura`, `/personal/accesos[/:tab]`
+- `/mi-cuenta` (todos) · `/herramientas` (solo admin). Cualquier otra URL muestra «No encontramos esa página».
+- Acceso: `RutaAcceso` (tiene algún rol), `RutaCapacidad` (solicitar / autorizar / consultar / recibir), `RutaRol` (RH/admin, o admin) y `RutaFuncion` (interruptores).
 
 Contador de tiempo extra: Aut. 1 → `pendiente_aut1` de sus áreas; Aut. 2 y RH → `pendiente_aut2`; RH → `autorizada` por recibir;
 solicitante → sus `devuelta`. Nunca cuenta lo que creó la propia persona.
@@ -124,7 +125,7 @@ solicitante → sus `devuelta`. Nunca cuenta lo que creó la propia persona.
   *No está en el padrón* (sin casilla), *Área distinta* (marcada, con aviso), *Sin usuario* (aviso) y *Revisar nombre* (desmarcada: el nombre del
   padrón no coincide con el de la hoja). Crea con las mismas funciones que *Asignar rol* (permanentes, con bitácora) y es idempotente. Al terminar abre el Organigrama.
   Las propuestas están en `src/utils/cargaInicial.js`.
-- **Limpiar estructura vieja** (RH > Catálogos > Diagnóstico, solo admin; escribir `LIMPIAR`): quita `areaTE` y `areaTEManual` del padrón, con respaldo JSON antes.
+- **Limpiar estructura vieja** (Herramientas > Diagnóstico y limpieza, solo admin; escribir `LIMPIAR`): quita `areaTE` y `areaTEManual` del padrón, con respaldo JSON antes.
   `areasTE`, `config/areasTE`, `config/tiempoExtra` y `accesosTE` ya no tienen reglas de Firestore (la app no las toca); si existieran, se borran desde la consola de Firebase.
 - La matriz anterior nunca se llenó, así que no hubo migración de datos: los roles `superintendente`/`autorizador` que queden se corrigen a mano en *Usuarios*.
 
@@ -179,7 +180,7 @@ Consultas: las del Aut. 1, la Aut. 2 y RH sobre `tiempoExtra` deben **excluir bo
 
 > La pantalla y el menú se llaman ahora **Por enviar al proveedor** (la ruta sigue siendo `/tiempo-extra/recepcion`), con una explicación fija y un mini diagrama del flujo.
 > "Recibir" pasó a **Confirmar**: "Confirmar y generar transporte" (o "Confirmar (sin transporte)"), "Confirmar todas las de esta fecha", y el estatus `procesada` se muestra como
-> "Confirmada por RH". Al confirmar sale "Listo. El transporte de [fecha] ya aparece en Transporte > Solicitudes…" con enlace. Los nombres técnicos (`recibirSolicitud`, `recibidaPor`…) no cambian.
+> "Confirmada por RH". Al confirmar sale "Listo. El transporte de [fecha] ya aparece en Solicitudes de transporte…" con enlace. Los nombres técnicos (`recibirSolicitud`, `recibidaPor`…) no cambian.
 
 - **`/tiempo-extra/recepcion`** (RH y admin, en tiempo real): lo `autorizada` que falta recibir, agrupado por fecha del TE (la más próxima primero), con empleados, horas, transporte, alimentos y
   quién firmó cada nivel (con "(RH)" si firmó por su rol). El detalle es el mismo que el de la bandeja. **No se editan empleados**: si algo está mal, RH usa **Devolver** (motivo de 10+ caracteres, `devolucion.nivel = 3`,
@@ -197,10 +198,11 @@ Consultas: las del Aut. 1, la Aut. 2 y RH sobre `tiempoExtra` deben **excluir bo
 - **Cancelación posterior** (RH y admin, desde Recepción o Consulta; `cancelarAutorizada`): "Cancelar tiempo extra autorizado" con motivo de 10+ caracteres, desde `autorizada` o `procesada`. Si ya estaba recibida, en la misma
   transacción cancela su solicitud de transporte siempre que no esté "enviada al proveedor"; si ya se envió, no toca su estatus, la marca `requiereRevision` y avisa "El transporte de [fecha] ya se envió al proveedor; avísale por teléfono".
   Queda en el historial del TE y en `bitacora` (`entidad: 'tiempoExtra'`).
-- **Pantalla de transporte de RH** (`/rutas/rh/solicitudes`): las de tiempo extra llevan la insignia "Tiempo extra · TE-…" con enlace al TE (`/tiempo-extra/consulta?abrir=ID`), el filtro de origen Todas / Normales / Tiempo extra,
+- **Solicitudes de transporte** (`/transporte/solicitudes`; antes "Todas las solicitudes"): las de tiempo extra llevan la insignia "Tiempo extra · TE-…" con enlace al TE (`/tiempo-extra/consulta?abrir=ID`), el filtro de origen Todas / Normales / Tiempo extra,
   la columna AREA y no se editan ahí. El detalle de un TE (Mis solicitudes, bandeja, recepción y consulta) muestra su solicitud de transporte con su estatus: la regla de lectura de `solicitudes` deja leerla a quien puede leer ese TE.
 - **Excel del proveedor** (`src/utils/libroProveedor.js`, el mismo formato de siempre): se agregó la columna **AREA** al inicio (área del pasajero; en solicitudes viejas, la de la solicitud, o vacía); el pasajero de TE va en la hoja del turno
   de su entrada; su bloque dice "Solicitante: [original] · Tiempo extra TE-AAAA-NNNN" (un bloque por TE).
+- **Formato de rutas (proveedor)** (`components/FormatoRutas.jsx`): el mismo Excel del proveedor, con selector de fecha (Hoy · Mañana · una fecha o rango) y vista previa; está en **Por enviar al proveedor** (para confirmar y descargar en la misma pantalla) y en **Solicitudes de transporte**.
 - **Descargar resumen de horas extra** (Por enviar al proveedor y Consulta, solo RH; mismo panel `BotonDescargaResumenTE`/`DescargaTE`, `exportarTiempoExtraRH.js`): periodo (Hoy · Ayer · Esta semana ·
   Semana anterior · Este mes · Personalizado), área, "Incluir" (todas las autorizadas, por defecto, o solo las confirmadas por RH), vista previa (solicitudes, empleados, horas, alimentos; sin datos no descarga)
   y una línea por hoja. Archivo `TiempoExtra_AAAA-MM-DD_a_AAAA-MM-DD.xlsx`. Autorizadas y confirmadas de un rango de fechas y un área, con el estilo del formato del proveedor. Hojas: Detalle (una fila por empleado, con
@@ -225,7 +227,7 @@ Consultas: las del Aut. 1, la Aut. 2 y RH sobre `tiempoExtra` deben **excluir bo
 - **Excel del proveedor, extensión**: el pasajero con solo salida va en la hoja de su turno normal (el turno que termina a la hora de su fin de turno: 16:00 → Turno 1, 0:00 y 19:00 → Turno 2, 7:00 → Turno 3), con ENTRADA = "YA EN PLANTA" y
   SALIDA = su hora extendida ("7:00PM"). Un turno extra con solo llegada lleva SALIDA = "NO REQUIERE". El pasajero guarda `sentido` (ambos | llegada | salida).
 - **Turnos de nómina** (`turnosNomina/{A|B|C}`: entrada y salida en los bloques 7:00, 16:00, 19:00 y 0:00): RH los captura en *Estructura > Turnos*; empiezan vacíos. Los lee cualquier usuario activo; los escribe RH/admin.
-- **Configuración** (`/configuracion`, todos): ayudas sí/no, tamaño de letra (Normal/Grande) y tema (Claro/Oscuro/Automático), guardados en `usuarios/{uid}.preferencias` (las reglas dejan a cada usuario cambiar solo ese campo de su propio documento).
+- **Mi cuenta** (`/mi-cuenta`, todos; junta lo que eran Perfil y Configuración): datos, contraseña, ayudas sí/no, tamaño de letra (Normal/Grande) y tema (Claro/Oscuro/Automático), guardados en `usuarios/{uid}.preferencias` (las reglas dejan a cada usuario cambiar solo ese campo de su propio documento).
   Con las ayudas activas: texto corto bajo los campos, "?" junto a los títulos (explicación de 3 o 4 pasos) y recorrido guiado la primera vez en *Solicitar tiempo extra* y *Por autorizar* (`preferencias.recorridosVistos`; se puede repetir desde el "?").
   **Todos los textos de ayuda están en `src/utils/ayudas.js`.**
 
@@ -315,3 +317,22 @@ aplican las reglas. Helpers: `transicionesTE(estatus, quien)` y `estatusInicialT
 - `npm run test:rules` — reglas (rutas/usuarios, estructura, tiempo extra y asignaciones) contra el emulador de Firestore; requiere Java 11+.
 - `npm run test:unit` — importación, puestos, asignaciones, organigrama y migración (sin emulador).
 - `npm run prueba:humo` — pruebas de humo de utilidades.
+
+## Preparar para producción (lista para la herramienta futura)
+
+Todavía **no se borra nada de Firebase**. Esta es la lista de lo que la herramienta «Preparar para producción» deberá revisar, respaldar y limpiar antes del piloto real:
+
+**Colecciones sin código ni reglas (borrar de la consola si existen)**
+- `areasTE`, `config/areasTE`, `config/tiempoExtra`, `accesosTE` — la estructura anterior; nadie las lee ni escribe.
+- `PuntosReunion` (con mayúscula) — legado; solo la toca *Herramientas > Diagnóstico* (RH). Confirmar que está vacía y quitar su regla.
+
+**Campos viejos que ya nadie lee**
+- `empleados.areaTE`, `empleados.areaTEManual` — se quitan con *Herramientas > Limpiar estructura vieja* (respaldo JSON antes).
+- `asignaciones.posicion` (Titular / Por ausencia) — se eliminó de la app; las reglas ya rechazan escribirlo.
+- `usuarios.rol` = `superintendente` / `autorizador` (se corrigen a `usuario` al guardar el usuario) y, si existiera, `usuarios.areaIds`.
+- `solicitudes` de la época manual: `puesto`, `turno` y `vistoPorSolicitante`, y `fechaSolicitud` como texto ISO en lugar de Timestamp (el código acepta los dos).
+
+**Datos de prueba que no deben llegar a producción**
+- `tiempoExtra` (con sus `empleados` e `historial`), `solicitudes` (con `pasajeros`) y `bitacora` creados durante las pruebas.
+- `contadores/te-AAAA`: reiniciar el folio si se borran los tiempos extra de prueba.
+- Usuarios, asignaciones y empleados de prueba.

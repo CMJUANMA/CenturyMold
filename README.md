@@ -1,8 +1,8 @@
 # Solicitud de rutas — Century Mold
 
-Aplicación web interna para programar y autorizar el **transporte de personal**. Los solicitantes
-de cada área piden servicios de ruta para sus empleados; Recursos Humanos (RH) los revisa, aprueba o rechaza y exporta
-el formato maestro en Excel para el proveedor de transporte.
+Aplicación web interna de **tiempo extra y transporte de personal**. Los solicitantes de cada área capturan el tiempo extra de sus empleados
+(con el transporte de cada uno); el Aut. 1 y el Aut. 2 lo autorizan; Recursos Humanos (RH) lo confirma en *Por enviar al proveedor*, lo que genera la
+solicitud de transporte, y baja el *Formato de rutas* en Excel para el proveedor. La solicitud de transporte suelta (sin tiempo extra) está apagada: ver *Interruptor de funciones*.
 
 Stack: React 19 + Vite, Tailwind CSS 4, Firebase (Authentication y Firestore). No hay servidor propio:
 la seguridad la dan las reglas de Firestore (`firestore.rules`).
@@ -13,11 +13,11 @@ la seguridad la dan las reglas de Firestore (`firestore.rules`).
 
 | Rol | Qué puede hacer |
 |---|---|
-| `usuario` | Lo que le den sus **roles operativos** (asignaciones por área, ver abajo); sin ellos solo entra al portal y cambia su contraseña. |
-| `rh` | Todo lo de rutas sobre cualquier solicitud (aprobar/rechazar, exportar a Excel), empleados, catálogos, usuarios con rol `usuario` y asignaciones de Aut. 1 y solicitante. |
+| `usuario` | Lo que le den sus **roles operativos** (asignaciones por área, ver abajo); sin ellos solo entra a su Inicio (con el aviso «Pide acceso a Recursos Humanos») y cambia su contraseña en *Mi cuenta*. |
+| `rh` | Confirmar el tiempo extra y bajar los Excel, solicitudes de transporte, padrón, estructura, rutas y puntos de reunión, usuarios con rol `usuario` y asignaciones de Aut. 1 y solicitante. |
 | `admin` | Todo lo de RH, además de dar o quitar `rh` y `admin`, asignar Aut. 2 y borrar usuarios o solicitudes. |
 
-**Roles operativos** (`asignaciones/{nomina}_{rol}_{área}`, con vigencia opcional): `solicitante` (crea solicitudes de ruta y de tiempo extra de su área),
+**Roles operativos** (`asignaciones/{nomina}_{rol}_{área}`, con vigencia opcional): `solicitante` (captura tiempo extra de su área),
 `aut1` (autoriza el nivel 1 de su área) y `aut2` (nivel 2, toda la planta). Se asignan en *Usuarios y accesos*; el puesto no da permisos.
 Detalle en `docs/tiempo-extra.md`. Roles, estatus y etiquetas: `src/utils/constantes.js` y `src/utils/asignaciones.js`; en `firestore.rules`, `esAdmin`, `esRH` y `asignacionVigente`.
 
@@ -38,14 +38,36 @@ Cada persona entra con su nómina; internamente su correo es `{nómina}@rutas.ap
   - **Alternativa definitiva (pendiente)**: una Cloud Function invocable solo por admin/RH que ponga una contraseña temporal con el Admin SDK y marque
     `debeCambiarPassword: true`. Requiere el plan Blaze de Firebase.
 
-## Flujo de una solicitud
+## Pantallas y URLs
 
-`pendiente` → `aprobada` | `rechazada` (RH) · `cancelada` (el solicitante) · `enviada al proveedor`.
-Si el solicitante edita una solicitud aprobada, vuelve a `pendiente`. Editar usa una transacción: si RH responde
-mientras alguien edita, el guardado se aborta y se avisa.
+Todas las URLs están en `src/rutas.js` (las del transporte suelto, en `src/funciones.js`); el menú sale de `src/utils/navegacion.js`.
 
-Cada solicitud guarda un resumen (total, alimentos, conteo por turno y puesto) para listarla sin leer a sus
-pasajeros, que viven en la subcolección `solicitudes/{id}/pasajeros`.
+| URL | Pantalla | Quién |
+|---|---|---|
+| `/` | **Inicio**: RH y admin ven indicadores (requieren atención y esta semana) y accesos rápidos; los demás, el panel de su rol | todos |
+| `/tiempo-extra/nueva`, `/:id/editar`, `/mis-solicitudes` | Solicitar tiempo extra y seguimiento | solicitante, Aut. 1, RH |
+| `/tiempo-extra/autorizar` | Por autorizar | Aut. 1, Aut. 2, RH |
+| `/tiempo-extra/consulta` | Todas las solicitudes de tiempo extra (solo lectura) | Aut. 2, RH |
+| `/tiempo-extra/recepcion` | Por enviar al proveedor: confirmar, devolver, **Formato de rutas** y resumen de horas extra | RH |
+| `/transporte/solicitudes` | Solicitudes de transporte (las que genera el tiempo extra) | RH |
+| `/transporte/catalogos` | Rutas y puntos de reunión | RH |
+| `/personal/padron` | Padrón de empleados (alta, importación y respaldo) | RH |
+| `/personal/estructura` | Áreas, puestos (con nivel), excepciones y turnos | RH |
+| `/personal/accesos[/usuarios\|asignaciones\|organigrama]` | Usuarios y accesos, Organigrama | RH; Aut. 2 y Aut. 1 según su rol |
+| `/mi-cuenta` | Mi cuenta: datos, ayudas, tamaño de letra, tema y contraseña | todos |
+| `/herramientas` | Diagnóstico y limpieza | solo admin |
+
+## Interruptor de funciones
+
+`src/funciones.js` → `FUNCIONES.transporteSuelto` (hoy `false`). Apagado, no hay ningún camino (menú, rutas, botones, tarjetas, contadores ni enlaces) a *Nueva solicitud* de transporte,
+*Mis solicitudes* de transporte, editar transporte ni *Transporte (consulta)*, y en *Solicitudes de transporte* se ocultan el lápiz, Aprobar / Rechazar / Revertir,
+«Todas las pendientes» y el filtro de origen. El código se conserva: para reactivarlo en el piloto basta poner `true`. `tests/funciones.test.js` prueba los dos casos.
+
+## Flujo de una solicitud de tiempo extra
+
+`borrador` → `pendiente_aut1` → `pendiente_aut2` → `autorizada` → `procesada` (RH la confirma y se crea la solicitud de transporte, que nace `aprobada`).
+Puede `devolverse` (vuelve a su creador) o `cancelarse`. Detalle en `docs/tiempo-extra.md`. Cada solicitud guarda un resumen (empleados, horas, transporte, alimentos) para listarla sin leer a sus empleados,
+que viven en `tiempoExtra/{id}/empleados`. Las solicitudes de transporte guardan el suyo y sus pasajeros en `solicitudes/{id}/pasajeros`.
 
 ## Configuración
 
@@ -87,17 +109,18 @@ error de la consola del navegador; agrégalo a `firestore.indexes.json` y vuelve
 
 ```
 src/
-  components/   Piezas de interfaz (Navbar, Modal, Toast, FormularioSolicitud, BadgeEstatus…)
+  components/   Piezas de interfaz (Navbar, Modal, Toast, FormatoRutas, PreferenciasPanel, guardias de ruta…)
   context/      Proveedores: sesión (Auth), catálogos compartidos, confirmaciones; *Store.js guarda cada contexto
   hooks/        useAuth, useToast, useCatalogos, useConfirmar
-  pages/        Pantallas; pages/rh/ son las de RH y admin (se cargan bajo demanda)
+  pages/        Pantallas; pages/te/ tiempo extra, pages/rh/ las de RH y admin (se cargan bajo demanda)
+  rutas.js, funciones.js   URLs de la app e interruptores de funciones
   utils/        Constantes, fechas, resumen/validación de solicitudes, exportación e importación de Excel
-scripts/        Utilidades de desarrollo (prueba de humo, generador de Excel de ejemplo)
+scripts/        Utilidades de desarrollo (pruebas y prueba de humo)
 firestore.rules, firestore.indexes.json, firebase.json   Configuración de Firestore
 ```
 
-Colecciones de Firestore: `usuarios`, `areas`, `rutas`, `comunidades`, `puntosReunion`, `empleados`,
-`solicitudes` y `solicitudes/{id}/pasajeros`.
+Colecciones de Firestore: `usuarios`, `asignaciones`, `areas`, `puestos`, `empleados`, `rutas`, `comunidades`, `puntosReunion`, `turnosNomina`, `tiempoExtra`
+(+ `empleados` e `historial`), `solicitudes` (+ `pasajeros`), `contadores` y `bitacora`.
 
 ## Notas
 

@@ -26,9 +26,6 @@ export const ROL_OP_CORTOS = {
   [ROL_OP.SOLICITANTE]: 'Solicitante',
 };
 
-/** Roles del sistema (usuarios/{uid}.rol). Los permisos operativos NO salen de aquí */
-export const ROLES_SISTEMA = ['admin', 'rh', 'usuario'];
-
 export const ESTADO_ASIGNACION = {
   VIGENTE: 'vigente', PROGRAMADA: 'programada', VENCIDA: 'vencida', REVOCADA: 'revocada',
 };

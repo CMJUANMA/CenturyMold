@@ -48,7 +48,7 @@ export const AYUDAS = {
     'autorizar.varias': 'Marca varias solicitudes y autorízalas juntas. Antes te muestra el total de empleados y horas.',
     'autorizar.rutas': 'Cada ruta adicional representa un costo extra. Revisa la justificación antes de autorizar.',
     // Por enviar al proveedor (RH; antes "Recepción")
-    'recepcion.recibir': 'Confirma la solicitud ya autorizada y crea la solicitud de transporte de los empleados que lo pidieron, para que salga en el Formato de rutas.',
+    'recepcion.recibir': 'Confirma la solicitud ya autorizada y crea la solicitud de transporte de los empleados que lo pidieron, para que salga en el Formato de rutas. Después baja el formato aquí mismo.',
     'recepcion.fecha': 'Puedes confirmar de una vez todas las solicitudes de la misma fecha.',
     'recepcion.devolver': 'Si algo está mal, devuélvela al solicitante con el motivo. Aquí no se cambian empleados.',
     'recepcion.descargar': 'Baja un Excel de TODOS los empleados con tiempo extra, lleven transporte o no. Es para nómina y comedor.',
@@ -91,9 +91,9 @@ export const AYUDAS = {
       titulo: 'Cómo confirmar lo que va al proveedor',
       pasos: [
         'Aquí están las solicitudes que ya tienen las dos autorizaciones y que RH todavía no confirma, agrupadas por fecha.',
-        'Toca "Revisar" para ver el detalle. Aquí no se cambian empleados.',
-        'Toca "Confirmar y generar transporte": se crea la solicitud de transporte de quienes lo pidieron y sale en el Formato de rutas del proveedor. Si nadie lleva transporte, el botón dice "Confirmar (sin transporte)".',
-        'Si algo está mal, usa "Devolver" con el motivo. Para varias del mismo día, usa "Confirmar todas las de esta fecha".',
+        'Toca "Revisar" para ver el detalle. Aquí no se cambian empleados: si algo está mal, usa "Devolver" con el motivo.',
+        'Toca "Confirmar y generar transporte": se crea la solicitud de transporte de quienes lo pidieron. Si nadie lleva transporte, el botón dice "Confirmar (sin transporte)". Para varias del mismo día, usa "Confirmar todas las de esta fecha".',
+        'Cuando termines de confirmar, toca "Formato de rutas (proveedor)", arriba en esta misma pantalla, elige la fecha y baja el Excel para el proveedor.',
       ],
     },
     consulta: {

@@ -21,13 +21,6 @@ export const ROL_LABELS = {
   [ROLES.USUARIO]: 'Usuario',
 };
 
-/** Versión corta, para la barra lateral y los selectores */
-export const ROL_LABELS_CORTOS = {
-  [ROLES.ADMIN]: 'Administrador',
-  [ROLES.RH]: 'Recursos Humanos',
-  [ROLES.USUARIO]: 'Usuario',
-};
-
 // ── Estatus de solicitud (solicitudes/{id}.estatus) ───────────────────────
 export const ESTATUS_SOLICITUD = {
   PENDIENTE: 'pendiente',
@@ -135,40 +128,3 @@ export const ACCIONES_TE_LABELS = {
   [ACCIONES_TE.RECIBIDA_RH]: 'Confirmada por RH',
   [ACCIONES_TE.ENVIADA]: 'Enviada a autorización',
 };
-
-/**
- * Quién puede ejecutar una transición (lo mismo que verifican firestore.rules):
- *   creador → quien capturó la solicitud · aut1 → Aut. 1 vigente del área
- *   aut2 → Aut. 2 vigente o RH · rh → RH/admin
- * Nadie autoriza ni devuelve una solicitud que creó él mismo (si la creó un Aut. 2, la firma otro Aut. 2 o RH).
- * Reenviar desde "devuelta" va a pendiente_aut2 (y no a pendiente_aut1) si quien reenvía es el Aut. 1 del área.
- */
-export const TRANSICIONES_TE = [
-  { de: ESTATUS_TE.PENDIENTE_AUT1, a: ESTATUS_TE.PENDIENTE_AUT2, quien: 'aut1', accion: ACCIONES_TE.AUTORIZADA_1 },
-  { de: ESTATUS_TE.PENDIENTE_AUT1, a: ESTATUS_TE.DEVUELTA, quien: 'aut1', accion: ACCIONES_TE.DEVUELTA, requiereMotivo: true },
-  { de: ESTATUS_TE.PENDIENTE_AUT2, a: ESTATUS_TE.AUTORIZADA, quien: 'aut2', accion: ACCIONES_TE.AUTORIZADA_2 },
-  { de: ESTATUS_TE.PENDIENTE_AUT2, a: ESTATUS_TE.DEVUELTA, quien: 'aut2', accion: ACCIONES_TE.DEVUELTA, requiereMotivo: true },
-  { de: ESTATUS_TE.DEVUELTA, a: ESTATUS_TE.PENDIENTE_AUT1, quien: 'creador', accion: ACCIONES_TE.REENVIADA },
-  { de: ESTATUS_TE.DEVUELTA, a: ESTATUS_TE.PENDIENTE_AUT2, quien: 'creador', accion: ACCIONES_TE.REENVIADA, soloSiEsAut1: true },
-  { de: ESTATUS_TE.AUTORIZADA, a: ESTATUS_TE.PROCESADA, quien: 'rh', accion: ACCIONES_TE.RECIBIDA_RH },
-  // RH en la recepción: devuelve (motivo obligatorio, nivel 3) o cancela lo ya autorizado o recibido (motivo obligatorio)
-  { de: ESTATUS_TE.AUTORIZADA, a: ESTATUS_TE.DEVUELTA, quien: 'rh', accion: ACCIONES_TE.DEVUELTA, requiereMotivo: true },
-  { de: ESTATUS_TE.AUTORIZADA, a: ESTATUS_TE.CANCELADA, quien: 'rh', accion: ACCIONES_TE.CANCELADA, requiereMotivo: true },
-  { de: ESTATUS_TE.PROCESADA, a: ESTATUS_TE.CANCELADA, quien: 'rh', accion: ACCIONES_TE.CANCELADA, requiereMotivo: true },
-  // Enviar a autorización: en un área que no participa (o si el creador es su Aut. 1) va directo a pendiente_aut2
-  { de: ESTATUS_TE.BORRADOR, a: ESTATUS_TE.PENDIENTE_AUT1, quien: 'creador', accion: ACCIONES_TE.ENVIADA },
-  { de: ESTATUS_TE.BORRADOR, a: ESTATUS_TE.PENDIENTE_AUT2, quien: 'creador', accion: ACCIONES_TE.ENVIADA, soloSiEsAut1: true },
-  ...[ESTATUS_TE.BORRADOR, ESTATUS_TE.PENDIENTE_AUT1, ESTATUS_TE.PENDIENTE_AUT2, ESTATUS_TE.DEVUELTA].map(de => (
-    { de, a: ESTATUS_TE.CANCELADA, quien: 'creador', accion: ACCIONES_TE.CANCELADA }
-  )),
-];
-
-/** Transiciones que `quien` puede hacer desde `estatus` */
-export const transicionesTE = (estatus, quien) => TRANSICIONES_TE.filter(t => t.de === estatus && t.quien === quien);
-
-/**
- * Estatus con el que entra una solicitud nueva (o reenviada): el Aut. 1 de la propia área se salta su nivel, y en un
- * área que no participa en TE (Administrativo) la captura RH o la Aut. 2 y va directo a pendiente_aut2.
- */
-export const estatusInicialTE = (esAut1DeLaArea, areaParticipa = true) =>
-  !areaParticipa || esAut1DeLaArea ? ESTATUS_TE.PENDIENTE_AUT2 : ESTATUS_TE.PENDIENTE_AUT1;

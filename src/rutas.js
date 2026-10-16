@@ -32,8 +32,5 @@ export const RUTAS = {
 /** Pestaña de Usuarios y accesos: usuarios · asignaciones · organigrama */
 export const rutaAccesos = (tab) => `${RUTAS.accesos}/${tab}`;
 
-/** Ruta de edición de un tiempo extra concreto */
-export const rutaEditarTE = (id) => RUTAS.teEditar.replace(':id', id);
-
 /** Consulta de tiempo extra ya filtrada por estatus (lo lee ConsultaTE) */
 export const rutaConsultaTE = (estatus) => (estatus ? `${RUTAS.teConsulta}?estatus=${estatus}` : RUTAS.teConsulta);
