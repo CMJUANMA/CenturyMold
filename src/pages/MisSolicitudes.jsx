@@ -6,7 +6,12 @@ import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/f
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { rutaEditarTransporte } from '../funciones';
-import { Layers, Loader2, Eye, XCircle, BellRing, Edit, MessageSquareWarning } from 'lucide-react';
+import { Eye, XCircle, BellRing, Edit, MessageSquareWarning } from 'lucide-react';
+import Boton from '../components/ui/Boton';
+import { Entrada } from '../components/ui/Campo';
+import EncabezadoPagina from '../components/ui/EncabezadoPagina';
+import EstadoVacio from '../components/ui/EstadoVacio';
+import { EsqueletoTabla } from '../components/ui/Esqueleto';
 import { useNavigate } from 'react-router-dom';
 import { arrayUnion } from 'firebase/firestore';
 import Modal from '../components/Modal';
@@ -105,12 +110,9 @@ export default function MisSolicitudes() {
 
   return (
     <div className="space-y-6">
-      <div className="border-b pb-4">
-        <h1 className="text-2xl font-semibold">{soloConsulta ? 'Transporte · mis solicitudes anteriores' : 'Mis solicitudes'}</h1>
-        <p className="text-sm text-[var(--text-muted)]">Consulta en tiempo real el estatus de tus viajes.</p>
-      </div>
+      <EncabezadoPagina titulo={soloConsulta ? 'Transporte · mis solicitudes anteriores' : 'Mis solicitudes'} descripcion="Consulta en tiempo real el estatus de tus viajes." />
 
-      <div className="overflow-hidden rounded-lg border bg-[var(--bg-surface)] shadow-sm">
+      <div className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
         <table className="w-full text-left text-xs">
           <thead className="bg-[var(--bg-surface-secondary)] border-b font-semibold text-[var(--text-secondary)]">
             <tr>
@@ -123,8 +125,8 @@ export default function MisSolicitudes() {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {cargando ? <tr><td colSpan={6} className="py-8 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto"/></td></tr> :
-             solicitudes.length === 0 ? <tr><td colSpan={6} className="py-8 text-center text-[var(--text-muted)]"><Layers className="h-8 w-8 mx-auto mb-2"/>No tienes solicitudes creadas.</td></tr> :
+            {cargando ? <tr><td colSpan={6} className="p-4"><EsqueletoTabla filas={3} columnas={5} /></td></tr> :
+             solicitudes.length === 0 ? <tr><td colSpan={6}><EstadoVacio titulo="Sin solicitudes" texto="No tienes solicitudes creadas." /></td></tr> :
              solicitudes.map(sol => (
               <tr key={sol.id} className={`hover:bg-[var(--bg-surface-hover)] ${sol.vistoPorSolicitante === false ? 'bg-[var(--status-success-bg)] border-l-2 border-l-[var(--status-success-text)]' : ''}`}>
                 <td className="px-4 py-3">{sol.vistoPorSolicitante === false && <BellRing className="h-4 w-4 text-[var(--status-success-text)] shrink-0"/>}</td>
@@ -141,13 +143,13 @@ export default function MisSolicitudes() {
                   {!soloConsulta && (sol.estatus === ESTATUS_SOLICITUD.ENVIADA_PROVEEDOR ? (
                     <div className="mt-1 flex flex-col items-end gap-1">
                       <span className="text-xs text-[var(--text-muted)] max-w-[120px]">Ya fue enviada al proveedor.</span>
-                      <button onClick={()=>avisarARH(sol)} className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"><MessageSquareWarning className="h-3 w-3"/> Avisar a RH</button>
+                      <Boton tamano="sm" icono={MessageSquareWarning} onClick={() => avisarARH(sol)}>Avisar a RH</Boton>
                     </div>
                   ) : (
                     (sol.estatus === ESTATUS_SOLICITUD.PENDIENTE || sol.estatus === ESTATUS_SOLICITUD.APROBADA) && sol.fechaServicio >= hoy && (
                       <div className="inline-flex">
-                        <button onClick={()=>navigate(rutaEditarTransporte(sol.id))} className="p-1 text-blue-600 hover:text-blue-800" title="Editar"><Edit className="h-4 w-4"/></button>
-                        <button onClick={()=>setModalCancelar(sol)} className="p-1 text-[var(--status-error-text)] hover:opacity-80" title="Cancelar"><XCircle className="h-4 w-4"/></button>
+                        <Boton variante="fantasma" tamano="icono" onClick={() => navigate(rutaEditarTransporte(sol.id))} title="Editar" aria-label="Editar"><Edit className="h-4 w-4" aria-hidden="true" /></Boton>
+                        <Boton variante="peligro" tamano="icono" onClick={() => setModalCancelar(sol)} title="Cancelar" aria-label="Cancelar"><XCircle className="h-4 w-4" aria-hidden="true" /></Boton>
                       </div>
                     )
                   ))}
@@ -187,10 +189,10 @@ export default function MisSolicitudes() {
           <>
             <p className="text-xs text-[var(--text-secondary)] mb-4">Por favor, escribe un motivo corto por el cual cancelas esta solicitud.</p>
             <form onSubmit={confirmarCancelacion}>
-              <input type="text" autoFocus required value={motivoCancelacion} onChange={e=>setMotivoCancelacion(e.target.value)} placeholder="Motivo de cancelación..." className="w-full border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-main)] rounded px-3 py-2 text-sm mb-4 outline-none focus:border-[var(--cm-red)]" />
-              <div className="flex justify-end gap-2 pt-2 border-t border-[var(--border-color)]">
-                <button type="button" onClick={() => setModalCancelar(null)} className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-main)] rounded text-xs font-semibold hover:bg-[var(--bg-surface-hover)]">Cerrar</button>
-                <button type="submit" className="bg-[var(--cm-red)] text-white px-4 py-2 rounded text-xs font-semibold hover:bg-[var(--cm-red-hover)]">Confirmar</button>
+              <Entrada type="text" autoFocus required value={motivoCancelacion} onChange={e => setMotivoCancelacion(e.target.value)} placeholder="Motivo de cancelación" aria-label="Motivo de cancelación" className="mb-4" />
+              <div className="flex flex-col-reverse gap-2 border-t border-[var(--border-color)] pt-4 sm:flex-row sm:justify-end">
+                <Boton onClick={() => setModalCancelar(null)}>Cerrar</Boton>
+                <Boton type="submit" variante="peligro">Cancelar solicitud</Boton>
               </div>
             </form>
           </>

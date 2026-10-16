@@ -101,7 +101,7 @@ export default function BotonFormatoRutas({ id = 'btn-formato-rutas' }) {
   };
 
   return (
-    <div className="max-w-[15rem]">
+    <div className="max-w-xs">
       <Boton id={id} icono={FileDown} onClick={() => setAbierto(true)}>Formato de rutas (proveedor)</Boton>
       <Ayuda clave="descarga.formatoRutas" />
 

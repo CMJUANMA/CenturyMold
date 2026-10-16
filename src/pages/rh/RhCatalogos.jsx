@@ -1,13 +1,10 @@
 /**
  * RhCatalogos.jsx — "Rutas y puntos de reunión" (/transporte/catalogos): rutas, comunidades y puntos con CRUD y carga masiva
  * Acceso: roles rh y admin (esPersonalRH)
+ * Un solo botón principal por pestaña («Nueva ruta», «Nueva comunidad», «Nuevo punto»); Importar directorio va en contorno.
  */
 import { useState, useEffect, lazy, Suspense } from 'react';
-import {
-  MapPin, Navigation, Upload, Loader2,
-  CheckCircle2, AlertTriangle,
-  Plus, Pencil, ToggleLeft, ToggleRight, Search,
-} from 'lucide-react';
+import { MapPin, Navigation, Upload, Check, Plus, Pencil, Power, Search } from 'lucide-react';
 import { collection, doc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
@@ -18,56 +15,74 @@ import { useRecargarCatalogos } from '../../hooks/useCatalogos';
 // Importación masiva (arrastra exceljs): se descarga solo al abrir el modal
 const ModalImportacion = lazy(() => import('./ModalImportacion'));
 import Modal from '../../components/Modal';
+import Aviso from '../../components/ui/Aviso';
+import Boton from '../../components/ui/Boton';
+import { Campo, Entrada, Selector } from '../../components/ui/Campo';
+import EncabezadoPagina from '../../components/ui/EncabezadoPagina';
+import EstadoVacio from '../../components/ui/EstadoVacio';
+import { EsqueletoTabla } from '../../components/ui/Esqueleto';
+import Insignia from '../../components/ui/Insignia';
+import Pestanas from '../../components/ui/Pestanas';
+import { Fila, Tabla, Td, Th } from '../../components/ui/Tabla';
 import { ROLES } from '../../utils/constantes';
 import { useConfirmar } from '../../hooks/useConfirmar';
 import { useToast } from '../../hooks/useToast';
 
 const TABS = [
-  { id: 'rutas',        label: 'Rutas',            icon: Navigation },
-  { id: 'comunidades',  label: 'Comunidades',      icon: MapPin },
-  { id: 'puntos',       label: 'Puntos de reunion', icon: MapPin },
+  { id: 'rutas', etiqueta: 'Rutas', icono: Navigation },
+  { id: 'comunidades', etiqueta: 'Comunidades', icono: MapPin },
+  { id: 'puntos', etiqueta: 'Puntos de reunión', icono: MapPin },
 ];
 
 // ── Componentes compartidos ───────────────────────────────────────────────
-const inputCls = 'w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 text-xs focus:border-[var(--cm-red)] focus:outline-none';
-const btnPrimary = 'inline-flex items-center gap-1.5 rounded-md bg-[var(--cm-red)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--cm-red-hover)] active:scale-95 transition-all disabled:opacity-50 cursor-pointer';
-const btnSecondary = 'inline-flex items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] active:scale-95 transition-all cursor-pointer';
-const btnIcon = 'rounded p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-surface-secondary)] hover:text-[var(--text-main)] active:scale-95 transition-all cursor-pointer';
-
-function ModalBase({ titulo, onClose, children }) {
+/** Búsqueda + contador + botón principal de la pestaña */
+function Barra({ valor, onCambio, placeholder, etiquetaBusqueda, contador, textoNuevo, onNuevo, deshabilitarNuevo }) {
   return (
-    <Modal isOpen={true} onClose={onClose} title={titulo} maxWidth="max-w-lg">
-      {children}
-    </Modal>
-  );
-}
-
-function AlertError({ msg }) {
-  if (!msg) return null;
-  return (
-    <div className="flex items-start gap-2 rounded-md border border-[var(--status-error-border)] bg-[var(--status-error-bg)] px-3 py-2 text-xs text-[var(--status-error-text)]">
-      <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" /><span>{msg}</span>
-    </div>
-  );
-}
-
-function AlertSuccess({ msg }) {
-  if (!msg) return null;
-  return (
-    <div className="flex items-start gap-2 rounded-md border border-[var(--status-success-border)] bg-[var(--status-success-bg)] px-3 py-2 text-xs text-[var(--status-success-text)]">
-      <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5" /><span>{msg}</span>
-    </div>
-  );
-}
-
-function EmptyState({ icon: Icon, msg }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-3 py-16 text-[var(--text-muted)]">
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-dashed border-[var(--border-color)]">
-        <Icon className="h-6 w-6" />
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="relative flex-1">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" aria-hidden="true" />
+        <Entrada type="search" value={valor} onChange={e => onCambio(e.target.value)} placeholder={placeholder} aria-label={etiquetaBusqueda} className="pl-9" />
       </div>
-      <p className="text-xs text-[var(--text-secondary)] text-center">{msg}</p>
+      <div className="flex items-center justify-between gap-4 sm:justify-end">
+        <span className="text-sm text-[var(--text-secondary)]" aria-live="polite">{contador}</span>
+        <Boton variante="primario" icono={Plus} onClick={onNuevo} disabled={deshabilitarNuevo}>{textoNuevo}</Boton>
+      </div>
     </div>
+  );
+}
+
+function EstadoActivo({ activo, femenino = true }) {
+  return activo
+    ? <Insignia tono="exito">{femenino ? 'Activa' : 'Activo'}</Insignia>
+    : <Insignia tono="neutro" icono={Power}>{femenino ? 'Inactiva' : 'Inactivo'}</Insignia>;
+}
+
+/** Editar + activar/desactivar de una fila */
+function AccionesFila({ activo, onEditar, onAlternar, nombre }) {
+  return (
+    <div className="inline-flex gap-1">
+      <Boton variante="fantasma" tamano="icono" onClick={onEditar} title="Editar" aria-label={`Editar ${nombre}`}><Pencil className="h-4 w-4" aria-hidden="true" /></Boton>
+      <Boton variante="fantasma" tamano="icono" onClick={onAlternar} title={activo ? 'Desactivar' : 'Activar'} aria-label={`${activo ? 'Desactivar' : 'Activar'} ${nombre}`}>
+        <Power className={`h-4 w-4 ${activo ? 'text-[var(--status-success-text)]' : ''}`} aria-hidden="true" />
+      </Boton>
+    </div>
+  );
+}
+
+/** Modal con formulario: avisos de error/éxito, campos (children) y pie con Cancelar + acción principal */
+function ModalForm({ titulo, onClose, onSubmit, guardando, error, exito, textoGuardar, children }) {
+  return (
+    <Modal isOpen onClose={onClose} title={titulo} maxWidth="max-w-lg">
+      <form onSubmit={onSubmit} className="space-y-4">
+        {error && <Aviso tono="error">{error}</Aviso>}
+        {exito && <Aviso tono="exito">{exito}</Aviso>}
+        {children}
+        <div className="flex flex-col-reverse gap-2 border-t border-[var(--border-color)] pt-4 sm:flex-row sm:justify-end">
+          <Boton onClick={onClose}>Cancelar</Boton>
+          <Boton type="submit" variante="primario" icono={Check} estado={guardando ? 'cargando' : undefined}>{textoGuardar}</Boton>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -124,82 +139,41 @@ function TabRutas({ rutas, comunidades, puntos, reload }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-3 items-center justify-between">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--text-muted)]" />
-          <input type="search" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar ruta..." className={`${inputCls} pl-8`} />
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-[var(--text-muted)]">{filtradas.length} ruta(s)</span>
-          <button type="button" onClick={abrirCrear} className={btnPrimary}>
-            <Plus className="h-3.5 w-3.5" />Nueva ruta
-          </button>
-        </div>
-      </div>
+      <Barra valor={busqueda} onCambio={setBusqueda} placeholder="Buscar ruta" etiquetaBusqueda="Buscar ruta"
+        contador={`${filtradas.length} ${filtradas.length === 1 ? 'ruta' : 'rutas'}`} textoNuevo="Nueva ruta" onNuevo={abrirCrear} />
 
       {filtradas.length === 0
-        ? <EmptyState icon={Navigation} msg="No hay rutas. Use 'Nueva ruta' o 'Importar directorio'." />
+        ? <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]"><EstadoVacio titulo="No hay rutas" texto="Crea una con «Nueva ruta» o carga varias con «Importar directorio»." /></div>
         : (
-          <div className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold">
-                <tr>
-                  <th className="px-4 py-3">Nombre de la ruta</th>
-                  <th className="px-4 py-3 w-24 text-center">Comunidades</th>
-                  <th className="px-4 py-3 w-20 text-center">Puntos</th>
-                  <th className="px-4 py-3 w-20">Estado</th>
-                  <th className="px-4 py-3 w-20 text-right">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-subtle)]">
-                {filtradas.map(r => {
-                  const nComs = comunidades.filter(c => c.rutaId === r.id).length;
-                  const nPtos = puntos.filter(p => p.rutaId === r.id).length;
-                  return (
-                    <tr key={r.id} className="hover:bg-[var(--bg-surface-secondary)] transition-colors">
-                      <td className="px-4 py-2.5 font-medium text-[var(--text-main)]">{r.nombre}</td>
-                      <td className="px-4 py-2.5 text-center text-[var(--text-secondary)]">{nComs}</td>
-                      <td className="px-4 py-2.5 text-center text-[var(--text-secondary)]">{nPtos}</td>
-                      <td className="px-4 py-2.5">
-                        <span className={`inline-flex rounded px-1.5 py-0.5 text-xs font-semibold ${r.activo !== false ? 'bg-[var(--status-success-bg)] text-[var(--status-success-text)]  ' : 'bg-[var(--status-error-bg)] text-[var(--status-error-text)]  '}`}>
-                          {r.activo !== false ? 'Activa' : 'Inactiva'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5 text-right">
-                        <div className="inline-flex gap-1">
-                          <button type="button" onClick={() => abrirEditar(r)} className={btnIcon} title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
-                          <button type="button" onClick={() => toggleActivo(r)} className={btnIcon} title={r.activo !== false ? 'Desactivar' : 'Activar'}>
-                            {r.activo !== false ? <ToggleRight className="h-4 w-4 text-[var(--status-success-text)]" /> : <ToggleLeft className="h-4 w-4" />}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <Tabla etiqueta="Rutas">
+            <thead>
+              <tr><Th>Nombre de la ruta</Th><Th derecha>Comunidades</Th><Th derecha>Puntos</Th><Th>Estado</Th><Th derecha>Acciones</Th></tr>
+            </thead>
+            <tbody>
+              {filtradas.map(r => {
+                const nComs = comunidades.filter(c => c.rutaId === r.id).length;
+                const nPtos = puntos.filter(p => p.rutaId === r.id).length;
+                return (
+                  <Fila key={r.id}>
+                    <Td className="font-medium">{r.nombre}</Td>
+                    <Td derecha className="text-[var(--text-secondary)]">{nComs}</Td>
+                    <Td derecha className="text-[var(--text-secondary)]">{nPtos}</Td>
+                    <Td><EstadoActivo activo={r.activo !== false} /></Td>
+                    <Td className="text-right"><AccionesFila nombre={r.nombre} activo={r.activo !== false} onEditar={() => abrirEditar(r)} onAlternar={() => toggleActivo(r)} /></Td>
+                  </Fila>
+                );
+              })}
+            </tbody>
+          </Tabla>
         )}
 
       {modal && (
-        <ModalBase titulo={modal.modo === 'crear' ? 'Nueva ruta' : 'Editar ruta'} onClose={() => setModal(null)}>
-          <form onSubmit={handleGuardar} className="space-y-4 px-5 py-4">
-            <AlertError msg={error} />
-            <AlertSuccess msg={exito} />
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Nombre de la ruta</label>
-              <input required value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} className={inputCls} placeholder="Ej: RUTA NORTE" />
-              <p className="mt-1 text-xs text-[var(--text-muted)]">El ID no cambia al editar; solo el nombre visible.</p>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={() => setModal(null)} className={btnSecondary}>Cancelar</button>
-              <button type="submit" disabled={guardando} className={btnPrimary}>
-                {guardando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                {modal.modo === 'crear' ? 'Crear ruta' : 'Guardar cambios'}
-              </button>
-            </div>
-          </form>
-        </ModalBase>
+        <ModalForm titulo={modal.modo === 'crear' ? 'Nueva ruta' : 'Editar ruta'} onClose={() => setModal(null)} onSubmit={handleGuardar}
+          guardando={guardando} error={error} exito={exito} textoGuardar={modal.modo === 'crear' ? 'Crear ruta' : 'Guardar cambios'}>
+          <Campo etiqueta="Nombre de la ruta" ayuda="El ID no cambia al editar; solo el nombre visible." obligatorio>
+            <Entrada required value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="Ej: RUTA NORTE" />
+          </Campo>
+        </ModalForm>
       )}
     </div>
   );
@@ -258,92 +232,46 @@ function TabComunidades({ comunidades, rutas, puntos, reload }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-3 items-center justify-between">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--text-muted)]" />
-          <input type="search" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar comunidad o ruta..." className={`${inputCls} pl-8`} />
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-[var(--text-muted)]">{filtradas.length} comunidad(es)</span>
-          <button type="button" onClick={abrirCrear} disabled={rutasActivas.length === 0} className={btnPrimary}>
-            <Plus className="h-3.5 w-3.5" />Nueva comunidad
-          </button>
-        </div>
-      </div>
-      {rutasActivas.length === 0 && (
-        <div className="flex items-start gap-2 rounded-md border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-xs text-[var(--status-warning-text)]">
-          <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-          <span>Primero crea al menos una ruta activa antes de agregar comunidades.</span>
-        </div>
-      )}
+      <Barra valor={busqueda} onCambio={setBusqueda} placeholder="Buscar comunidad o ruta" etiquetaBusqueda="Buscar comunidad o ruta"
+        contador={`${filtradas.length} ${filtradas.length === 1 ? 'comunidad' : 'comunidades'}`} textoNuevo="Nueva comunidad" onNuevo={abrirCrear} deshabilitarNuevo={rutasActivas.length === 0} />
+      {rutasActivas.length === 0 && <Aviso tono="aviso">Primero crea al menos una ruta activa antes de agregar comunidades.</Aviso>}
       {filtradas.length === 0
-        ? <EmptyState icon={MapPin} msg="No hay comunidades. Cree una o importe el directorio." />
+        ? <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]"><EstadoVacio titulo="No hay comunidades" texto="Crea una con «Nueva comunidad» o importa el directorio." /></div>
         : (
-          <div className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold">
-                <tr>
-                  <th className="px-4 py-3">Comunidad</th>
-                  <th className="px-4 py-3">Ruta</th>
-                  <th className="px-4 py-3 w-20 text-center">Puntos</th>
-                  <th className="px-4 py-3 w-20">Estado</th>
-                  <th className="px-4 py-3 w-20 text-right">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-subtle)]">
-                {filtradas.map(c => {
-                  const rutaNombre = rutas.find(r => r.id === c.rutaId)?.nombre ?? c.rutaId;
-                  const nPtos = puntos.filter(p => p.comunidadId === c.id).length;
-                  return (
-                    <tr key={c.id} className="hover:bg-[var(--bg-surface-secondary)] transition-colors">
-                      <td className="px-4 py-2.5 font-medium text-[var(--text-main)]">{c.nombre}</td>
-                      <td className="px-4 py-2.5 text-[var(--text-secondary)]">{rutaNombre}</td>
-                      <td className="px-4 py-2.5 text-center text-[var(--text-secondary)]">{nPtos}</td>
-                      <td className="px-4 py-2.5">
-                        <span className={`inline-flex rounded px-1.5 py-0.5 text-xs font-semibold ${c.activo !== false ? 'bg-[var(--status-success-bg)] text-[var(--status-success-text)]  ' : 'bg-[var(--status-error-bg)] text-[var(--status-error-text)]  '}`}>
-                          {c.activo !== false ? 'Activa' : 'Inactiva'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5 text-right">
-                        <div className="inline-flex gap-1">
-                          <button type="button" onClick={() => abrirEditar(c)} className={btnIcon} title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
-                          <button type="button" onClick={() => toggleActivo(c)} className={btnIcon} title={c.activo !== false ? 'Desactivar' : 'Activar'}>
-                            {c.activo !== false ? <ToggleRight className="h-4 w-4 text-[var(--status-success-text)]" /> : <ToggleLeft className="h-4 w-4" />}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <Tabla etiqueta="Comunidades">
+            <thead>
+              <tr><Th>Comunidad</Th><Th>Ruta</Th><Th derecha>Puntos</Th><Th>Estado</Th><Th derecha>Acciones</Th></tr>
+            </thead>
+            <tbody>
+              {filtradas.map(c => {
+                const rutaNombre = rutas.find(r => r.id === c.rutaId)?.nombre ?? c.rutaId;
+                const nPtos = puntos.filter(p => p.comunidadId === c.id).length;
+                return (
+                  <Fila key={c.id}>
+                    <Td className="font-medium">{c.nombre}</Td>
+                    <Td className="text-[var(--text-secondary)]">{rutaNombre}</Td>
+                    <Td derecha className="text-[var(--text-secondary)]">{nPtos}</Td>
+                    <Td><EstadoActivo activo={c.activo !== false} /></Td>
+                    <Td className="text-right"><AccionesFila nombre={c.nombre} activo={c.activo !== false} onEditar={() => abrirEditar(c)} onAlternar={() => toggleActivo(c)} /></Td>
+                  </Fila>
+                );
+              })}
+            </tbody>
+          </Tabla>
         )}
       {modal && (
-        <ModalBase titulo={modal.modo === 'crear' ? 'Nueva comunidad' : 'Editar comunidad'} onClose={() => setModal(null)}>
-          <form onSubmit={handleGuardar} className="space-y-4 px-5 py-4">
-            <AlertError msg={error} />
-            <AlertSuccess msg={exito} />
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Ruta</label>
-              <select required value={form.rutaId} onChange={e => setForm(f => ({ ...f, rutaId: e.target.value }))} className={inputCls}>
-                <option value="">Seleccionar ruta...</option>
-                {rutasActivas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Nombre de la comunidad</label>
-              <input required value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} className={inputCls} placeholder="Ej: COLONIA SAN PEDRO" />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={() => setModal(null)} className={btnSecondary}>Cancelar</button>
-              <button type="submit" disabled={guardando} className={btnPrimary}>
-                {guardando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                {modal.modo === 'crear' ? 'Crear' : 'Guardar'}
-              </button>
-            </div>
-          </form>
-        </ModalBase>
+        <ModalForm titulo={modal.modo === 'crear' ? 'Nueva comunidad' : 'Editar comunidad'} onClose={() => setModal(null)} onSubmit={handleGuardar}
+          guardando={guardando} error={error} exito={exito} textoGuardar={modal.modo === 'crear' ? 'Crear' : 'Guardar'}>
+          <Campo etiqueta="Ruta" obligatorio>
+            <Selector required value={form.rutaId} onChange={e => setForm(f => ({ ...f, rutaId: e.target.value }))}>
+              <option value="">Seleccionar ruta…</option>
+              {rutasActivas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+            </Selector>
+          </Campo>
+          <Campo etiqueta="Nombre de la comunidad" obligatorio>
+            <Entrada required value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="Ej: COLONIA SAN PEDRO" />
+          </Campo>
+        </ModalForm>
       )}
     </div>
   );
@@ -393,7 +321,7 @@ function TabPuntos({ puntos, comunidades, rutas, reload }) {
     const { nombre, rutaId, comunidadId, clave } = form;
     if (!nombre.trim() || !rutaId || !comunidadId) { setError('Nombre, ruta y comunidad son obligatorios.'); return; }
     const claveReal = (clave.trim() || generarClave(rutaId, comunidadId)).toUpperCase();
-    if (!claveReal) { setError('No se pudo generar la clave. Ingresela manualmente.'); return; }
+    if (!claveReal) { setError('No se pudo generar la clave. Ingrésala manualmente.'); return; }
     setGuardando(true); setError('');
     try {
       if (modal.modo === 'crear') {
@@ -422,110 +350,59 @@ function TabPuntos({ puntos, comunidades, rutas, reload }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-3 items-center justify-between">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--text-muted)]" />
-          <input type="search" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar punto, clave, comunidad o ruta..." className={`${inputCls} pl-8`} />
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-[var(--text-muted)]">{filtrados.length} punto(s)</span>
-          <button type="button" onClick={abrirCrear} disabled={rutasActivas.length === 0} className={btnPrimary}>
-            <Plus className="h-3.5 w-3.5" />Nuevo punto
-          </button>
-        </div>
-      </div>
+      <Barra valor={busqueda} onCambio={setBusqueda} placeholder="Buscar punto, clave, comunidad o ruta" etiquetaBusqueda="Buscar punto de reunión"
+        contador={`${filtrados.length} ${filtrados.length === 1 ? 'punto' : 'puntos'}`} textoNuevo="Nuevo punto" onNuevo={abrirCrear} deshabilitarNuevo={rutasActivas.length === 0} />
       {filtrados.length === 0
-        ? <EmptyState icon={MapPin} msg="No hay puntos de reunion. Cree uno o importe el directorio." />
+        ? <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]"><EstadoVacio titulo="No hay puntos de reunión" texto="Crea uno con «Nuevo punto» o importa el directorio." /></div>
         : (
-          <div className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold">
-                <tr>
-                  <th className="px-4 py-3 w-20">Clave</th>
-                  <th className="px-4 py-3">Nombre del punto</th>
-                  <th className="px-4 py-3">Comunidad</th>
-                  <th className="px-4 py-3">Ruta</th>
-                  <th className="px-4 py-3 w-20">Estado</th>
-                  <th className="px-4 py-3 w-20 text-right">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-subtle)]">
-                {filtrados.map(p => {
-                  const comNombre = comunidades.find(c => c.id === p.comunidadId)?.nombre ?? p.comunidadId;
-                  const rutaNombre = rutas.find(r => r.id === p.rutaId)?.nombre ?? p.rutaId;
-                  return (
-                    <tr key={p.id} className="hover:bg-[var(--bg-surface-secondary)] transition-colors">
-                      <td className="px-4 py-2.5 font-mono font-semibold text-[var(--accent-text)]">{p.clave}</td>
-                      <td className="px-4 py-2.5 font-medium text-[var(--text-main)]">{p.nombre}</td>
-                      <td className="px-4 py-2.5 text-[var(--text-secondary)]">{comNombre}</td>
-                      <td className="px-4 py-2.5 text-[var(--text-muted)]">{rutaNombre}</td>
-                      <td className="px-4 py-2.5">
-                        <span className={`inline-flex rounded px-1.5 py-0.5 text-xs font-semibold ${p.activo !== false ? 'bg-[var(--status-success-bg)] text-[var(--status-success-text)]  ' : 'bg-[var(--status-error-bg)] text-[var(--status-error-text)]  '}`}>
-                          {p.activo !== false ? 'Activo' : 'Inactivo'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5 text-right">
-                        <div className="inline-flex gap-1">
-                          <button type="button" onClick={() => abrirEditar(p)} className={btnIcon} title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
-                          <button type="button" onClick={() => toggleActivo(p)} className={btnIcon} title={p.activo !== false ? 'Desactivar' : 'Activar'}>
-                            {p.activo !== false ? <ToggleRight className="h-4 w-4 text-[var(--status-success-text)]" /> : <ToggleLeft className="h-4 w-4" />}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <Tabla etiqueta="Puntos de reunión">
+            <thead>
+              <tr><Th>Clave</Th><Th>Nombre del punto</Th><Th>Comunidad</Th><Th>Ruta</Th><Th>Estado</Th><Th derecha>Acciones</Th></tr>
+            </thead>
+            <tbody>
+              {filtrados.map(p => {
+                const comNombre = comunidades.find(c => c.id === p.comunidadId)?.nombre ?? p.comunidadId;
+                const rutaNombre = rutas.find(r => r.id === p.rutaId)?.nombre ?? p.rutaId;
+                return (
+                  <Fila key={p.id}>
+                    <Td mono>{p.clave}</Td>
+                    <Td className="font-medium">{p.nombre}</Td>
+                    <Td className="text-[var(--text-secondary)]">{comNombre}</Td>
+                    <Td className="text-[var(--text-secondary)]">{rutaNombre}</Td>
+                    <Td><EstadoActivo activo={p.activo !== false} femenino={false} /></Td>
+                    <Td className="text-right"><AccionesFila nombre={p.nombre} activo={p.activo !== false} onEditar={() => abrirEditar(p)} onAlternar={() => toggleActivo(p)} /></Td>
+                  </Fila>
+                );
+              })}
+            </tbody>
+          </Tabla>
         )}
       {modal && (
-        <ModalBase titulo={modal.modo === 'crear' ? 'Nuevo punto de reunion' : 'Editar punto de reunion'} onClose={() => setModal(null)}>
-          <form onSubmit={handleGuardar} className="space-y-4 px-5 py-4">
-            <AlertError msg={error} />
-            <AlertSuccess msg={exito} />
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Ruta</label>
-                <select required value={form.rutaId} onChange={e => setForm(f => ({ ...f, rutaId: e.target.value, comunidadId: '' }))} className={inputCls}>
-                  <option value="">Seleccionar...</option>
-                  {rutasActivas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Comunidad</label>
-                <select required value={form.comunidadId} onChange={e => setForm(f => ({ ...f, comunidadId: e.target.value }))} className={inputCls} disabled={!form.rutaId}>
-                  <option value="">Seleccionar...</option>
-                  {comsDeRuta.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Nombre del punto</label>
-              <input required value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} className={inputCls} placeholder="Ej: PARQUE CENTRAL" />
-            </div>
-            {modal.modo === 'crear' && (
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Clave <span className="text-[var(--text-muted)]">(dejar vacío para generar automáticamente)</span>
-                </label>
-                <input value={form.clave} onChange={e => setForm(f => ({ ...f, clave: e.target.value }))} className={inputCls} placeholder="Ej: SN01" maxLength={10} />
-                {form.rutaId && form.comunidadId && !form.clave && (
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">
-                    Se generará: <strong>{generarClave(form.rutaId, form.comunidadId)}</strong>
-                  </p>
-                )}
-              </div>
-            )}
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={() => setModal(null)} className={btnSecondary}>Cancelar</button>
-              <button type="submit" disabled={guardando} className={btnPrimary}>
-                {guardando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                {modal.modo === 'crear' ? 'Crear punto' : 'Guardar'}
-              </button>
-            </div>
-          </form>
-        </ModalBase>
+        <ModalForm titulo={modal.modo === 'crear' ? 'Nuevo punto de reunión' : 'Editar punto de reunión'} onClose={() => setModal(null)} onSubmit={handleGuardar}
+          guardando={guardando} error={error} exito={exito} textoGuardar={modal.modo === 'crear' ? 'Crear punto' : 'Guardar'}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Campo etiqueta="Ruta" obligatorio>
+              <Selector required value={form.rutaId} onChange={e => setForm(f => ({ ...f, rutaId: e.target.value, comunidadId: '' }))}>
+                <option value="">Seleccionar…</option>
+                {rutasActivas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+              </Selector>
+            </Campo>
+            <Campo etiqueta="Comunidad" obligatorio>
+              <Selector required value={form.comunidadId} onChange={e => setForm(f => ({ ...f, comunidadId: e.target.value }))} disabled={!form.rutaId}>
+                <option value="">Seleccionar…</option>
+                {comsDeRuta.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </Selector>
+            </Campo>
+          </div>
+          <Campo etiqueta="Nombre del punto" obligatorio>
+            <Entrada required value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="Ej: PARQUE CENTRAL" />
+          </Campo>
+          {modal.modo === 'crear' && (
+            <Campo etiqueta="Clave" ayuda={form.rutaId && form.comunidadId && !form.clave ? `Se generará: ${generarClave(form.rutaId, form.comunidadId)}` : 'Déjala vacía para generarla automáticamente.'}>
+              <Entrada value={form.clave} onChange={e => setForm(f => ({ ...f, clave: e.target.value }))} placeholder="Ej: SN01" maxLength={10} />
+            </Campo>
+          )}
+        </ModalForm>
       )}
     </div>
   );
@@ -565,48 +442,20 @@ export default function RhCatalogos() {
   const puedeCargarMasivo = usuario?.rol === ROLES.ADMIN || usuario?.rol === ROLES.RH;
 
   return (
-    <div className="space-y-6">
-      {/* Encabezado */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between border-b border-[var(--border-color)] pb-4">
-        <div>
-          <div className="text-xs font-semibold text-[var(--text-muted)]">Recursos Humanos</div>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[var(--text-main)]">Rutas y puntos de reunión</h1>
-          <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Rutas, comunidades y puntos de reunión del transporte</p>
-        </div>
-        {puedeCargarMasivo && (
-          <div className="flex flex-wrap items-center gap-2">
-            <button type="button" id="btn-importar-directorio" onClick={() => setModalTipo('directorio')} className={btnSecondary}>
-              <Upload className="h-4 w-4 text-[var(--text-secondary)]" />Importar directorio
-            </button>
-          </div>
-        )}
-      </div>
+    <div className="space-y-8">
+      <EncabezadoPagina
+        antetitulo="Recursos Humanos"
+        titulo="Rutas y puntos de reunión"
+        descripcion="Rutas, comunidades y puntos de reunión del transporte."
+        accion={puedeCargarMasivo ? <Boton id="btn-importar-directorio" icono={Upload} onClick={() => setModalTipo('directorio')}>Importar directorio</Boton> : null}
+      />
 
-      {errorCarga && <AlertError msg={errorCarga} />}
+      {errorCarga && <Aviso tono="error" titulo="No se pudieron cargar los catálogos">{errorCarga}. Revisa tu conexión y vuelve a abrir esta pantalla.</Aviso>}
 
-      {/* Tabs */}
-      <div className="border-b border-[var(--border-color)]">
-        <nav className="-mb-px flex gap-0 overflow-x-auto">
-          {TABS.map(tab => {
-            const Icon = tab.icon;
-            const activa = tabActiva === tab.id;
-            return (
-              <button key={tab.id} type="button" onClick={() => setTabActiva(tab.id)}
-                className={`inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer ${activa ? 'border-[var(--cm-red)] text-[var(--accent-text)]' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:border-[var(--border-color)]'}`}>
-                <Icon className="h-3.5 w-3.5" />{tab.label}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
+      <Pestanas etiqueta="Catálogos" items={TABS} activa={tabActiva} onCambio={setTabActiva} />
 
-      {/* Contenido */}
       <div className="min-h-[200px]">
-        {cargando ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-[var(--text-muted)]">
-            <Loader2 className="h-5 w-5 animate-spin" /><span className="text-xs">Cargando catalogos...</span>
-          </div>
-        ) : (
+        {cargando ? <EsqueletoTabla filas={4} columnas={5} /> : (
           <>
             {tabActiva === 'rutas' && <TabRutas rutas={rutas} comunidades={comunidades} puntos={puntos} reload={reload} />}
             {tabActiva === 'comunidades' && <TabComunidades comunidades={comunidades} rutas={rutas} puntos={puntos} reload={reload} />}
@@ -615,7 +464,7 @@ export default function RhCatalogos() {
         )}
       </div>
 
-      {/* Modal importacion */}
+      {/* Modal importación */}
       {modalTipo && (
         <Suspense fallback={null}>
           <ModalImportacion tipo={modalTipo} onClose={() => { setModalTipo(null); reload(); }} onImportado={reload} />

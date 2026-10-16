@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { collection, getDocs, doc, getDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { Loader2 } from 'lucide-react';
+import { EsqueletoPagina } from '../components/ui/Esqueleto';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -196,9 +196,7 @@ export default function EditarSolicitud() {
 
   if (cargandoDatos) {
     return (
-      <div className="flex h-64 items-center justify-center gap-3">
-        <Loader2 className="h-6 w-6 animate-spin" /><span>Cargando...</span>
-      </div>
+      <div className="space-y-8"><EsqueletoPagina bloques={2} /></div>
     );
   }
   if (!inicial) return null; // error o redirección ya avisados

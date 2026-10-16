@@ -6,7 +6,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
-import { Loader2 } from 'lucide-react';
+import { EsqueletoPagina } from '../components/ui/Esqueleto';
+import { CONTROL, CONTROL_OK } from '../components/ui/estilos';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { RUTAS_TRANSPORTE_SUELTO } from '../funciones';
@@ -93,17 +94,14 @@ export default function NuevaSolicitud() {
 
   if (cargando) {
     return (
-      <div className="flex h-64 items-center justify-center gap-3 text-[var(--text-secondary)]">
-        <Loader2 className="h-6 w-6 animate-spin" />
-        <span className="text-sm font-medium">Cargando datos maestros...</span>
-      </div>
+      <div className="space-y-8"><EsqueletoPagina bloques={2} /></div>
     );
   }
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="border-b border-[var(--border-color)] pb-4">
-        <div className="text-xs font-semibold text-[var(--text-muted)]">Operacion · Solicitudes</div>
+        <div className="text-xs font-semibold text-[var(--text-muted)]">Operación · Solicitudes</div>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[var(--text-main)]">Nueva solicitud de transporte</h1>
         <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
           Complete los campos para programar el servicio. Solicitante: <span className="font-semibold">{usuario?.nombre}</span>
@@ -112,11 +110,11 @@ export default function NuevaSolicitud() {
 
       {areasSolicitante.length > 1 && (
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4">
-          <label htmlFor="area-solicitud" className="block text-xs font-semibold text-[var(--text-muted)] mb-1">
+          <label htmlFor="area-solicitud" className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
             Área que solicita
           </label>
           <select id="area-solicitud" value={areaId} onChange={e => setAreaElegida(e.target.value)}
-            className="w-full max-w-xs rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1.5 text-xs text-[var(--text-main)] focus:border-[var(--cm-red)] focus:outline-none">
+            className={`${CONTROL} ${CONTROL_OK} max-w-xs py-2`}>
             {areasSolicitante.map(id => <option key={id} value={id}>{nombresArea.get(id) ?? id}</option>)}
           </select>
         </div>

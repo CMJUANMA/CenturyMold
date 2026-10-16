@@ -14,14 +14,15 @@
  * al confirmar "Otro" sin coincidencias, o tras responder "¿Quisiste decir...?".
  */
 import { useState, useRef, useEffect } from 'react';
+import Boton from './ui/Boton';
+import { CONTROL, CONTROL_OK } from './ui/estilos';
 import { ChevronDown, ChevronUp, AlertTriangle, Check, Sparkles } from 'lucide-react';
 import { normalizarPuesto, clavePuesto, resolverPuesto, existePuesto } from '../utils/puestos';
 
 const OTRO = '__OTRO__';
 const ETIQUETA_OTRO = 'Otro (escribir uno nuevo)';
 
-const baseInputCls =
-  'w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)] disabled:bg-[var(--bg-surface-secondary)] disabled:opacity-60';
+const baseInputCls = `${CONTROL} ${CONTROL_OK} py-2`;
 
 export default function PuestoCombobox({
   puestosExistentes = [],
@@ -209,14 +210,8 @@ export default function PuestoCombobox({
                 if (e.key === 'Escape') { e.preventDefault(); cancelarOtro(); }
               }}
             />
-            <button type="button" onClick={confirmarOtro} disabled={disabled || !textOtro.trim()}
-              className="rounded-md bg-[var(--cm-red)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--cm-red-hover)] disabled:opacity-50 transition-colors shrink-0">
-              OK
-            </button>
-            <button type="button" onClick={cancelarOtro} title="Cancelar"
-              className="rounded-md border border-[var(--border-color)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface-secondary)] transition-colors shrink-0">
-              X
-            </button>
+            <Boton variante="primario" onClick={confirmarOtro} disabled={disabled || !textOtro.trim()}>Aceptar</Boton>
+            <Boton onClick={cancelarOtro} title="Cancelar" aria-label="Cancelar">Cancelar</Boton>
           </div>
           {!aviso && (
             <p className="text-xs text-[var(--text-muted)]">Se guardara en mayusculas y sin espacios dobles.</p>

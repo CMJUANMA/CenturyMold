@@ -19,7 +19,7 @@
  */
 import { useMemo, useState } from 'react';
 import {
-  FilePlus, FileEdit, Plus, Trash2, CheckCircle2, AlertCircle, Save, Loader2, MapPin,
+  FilePlus, FileEdit, Plus, Trash2, CheckCircle2, AlertCircle, Save, MapPin,
 } from 'lucide-react';
 import PuestoCombobox from './PuestoCombobox';
 import { useToast } from '../hooks/useToast';
@@ -29,9 +29,11 @@ import {
   MAX_PASAJEROS, MSG_MAX_PASAJEROS, HORAS_ENTRADA, HORAS_SALIDA, TURNOS,
   fechaMinima, pasajeroVacio, validarSolicitud,
 } from '../utils/solicitudes';
+import Boton from './ui/Boton';
+import { CASILLA, CONTROL, CONTROL_OK } from './ui/estilos';
 
-const inputCls = 'w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1.5 text-xs text-[var(--text-main)] focus:border-[var(--cm-red)] focus:outline-none disabled:bg-[var(--bg-surface-secondary)] disabled:opacity-60';
-const labelCls = 'block text-xs font-semibold text-[var(--text-muted)] mb-1';
+const inputCls = `${CONTROL} ${CONTROL_OK} py-2`;
+const labelCls = 'mb-1 block text-xs font-medium text-[var(--text-secondary)]';
 
 export default function FormularioSolicitud({
   modo = 'nueva', esRH = false, catalogos, inicial, comentarioObligatorio = false, enviando = false, onSubmit,
@@ -110,7 +112,7 @@ export default function FormularioSolicitud({
   return (
     <form onSubmit={handleSubmit} className="space-y-6 pb-20">
       {/* ── Cabecera ─────────────────────────────────────── */}
-      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5 shadow-sm">
+      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5">
         <div className="mb-4 flex items-center gap-2 border-b border-[var(--border-subtle)] pb-2">
           {esEdicion ? <FileEdit className="h-4 w-4 text-[var(--accent-text)]" /> : <FilePlus className="h-4 w-4 text-[var(--accent-text)]" />}
           <h2 className="text-sm font-semibold text-[var(--text-main)]">Datos Generales</h2>
@@ -141,7 +143,7 @@ export default function FormularioSolicitud({
       </div>
 
       {/* ── Pasajeros ─────────────────────────────────── */}
-      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5 shadow-sm">
+      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5">
         <div className="mb-4 flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
           <h2 className="text-sm font-semibold text-[var(--text-main)]">Padron de Pasajeros</h2>
           <span className="text-xs font-medium text-[var(--text-secondary)]">
@@ -167,10 +169,10 @@ export default function FormularioSolicitud({
                       value={p.searchQuery}
                       onChange={e => handleSearchChange(index, e.target.value)}
                       placeholder="Escriba para buscar..."
-                      className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 text-xs focus:border-[var(--cm-red)] focus:outline-none"
+                      className={inputCls}
                     />
                     {p.showResults && p.searchQuery.length > 1 && !p.empleadoSeleccionado && (
-                      <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] shadow-lg">
+                      <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] shadow-sm">
                         {(() => {
                           const q = p.searchQuery.toLowerCase();
                           const found = empleados.filter(emp =>
@@ -240,7 +242,7 @@ export default function FormularioSolicitud({
                     <label className="flex cursor-pointer items-center gap-2 rounded-md p-2 text-xs font-medium text-[var(--text-main)] transition-colors hover:bg-[var(--bg-surface)]">
                       <input type="checkbox" checked={p.alimentos}
                         onChange={e => updatePas(index, { alimentos: e.target.checked })}
-                        className="h-3.5 w-3.5 rounded text-[var(--accent-text)] focus:ring-[var(--cm-red)]" />
+                        className={CASILLA} />
                       Alimentos
                     </label>
                   </div>
@@ -317,10 +319,7 @@ export default function FormularioSolicitud({
             );
           })}
 
-          <button type="button" onClick={addPasajero}
-            className="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border border-dashed border-[var(--border-color)] bg-[var(--bg-surface)] px-4 py-2 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:border-[var(--cm-red)] hover:text-[var(--accent-text)] active:scale-95">
-            <Plus className="h-4 w-4" />Agregar otro pasajero
-          </button>
+          <Boton className="w-full border-dashed" icono={Plus} onClick={addPasajero}>Agregar otro pasajero</Boton>
         </div>
       </div>
 
@@ -329,11 +328,7 @@ export default function FormularioSolicitud({
         <div className="text-sm text-[var(--text-secondary)]">
           Pasajeros listos: <strong className="text-[var(--text-main)]">{pasajeros.filter(p => p.empleadoSeleccionado).length}</strong>
         </div>
-        <button type="submit" disabled={enviando}
-          className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-[var(--cm-red)] px-6 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[var(--cm-red-hover)] focus:outline-none focus:ring-offset-2 active:scale-95 disabled:opacity-50">
-          {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          {esEdicion ? 'Actualizar Solicitud' : 'Registrar Solicitud'}
-        </button>
+        <Boton type="submit" variante="primario" icono={Save} estado={enviando ? 'cargando' : undefined}>{esEdicion ? 'Actualizar solicitud' : 'Registrar solicitud'}</Boton>
       </div>
     </form>
   );

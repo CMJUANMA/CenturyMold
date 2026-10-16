@@ -10,11 +10,17 @@ import { db } from '../../firebase';
 import { useToast } from '../../hooks/useToast';
 import { useAuth } from '../../hooks/useAuth';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  Filter, CheckCircle2, XCircle, Loader2, Eye, Undo2, Edit, AlertTriangle,
-} from 'lucide-react';
+import { CheckCircle2, XCircle, Eye, Undo2, Edit, AlertTriangle, Timer } from 'lucide-react';
 import Modal from '../../components/Modal';
 import BadgeEstatus from '../../components/BadgeEstatus';
+import Aviso from '../../components/ui/Aviso';
+import Boton from '../../components/ui/Boton';
+import { AreaTexto, Campo, Entrada, Selector } from '../../components/ui/Campo';
+import EncabezadoPagina from '../../components/ui/EncabezadoPagina';
+import EstadoVacio from '../../components/ui/EstadoVacio';
+import { EsqueletoTabla } from '../../components/ui/Esqueleto';
+import Insignia from '../../components/ui/Insignia';
+import { Fila, Tabla, Td, Th } from '../../components/ui/Tabla';
 import { toDate, fmtFecha, fmtFechaHora, ymd, sumarDias, rangoSemana } from '../../utils/fechas';
 import { resumenPasajeros, textoConteo } from '../../utils/solicitudes';
 import { useCatalogos } from '../../hooks/useCatalogos';
@@ -36,8 +42,6 @@ function fmtFechaStr(str) {
   if (!yyyy || !mm || !dd) return str;
   return `${dd}/${mm}/${yyyy}`;
 }
-
-const inputCls = 'rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]';
 
 // Normaliza un documento de solicitud: fechaSolicitud a ISO (Timestamp o string viejo), estatus en
 // minúsculas y textos de turno/puesto tomados del resumen guardado en la solicitud.
@@ -61,8 +65,6 @@ function ordenarSols(sols) {
     return (b.fechaSolicitud || '').localeCompare(a.fechaSolicitud || '');
   });
 }
-
-const btnRango = 'rounded-md border px-2.5 py-1.5 text-xs font-semibold transition-colors';
 
 export default function RhSolicitudes() {
   const { usuario } = useAuth();
@@ -223,236 +225,209 @@ export default function RhSolicitudes() {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between border-b border-[var(--border-color)] pb-4">
-        <div>
-          <div className="text-xs font-semibold text-[var(--text-muted)]">Recursos Humanos</div>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[var(--text-main)]">Solicitudes de transporte</h1>
-          <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Gestión global de viajes de todos los usuarios.</p>
-        </div>
-      </div>
+    <div className="space-y-8">
+      <EncabezadoPagina
+        antetitulo="Recursos Humanos"
+        titulo="Solicitudes de transporte"
+        descripcion="Gestión global de viajes de todos los usuarios."
+        accion={<div className="max-w-xs"><BotonFormatoRutas /></div>}
+      />
 
-      {errorMsg && (
-        <div className="rounded-md border border-[var(--status-error-border)] bg-[var(--status-error-bg)] p-4 text-sm text-[var(--status-error-text)]">
-          <strong>Error de consulta:</strong> {errorMsg}
-        </div>
-      )}
+      {errorMsg && <Aviso tono="error" titulo="No se pudo leer la lista">{errorMsg}. Revisa tu conexión y vuelve a abrir esta pantalla.</Aviso>}
 
       {/* Filtros */}
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-3 text-xs">
-        <Filter className="h-4 w-4 text-[var(--text-muted)]" />
+      <section aria-label="Filtros" className="space-y-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[auto_auto_1fr_1fr_1fr] lg:items-end">
+          <Campo etiqueta="Fecha de servicio, desde"><Entrada type="date" value={desde} onChange={e => aplicarRango(e.target.value, hasta)} /></Campo>
+          <Campo etiqueta="Hasta"><Entrada type="date" value={hasta} onChange={e => aplicarRango(desde, e.target.value)} /></Campo>
+          <Campo etiqueta="Estado">
+            <Selector value={filtroEstatus} onChange={e => setFiltroEstatus(e.target.value)}>
+              <option value="">Todos los estados</option>
+              <option value={ESTATUS_SOLICITUD.PENDIENTE}>Pendientes</option>
+              <option value={ESTATUS_SOLICITUD.APROBADA}>Aprobadas</option>
+              <option value={ESTATUS_SOLICITUD.RECHAZADA}>Rechazadas</option>
+              <option value={ESTATUS_SOLICITUD.CANCELADA}>Canceladas</option>
+            </Selector>
+          </Campo>
+          {REVISION_ACTIVA && (
+            <Campo etiqueta="Origen">
+              <Selector value={filtroOrigen} onChange={e => setFiltroOrigen(e.target.value)}>
+                <option value="">Todas</option>
+                <option value="normal">Normales</option>
+                <option value="tiempo_extra">Tiempo extra</option>
+              </Selector>
+            </Campo>
+          )}
+          <Campo etiqueta="Buscar"><Entrada type="search" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Solicitante o folio" /></Campo>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1 text-[var(--text-secondary)]">Del
-            <input type="date" value={desde} onChange={e=>aplicarRango(e.target.value, hasta)} className={inputCls} title="Fecha de servicio desde" />
-          </label>
-          <label className="flex items-center gap-1 text-[var(--text-secondary)]">al
-            <input type="date" value={hasta} onChange={e=>aplicarRango(desde, e.target.value)} className={inputCls} title="Fecha de servicio hasta" />
-          </label>
           {[
             ['Hoy', () => aplicarRango(ymd(), ymd())],
             ['Esta semana', () => { const r = rangoSemana(ymd(), 0); aplicarRango(r.desde, r.hasta); }],
             ['Próxima semana', () => { const r = rangoSemana(ymd(), 1); aplicarRango(r.desde, r.hasta); }],
-          ].map(([texto, fn]) => (
-            <button key={texto} type="button" onClick={fn}
-              className={`${btnRango} border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]`}>{texto}</button>
-          ))}
-          {REVISION_ACTIVA && <button type="button" onClick={verPendientes}
-            className={`${btnRango} ${modo === 'pendientes' ? 'border-[var(--cm-red)] bg-[var(--cm-red)] text-white' : 'border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]'}`}
-            title="Todas las pendientes, sin importar la fecha de servicio">Todas las pendientes</button>}
+          ].map(([texto, fn]) => <Boton key={texto} tamano="sm" onClick={fn}>{texto}</Boton>)}
+          {REVISION_ACTIVA && (
+            <Boton tamano="sm" variante={modo === 'pendientes' ? 'secundario' : 'contorno'} aria-pressed={modo === 'pendientes'} onClick={verPendientes}
+              title="Todas las pendientes, sin importar la fecha de servicio">Todas las pendientes</Boton>
+          )}
+          <span className="ml-auto text-sm font-medium text-[var(--text-main)]" aria-live="polite">{filtradas.length} {filtradas.length === 1 ? 'solicitud' : 'solicitudes'}</span>
         </div>
-        <select value={filtroEstatus} onChange={e=>setFiltroEstatus(e.target.value)} className={inputCls}>
-          <option value="">Todos los estados</option>
-          <option value={ESTATUS_SOLICITUD.PENDIENTE}>Pendientes</option>
-          <option value={ESTATUS_SOLICITUD.APROBADA}>Aprobadas</option>
-          <option value={ESTATUS_SOLICITUD.RECHAZADA}>Rechazadas</option>
-          <option value={ESTATUS_SOLICITUD.CANCELADA}>Canceladas</option>
-        </select>
-        {REVISION_ACTIVA && (
-          <select value={filtroOrigen} onChange={e=>setFiltroOrigen(e.target.value)} className={inputCls} aria-label="Origen">
-            <option value="">Todas</option>
-            <option value="normal">Normales</option>
-            <option value="tiempo_extra">Tiempo extra</option>
-          </select>
-        )}
-        <input type="search" value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar..." className={inputCls} />
-        <div className="ml-auto flex items-center gap-2">
-          <span className="font-semibold text-[var(--text-main)]">{filtradas.length} solicitudes</span>
-          <BotonFormatoRutas />
-        </div>
-      </div>
+      </section>
 
-      {!rangoValido && (
-        <div className="rounded-md border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-3 text-xs text-[var(--status-warning-text)]">Elige un rango de fechas válido (la fecha inicial no puede ser posterior a la final).</div>
-      )}
+      {!rangoValido && <Aviso tono="aviso">Elige un rango de fechas válido: la fecha inicial no puede ser posterior a la final.</Aviso>}
 
       {/* Tabla */}
-      <div className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
-        <table className="w-full text-left text-xs">
-          <thead className="bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)]">
-            <tr>
-              <th className="px-4 py-3">Folio</th><th className="px-4 py-3">Solicitante</th>
-              <th className="px-4 py-3">Puesto / Turnos</th><th className="px-4 py-3">Fecha Servicio</th>
-              <th className="px-4 py-3 text-center">Pas.</th><th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3 text-right">Acciones</th>
-            </tr>
+      {cargando ? <EsqueletoTabla filas={4} columnas={7} /> : filtradas.length === 0 ? (
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
+          <EstadoVacio titulo="Sin solicitudes" texto="No hay solicitudes de transporte en este rango con esos filtros. Cambia las fechas o el estado." />
+        </div>
+      ) : (
+        <Tabla etiqueta="Solicitudes de transporte">
+          <thead>
+            <tr><Th>Folio</Th><Th>Solicitante</Th><Th>Puesto / Turnos</Th><Th>Fecha de servicio</Th><Th derecha>Pasajeros</Th><Th>Estado</Th><Th derecha>Acciones</Th></tr>
           </thead>
-          <tbody className="divide-y divide-[var(--border-subtle)]">
-            {cargando ? <tr><td colSpan={7} className="py-8 text-center text-[var(--text-muted)]"><Loader2 className="h-5 w-5 animate-spin mx-auto"/></td></tr> :
-             filtradas.length === 0 ? <tr><td colSpan={7} className="py-8 text-center text-[var(--text-muted)]">Sin resultados</td></tr> :
-             filtradas.map(sol => (
-              <tr key={sol.id} className="hover:bg-[var(--bg-surface-secondary)]">
-                <td className="px-4 py-3 font-mono">{sol.id.slice(0,8)}</td>
-                <td className="px-4 py-3 font-medium">{sol.solicitanteNombre}
-                  {sol.origen === 'tiempo_extra' && (
-                    <Link to={`/tiempo-extra/consulta?abrir=${sol.tiempoExtraId}`} title="Abrir el tiempo extra"
-                      className="mt-0.5 block w-fit rounded-full border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-2 py-0.5 text-xs font-semibold text-[var(--status-info-text)] hover:underline">Tiempo extra · {sol.folioTE}</Link>
-                  )}
-                  {sol.requiereRevision && <span className="mt-0.5 block w-fit rounded-full border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-2 py-0.5 text-xs font-semibold text-[var(--status-warning-text)]" title={sol.motivoRevision}>Revisar: avisar al proveedor</span>}
-                </td>
-                <td className="px-4 py-3 text-[var(--text-secondary)] truncate max-w-[120px]" title={sol._puestosStr}>{sol._puestosStr} <br/><span className="text-xs font-semibold text-[var(--text-main)]">{sol._turnosStr}</span></td>
-                <td className="px-4 py-3 font-semibold">{fmtFechaStr(sol.fechaServicio)}</td>
-                <td className="px-4 py-3 text-center"><span className="rounded-full bg-[var(--bg-surface-secondary)] px-2 py-0.5 border">{sol.totalPasajeros}</span></td>
-                <td className="px-4 py-3"><BadgeEstatus estatus={sol.estatus} conPunto />
-                  {sol.modificada && <span className="ml-2 inline-flex items-center gap-1 text-xs font-semibold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-full"><AlertTriangle className="h-3 w-3"/> Modificada</span>}
-                  {sol.historial?.some(h=>h.esAviso) && <span className="ml-2 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full" title="El solicitante envió un mensaje">Aviso del solicitante</span>}
-                  {sol.estatus === ESTATUS_SOLICITUD.CANCELADA && sol.historial?.some(h=>h.accion === ESTATUS_SOLICITUD.APROBADA) && <span className="ml-2 inline-flex items-center gap-1 text-xs font-semibold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full" title="Fue cancelada después de ser aprobada">Antes aprobada</span>}
-                </td>
-                <td className="px-4 py-3 text-right">
+          <tbody>
+            {filtradas.map(sol => (
+              <Fila key={sol.id}>
+                <Td mono>{sol.id.slice(0, 8)}</Td>
+                <Td className="font-medium">{sol.solicitanteNombre}
+                  <div className="mt-1 flex flex-col items-start gap-1">
+                    {sol.origen === 'tiempo_extra' && (
+                      <Link to={`/tiempo-extra/consulta?abrir=${sol.tiempoExtraId}`} title="Abrir el tiempo extra" className="rounded-md">
+                        <Insignia tono="info" icono={Timer}>Tiempo extra · {sol.folioTE}</Insignia>
+                      </Link>
+                    )}
+                    {sol.requiereRevision && <span title={sol.motivoRevision}><Insignia tono="aviso">Revisar: avisar al proveedor</Insignia></span>}
+                  </div>
+                </Td>
+                <Td className="max-w-[10rem] text-[var(--text-secondary)]"><span className="block truncate" title={sol._puestosStr}>{sol._puestosStr}</span><span className="text-xs font-medium text-[var(--text-main)]">{sol._turnosStr}</span></Td>
+                <Td className="whitespace-nowrap font-medium">{fmtFechaStr(sol.fechaServicio)}</Td>
+                <Td derecha>{sol.totalPasajeros}</Td>
+                <Td>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <BadgeEstatus estatus={sol.estatus} conPunto />
+                    {sol.modificada && <Insignia tono="aviso" icono={AlertTriangle}>Modificada</Insignia>}
+                    {sol.historial?.some(h => h.esAviso) && <span title="El solicitante envió un mensaje"><Insignia tono="info">Aviso del solicitante</Insignia></span>}
+                    {sol.estatus === ESTATUS_SOLICITUD.CANCELADA && sol.historial?.some(h => h.accion === ESTATUS_SOLICITUD.APROBADA) && <span title="Fue cancelada después de ser aprobada"><Insignia tono="error">Antes aprobada</Insignia></span>}
+                  </div>
+                </Td>
+                <Td className="text-right">
                   <div className="inline-flex gap-1">
-                    <button onClick={()=>abrirDetalle(sol)} className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)]" title="Ver Detalle"><Eye className="h-4 w-4"/></button>
-                    {REVISION_ACTIVA && sol.origen !== 'tiempo_extra' && <button onClick={()=>navigate(rutaEditarTransporte(sol.id))} className="p-1.5 text-blue-600 hover:text-blue-800" title="Editar (RH)"><Edit className="h-4 w-4"/></button>}
+                    <Boton variante="fantasma" tamano="icono" onClick={() => abrirDetalle(sol)} title="Ver detalle" aria-label={`Ver detalle de ${sol.id.slice(0, 8)}`}><Eye className="h-4 w-4" aria-hidden="true" /></Boton>
+                    {REVISION_ACTIVA && sol.origen !== 'tiempo_extra' && <Boton variante="fantasma" tamano="icono" onClick={() => navigate(rutaEditarTransporte(sol.id))} title="Editar (RH)" aria-label="Editar"><Edit className="h-4 w-4" aria-hidden="true" /></Boton>}
                     {REVISION_ACTIVA && sol.estatus === ESTATUS_SOLICITUD.PENDIENTE && (
                       <>
-                        <button onClick={()=>setModalRechazar(sol)} className="p-1.5 text-[var(--status-error-text)] bg-[var(--status-error-bg)] hover:bg-[var(--status-error-bg)] rounded-md" title="Rechazar"><XCircle className="h-4 w-4"/></button>
-                        <button onClick={()=>setModalAprobar(sol)} className="p-1.5 text-[var(--status-success-text)] bg-[var(--status-success-bg)] hover:bg-[var(--status-success-bg)] rounded-md" title="Aprobar"><CheckCircle2 className="h-4 w-4"/></button>
+                        <Boton variante="peligro" tamano="icono" onClick={() => setModalRechazar(sol)} title="Rechazar" aria-label="Rechazar"><XCircle className="h-4 w-4" aria-hidden="true" /></Boton>
+                        <Boton tamano="icono" onClick={() => setModalAprobar(sol)} title="Aprobar" aria-label="Aprobar"><CheckCircle2 className="h-4 w-4" aria-hidden="true" /></Boton>
                       </>
                     )}
-                    {REVISION_ACTIVA && [ESTATUS_SOLICITUD.APROBADA,ESTATUS_SOLICITUD.RECHAZADA,ESTATUS_SOLICITUD.ENVIADA_PROVEEDOR].includes(sol.estatus) && (
-                      <button onClick={()=>confirmRevert(sol)} title="Revertir a pendiente" className="p-1.5 text-[var(--status-warning-text)] bg-[var(--status-warning-bg)] hover:opacity-80 rounded-md"><Undo2 className="h-4 w-4"/></button>
+                    {REVISION_ACTIVA && [ESTATUS_SOLICITUD.APROBADA, ESTATUS_SOLICITUD.RECHAZADA, ESTATUS_SOLICITUD.ENVIADA_PROVEEDOR].includes(sol.estatus) && (
+                      <Boton tamano="icono" onClick={() => confirmRevert(sol)} title="Revertir a pendiente" aria-label="Revertir a pendiente"><Undo2 className="h-4 w-4" aria-hidden="true" /></Boton>
                     )}
                   </div>
-                </td>
-              </tr>
+                </Td>
+              </Fila>
             ))}
           </tbody>
-        </table>
-      </div>
+        </Tabla>
+      )}
 
       {/* MODALES */}
-      <Modal isOpen={!!modalAprobar} onClose={() => setModalAprobar(null)} title="Aprobar Solicitud" maxWidth="max-w-sm">
+      <Modal isOpen={!!modalAprobar} onClose={() => setModalAprobar(null)} title="Aprobar solicitud" maxWidth="max-w-sm">
         {modalAprobar && (
           <div className="space-y-4">
-            <p className="text-sm text-[var(--text-secondary)]">Se aprobará la solicitud de <strong>{modalAprobar.totalPasajeros} pasajeros</strong> para el <strong>{fmtFechaStr(modalAprobar.fechaServicio)}</strong> (Turnos: {modalAprobar._turnosStr}).</p>
-            <div className="flex justify-end gap-2 pt-2 border-t border-[var(--border-color)] mt-2">
-              <button onClick={()=>setModalAprobar(null)} className="px-4 py-2 text-xs font-semibold border border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] rounded-md">Cancelar</button>
-              <button onClick={()=>handleTransaccion(modalAprobar, ESTATUS_SOLICITUD.APROBADA)} disabled={!!procesando} className="px-4 py-2 text-xs font-semibold bg-[var(--status-success-text)] text-white rounded-md flex items-center gap-1 hover:opacity-90">
-                {procesando === modalAprobar.id ? <Loader2 className="h-3 w-3 animate-spin"/> : <CheckCircle2 className="h-3 w-3"/>} Confirmar
-              </button>
+            <p className="text-sm text-[var(--text-secondary)]">Se aprobará la solicitud de <strong className="font-medium text-[var(--text-main)]">{modalAprobar.totalPasajeros} pasajeros</strong> para el <strong className="font-medium text-[var(--text-main)]">{fmtFechaStr(modalAprobar.fechaServicio)}</strong> (turnos: {modalAprobar._turnosStr}).</p>
+            <div className="flex flex-col-reverse gap-2 border-t border-[var(--border-color)] pt-4 sm:flex-row sm:justify-end">
+              <Boton onClick={() => setModalAprobar(null)}>Cancelar</Boton>
+              <Boton variante="primario" icono={CheckCircle2} estado={procesando === modalAprobar.id ? 'cargando' : undefined} onClick={() => handleTransaccion(modalAprobar, ESTATUS_SOLICITUD.APROBADA)} disabled={!!procesando}>Confirmar</Boton>
             </div>
           </div>
         )}
       </Modal>
 
-      <Modal isOpen={!!modalRechazar} onClose={() => setModalRechazar(null)} title="Rechazar Solicitud" maxWidth="max-w-sm">
+      <Modal isOpen={!!modalRechazar} onClose={() => setModalRechazar(null)} title="Rechazar solicitud" maxWidth="max-w-sm">
         {modalRechazar && (
           <div className="space-y-4">
-            <textarea value={motivoRechazo} onChange={e=>setMotivoRechazo(e.target.value)} placeholder="Motivo del rechazo (obligatorio)..." className="w-full text-sm border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-main)] p-2 rounded-md h-24 outline-none focus:border-[var(--cm-red)]" />
-            <div className="flex justify-end gap-2 pt-2 border-t border-[var(--border-color)] mt-2">
-              <button onClick={()=>setModalRechazar(null)} className="px-4 py-2 text-xs font-semibold border border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] rounded-md">Cancelar</button>
-              <button onClick={()=>handleTransaccion(modalRechazar, ESTATUS_SOLICITUD.RECHAZADA, motivoRechazo)} disabled={!!procesando || motivoRechazo.trim().length<5} className="px-4 py-2 text-xs font-semibold bg-[var(--status-error-text)] hover:opacity-90 text-white rounded-md disabled:opacity-50 flex items-center gap-1">
-                {procesando === modalRechazar.id ? <Loader2 className="h-3 w-3 animate-spin"/> : <XCircle className="h-3 w-3"/>} Confirmar
-              </button>
+            <Campo etiqueta="Motivo del rechazo" ayuda="Obligatorio: mínimo 5 caracteres." obligatorio>
+              <AreaTexto rows={3} value={motivoRechazo} onChange={e => setMotivoRechazo(e.target.value)} placeholder="Explica por qué se rechaza" />
+            </Campo>
+            <div className="flex flex-col-reverse gap-2 border-t border-[var(--border-color)] pt-4 sm:flex-row sm:justify-end">
+              <Boton onClick={() => setModalRechazar(null)}>Cancelar</Boton>
+              <Boton variante="peligro" icono={XCircle} estado={procesando === modalRechazar.id ? 'cargando' : undefined} onClick={() => handleTransaccion(modalRechazar, ESTATUS_SOLICITUD.RECHAZADA, motivoRechazo)} disabled={!!procesando || motivoRechazo.trim().length < 5}>Rechazar</Boton>
             </div>
           </div>
         )}
       </Modal>
 
-      <Modal isOpen={!!detalle} onClose={cerrarDetalle} title="" maxWidth="max-w-5xl" className="!p-0">
+      <Modal isOpen={!!detalle} onClose={cerrarDetalle} title="Formato de Solicitud de Rutas" maxWidth="max-w-5xl">
         {detalle && (
-          <div className="-m-5">
-            <div className="border border-[var(--border-color)] mx-5 my-5">
-              {/* Encabezado Visual Excel */}
-              <div className="bg-[var(--cm-dark)] text-white p-3 border-b border-[var(--border-color)]">
-                <h2 className="font-semibold text-lg">Formato de Solicitud de Rutas</h2>
-                <p className="italic text-sm text-gray-300">Fecha de Solicitud: {fmtIso(detalle.fechaSolicitud)} - Fecha de Servicio: {fmtFechaStr(detalle.fechaServicio)}</p>
+          <div className="space-y-6">
+            <div className="overflow-hidden rounded-lg border border-[var(--border-color)]">
+              <div className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-4">
+                <p className="text-sm text-[var(--text-secondary)]">Fecha de solicitud: <span className="text-[var(--text-main)]">{fmtIso(detalle.fechaSolicitud)}</span> · Fecha de servicio: <span className="text-[var(--text-main)]">{fmtFechaStr(detalle.fechaServicio)}</span></p>
               </div>
-              <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm bg-[var(--bg-surface-secondary)] border-b border-[var(--border-color)]">
-                <div><strong className="text-[var(--text-muted)] text-xs block">Solicitante</strong><span className="font-semibold text-[var(--text-main)]">{detalle.solicitanteNombre}{detalle.origen === 'tiempo_extra' ? ` · Tiempo extra ${detalle.folioTE}` : ''}</span></div>
-                <div><strong className="text-[var(--text-muted)] text-xs block">Turno</strong><span className="font-semibold text-[var(--text-main)]">{detalle._turnosStr}</span></div>
-                <div><strong className="text-[var(--text-muted)] text-xs block">Área</strong><span className="font-semibold text-[var(--text-main)]">{detalle._puestosStr}</span></div>
-                <div><strong className="text-[var(--text-muted)] text-xs block">Estatus</strong><BadgeEstatus estatus={detalle.estatus} conPunto /></div>
-              </div>
-              
-              {/* Tabla de Beneficiarios */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
+              <dl className="grid grid-cols-2 gap-4 border-b border-[var(--border-color)] p-4 text-sm md:grid-cols-4">
+                <div><dt className="text-xs text-[var(--text-muted)]">Solicitante</dt><dd className="font-medium text-[var(--text-main)]">{detalle.solicitanteNombre}{detalle.origen === 'tiempo_extra' ? ` · Tiempo extra ${detalle.folioTE}` : ''}</dd></div>
+                <div><dt className="text-xs text-[var(--text-muted)]">Turno</dt><dd className="font-medium text-[var(--text-main)]">{detalle._turnosStr}</dd></div>
+                <div><dt className="text-xs text-[var(--text-muted)]">Área</dt><dd className="font-medium text-[var(--text-main)]">{detalle._puestosStr}</dd></div>
+                <div><dt className="text-xs text-[var(--text-muted)]">Estatus</dt><dd className="mt-0.5"><BadgeEstatus estatus={detalle.estatus} conPunto /></dd></div>
+              </dl>
+
+              {/* Tabla de beneficiarios */}
+              {detalle.pasajeros === null ? <div className="p-4"><EsqueletoTabla filas={3} columnas={6} /></div> : (
+                <Tabla etiqueta="Pasajeros" className="rounded-none border-0">
                   <thead>
-                    <tr className="bg-[var(--cm-red)] text-white">
-                      <th className="p-2 border border-[var(--border-color)] font-semibold text-center">AREA</th>
-                      <th className="p-2 border border-[var(--border-color)] font-semibold text-center">PUESTO</th>
-                      <th className="p-2 border border-[var(--border-color)] font-semibold text-center">NÓMINA</th>
-                      <th className="p-2 border border-[var(--border-color)] font-semibold text-center">NOMBRE</th>
-                      <th className="p-2 border border-[var(--border-color)] font-semibold text-center">ENTRADA</th>
-                      <th className="p-2 border border-[var(--border-color)] font-semibold text-center">SALIDA</th>
-                      <th className="p-2 border border-[var(--border-color)] font-semibold text-center">ALIMENTOS</th>
-                      <th className="p-2 border border-[var(--border-color)] font-semibold text-center">RUTA</th>
-                      <th className="p-2 border border-[var(--border-color)] font-semibold text-center">COMUNIDAD O COLONIA</th>
-                      <th className="p-2 border border-[var(--border-color)] font-semibold text-center">PUNTO DE REUNION</th>
-                    </tr>
+                    <tr><Th>Área</Th><Th>Puesto</Th><Th>Nómina</Th><Th>Nombre</Th><Th>Entrada</Th><Th>Salida</Th><Th>Alimentos</Th><Th>Ruta</Th><Th>Comunidad o colonia</Th><Th>Punto de reunión</Th></tr>
                   </thead>
                   <tbody>
-                    {detalle.pasajeros === null && (
-                      <tr><td colSpan={10} className="p-6 text-center text-[var(--text-muted)]"><Loader2 className="h-5 w-5 animate-spin mx-auto"/></td></tr>
-                    )}
-                    {(detalle.pasajeros || []).map((p, idx) => {
-                      const bgCls = idx % 2 === 0 ? 'bg-[var(--bg-surface)]' : 'bg-[var(--bg-surface-secondary)]';
+                    {detalle.pasajeros.map(p => {
                       const nameR = catalogos.rutas.find(r => r.id === p.rutaId)?.nombre || '';
                       const nameC = catalogos.comunidades.find(c => c.id === p.comunidadId)?.nombre || '';
                       const nameP = catalogos.puntos.find(pt => pt.id === p.puntoReunionId)?.nombre || '';
                       return (
-                        <tr key={p.nomina} className={`${bgCls} text-[var(--text-main)]`}>
-                          <td className="p-2 border border-[var(--border-subtle)] text-center">{nombreAreaDe(p.areaId || detalle.areaId) || p.areaNombre || ''}</td>
-                          <td className="p-2 border border-[var(--border-subtle)] font-medium text-center">{p.puesto}</td>
-                          <td className="p-2 border border-[var(--border-subtle)] font-mono text-center">{p.nomina}</td>
-                          <td className="p-2 border border-[var(--border-subtle)]">{p.nombre}</td>
-                          <td className="p-2 border border-[var(--border-subtle)] text-center">{p.horaEntrada}</td>
-                          <td className="p-2 border border-[var(--border-subtle)] text-center">{p.horaSalida}</td>
-                          <td className={`p-2 border border-[var(--border-subtle)] text-center font-semibold ${p.alimentos ? 'bg-[var(--status-success-bg)] text-[var(--status-success-text)]' : ''}`}>{p.alimentos ? 'SI' : 'NO'}</td>
-                          <td className="p-2 border border-[var(--border-subtle)]">{nameR}</td>
-                          <td className="p-2 border border-[var(--border-subtle)]">{nameC}</td>
-                          <td className="p-2 border border-[var(--border-subtle)]">{nameP}</td>
-                        </tr>
+                        <Fila key={p.nomina}>
+                          <Td>{nombreAreaDe(p.areaId || detalle.areaId) || p.areaNombre || ''}</Td>
+                          <Td>{p.puesto}</Td>
+                          <Td mono>{p.nomina}</Td>
+                          <Td>{p.nombre}</Td>
+                          <Td mono>{p.horaEntrada}</Td>
+                          <Td mono>{p.horaSalida}</Td>
+                          <Td>{p.alimentos ? 'Sí' : 'No'}</Td>
+                          <Td>{nameR}</Td>
+                          <Td>{nameC}</Td>
+                          <Td>{nameP}</Td>
+                        </Fila>
                       );
                     })}
                   </tbody>
-                </table>
-              </div>
-              
+                </Tabla>
+              )}
+
               {/* Conteos */}
-              <div className="bg-[var(--bg-surface-secondary)] text-[var(--text-main)] p-3 border-t border-[var(--border-color)] flex flex-wrap gap-6 text-sm">
-                <p><strong>Pasajeros:</strong> {detalle.totalPasajeros}</p>
-                <p><strong>Con alimentos:</strong> {detalle.pasajeros ? detalle.pasajeros.filter(p=>p.alimentos).length : (detalle.totalAlimentos ?? '—')}</p>
-                <p><strong>Sin alimentos:</strong> {detalle.pasajeros ? detalle.pasajeros.filter(p=>!p.alimentos).length : (detalle.totalAlimentos != null ? (detalle.totalPasajeros || 0) - detalle.totalAlimentos : '—')}</p>
+              <div className="flex flex-wrap gap-x-6 gap-y-1 border-t border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-4 text-sm text-[var(--text-main)]">
+                <p><span className="text-[var(--text-secondary)]">Pasajeros:</span> {detalle.totalPasajeros}</p>
+                <p><span className="text-[var(--text-secondary)]">Con alimentos:</span> {detalle.pasajeros ? detalle.pasajeros.filter(p => p.alimentos).length : (detalle.totalAlimentos ?? '—')}</p>
+                <p><span className="text-[var(--text-secondary)]">Sin alimentos:</span> {detalle.pasajeros ? detalle.pasajeros.filter(p => !p.alimentos).length : (detalle.totalAlimentos != null ? (detalle.totalPasajeros || 0) - detalle.totalAlimentos : '—')}</p>
               </div>
             </div>
 
             {/* Historial */}
-            <div className="px-5 pb-5">
-              <h3 className="font-semibold text-sm mb-3 text-[var(--text-muted)]">Historial de la solicitud</h3>
+            <section aria-label="Historial de la solicitud">
+              <h3 className="mb-3 text-sm font-semibold text-[var(--text-main)]">Historial de la solicitud</h3>
               <div className="space-y-3">
                 {(detalle.historial || []).map((h, i) => (
-                  <div key={i} className={`p-3 rounded-md border text-sm ${h.esAviso ? 'bg-[var(--status-success-bg)] border-[var(--status-success-border)] text-[var(--status-success-text)]' : 'bg-[var(--bg-surface-secondary)] border-[var(--border-color)] text-[var(--text-main)]'}`}>
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="font-semibold">{h.usuario}</span>
+                  <div key={i} className={`rounded-md border p-3 text-sm ${h.esAviso ? 'border-[var(--status-info-border)] bg-[var(--status-info-bg)] text-[var(--status-info-text)]' : 'border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-main)]'}`}>
+                    <div className="mb-1 flex items-start justify-between gap-3">
+                      <span className="font-medium">{h.usuario}</span>
                       <span className="text-xs text-[var(--text-muted)]">{fmtFechaHora(h.fecha)}</span>
                     </div>
-                    <span className="uppercase text-xs font-semibold text-[var(--text-secondary)] bg-[var(--border-color)] px-1.5 py-0.5 rounded">{h.accion}</span>
-                    <p className="mt-2 text-[var(--text-main)]">{h.comentario}</p>
+                    <Insignia>{h.accion}</Insignia>
+                    <p className="mt-2">{h.comentario}</p>
                   </div>
                 ))}
-                {(!detalle.historial || detalle.historial.length === 0) && <p className="text-xs text-[var(--text-muted)]">Sin historial registrado.</p>}
+                {(!detalle.historial || detalle.historial.length === 0) && <p className="text-sm text-[var(--text-muted)]">Sin historial registrado.</p>}
               </div>
-            </div>
+            </section>
           </div>
         )}
       </Modal>
