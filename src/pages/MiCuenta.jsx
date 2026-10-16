@@ -1,9 +1,6 @@
 /**
- * Perfil.jsx
- * ──────────────────────────────────────────────────────────────────────────
- * Vista de perfil de usuario corporativo Century Mold.
- * Datos de la cuenta, selector de tema claro/oscuro y cambio de contraseña
- * mediante reautenticación segura con Firebase Auth.
+ * MiCuenta.jsx — /mi-cuenta (todos los usuarios): los datos de la cuenta, cómo ver el sistema (ayudas, tamaño de letra y tema)
+ * y el cambio de contraseña, con reautenticación segura de Firebase Auth. Antes eran dos pantallas: Perfil y Configuración.
  */
 import { useState } from 'react';
 import {
@@ -13,10 +10,9 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
-  Settings,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { Link } from 'react-router-dom';
+import PreferenciasPanel from '../components/PreferenciasPanel';
 import { ROL_LABELS } from '../utils/constantes';
 
 const ERRORES_PASS = {
@@ -38,7 +34,7 @@ function traducirError(code) {
   return ERRORES_PASS[code] ?? 'Error al actualizar la contraseña. Intente nuevamente.';
 }
 
-export default function Perfil() {
+export default function MiCuenta() {
   const { usuario, cambiarPassword } = useAuth();
 
   const [passActual, setPassActual] = useState('');
@@ -117,10 +113,10 @@ export default function Perfil() {
       {/* ── Encabezado ───────────────────────────────────────────────────── */}
       <div className="border-b border-[var(--border-color)] pb-4">
         <h1 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">
-          Perfil de usuario
+          Mi cuenta
         </h1>
         <p className="mt-1 text-xs text-[var(--text-secondary)]">
-          Información general de la cuenta y configuración de seguridad
+          Tus datos, cómo ver el sistema y tu contraseña
         </p>
       </div>
 
@@ -173,17 +169,8 @@ export default function Perfil() {
         </div>
       </div>
 
-      {/* ── Apariencia y ayudas: ahora viven en Configuración ───────────── */}
-      <Link to="/configuracion" className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5 shadow-sm hover:border-[var(--cm-red)]">
-        <span className="flex items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-md border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)]"><Settings className="h-4 w-4" /></span>
-          <span>
-            <span className="block text-sm font-semibold text-[var(--text-main)]">Configuración</span>
-            <span className="block text-xs text-[var(--text-secondary)]">Ayudas, tamaño de letra y tema (claro, oscuro o automático)</span>
-          </span>
-        </span>
-        <span className="text-xs font-semibold text-[var(--cm-red)]">Abrir</span>
-      </Link>
+      {/* ── Cómo ver el sistema: ayudas, letra y tema ───────────────────── */}
+      <PreferenciasPanel />
 
       {/* ── Seguridad y cambio de contraseña ─────────────────────────────── */}
       <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5 shadow-sm">

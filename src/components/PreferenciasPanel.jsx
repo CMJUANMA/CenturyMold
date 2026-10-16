@@ -1,5 +1,5 @@
 /**
- * Configuracion.jsx — /configuracion (todos los usuarios): cómo quiere ver la aplicación cada persona.
+ * PreferenciasPanel.jsx — Cómo quiere ver la aplicación cada persona (se muestra dentro de "Mi cuenta"):
  *   Mostrar ayudas (sí/no) · Tamaño de letra (Normal/Grande) · Tema (Claro/Oscuro/Automático).
  * Se guarda en usuarios/{uid}.preferencias en cuanto se cambia, y se aplica al momento. Botones grandes, pensados para quien no está
  * acostumbrado a la tecnología.
@@ -38,7 +38,7 @@ function Seccion({ titulo, ayuda, children }) {
   );
 }
 
-export default function Configuracion() {
+export default function PreferenciasPanel() {
   const { preferencias, guardar } = usePreferencias();
   const { setModo } = useTheme();
   const toast = useToast();
@@ -51,12 +51,8 @@ export default function Configuracion() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
-      <header className="border-b border-[var(--border-color)] pb-4">
-        <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Mi cuenta</div>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Configuración</h1>
-        <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Elige cómo quieres ver el sistema. Los cambios se guardan solos{guardando ? ' (guardando…)' : ''}.</p>
-      </header>
+    <div className="space-y-5">
+      <p className="text-xs text-[var(--text-secondary)]">Elige cómo quieres ver el sistema. Los cambios se guardan solos{guardando ? ' (guardando…)' : ''}.</p>
 
       <Seccion titulo="Mostrar ayudas" ayuda="Explicaciones cortas debajo de los campos, el signo de interrogación (?) junto a los títulos y el recorrido guiado.">
         <Opcion activa={preferencias.ayudas} icono={CircleHelp} titulo="Sí, mostrar ayudas" detalle="Recomendado si estás empezando" onClick={() => cambiar({ ayudas: true })} />

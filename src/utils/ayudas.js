@@ -1,6 +1,6 @@
 /**
  * ayudas.js — TODOS los textos de ayuda de la aplicación, en un solo lugar para corregirlos fácil.
- * Lenguaje sencillo, sin tecnicismos. Se muestran solo si la persona tiene las ayudas activas (Configuración).
+ * Lenguaje sencillo, sin tecnicismos. Se muestran solo si la persona tiene las ayudas activas (Mi cuenta).
  *
  *   campos:     texto corto debajo de un campo (clave "pantalla.campo")
  *   pantallas:  explicación de 3 o 4 pasos que abre el "?" junto al título de cada pantalla

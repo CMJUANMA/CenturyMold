@@ -4,7 +4,7 @@ const ThemeContext = createContext(null);
 
 const STORAGE_KEY = 'cm_theme';
 
-/** Modos que elige la persona en Configuración: 'claro' | 'oscuro' | 'auto' (sigue al dispositivo). Se recuerda en este equipo */
+/** Modos que elige la persona en Mi cuenta: 'claro' | 'oscuro' | 'auto' (sigue al dispositivo). Se recuerda en este equipo */
 const leerModo = () => {
   if (typeof window === 'undefined') return 'auto';
   try {

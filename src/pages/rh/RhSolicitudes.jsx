@@ -11,9 +11,8 @@ import { useToast } from '../../hooks/useToast';
 import { useAuth } from '../../hooks/useAuth';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Filter, CheckCircle2, XCircle, Loader2, Eye, FileDown, Undo2, Edit, AlertTriangle,
+  Filter, CheckCircle2, XCircle, Loader2, Eye, Undo2, Edit, AlertTriangle,
 } from 'lucide-react';
-import Ayuda from '../../components/Ayuda';
 import Modal from '../../components/Modal';
 import BadgeEstatus from '../../components/BadgeEstatus';
 import { toDate, fmtFecha, fmtFechaHora, ymd, sumarDias, rangoSemana } from '../../utils/fechas';
@@ -21,7 +20,7 @@ import { resumenPasajeros, textoConteo } from '../../utils/solicitudes';
 import { useCatalogos } from '../../hooks/useCatalogos';
 import { useAreas } from '../../hooks/useAreas';
 import { useConfirmar } from '../../hooks/useConfirmar';
-import { exportarSolicitudes } from '../../utils/exportarSolicitudes';
+import BotonFormatoRutas from '../../components/FormatoRutas';
 import { ESTATUS_SOLICITUD } from '../../utils/constantes';
 import { FUNCIONES, rutaEditarTransporte } from '../../funciones';
 
@@ -39,15 +38,6 @@ function fmtFechaStr(str) {
 }
 
 const inputCls = 'rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]';
-
-function getLocalDates() {
-  const d = new Date();
-  const H = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  d.setDate(d.getDate() + 1);
-  const M = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  return { hoy: H, manana: M };
-}
-
 
 // Normaliza un documento de solicitud: fechaSolicitud a ISO (Timestamp o string viejo), estatus en
 // minúsculas y textos de turno/puesto tomados del resumen guardado en la solicitud.
@@ -88,7 +78,6 @@ export default function RhSolicitudes() {
   const [solicitudes, setSolicitudes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
-  const [exportando, setExportando] = useState(false);
 
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstatus, setFiltroEstatus] = useState('');
@@ -114,82 +103,6 @@ export default function RhSolicitudes() {
   const [modalAprobar, setModalAprobar] = useState(null);
   const [modalRechazar, setModalRechazar] = useState(null);
   const [motivoRechazo, setMotivoRechazo] = useState('');
-
-  // Estado para Modal de Exportación
-  const [modalExportar, setModalExportar] = useState(false);
-  const { hoy: L_HOY, manana: L_MANANA } = getLocalDates();
-  const [expTipoFecha, setExpTipoFecha] = useState('manana');
-  const [expEsRango, setExpEsRango] = useState(false);
-  const [expElegida, setExpElegida] = useState(L_MANANA);
-  const [expDesde, setExpDesde] = useState(L_HOY);
-  const [expHasta, setExpHasta] = useState(L_HOY);
-  const [expAprobadas, setExpAprobadas] = useState(true);
-  const [expPendientes, setExpPendientes] = useState(false);
-
-  // Cálculos reactivos de exportación
-  const expFechaAplicar = expTipoFecha === 'hoy' ? L_HOY : (expTipoFecha === 'manana' ? L_MANANA : null);
-  const expRangoDesde = expEsRango && expTipoFecha === 'elegir' ? expDesde : (expTipoFecha === 'elegir' ? expElegida : expFechaAplicar);
-  const expRangoHasta = expEsRango && expTipoFecha === 'elegir' ? expHasta : (expTipoFecha === 'elegir' ? expElegida : expFechaAplicar);
-
-  // La exportación no depende de la lista: si su rango cae dentro de lo que ya está cargado se reutiliza
-  // (0 lecturas); si no, se consulta ese rango. La bandera 'vigente' ignora respuestas de rangos viejos.
-  const expValido = !!expRangoDesde && !!expRangoHasta && expRangoDesde <= expRangoHasta;
-  const expEnMemoria = expValido && modo === 'rango' && rangoValido && expRangoDesde >= desde && expRangoHasta <= hasta;
-  const expClave = `${expRangoDesde}|${expRangoHasta}`;
-  const [expCand, setExpCand] = useState({ clave: '', lista: [] });
-
-  useEffect(() => {
-    if (!modalExportar || !expValido || expEnMemoria) return;
-    let vigente = true;
-    getDocs(query(collection(db, 'solicitudes'), where('fechaServicio', '>=', expRangoDesde), where('fechaServicio', '<=', expRangoHasta)))
-      .then(snap => { if (vigente) setExpCand({ clave: expClave, lista: snap.docs.map(normalizarSol) }); })
-      .catch(err => {
-        if (!vigente) return;
-        toast.error('No se pudieron consultar las solicitudes a exportar: ' + err.message);
-        setExpCand({ clave: expClave, lista: [] });
-      });
-    return () => { vigente = false; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modalExportar, expValido, expEnMemoria, expClave]);
-
-  const expCargando = modalExportar && expValido && !expEnMemoria && expCand.clave !== expClave;
-  const candidatas = expEnMemoria ? solicitudes : (expCand.clave === expClave ? expCand.lista : []);
-
-  const solsParaExportar = candidatas.filter(s => {
-    if (!expAprobadas && s.estatus === ESTATUS_SOLICITUD.APROBADA) return false;
-    if (!expPendientes && s.estatus === ESTATUS_SOLICITUD.PENDIENTE) return false;
-    if (s.estatus !== ESTATUS_SOLICITUD.APROBADA && s.estatus !== ESTATUS_SOLICITUD.PENDIENTE) return false;
-    if (!s.fechaServicio) return false;
-    if (expRangoDesde && s.fechaServicio < expRangoDesde) return false;
-    if (expRangoHasta && s.fechaServicio > expRangoHasta) return false;
-    return true;
-  });
-
-  const pasExportCount = solsParaExportar.reduce((acc, s) => acc + (s.totalPasajeros || 0), 0);
-
-  // Los pasajeros se leen solo al exportar (en tandas para no saturar la red)
-  const btnExportarModalClick = async () => {
-    const suffix = (expEsRango && expTipoFecha === 'elegir') ? `${expDesde}_a_${expHasta}` : expRangoDesde;
-    const fileName = `Transporte_${suffix}.xlsx`;
-    setExportando(true);
-    try {
-      const conPasajeros = [];
-      for (let i = 0; i < solsParaExportar.length; i += 20) {
-        const tanda = await Promise.all(solsParaExportar.slice(i, i + 20).map(async (sol) => {
-          const ps = await getDocs(collection(db, `solicitudes/${sol.id}/pasajeros`));
-          return { ...sol, pasajeros: ps.docs.map(d => d.data()) };
-        }));
-        conPasajeros.push(...tanda);
-      }
-      await exportarSolicitudes(conPasajeros, catalogos, toast, fileName);
-      setModalExportar(false);
-    } catch (err) {
-      console.error(err);
-      toast.error('No se pudo exportar: ' + err.message);
-    } finally {
-      setExportando(false);
-    }
-  };
 
   // Solicitudes en tiempo real SOLO del rango elegido. No se lee la subcolección pasajeros al listar.
   // El callback es síncrono y cancelar la suscripción descarta cualquier snapshot viejo.
@@ -364,12 +277,7 @@ export default function RhSolicitudes() {
         <input type="search" value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar..." className={inputCls} />
         <div className="ml-auto flex items-center gap-2">
           <span className="font-semibold text-[var(--text-main)]">{filtradas.length} solicitudes</span>
-          <div className="max-w-[15rem]">
-            <button type="button" id="btn-formato-rutas" onClick={()=>setModalExportar(true)} className="inline-flex items-center gap-1.5 rounded-md bg-[var(--status-success-text)] px-3 py-1.5 text-white text-xs hover:bg-[var(--status-success-text)] hover:opacity-90 transition-opacity disabled:opacity-50">
-              <FileDown className="h-3.5 w-3.5"/> Formato de rutas (proveedor)
-            </button>
-            <Ayuda clave="descarga.formatoRutas" />
-          </div>
+          <BotonFormatoRutas />
         </div>
       </div>
 
@@ -431,86 +339,6 @@ export default function RhSolicitudes() {
       </div>
 
       {/* MODALES */}
-      <Modal isOpen={modalExportar} onClose={() => setModalExportar(false)} title="" maxWidth="max-w-md">
-        <div className="space-y-5 -mt-2">
-          <div>
-            <h3 className="text-lg font-bold text-[var(--text-main)] flex items-center gap-2"><FileDown className="h-5 w-5"/> Formato de rutas (proveedor)</h3>
-            <p className="text-xs text-[var(--text-secondary)] mt-1">Excel para el proveedor de transporte: solo los empleados que llevan transporte. No depende de los filtros de la tabla.</p>
-          </div>
-          
-          <div className="space-y-4">
-            {/* Fecha */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase text-[var(--text-secondary)]">Fecha de Servicio</label>
-              <div className="flex gap-4 text-sm text-[var(--text-main)]">
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="radio" name="rFecha" checked={expTipoFecha==='hoy'} onChange={()=>setExpTipoFecha('hoy')} className="accent-[var(--cm-red)]" /> Hoy
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="radio" name="rFecha" checked={expTipoFecha==='manana'} onChange={()=>setExpTipoFecha('manana')} className="accent-[var(--cm-red)]" /> Mañana
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="radio" name="rFecha" checked={expTipoFecha==='elegir'} onChange={()=>setExpTipoFecha('elegir')} className="accent-[var(--cm-red)]" /> Elegir fecha
-                </label>
-              </div>
-              {expTipoFecha === 'elegir' && (
-                <div className="mt-2 p-3 border border-[var(--border-subtle)] rounded-md bg-[var(--bg-surface-secondary)] space-y-3">
-                  <label className="flex items-center gap-2 text-xs text-[var(--text-main)]">
-                    <input type="checkbox" checked={expEsRango} onChange={e=>setExpEsRango(e.target.checked)} className="accent-[var(--cm-red)]" />
-                    Rango de fechas
-                  </label>
-                  {!expEsRango ? (
-                    <input type="date" value={expElegida} onChange={e=>setExpElegida(e.target.value)} className={inputCls + " w-full"} />
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1"><span className="text-xs text-[var(--text-muted)] block">Desde:</span><input type="date" value={expDesde} onChange={e=>setExpDesde(e.target.value)} className={inputCls + " w-full"} /></div>
-                      <div className="flex-1"><span className="text-xs text-[var(--text-muted)] block">Hasta:</span><input type="date" value={expHasta} onChange={e=>setExpHasta(e.target.value)} className={inputCls + " w-full"} /></div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Estatus */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase text-[var(--text-secondary)]">Incluir estatus</label>
-              <div className="flex gap-4 text-sm text-[var(--text-main)]">
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="checkbox" checked={expAprobadas} onChange={e=>setExpAprobadas(e.target.checked)} className="accent-[var(--cm-red)]" /> Aprobadas
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="checkbox" checked={expPendientes} onChange={e=>setExpPendientes(e.target.checked)} className="accent-[var(--cm-red)]" /> Pendientes
-                </label>
-              </div>
-            </div>
-
-            {/* Resumen */}
-            <div className="mt-4 border border-[var(--border-subtle)] rounded-md p-3 text-sm text-[var(--text-main)] bg-[var(--bg-surface-secondary)]">
-              {expCargando ? (
-                <div className="flex items-center gap-2 text-[var(--text-secondary)]"><Loader2 className="h-4 w-4 animate-spin"/> Buscando solicitudes...</div>
-              ) : solsParaExportar.length === 0 ? (
-                <div className="text-[var(--status-error-text)] font-semibold flex items-center gap-1.5"><XCircle className="h-4 w-4"/> No hay solicitudes aprobadas para esta fecha.</div>
-              ) : (
-                <ul className="space-y-1">
-                  <li className="font-semibold">{solsParaExportar.length} solicitudes encontradas</li>
-                  <li>{pasExportCount} pasajeros en total</li>
-                  {expPendientes && solsParaExportar.some(s=>s.estatus===ESTATUS_SOLICITUD.PENDIENTE) && (
-                    <li className="text-[var(--status-warning-text)] text-xs font-semibold mt-1">Atención: Hay pendientes incluidas.</li>
-                  )}
-                </ul>
-              )}
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-4 border-t border-[var(--border-color)] mt-4">
-            <button onClick={()=>setModalExportar(false)} className="px-4 py-2 text-xs font-semibold border border-[var(--border-color)] text-[var(--text-main)] rounded-md hover:bg-[var(--bg-surface-hover)] transition-colors">Cancelar</button>
-            <button onClick={btnExportarModalClick} disabled={solsParaExportar.length === 0 || expCargando || exportando} className="px-4 py-2 text-xs font-semibold bg-[var(--status-success-text)] text-white rounded-md flex items-center gap-1.5 hover:opacity-90 disabled:opacity-50 transition-opacity">
-              {exportando ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <FileDown className="h-3.5 w-3.5"/>} {exportando ? 'Generando...' : 'Descargar Excel'}
-            </button>
-          </div>
-        </div>
-      </Modal>
-
       <Modal isOpen={!!modalAprobar} onClose={() => setModalAprobar(null)} title="Aprobar Solicitud" maxWidth="max-w-sm">
         {modalAprobar && (
           <div className="space-y-4">

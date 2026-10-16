@@ -6,7 +6,7 @@
  * (así llega el enlace desde la pantalla de transporte).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Download, Eye, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { useAccesos } from '../../hooks/useAccesos';
 import { useAreas } from '../../hooks/useAreas';
@@ -26,6 +26,7 @@ import { ESTATUS_TE_VISIBLES, esperaDesde, filtrarSolicitudes } from '../../util
 import { inicioDeMes, inicioDeSemana } from '../../utils/resumenInicio';
 import { leerHistorialTE, leerSolicitudTE } from '../../utils/tiempoExtraDb';
 import AccionesRH from './AccionesRH';
+import { RUTAS } from '../../rutas';
 import { BotonDescargaResumenTE } from './DescargaTE';
 import DetalleTE from './DetalleTE';
 
@@ -94,6 +95,16 @@ export default function ConsultaTE() {
     if (t) abrir(t); else toast.warning('Ese tiempo extra ya no está disponible.');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idAbrir, cargando]);
+
+  // Consulta es de solo lectura: lo autorizado se confirma, devuelve o cancela en "Por enviar al proveedor". Lo ya confirmado no está allí,
+  // así que su cancelación (que avisa al transporte) se queda aquí.
+  const accionesDeRH = (t) => {
+    if (!esRH) return null;
+    if (t.estatus === 'autorizada') {
+      return <Link to={RUTAS.teRecepcion} className="text-xs font-semibold text-[var(--cm-red)] hover:underline">Esta solicitud está por confirmar: ir a «Por enviar al proveedor»</Link>;
+    }
+    return t.estatus === 'procesada' ? <AccionesRH t={t} acciones={['cancelar']} onHecho={() => setDetalle(null)} /> : null;
+  };
 
   const exportar = async () => {
     setExportando({ hechos: 0, total: filtradas.length });
@@ -198,7 +209,7 @@ export default function ConsultaTE() {
         <Modal isOpen onClose={() => setDetalle(null)} title={detalle.solicitud.folio ?? 'Solicitud'} maxWidth="max-w-4xl">
           {detalle.cargando ? <div className="flex items-center gap-2 py-8 text-xs text-[var(--text-muted)]"><Loader2 className="h-4 w-4 animate-spin" />Cargando…</div> : (
             <DetalleTE t={detalle.solicitud} historial={detalle.historial} area={nombreArea(detalle.solicitud.areaId)} catalogos={{ rutas, comunidades, puntos }} formato={formato}
-              acciones={esRH && ['autorizada', 'procesada'].includes(detalle.solicitud.estatus) ? <AccionesRH t={detalle.solicitud} acciones={['cancelar']} onHecho={() => setDetalle(null)} /> : null} />
+              acciones={accionesDeRH(detalle.solicitud)} />
           )}
         </Modal>
       )}

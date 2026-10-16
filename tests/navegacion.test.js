@@ -87,8 +87,10 @@ describe('menú de admin y RH: ven todo su menú', () => {
   for (const rol of ['admin', 'rh']) {
     it(`${rol}: Inicio, Tiempo extra completo, Solicitudes de transporte, Rutas y puntos, Padrón, Estructura, Usuarios y accesos y Organigrama`, () => {
       const items = menuDe(rol);
-      expect(items.filter(i => !i.section).map(i => i.path)).toEqual(PATHS_OBLIGATORIOS);
-      expect(items.filter(i => i.section).map(i => i.section)).toEqual(SECCIONES);
+      // el admin suma Herramientas (/herramientas); RH ve exactamente el resto
+      const esperadas = rol === 'admin' ? [...PATHS_OBLIGATORIOS, '/herramientas'] : PATHS_OBLIGATORIOS;
+      expect(items.filter(i => !i.section).map(i => i.path)).toEqual(esperadas);
+      expect(items.filter(i => i.section).map(i => i.section)).toEqual(rol === 'admin' ? [...SECCIONES, 'Herramientas'] : SECCIONES);
     });
   }
   it('los nombres son los acordados', () => {
@@ -132,5 +134,26 @@ describe('menú nuevo por rol y rutas', () => {
   });
   it('no quedan las 9 redirecciones de URLs anteriores', () => {
     expect(readFileSync('src/App.jsx', 'utf8')).not.toContain('Redirigir');
+  });
+});
+
+describe('Herramientas y Mi cuenta', () => {
+  it('"Herramientas" (Diagnóstico y limpieza) solo para admin; RH no la ve', () => {
+    const admin = itemsMenuRH({ esRH: true, esAdmin: true });
+    const rh = itemsMenuRH({ esRH: true, esAdmin: false });
+    expect(admin.filter(i => i.section).map(i => i.section)).toEqual(['Tiempo extra', 'Transporte', 'Personal y estructura', 'Herramientas']);
+    expect(admin.map(i => i.path)).toContain(RUTAS.herramientas);
+    expect(rh.map(i => i.path)).not.toContain(RUTAS.herramientas);
+    expect(rh.filter(i => i.section).map(i => i.section)).not.toContain('Herramientas');
+  });
+  it('Mi cuenta es una sola URL y ya no existen /perfil ni /configuracion', () => {
+    expect(RUTAS.miCuenta).toBe('/mi-cuenta');
+    const app = readFileSync('src/App.jsx', 'utf8');
+    expect(app).toContain('RUTAS.miCuenta');
+    expect(app).not.toMatch(/['"]\/(perfil|configuracion)['"]/);
+  });
+  it('Herramientas está registrada solo para el rol admin', () => {
+    const app = readFileSync('src/App.jsx', 'utf8');
+    expect(app).toMatch(/RutaRol roles=\{\['admin'\]\}[\s\S]*RUTAS\.herramientas/);
   });
 });

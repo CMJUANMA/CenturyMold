@@ -26,6 +26,7 @@ import { ymd } from '../../utils/fechas';
 import { leerHistorialTE, leerSolicitudTE, recibirVarias } from '../../utils/tiempoExtraDb';
 import AccionesRH from './AccionesRH';
 import { BotonDescargaResumenTE } from './DescargaTE';
+import BotonFormatoRutas from '../../components/FormatoRutas';
 import { RUTAS } from '../../rutas';
 import DetalleTE from './DetalleTE';
 
@@ -124,9 +125,11 @@ export default function RecepcionTE() {
             {totalPendientes === 0 ? 'No hay tiempo extra autorizado por confirmar.' : `${totalPendientes} ${totalPendientes === 1 ? 'autorizada por confirmar' : 'autorizadas por confirmar'}, la fecha más próxima primero. Se actualiza sola.`}
           </p>
         </div>
-        <div className="max-w-xs">
-          <BotonDescargaResumenTE id="btn-descargar-te-recepcion" areas={areas} nombresArea={nombres} catalogos={catalogos} nombre={(x) => formato.nombre(x)} />
-          <p className="mt-1 text-[11px] text-[var(--text-secondary)]">El Excel para el proveedor de transporte (Formato de rutas) está en <Link to={RUTAS.transporteSolicitudes} className="font-semibold text-[var(--cm-red)] hover:underline">Transporte › Solicitudes</Link>.</p>
+        <div className="flex flex-wrap items-start gap-4">
+          <BotonFormatoRutas id="btn-formato-rutas-recepcion" />
+          <div className="max-w-xs">
+            <BotonDescargaResumenTE id="btn-descargar-te-recepcion" areas={areas} nombresArea={nombres} catalogos={catalogos} nombre={(x) => formato.nombre(x)} />
+          </div>
         </div>
       </header>
 
@@ -226,7 +229,10 @@ export default function RecepcionTE() {
                 ))}
                 {resultado.ok.some(x => !(x.pasajeros > 0)) && <p className="text-sm text-[var(--text-main)]">{mensajeConfirmada({ pasajeros: 0 })}{resultado.ok.some(x => x.pasajeros > 0) ? ` (${resultado.ok.filter(x => !(x.pasajeros > 0)).map(x => x.folio).join(', ')})` : ''}</p>}
                 {resultado.ok.some(x => x.pasajeros > 0) && (
-                  <Link to={RUTAS.transporteSolicitudes} onClick={() => setResultado(null)} className="inline-block text-sm font-semibold text-[var(--cm-red)] hover:underline">Ir a Transporte › Solicitudes</Link>
+                  <p className="text-xs text-[var(--text-secondary)]">Para el proveedor, baja el «Formato de rutas (proveedor)» desde esta misma pantalla.</p>
+                )}
+                {resultado.ok.some(x => x.pasajeros > 0) && (
+                  <Link to={RUTAS.transporteSolicitudes} onClick={() => setResultado(null)} className="inline-block text-sm font-semibold text-[var(--cm-red)] hover:underline">Ver en Solicitudes de transporte</Link>
                 )}
               </div>
             )}

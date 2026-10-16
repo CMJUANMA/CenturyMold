@@ -67,7 +67,7 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
           <span>
             El rol del sistema solo puede ser Usuario, Recursos Humanos o Administrador. Lo que cada quien puede hacer en tiempo extra y
             en solicitudes de ruta sale de sus <b>roles operativos</b> (pestaña Asignaciones). El cambio de contraseña de otra persona no está
-            disponible desde la app; cada usuario puede cambiar la suya en su Perfil.
+            disponible desde la app; cada usuario puede cambiar la suya en Mi cuenta.
           </span>
         </div>
         <div className="flex flex-wrap gap-2">

@@ -25,12 +25,12 @@ const MisSolicitudesTE = lazy(() => import('./pages/te/MisSolicitudesTE'));
 const BandejaTE = lazy(() => import('./pages/te/BandejaTE'));
 const ConsultaTE = lazy(() => import('./pages/te/ConsultaTE'));
 const RecepcionTE = lazy(() => import('./pages/te/RecepcionTE'));
-const Configuracion = lazy(() => import('./pages/Configuracion'));
+const Herramientas = lazy(() => import('./pages/Herramientas'));
 import RutaCapacidad from './components/RutaCapacidad';
 import NuevaSolicitud from './pages/NuevaSolicitud';
 import MisSolicitudes from './pages/MisSolicitudes';
 import EditarSolicitud from './pages/EditarSolicitud';
-import Perfil from './pages/Perfil';
+import MiCuenta from './pages/MiCuenta';
 import CambiarPassword from './pages/CambiarPassword';
 // Las pantallas de RH se descargan solo cuando se visitan (no pesan en el bundle inicial)
 const RhSolicitudes = lazy(() => import('./pages/rh/RhSolicitudes'));
@@ -66,9 +66,8 @@ const router = createBrowserRouter([
             },
           ],
         },
-        { path: '/perfil', element: <Perfil /> },
-        // Configuración personal (ayudas, tamaño de letra y tema): para todos los usuarios
-        { path: '/configuracion', element: <Configuracion /> },
+        // Mi cuenta: datos, ayudas, tamaño de letra, tema y contraseña (todos los usuarios)
+        { path: RUTAS.miCuenta, element: <MiCuenta /> },
 
         // Transporte y personal (solo RH y admin)
         {
@@ -79,6 +78,11 @@ const router = createBrowserRouter([
             { path: RUTAS.padron, element: <RhEmpleados /> },
             { path: RUTAS.estructura, element: <Estructura /> },
           ],
+        },
+        // Herramientas (solo admin)
+        {
+          element: <RutaRol roles={['admin']} />,
+          children: [{ path: RUTAS.herramientas, element: <Herramientas /> }],
         },
 
         // Módulo de tiempo extra (el acceso sale de las asignaciones vigentes, no del puesto)

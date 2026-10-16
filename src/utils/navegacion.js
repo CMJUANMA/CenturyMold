@@ -57,6 +57,9 @@ export const ITEMS_MENU_RH = [
   { path: RUTAS.estructura, label: 'Estructura', icono: 'Network' },
   { path: RUTAS.accesos, label: 'Usuarios y accesos', icono: 'ShieldCheck', end: true },
   { path: RUTAS.organigrama, label: 'Organigrama', icono: 'GitBranch' },
+
+  { section: 'Herramientas', admin: true },
+  { path: RUTAS.herramientas, label: 'Diagnóstico y limpieza', icono: 'Wrench', admin: true },
 ];
 
 /**

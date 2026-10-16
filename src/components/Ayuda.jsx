@@ -1,5 +1,5 @@
 /**
- * Ayuda.jsx — Texto corto de ayuda debajo de un campo. Solo se ve si la persona tiene las ayudas activas (Configuración);
+ * Ayuda.jsx — Texto corto de ayuda debajo de un campo. Solo se ve si la persona tiene las ayudas activas (Mi cuenta);
  * con las ayudas apagadas no deja nada en pantalla. Los textos viven en utils/ayudas.js.
  *   <Ayuda clave="solicitar.fecha" />   ó   <Ayuda>texto propio</Ayuda>
  */

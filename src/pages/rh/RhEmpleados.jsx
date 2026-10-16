@@ -1,10 +1,10 @@
 /**
  * RhEmpleados.jsx
  */
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { getDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { Search, Plus, Filter, Pencil, Loader2, Trash2 } from 'lucide-react';
+import { Search, Plus, Filter, Pencil, Loader2, Trash2, Upload, Download } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 import { useRecargarCatalogos } from '../../hooks/useCatalogos';
 import Modal from '../../components/Modal';
@@ -12,6 +12,9 @@ import { useAuth } from '../../hooks/useAuth';
 import { areaEfectiva } from '../../utils/estructura';
 import { ejecutarEnLotes, leerColeccion, opBitacora } from '../../utils/estructuraDb';
 import { esActivo, opcionesVigentes } from '../../utils/activo';
+
+// Importación masiva (arrastra exceljs): se descarga solo al abrir el modal
+const ModalImportacion = lazy(() => import('./ModalImportacion'));
 
 /** Nombre para un <option>, marcando si ya está inactivo (se conserva el valor guardado) */
 const etiqueta = (x) => (esActivo(x) ? x.nombre : `${x.nombre} (inactivo)`);
@@ -37,6 +40,9 @@ export default function RhEmpleados() {
   const [puestos, setPuestos] = useState([]);
   const [filtroEstado, setFiltroEstado] = useState('todos');
   const [cargando, setCargando] = useState(true);
+  const [rev, setRev] = useState(0); // fuerza recarga (tras importar)
+  const [importando, setImportando] = useState(false);
+  const [exportando, setExportando] = useState(false);
 
   const [busqueda, setBusqueda] = useState('');
 
@@ -58,7 +64,26 @@ export default function RhEmpleados() {
       setCargando(false);
     });
     return () => { vigente = false; };
-  }, [toast]);
+  }, [toast, rev]);
+
+  const recargar = () => { setCargando(true); setRev(v => v + 1); recargarCompartidos(); };
+
+  // Respaldo del padrón completo (activos e inactivos): exceljs se descarga solo al pulsar el botón
+  const exportarPadron = async () => {
+    setExportando(true);
+    try {
+      const nombres = ['empleados', 'areas', 'rutas', 'comunidades', 'puntosReunion'];
+      const lecturas = await Promise.all(nombres.map(n => leerColeccion(n, toast)));
+      const fallida = lecturas.findIndex(l => l.error);
+      if (fallida >= 0) { toast.error(`No se pudo leer "${nombres[fallida]}"; el respaldo no se generó.`, 8000); return; }
+      const [emps, ares, ruts, coms, pts] = lecturas.map(l => l.datos);
+      const { descargarRespaldoPadron } = await import('../../utils/respaldoPadron');
+      const n = await descargarRespaldoPadron({ empleados: emps, areas: ares, rutas: ruts, comunidades: coms, puntos: pts });
+      toast.success(`Respaldo descargado: ${n} empleados (activos e inactivos).`);
+    } catch (err) {
+      toast.error('No se pudo generar el respaldo: ' + err.message, 8000);
+    } finally { setExportando(false); }
+  };
 
   const filtrados = empleados.filter(e => {
     const q = busqueda.toLowerCase();
@@ -185,13 +210,29 @@ export default function RhEmpleados() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between border-b border-[var(--border-color)] pb-4">
         <div>
           <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Recursos Humanos</div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Padron de Empleados</h1>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-main)]">Padrón de empleados</h1>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" id="btn-exportar-padron" onClick={exportarPadron} disabled={exportando}
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] active:scale-95 transition-all">
+            {exportando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4 text-[var(--text-secondary)]" />}Exportar padrón (respaldo)
+          </button>
+          <button type="button" id="btn-importar-empleados" onClick={() => setImportando(true)}
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] active:scale-95 transition-all">
+            <Upload className="h-4 w-4 text-[var(--text-secondary)]" />Importar empleados
+          </button>
         <button type="button" onClick={abrirCrear}
           className="inline-flex items-center gap-1.5 rounded-md bg-[var(--cm-red)] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[var(--cm-red-hover)] active:scale-95 transition-all">
           <Plus className="h-4 w-4" />Nuevo Empleado
         </button>
+        </div>
       </div>
+
+      {importando && (
+        <Suspense fallback={null}>
+          <ModalImportacion tipo="empleados" onClose={() => { setImportando(false); recargar(); }} onImportado={recargar} />
+        </Suspense>
+      )}
 
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-3 text-xs">
         <Filter className="h-3.5 w-3.5 text-[var(--text-muted)]" />
