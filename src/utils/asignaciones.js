@@ -2,8 +2,8 @@
  * asignaciones.js — Roles operativos (aut2 / aut1 / solicitante) asignados a personas. Sin dependencias del navegador.
  *
  *   asignaciones/{nomina}_{rol}_{areaId|planta}
- *     nomina, nombre, puesto (copia del padrón al asignar: así el organigrama lo muestra a quien no lee ese padrón),
- *     rol, areaId (null en aut2), posicion ('titular' | 'suplente', opcional; solo aut2 y aut1), desde, hasta (null = permanente; fin del día),
+ *     nomina, nombre, puesto y puestoId (copia del padrón al asignar: así el organigrama los muestra a quien no lee ese padrón),
+ *     rol, areaId (null en aut2), desde, hasta (null = permanente; fin del día),
  *     motivo, activo, asignadoPor {uid, nombre}, fechaAsignacion
  *
  * Los permisos viven en el ROL: el puesto solo sirve para sugerir candidatos. Revocar = activo:false (nunca se borra).
@@ -25,13 +25,6 @@ export const ROL_OP_CORTOS = {
   [ROL_OP.AUT1]: 'Aut. 1',
   [ROL_OP.SOLICITANTE]: 'Solicitante',
 };
-
-/** Posición dentro de un nivel: quién es el titular y quién cubre por ausencia. Opcional; solo en aut2 y aut1 */
-export const POSICION = { TITULAR: 'titular', SUPLENTE: 'suplente' };
-export const POSICIONES = [POSICION.TITULAR, POSICION.SUPLENTE];
-export const POSICION_LABELS = { [POSICION.TITULAR]: 'Titular', [POSICION.SUPLENTE]: 'Por ausencia' };
-export const POSICION_OPCIONES = { [POSICION.TITULAR]: 'Titular', [POSICION.SUPLENTE]: 'Por ausencia (suplente)' };
-export const admitePosicion = (rol) => rol === ROL_OP.AUT2 || rol === ROL_OP.AUT1;
 
 /** Roles del sistema (usuarios/{uid}.rol). Los permisos operativos NO salen de aquí */
 export const ROLES_SISTEMA = ['admin', 'rh', 'usuario'];
@@ -158,14 +151,8 @@ export function etiquetaAsignacion(a, nombresArea = new Map()) {
 
 // ── Organigrama ───────────────────────────────────────────────────────────
 
-/** Separa tarjetas en titulares, quienes cubren por ausencia y quienes aún no tienen posición */
-export function agruparPorPosicion(tarjetas) {
-  return {
-    titulares: tarjetas.filter(t => t.posicion === POSICION.TITULAR),
-    suplentes: tarjetas.filter(t => t.posicion === POSICION.SUPLENTE),
-    sinPosicion: tarjetas.filter(t => !t.posicion),
-  };
-}
+/** Nivel jerárquico del puesto (entero >= 1, 1 = el más alto) o null si no tiene */
+export const nivelJerarquicoValido = (n) => (Number.isInteger(n) && n >= 1 ? n : null);
 
 /**
  * Organigrama de autorización, SOLO de las asignaciones vigentes (forma de la hoja "Niveles de autorización"):
@@ -174,10 +161,12 @@ export function agruparPorPosicion(tarjetas) {
  * @param {object} p
  * @param {object[]} p.asignaciones   todas (se filtran las vigentes)
  * @param {object[]} p.areas          [{ id, nombre, participaTE, activa, orden }]
- * @param {Map|object} p.empleados    nómina → { nombre, puesto }
+ * @param {Map|object} p.empleados    nómina → { nombre, puesto, puestoId }
+ * @param {object[]} [p.puestos]      catálogo de puestos [{ id, nivelJerarquico }]: ordena cada lista (menor = más alto; sin nivel, al final)
  * @param {Set<string>|null} p.nominasConUsuario  null = no se sabe (quien ve no puede leer usuarios)
  */
-export function construirOrganigrama({ asignaciones, areas, empleados, nominasConUsuario = null, ahora = new Date() }) {
+export function construirOrganigrama({ asignaciones, areas, empleados, puestos = [], nominasConUsuario = null, ahora = new Date() }) {
+  const nivelPorPuesto = new Map((puestos ?? []).map(p => [p.id, nivelJerarquicoValido(p.nivelJerarquico)]));
   const emp = empleados instanceof Map ? empleados : new Map(Object.entries(empleados ?? {}));
   const vigentes = (asignaciones ?? []).filter(a => esVigente(a, ahora));
 
@@ -192,27 +181,26 @@ export function construirOrganigrama({ asignaciones, areas, empleados, nominasCo
       puesto: a.puesto || e?.puesto || '',
       rol: a.rol,
       areaId: a.areaId ?? null,
-      posicion: admitePosicion(a.rol) && POSICIONES.includes(a.posicion) ? a.posicion : null,
+      puestoId: a.puestoId || e?.puestoId || '',
+      nivelJerarquico: nivelPorPuesto.get(a.puestoId || e?.puestoId) ?? null,
       temporalHasta: hasta,
       sinUsuario: nominasConUsuario ? !nominasConUsuario.has(String(a.nomina)) : false,
     };
   };
-  const porNombre = (x, y) => x.nombre.localeCompare(y.nombre, 'es');
-  // Titular primero, luego quien cubre por ausencia y al final quien aún no tiene posición
-  const RANGO_POSICION = { [POSICION.TITULAR]: 0, [POSICION.SUPLENTE]: 1 };
-  const porPosicion = (x, y) => (RANGO_POSICION[x.posicion] ?? 2) - (RANGO_POSICION[y.posicion] ?? 2) || porNombre(x, y);
+  // Por nivel jerárquico del puesto (el número más bajo primero; sin nivel, al final) y, si empatan, por nombre
+  const porJerarquia = (x, y) => (x.nivelJerarquico ?? Infinity) - (y.nivelJerarquico ?? Infinity) || x.nombre.localeCompare(y.nombre, 'es');
 
   const columnas = [...(areas ?? [])]
     .filter(a => a.participaTE === true && a.activa !== false)
     .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0) || String(a.nombre).localeCompare(String(b.nombre), 'es'))
     .map(area => {
-      const de = (rol) => vigentes.filter(a => a.rol === rol && a.areaId === area.id).map(tarjeta).sort(porNombre);
-      const aut1 = de(ROL_OP.AUT1).sort(porPosicion);
+      const de = (rol) => vigentes.filter(a => a.rol === rol && a.areaId === area.id).map(tarjeta).sort(porJerarquia);
+      const aut1 = de(ROL_OP.AUT1);
       return { area, aut1, solicitantes: de(ROL_OP.SOLICITANTE), sinAut1: aut1.length === 0 };
     });
 
-  const aut2 = vigentes.filter(a => a.rol === ROL_OP.AUT2).map(tarjeta).sort(porPosicion);
-  return { aut2, aut2Grupos: agruparPorPosicion(aut2), columnas };
+  const aut2 = vigentes.filter(a => a.rol === ROL_OP.AUT2).map(tarjeta).sort(porJerarquia);
+  return { aut2, columnas };
 }
 
 // ── Bitácora ──────────────────────────────────────────────────────────────
@@ -224,7 +212,6 @@ export function resumenParaBitacora(a) {
   return {
     id: a.id ?? idAsignacion(a.nomina, a.rol, a.areaId),
     nomina: String(a.nomina), nombre: a.nombre ?? '', rol: a.rol, areaId: a.areaId ?? null,
-    ...(a.posicion ? { posicion: a.posicion } : {}),
     desde: iso(a.desde), hasta: iso(a.hasta), motivo: a.motivo ?? '', activo: a.activo === true,
     ...(a.motivoRevocacion ? { motivoRevocacion: a.motivoRevocacion } : {}),
   };
@@ -261,7 +248,7 @@ export function vistaDePersona(actor, nivelPersona) {
   return VISTA_PERSONA.BASICA;
 }
 
-// ── Nombre y puesto guardados en la asignación ────────────────────────────
+// ── Nombre, puesto y puestoId guardados en la asignación ────────────────────────────
 
 /**
  * Asignaciones cuyo nombre o puesto guardado difiere del padrón ("Actualizar nombres y puestos de las asignaciones").
@@ -278,11 +265,13 @@ export function planActualizarDatos(asignaciones, empleados) {
     if (!e) { sinPadron.push(a); continue; }
     const nombre = String(e.nombre ?? '').trim() || a.nombre || '';
     const puesto = String(e.puesto ?? '').trim() || a.puesto || '';
+    const puestoId = String(e.puestoId ?? '').trim() || a.puestoId || '';
     const cambia = {};
     if (nombre !== (a.nombre ?? '')) cambia.nombre = { antes: a.nombre ?? '', despues: nombre };
     if (puesto !== (a.puesto ?? '')) cambia.puesto = { antes: a.puesto ?? '', despues: puesto };
+    if (puestoId !== (a.puestoId ?? '')) cambia.puestoId = { antes: a.puestoId ?? '', despues: puestoId };
     if (Object.keys(cambia).length === 0) { alDia++; continue; }
-    cambios.push({ id: a.id ?? idAsignacion(a.nomina, a.rol, a.areaId), asignacion: a, nombre, puesto, cambia });
+    cambios.push({ id: a.id ?? idAsignacion(a.nomina, a.rol, a.areaId), asignacion: a, nombre, puesto, puestoId, cambia });
   }
   return { cambios, sinPadron, alDia };
 }

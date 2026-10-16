@@ -3,12 +3,13 @@
  * alta, edición, cambio de área (con la lista de empleados que se mueven), baja lógica y alias.
  */
 import { useMemo, useState } from 'react';
-import { arrayRemove, doc, serverTimestamp } from 'firebase/firestore';
-import { ArrowRightLeft, ListChecks, Pencil, Plus, Power, Search, Tag } from 'lucide-react';
+import { arrayRemove, deleteField, doc, serverTimestamp } from 'firebase/firestore';
+import { ArrowDown, ArrowRightLeft, ArrowUp, ListChecks, Pencil, Plus, Power, Search, Tag } from 'lucide-react';
 import { db } from '../../../firebase';
 import Modal from '../../../components/Modal';
 import { esActivo } from '../../../utils/activo';
 import { idPuestoLibre, impactoCambioArea } from '../../../utils/estructura';
+import { nivelJerarquicoValido } from '../../../utils/asignaciones';
 import { clavePuesto, normalizarPuesto, resolverPuesto } from '../../../utils/puestos';
 import { opBitacora, opsCambioAreaPuesto } from '../../../utils/estructuraDb';
 import AsignarPuestos from './AsignarPuestos';
@@ -25,6 +26,7 @@ export default function TabPuestos({ areas, puestos, empleados, usuario, toast, 
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [asignar, setAsignar] = useState(false);
+  const [ordenNivel, setOrdenNivel] = useState(null); // null (por nombre) | 'asc' | 'desc'; sin nivel, siempre al final
 
   const areasPorId = useMemo(() => new Map(areas.map(a => [a.id, a])), [areas]);
   const nombreArea = (id) => areasPorId.get(id)?.nombre ?? (id ? `${id} (no existe)` : 'Sin área');
@@ -38,7 +40,13 @@ export default function TabPuestos({ areas, puestos, empleados, usuario, toast, 
     if (filtroEstado === 'inactivos' && p.activo !== false) return false;
     const q = sinTildes(busqueda);
     return !q || sinTildes(p.nombre).includes(q) || (p.alias ?? []).some(a => sinTildes(a).includes(q));
-  }).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }).sort((a, b) => {
+    if (ordenNivel) {
+      const na = nivelJerarquicoValido(a.nivelJerarquico), nb = nivelJerarquicoValido(b.nivelJerarquico);
+      if (na !== nb) return na == null ? 1 : nb == null ? -1 : ordenNivel === 'asc' ? na - nb : nb - na;
+    }
+    return a.nombre.localeCompare(b.nombre, 'es');
+  });
 
   const cerrar = () => !guardando && setModal(null);
   const abrir = (tipo, puesto = null) => {
@@ -108,6 +116,18 @@ export default function TabPuestos({ areas, puestos, empleados, usuario, toast, 
       `Puesto movido a ${nombreArea(form.areaId)}${impacto.mover.length ? ` (${impacto.mover.length} empleados actualizados)` : ''}.`);
   };
 
+  // ── nivel jerárquico (1 = el puesto más alto; vacío = sin nivel) ──
+  const guardarNivel = async (p, texto) => {
+    const t = String(texto).trim();
+    const nivel = t === '' ? null : Number(t);
+    if (nivel !== null && nivelJerarquicoValido(nivel) == null) return toast.error('El nivel debe ser un número entero de 1 en adelante.');
+    if (nivel === (nivelJerarquicoValido(p.nivelJerarquico))) return;
+    await guardar([
+      b => b.update(doc(db, 'puestos', p.id), { nivelJerarquico: nivel === null ? deleteField() : nivel }),
+      opBitacora({ accion: 'puesto_nivel', entidad: `puestos/${p.id}`, antes: { nivelJerarquico: p.nivelJerarquico ?? null }, despues: { nivelJerarquico: nivel } }, usuario),
+    ], nivel === null ? 'Nivel quitado.' : `Nivel ${nivel} guardado.`);
+  };
+
   // ── alias ──
   const quitarAlias = async (p, alias) => {
     const ok = await guardar([
@@ -145,13 +165,21 @@ export default function TabPuestos({ areas, puestos, empleados, usuario, toast, 
           <thead className={theadCls}>
             <tr>
               <th className={thCls}>Puesto</th><th className={thCls}>Área</th>
-              <th className={`${thCls} text-right`}>Empleados</th><th className={thCls}>Alias</th>
+              <th className={`${thCls} text-right`}>Empleados</th>
+              <th className={thCls} aria-sort={ordenNivel === 'asc' ? 'ascending' : ordenNivel === 'desc' ? 'descending' : 'none'}>
+                <button type="button" onClick={() => setOrdenNivel(o => (o === null ? 'asc' : o === 'asc' ? 'desc' : null))}
+                  className="inline-flex cursor-pointer items-center gap-1 font-semibold uppercase" title="Ordenar por nivel">
+                  Nivel{ordenNivel === 'asc' ? <ArrowUp className="h-3 w-3" /> : ordenNivel === 'desc' ? <ArrowDown className="h-3 w-3" /> : null}
+                </button>
+                <span className="block text-[9px] font-normal normal-case tracking-normal text-[var(--text-muted)]">1 es el puesto más alto. Sirve para ordenar el organigrama</span>
+              </th>
+              <th className={thCls}>Alias</th>
               <th className={`${thCls} text-right`}>Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border-subtle)]">
             {filtrados.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-[var(--text-muted)]">
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-[var(--text-muted)]">
                 {puestos.length === 0 ? 'Aún no hay puestos. Use «Crear estructura inicial» en la pestaña Áreas.' : 'Sin resultados.'}
               </td></tr>
             )}
@@ -160,6 +188,12 @@ export default function TabPuestos({ areas, puestos, empleados, usuario, toast, 
                 <td className="px-4 py-2.5 font-semibold text-[var(--text-main)]">{p.nombre}{p.activo === false && <span className="ml-1 text-[10px] font-normal text-[var(--text-muted)]">(inactivo)</span>}</td>
                 <td className="px-4 py-2.5">{areasPorId.has(p.areaId) ? nombreArea(p.areaId) : <span className={chipWarn}>{nombreArea(p.areaId)}</span>}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums">{nEmpleados(p.id)}</td>
+                <td className="px-4 py-2.5">
+                  <input type="number" min={1} step={1} inputMode="numeric" defaultValue={nivelJerarquicoValido(p.nivelJerarquico) ?? ''}
+                    key={`${p.id}-${p.nivelJerarquico ?? ''}`} aria-label={`Nivel de ${p.nombre}`} placeholder="—"
+                    onBlur={e => guardarNivel(p, e.target.value)} onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
+                    className="w-16 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1 text-xs tabular-nums outline-none focus:border-[var(--cm-red)]" />
+                </td>
                 <td className="px-4 py-2.5">
                   {(p.alias ?? []).length === 0 ? <span className="text-[var(--text-muted)]">—</span> : (
                     <button type="button" onClick={() => abrir('alias', p)} className={`${chip} cursor-pointer hover:bg-[var(--bg-surface-hover)]`}>

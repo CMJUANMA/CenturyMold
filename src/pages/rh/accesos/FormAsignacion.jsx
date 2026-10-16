@@ -10,7 +10,7 @@ import { AlertTriangle, CheckCircle2, Loader2, UserPlus, X } from 'lucide-react'
 import Modal from '../../../components/Modal';
 import BuscadorEmpleado from '../../../components/BuscadorEmpleado';
 import {
-  POSICIONES, POSICION_OPCIONES, ROL_OP, ROL_OP_LABELS, admitePosicion, aIsoLocal, estadoAsignacion, idAsignacion, inicioDelDia, finDelDia, motivoNoPuedeAsignar, rolesAsignables,
+  ROL_OP, ROL_OP_LABELS, aIsoLocal, estadoAsignacion, idAsignacion, inicioDelDia, finDelDia, motivoNoPuedeAsignar, rolesAsignables,
 } from '../../../utils/asignaciones';
 import { asignarRol } from '../../../utils/asignacionesDb';
 import { inputCls, btnPrimary, btnSecondary, btnIcon, labelCls, etiquetaCls } from './ui';
@@ -25,7 +25,6 @@ function Contenido({ inicial, actor, areas, empleados, usuarios, asignaciones, o
   const areasTE = areas.filter(a => a.participaTE === true && a.activa !== false);
   const [rol, setRol] = useState(roles.includes(inicial.rol) ? inicial.rol : roles[0] ?? '');
   const [areaId, setAreaId] = useState(inicial.areaId ?? '');
-  const [posicion, setPosicion] = useState(inicial.posicion ?? '');
   const [empleado, setEmpleado] = useState(inicial.empleado ?? null);
   const [desde, setDesde] = useState(() => aIsoLocal(new Date()));
   const [hasta, setHasta] = useState('');
@@ -34,7 +33,6 @@ function Contenido({ inicial, actor, areas, empleados, usuarios, asignaciones, o
   const [guardando, setGuardando] = useState(false);
 
   const usaArea = rol !== ROL_OP.AUT2;
-  const usaPosicion = admitePosicion(rol);
   const sugerir = usaArea && areaId ? (e => e.areaId === areaId) : null;
   const usuario = empleado && usuarios ? usuarios.find(u => String(u.nomina) === String(empleado.nomina)) : undefined;
   const sinUsuario = !!empleado && !!usuarios && !usuario;
@@ -46,7 +44,6 @@ function Contenido({ inicial, actor, areas, empleados, usuarios, asignaciones, o
     if (!empleado) return setError('Elige a la persona.');
     const impedimento = motivoNoPuedeAsignar(actor, { rol, areaId: usaArea ? areaId : null, nominaObjetivo: empleado.nomina }, areas);
     if (impedimento) return setError(impedimento);
-    if (rol === ROL_OP.AUT2 && !POSICIONES.includes(posicion)) return setError('Indica si es titular o va por ausencia.');
     if (!desde) return setError('Indica desde cuándo.');
     if (hasta && finDelDia(hasta) < inicioDelDia(desde)) return setError('"Hasta" no puede ser anterior a "Desde".');
     if (hasta && !motivo.trim()) return setError('El motivo es obligatorio cuando la asignación es temporal (tiene fecha final).');
@@ -59,8 +56,8 @@ function Contenido({ inicial, actor, areas, empleados, usuarios, asignaciones, o
     setGuardando(true);
     try {
       await asignarRol(actor, {
-        nomina: empleado.nomina, nombre: empleado.nombre, puesto: empleado.puesto ?? '', rol, areaId: usaArea ? areaId : null,
-        posicion: usaPosicion ? posicion : '', desde, hasta, motivo,
+        nomina: empleado.nomina, nombre: empleado.nombre, puesto: empleado.puesto ?? '', puestoId: empleado.puestoId ?? '', rol, areaId: usaArea ? areaId : null,
+        desde, hasta, motivo,
       }, previa);
       onGuardado(`${empleado.nombre}: ${ROL_OP_LABELS[rol]}${usaArea ? ` · ${nombreArea}` : ''}`);
       onClose();
@@ -97,17 +94,6 @@ function Contenido({ inicial, actor, areas, empleados, usuarios, asignaciones, o
             </div>
           )}
         </div>
-
-        {usaPosicion && (
-          <div>
-            <label htmlFor="asig-posicion" className={labelCls}>Posición {rol === ROL_OP.AUT2 ? <span className="text-[var(--status-error-text)]">(obligatoria)</span> : <span className="text-[var(--text-muted)]">(opcional)</span>}</label>
-            <select id="asig-posicion" value={posicion} onChange={e => setPosicion(e.target.value)} className={inputCls}>
-              <option value="">{rol === ROL_OP.AUT2 ? 'Elige…' : 'Sin definir'}</option>
-              {POSICIONES.map(p => <option key={p} value={p}>{POSICION_OPCIONES[p]}</option>)}
-            </select>
-            <p className="mt-1 text-[10px] text-[var(--text-muted)]">Los dos pueden firmar; la posición solo ordena el organigrama (el titular va arriba).</p>
-          </div>
-        )}
 
         <div className="space-y-2">
           <label className={labelCls}>Empleado</label>

@@ -91,7 +91,9 @@ service cloud.firestore {
       function p() { return request.resource.data; }
       function puestoValido() {
         return p().nombre is string && p().nombre.size() > 0 && p().nombre == p().nombre.upper()
-          && p().areaId is string && p().activo is bool && p().alias is list;
+          && p().areaId is string && p().activo is bool && p().alias is list
+          // nivelJerarquico (opcional): entero >= 1, 1 = el puesto más alto; ordena el organigrama
+          && (!p().keys().hasAny(['nivelJerarquico']) || (p().nivelJerarquico is int && p().nivelJerarquico >= 1));
       }
       allow read: if activo();
       allow create: if esRH() && puestoValido()
@@ -249,13 +251,11 @@ service cloud.firestore {
       function n() { return request.resource.data; }
       function idEsperado(d) { return d.nomina + '_' + d.rol + '_' + (d.rol == 'aut2' ? 'planta' : d.areaId); }
       function formaValida() {
-        // puesto (copia del padrón) y posicion (titular | por ausencia, solo aut2 y aut1) son opcionales: las asignaciones anteriores no los traen
-        return n().keys().hasOnly(['nomina', 'nombre', 'puesto', 'rol', 'areaId', 'posicion', 'desde', 'hasta', 'motivo', 'activo', 'asignadoPor', 'fechaAsignacion'])
+        // puesto y puestoId (copia del padrón) son opcionales: las asignaciones anteriores no los traen
+        return n().keys().hasOnly(['nomina', 'nombre', 'puesto', 'puestoId', 'rol', 'areaId', 'desde', 'hasta', 'motivo', 'activo', 'asignadoPor', 'fechaAsignacion'])
           && n().keys().hasAll(['nomina', 'nombre', 'rol', 'areaId', 'desde', 'hasta', 'motivo', 'activo', 'asignadoPor', 'fechaAsignacion'])
           && n().nomina is string && n().nomina.size() > 0 && n().nombre is string
-          && n().get('puesto', '') is string
-          && n().get('posicion', 'titular') in ['titular', 'suplente']
-          && (n().rol != 'solicitante' || !n().keys().hasAny(['posicion']))
+          && n().get('puesto', '') is string && n().get('puestoId', '') is string
           && n().rol in ['aut2', 'aut1', 'solicitante']
           && (n().rol == 'aut2' ? n().areaId == null : n().areaId is string)
           && asigId == idEsperado(n())
@@ -279,23 +279,21 @@ service cloud.firestore {
       allow create: if formaValida() && puedeAsignar(n()) && n().activo == true
         && n().fechaAsignacion == request.time && n().asignadoPor.uid == request.auth.uid;
       // Cada transición es su propio "allow update" (se evalúan en OR) y comprueba lo mínimo: una regla tiene tope de 1000 expresiones.
-      // Revocar, extender o cambiar la posición: solo activo, hasta, motivo y posicion (la persona, el rol y el área no cambian,
+      // Revocar o extender: solo activo, hasta, motivo (la persona, el rol y el área no cambian,
       // así que basta probar una vez quién puede asignar ese rol); lo que se escribe debe seguir siendo válido
       function cambioValido() {
         return n().activo is bool
           && (n().hasta == null || (n().hasta is timestamp && n().hasta >= n().desde))
-          && n().motivo is string && (n().hasta == null || n().motivo.trim().size() > 0)
-          && n().get('posicion', 'titular') in ['titular', 'suplente']
-          && (n().rol != 'solicitante' || !n().keys().hasAny(['posicion']));
+          && n().motivo is string && (n().hasta == null || n().motivo.trim().size() > 0);
       }
-      allow update: if soloCambia(['activo', 'hasta', 'motivo', 'posicion']) && cambioValido() && puedeAsignar(resource.data);
+      allow update: if soloCambia(['activo', 'hasta', 'motivo']) && cambioValido() && puedeAsignar(resource.data);
       // Volver a asignar: el documento completo, con fecha y autor nuevos
       allow update: if formaValida() && n().activo == true && n().fechaAsignacion == request.time && n().asignadoPor.uid == request.auth.uid
         && n().nomina == resource.data.nomina && n().rol == resource.data.rol && n().areaId == resource.data.areaId
         && puedeAsignar(resource.data) && puedeAsignar(n());
-      // Copiar nombre y puesto del padrón (botón del admin e importación del padrón por RH): solo esos dos campos, de cualquier rol
-      allow update: if esRH() && soloCambia(['nombre', 'puesto'])
-        && n().nombre is string && n().get('puesto', '') is string;
+      // Copiar nombre, puesto y puestoId del padrón (botón del admin e importación del padrón por RH): solo esos campos, de cualquier rol
+      allow update: if esRH() && soloCambia(['nombre', 'puesto', 'puestoId'])
+        && n().nombre is string && n().get('puesto', '') is string && n().get('puestoId', '') is string;
       allow delete: if false;
     }
 

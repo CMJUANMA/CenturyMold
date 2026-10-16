@@ -3,10 +3,11 @@
  * Árbol de arriba a abajo: Nivel 2 · Planta (Aut. 2 lado a lado) → una rama por área con participaTE → su Aut. 1 (la tarjeta
  * más grande) → lista compacta de solicitantes. La jerarquía se ve por posición, tamaño y líneas; los colores son solo un acento.
  * Escritorio: árbol completo con riel de niveles; pantallas medianas: scroll horizontal; celular: lista vertical plegable.
- * Clic en una persona abre su panel lateral; quien puede asignar ve los botones "+" y, en el panel, Revocar, Extender y Cambiar posición.
+ * Clic en una persona abre su panel lateral; quien puede asignar ve los botones "+" y, en el panel, Revocar y Extender.
  * Privacidad: las personas de un nivel SUPERIOR al de quien mira no se abren (solo nombre, puesto y nivel); las de su nivel o inferiores
  * abren un panel básico, y el completo (quién asignó, cuándo, motivo, historial) es de RH, admin y, hacia abajo, de la Aut. 2.
- * Aut. 2: el titular va arriba, grande y centrado; quienes cubren por ausencia, debajo y más pequeños; sin posición, al final con un aviso.
+ * Orden: dentro de cada nivel, por nivelJerarquico del puesto (1 = el más alto; sin nivel, al final) y, si empatan, por nombre.
+ * Aut. 2: uno debajo de otro; el de puesto más alto, arriba y con la tarjeta un poco más grande.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { BadgeCheck, ChevronDown, Search, ShieldCheck, User } from 'lucide-react';
@@ -46,7 +47,7 @@ function Riel({ rol, texto }) {
   );
 }
 
-export default function TabOrganigrama({ asignaciones, areas, empleados, usuarios, actor, ahora, nombresArea, onAsignar }) {
+export default function TabOrganigrama({ asignaciones, areas, empleados, puestos = [], usuarios, actor, ahora, nombresArea, onAsignar }) {
   const [busqueda, setBusqueda] = useState('');
   const [resaltarSin, setResaltarSin] = useState(false);
   const [abierta, setAbierta] = useState(null); // nómina de la persona del panel
@@ -57,8 +58,8 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, usuario
   // "Sin usuario" solo se puede saber si quien ve puede leer usuarios (RH, admin, Aut. 2)
   const nominasConUsuario = useMemo(() => (usuarios ? new Set(usuarios.map(u => String(u.nomina))) : null), [usuarios]);
   const org = useMemo(
-    () => construirOrganigrama({ asignaciones, areas, empleados: empleadosPorNomina, nominasConUsuario, ahora }),
-    [asignaciones, areas, empleadosPorNomina, nominasConUsuario, ahora],
+    () => construirOrganigrama({ asignaciones, areas, empleados: empleadosPorNomina, puestos, nominasConUsuario, ahora }),
+    [asignaciones, areas, empleadosPorNomina, puestos, nominasConUsuario, ahora],
   );
 
   const q = sinAcentos(busqueda).trim();
@@ -82,16 +83,7 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, usuario
   const asignar = (rol, areaId) => onAsignar(areaId ? { rol, areaId } : { rol });
   const columnas = Math.max(org.columnas.length, 1);
 
-  // Con una sola área los Aut. 2 se apilan (el nodo no excede la columna); con 2 van de dos en dos; con 3 o más, de tres en tres
-  const { titulares, suplentes, sinPosicion } = org.aut2Grupos;
-  const porFila = columnas <= 1 ? 1 : columnas === 2 ? 2 : 3;
-  const anchoPlanta = Math.max(21 * Math.min(titulares.length, porFila), 14 * Math.min(suplentes.length, porFila + 1), 17 * Math.min(sinPosicion.length, porFila), 17) - 0.75;
   const puedeAsignarAut2 = asignables.includes(ROL_OP.AUT2);
-  const tarjetaAut2 = (t, tamano, ancho) => (
-    <div key={t.id} className={`${ancho} max-w-full`}>
-      <TarjetaPersona t={t} formato={formato} tamano={tamano} estado={estadoDe(t)} onAbrir={abrir} bloqueada={bloqueada(t)} avisarSinPosicion={puedeAsignarAut2} />
-    </div>
-  );
   const nodoPlanta = (
     <section aria-label="Nivel 2 · Planta" className="mx-auto w-fit max-w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-3">
       <h3 className="mb-2 flex items-center justify-center gap-1.5 text-center text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
@@ -100,15 +92,10 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, usuario
       {org.aut2.length === 0 ? (
         <p className="px-4 py-2 text-center text-xs text-[var(--text-secondary)]">Nadie tiene Autorización 2 vigente (solo RH puede firmar este nivel).</p>
       ) : (
-        <div className="mx-auto space-y-3" style={{ maxWidth: `${anchoPlanta}rem` }}>
-          {titulares.length > 0 && <div className="flex flex-wrap justify-center gap-3">{titulares.map(t => tarjetaAut2(t, 'titular', 'w-80'))}</div>}
-          {suplentes.length > 0 && <div className="flex flex-wrap justify-center gap-2">{suplentes.map(t => tarjetaAut2(t, 'compacta', 'w-56'))}</div>}
-          {sinPosicion.length > 0 && (
-            <div className="space-y-1.5">
-              {puedeAsignarAut2 && <p className="text-center text-[10px] font-semibold text-[var(--status-warning-text)]">Sin posición definida: asigna si es titular o va por ausencia (Usuarios y accesos › Asignaciones).</p>}
-              <div className="flex flex-wrap justify-center gap-3">{sinPosicion.map(t => tarjetaAut2(t, 'normal', 'w-64'))}</div>
-            </div>
-          )}
+        <div className="mx-auto flex w-80 max-w-full flex-col gap-3">
+          {org.aut2.map((t, i) => (
+            <TarjetaPersona key={t.id} t={t} formato={formato} tamano={i === 0 ? 'grande' : 'normal'} estado={estadoDe(t)} onAbrir={abrir} bloqueada={bloqueada(t)} />
+          ))}
         </div>
       )}
       {puedeAsignarAut2 && <div className="mt-2 flex justify-center"><BotonAgregar onClick={() => asignar(ROL_OP.AUT2)}>Aut. 2</BotonAgregar></div>}
@@ -122,7 +109,7 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, usuario
   );
   const bloqueAut1 = (col, grande) => (col.sinAut1
     ? <SinAut1 puedeAsignar={asignables.includes(ROL_OP.AUT1)} onAsignar={() => asignar(ROL_OP.AUT1, col.area.id)} />
-    : <div className="space-y-2">{col.aut1.map(t => <TarjetaPersona key={t.id} t={t} formato={formato} tamano={grande && t.posicion !== 'suplente' ? 'titular' : 'normal'} estado={estadoDe(t)} onAbrir={abrir} bloqueada={bloqueada(t)} />)}</div>);
+    : <div className="space-y-2">{col.aut1.map(t => <TarjetaPersona key={t.id} t={t} formato={formato} tamano={grande ? 'grande' : 'normal'} estado={estadoDe(t)} onAbrir={abrir} bloqueada={bloqueada(t)} />)}</div>);
   const listaSolicitantes = (col) => (
     <div className="space-y-1">
       {col.solicitantes.map(t => <FilaSolicitante key={t.id} t={t} formato={formato} conTick={false} estado={estadoDe(t)} onAbrir={abrir} />)}

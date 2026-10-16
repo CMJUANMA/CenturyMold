@@ -1,19 +1,19 @@
 /**
  * PanelPersona.jsx — Panel lateral con el detalle de una persona del organigrama. Dos vistas, según quién mira (ver vistaDePersona):
  *   completa (RH, admin y la Aut. 2 hacia abajo): datos del padrón, todas sus asignaciones (rol, área, desde, hasta, motivo, quién la asignó
- *     y cuándo), el historial de la bitácora y, para quien puede asignar, Revocar (con motivo), Extender y Cambiar posición.
+ *     y cuándo), el historial de la bitácora y, para quien puede asignar, Revocar (con motivo), Extender y Extender.
  *   básica (Aut. 1, y la Aut. 2 sobre otros Aut. 2): nombre, puesto, nómina, y de cada asignación vigente su rol, área y desde / hasta.
  *     Sin quién la asignó, sin fecha de asignación, sin motivo, sin historial y sin acciones.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeftRight, Clock, History, Loader2, ShieldOff, CalendarPlus, X } from 'lucide-react';
+import { Clock, History, Loader2, ShieldOff, CalendarPlus, X } from 'lucide-react';
 import { useConfirmar } from '../../../hooks/useConfirmar';
 import { useToast } from '../../../hooks/useToast';
 import {
-  ESTADO_LABELS, POSICION_LABELS, ROL_OP_LABELS, VISTA_PERSONA, admitePosicion, aFecha, estadoAsignacion, formatoFecha, rolesAsignables,
+  ESTADO_LABELS, ROL_OP_LABELS, VISTA_PERSONA, aFecha, estadoAsignacion, formatoFecha, rolesAsignables,
 } from '../../../utils/asignaciones';
 import { leerHistorialAsignacion, revocarAsignacion } from '../../../utils/asignacionesDb';
-import { ModalExtender, ModalPosicion } from './TabAsignaciones';
+import { ModalExtender } from './TabAsignaciones';
 import { Avatar } from './NodosOrganigrama';
 import { ESTADO_CLS, btnIcon } from './ui';
 
@@ -28,7 +28,6 @@ export default function PanelPersona({ nomina, asignaciones, empleado, conUsuari
   const confirmar = useConfirmar();
   const toast = useToast();
   const [extender, setExtender] = useState(null);
-  const [posicion, setPosicion] = useState(null);
   const [version, setVersion] = useState(0);
   const [historial, setHistorial] = useState({ cargando: false, filas: [], error: '', sinPermiso: false });
 
@@ -106,7 +105,6 @@ export default function PanelPersona({ nomina, asignaciones, empleado, conUsuari
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-semibold text-[var(--text-main)]">
                         {ROL_OP_LABELS[a.rol]}{a.areaId ? ` · ${nombresArea.get(a.areaId) ?? a.areaId}` : ' · toda la planta'}
-                        {a.posicion && <span className="ml-1.5 text-[10px] font-semibold text-[var(--text-secondary)]">({POSICION_LABELS[a.posicion]})</span>}
                       </span>
                       <span className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold ${ESTADO_CLS[a.estado]}`}>{ESTADO_LABELS[a.estado]}</span>
                     </div>
@@ -121,12 +119,6 @@ export default function PanelPersona({ nomina, asignaciones, empleado, conUsuari
                     )}
                     {puedeActuar(a) && (
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {admitePosicion(a.rol) && a.estado !== 'vencida' && (
-                          <button type="button" onClick={() => setPosicion(a)}
-                            className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1 text-[11px] font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]">
-                            <ArrowLeftRight className="h-3 w-3" />Cambiar posición
-                          </button>
-                        )}
                         <button type="button" onClick={() => setExtender(a)}
                           className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1 text-[11px] font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]">
                           <CalendarPlus className="h-3 w-3" />Extender
@@ -174,10 +166,6 @@ export default function PanelPersona({ nomina, asignaciones, empleado, conUsuari
         </div>
       </aside>
 
-      {posicion && (
-        <ModalPosicion asignacion={posicion} actor={actor} onClose={() => setPosicion(null)}
-          onGuardado={() => { toast.success('Posición actualizada.'); setVersion(v => v + 1); }} />
-      )}
       {extender && (
         <ModalExtender asignacion={extender} actor={actor} onClose={() => setExtender(null)}
           onGuardado={() => { toast.success('Vigencia actualizada.'); setVersion(v => v + 1); }} />

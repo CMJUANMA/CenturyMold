@@ -89,6 +89,18 @@ describe('puestos', () => {
     await assertFails(setDoc(doc(dbDe('rh'), 'puestos', 'c'), puestoNuevo('rh', { fechaCreacion: new Date() })));
     await assertFails(setDoc(doc(dbDe('rh'), 'puestos', 'd'), puestoNuevo('rh', { alias: 'no-es-lista' })));
   });
+  it('nivelJerarquico es opcional: entero >= 1; RH y admin lo cambian, los demás no', async () => {
+    await assertSucceeds(setDoc(doc(dbDe('rh'), 'puestos', 'n1'), puestoNuevo('rh', { nivelJerarquico: 1 })));
+    await assertFails(setDoc(doc(dbDe('rh'), 'puestos', 'n2'), puestoNuevo('rh', { nivelJerarquico: 0 })));
+    await assertFails(setDoc(doc(dbDe('rh'), 'puestos', 'n3'), puestoNuevo('rh', { nivelJerarquico: 1.5 })));
+    await assertFails(setDoc(doc(dbDe('rh'), 'puestos', 'n4'), puestoNuevo('rh', { nivelJerarquico: '2' })));
+    const ref = doc(dbDe('rh'), 'puestos', 'resiner');
+    await assertSucceeds(updateDoc(ref, { nivelJerarquico: 3 }));
+    await assertSucceeds(updateDoc(doc(dbDe('admin'), 'puestos', 'resiner'), { nivelJerarquico: 2 }));
+    await assertFails(updateDoc(ref, { nivelJerarquico: -1 }));
+    await assertFails(updateDoc(doc(dbDe('sup'), 'puestos', 'resiner'), { nivelJerarquico: 1 }));
+    await assertSucceeds(getDoc(doc(dbDe('aut'), 'puestos', 'resiner'))); // cualquier usuario activo lo lee
+  });
   it('RH cambia área y alias, pero no creadoPor ni fechaCreacion; nadie los borra', async () => {
     const ref = doc(dbDe('rh'), 'puestos', 'resiner');
     await assertSucceeds(updateDoc(ref, { areaId: 'almacen' }));

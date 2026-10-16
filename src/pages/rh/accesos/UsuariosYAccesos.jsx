@@ -54,6 +54,13 @@ export default function UsuariosYAccesos() {
   const tabActiva = tabs.find(t => t.id === tab)?.id;
 
   const [usuarios, setUsuarios] = useState(null);
+  // Catálogo de puestos (lo lee cualquier usuario activo): da el nivelJerarquico que ordena el organigrama, también al Aut. 1
+  const [puestos, setPuestos] = useState([]);
+  useEffect(() => {
+    let vivo = true;
+    getDocs(collection(db, 'puestos')).then(snap => vivo && setPuestos(snap.docs.map(d => ({ id: d.id, nivelJerarquico: d.data().nivelJerarquico })))).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
   const [error, setError] = useState('');
   const [ahora, setAhora] = useState(() => Date.now());
   const [formAsig, setFormAsig] = useState(null);
@@ -143,7 +150,7 @@ export default function UsuariosYAccesos() {
               empleados={empleados} usuarios={usuarios} onCargaTerminada={() => navigate('/accesos/organigrama')} />
           )}
           {tabActiva === 'organigrama' && (
-            <TabOrganigrama asignaciones={asignaciones} areas={areas} empleados={empleados} usuarios={usuarios} actor={actor}
+            <TabOrganigrama asignaciones={asignaciones} areas={areas} empleados={empleados} puestos={puestos} usuarios={usuarios} actor={actor}
               ahora={ahora} nombresArea={nombresArea} onAsignar={abrirAsignar} />
           )}
         </>

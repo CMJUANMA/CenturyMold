@@ -7,7 +7,7 @@ El área de un empleado sale de su **puesto**. El departamento de la nómina (`d
 | Colección | Campos | Quién escribe |
 |---|---|---|
 | `areas/{areaId}` (slug: `produccion`, `almacen`, `calidad`, `mantenimiento`, `moldes`, `administrativo`) | `nombre`, `participaTE`, `activa`, `orden` | admin y RH |
-| `puestos/{puestoId}` (slug del nombre) | `nombre` (MAYÚSCULAS), `areaId`, `activo`, `alias[]`, `fechaCreacion`, `creadoPor` | admin y RH |
+| `puestos/{puestoId}` (slug del nombre) | `nombre` (MAYÚSCULAS), `areaId`, `activo`, `alias[]`, `nivelJerarquico` (opcional, entero >= 1; 1 = el más alto; ordena el organigrama), `fechaCreacion`, `creadoPor` | admin y RH |
 | `empleados/{nomina}` + `puestoId`, `areaId`, `areaExcepcion`, `areaExcepcionMotivo` | `areaId` = área efectiva | admin y RH |
 | `bitacora/{autoId}` | `accion`, `entidad`, `antes`, `despues`, `porUid`, `porNombre`, `fecha` | solo se crea (admin y RH); nadie edita ni borra |
 

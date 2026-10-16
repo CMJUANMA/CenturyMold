@@ -92,6 +92,7 @@ async function opsDatosEnAsignaciones(items) {
       if (!it) continue;
       const nuevo = {};
       if (it.cambios.some(c => c.campo === 'PUESTO') && it.datos.puesto && it.datos.puesto !== a.puesto) nuevo.puesto = it.datos.puesto;
+      if (it.cambios.some(c => c.campo === 'PUESTO') && it.datos.puestoId && it.datos.puestoId !== a.puestoId) nuevo.puestoId = it.datos.puestoId;
       if (it.cambios.some(c => c.campo === 'NOMBRE') && it.datos.nombre && it.datos.nombre !== a.nombre) nuevo.nombre = it.datos.nombre;
       if (Object.keys(nuevo).length) ops.push(b => b.update(doc(db, 'asignaciones', d.id), nuevo));
     }

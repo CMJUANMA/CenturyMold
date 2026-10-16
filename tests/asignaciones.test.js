@@ -188,38 +188,54 @@ describe('carga inicial de asignaciones', () => {
   });
 });
 
-describe('posición: titular y por ausencia', () => {
-  const emp = new Map();
-  it('el titular va primero, luego quien cubre por ausencia y al final quien aún no tiene posición', () => {
+describe('orden por nivel jerárquico del puesto', () => {
+  const puestos = [
+    { id: 'op-dir', nivelJerarquico: 1 }, { id: 'adm-mgr', nivelJerarquico: 2 }, { id: 'sup', nivelJerarquico: 3 }, { id: 'sin-nivel' },
+  ];
+  it('con OPERATIONS DIRECTOR = 1 y ADMINISTRATIVE MANAGER = 2, Salvador va antes que Marco sin importar nombre ni orden de creación', () => {
+    const asignaciones = [
+      asig('1', 'aut2', null, { nombre: 'ACOSTA MARCO', puesto: 'ADMINISTRATIVE MANAGER', puestoId: 'adm-mgr' }),
+      asig('2', 'aut2', null, { nombre: 'ZAMORA SALVADOR', puesto: 'OPERATIONS DIRECTOR', puestoId: 'op-dir' }),
+    ];
+    for (const lista of [asignaciones, [...asignaciones].reverse()]) {
+      const org = construirOrganigrama({ asignaciones: lista, areas: [], empleados: new Map(), puestos, ahora: HOY });
+      expect(org.aut2.map(t => t.nombre)).toEqual(['ZAMORA SALVADOR', 'ACOSTA MARCO']);
+    }
+  });
+  it('si empatan, por nombre; sin nivel o sin puesto, al final', () => {
     const org = construirOrganigrama({
       asignaciones: [
-        asig('1', 'aut2', null, { nombre: 'ZETA SIN POSICION' }),
-        asig('2', 'aut2', null, { nombre: 'BETA SUPLENTE', posicion: 'suplente' }),
-        asig('3', 'aut2', null, { nombre: 'OMEGA TITULAR', posicion: 'titular' }),
+        asig('1', 'aut2', null, { nombre: 'SIN PUESTO' }),
+        asig('2', 'aut2', null, { nombre: 'SIN NIVEL', puestoId: 'sin-nivel' }),
+        asig('3', 'aut2', null, { nombre: 'ZETA', puestoId: 'sup' }),
+        asig('4', 'aut2', null, { nombre: 'ALFA', puestoId: 'sup' }),
+        asig('5', 'aut2', null, { nombre: 'OMEGA', puestoId: 'op-dir' }),
       ],
-      areas: [], empleados: emp, ahora: HOY,
+      areas: [], empleados: new Map(), puestos, ahora: HOY,
     });
-    expect(org.aut2.map(t => t.nombre)).toEqual(['OMEGA TITULAR', 'BETA SUPLENTE', 'ZETA SIN POSICION']);
-    expect(org.aut2Grupos.titulares.map(t => t.nomina)).toEqual(['3']);
-    expect(org.aut2Grupos.suplentes.map(t => t.nomina)).toEqual(['2']);
-    expect(org.aut2Grupos.sinPosicion.map(t => t.nomina)).toEqual(['1']);
-    expect(org.aut2[2].posicion).toBeNull();
+    expect(org.aut2.map(t => t.nombre)).toEqual(['OMEGA', 'ALFA', 'ZETA', 'SIN NIVEL', 'SIN PUESTO']);
   });
-  it('en un área, el Aut. 1 titular va antes que su suplente; el solicitante nunca lleva posición', () => {
+  it('ordena igual el Aut. 1 y los solicitantes de cada área; el puestoId de la asignación manda sobre el del padrón', () => {
     const org = construirOrganigrama({
       asignaciones: [
-        asig('5', 'aut1', 'moldes', { nombre: 'A SUPLENTE', posicion: 'suplente' }),
-        asig('6', 'aut1', 'moldes', { nombre: 'B TITULAR', posicion: 'titular' }),
-        asig('7', 'solicitante', 'moldes', { posicion: 'titular' }),
+        asig('1', 'aut1', 'moldes', { nombre: 'B BAJO', puestoId: 'sup' }),
+        asig('2', 'aut1', 'moldes', { nombre: 'C ALTO', puestoId: 'op-dir' }),
+        asig('3', 'solicitante', 'moldes', { nombre: 'A SUP', puestoId: 'sup' }),
+        asig('4', 'solicitante', 'moldes', { nombre: 'Z DIR', puestoId: 'op-dir' }),
+        asig('5', 'solicitante', 'moldes', { nombre: 'M PADRON' }),
       ],
-      areas: [{ id: 'moldes', nombre: 'Moldes', participaTE: true, activa: true }], empleados: emp, ahora: HOY,
+      areas: [{ id: 'moldes', nombre: 'Moldes', participaTE: true, activa: true }],
+      empleados: new Map([['5', { nombre: 'M PADRON', puestoId: 'adm-mgr' }]]), puestos, ahora: HOY,
     });
-    expect(org.columnas[0].aut1.map(t => t.nomina)).toEqual(['6', '5']);
-    expect(org.columnas[0].solicitantes[0].posicion).toBeNull();
+    expect(org.columnas[0].aut1.map(t => t.nomina)).toEqual(['2', '1']);
+    expect(org.columnas[0].solicitantes.map(t => t.nomina)).toEqual(['4', '5', '3']);
   });
-  it('una posición inválida se ignora', () => {
-    const org = construirOrganigrama({ asignaciones: [asig('1', 'aut2', null, { posicion: 'jefe' })], areas: [], empleados: emp, ahora: HOY });
-    expect(org.aut2[0].posicion).toBeNull();
+  it('un nivel que no es entero >= 1 se ignora', () => {
+    const org = construirOrganigrama({
+      asignaciones: [asig('1', 'aut2', null, { nombre: 'A', puestoId: 'x' }), asig('2', 'aut2', null, { nombre: 'B', puestoId: 'y' })],
+      areas: [], empleados: new Map(), puestos: [{ id: 'x', nivelJerarquico: 0 }, { id: 'y', nivelJerarquico: 2.5 }], ahora: HOY,
+    });
+    expect(org.aut2.map(t => t.nivelJerarquico)).toEqual([null, null]);
   });
 });
 
@@ -265,7 +281,7 @@ describe('privacidad del organigrama', () => {
 
 describe('actualizar nombres y puestos de las asignaciones', () => {
   const padron = [
-    { nomina: '1', nombre: 'ACOSTA MARCOS', puesto: 'SUPERVISOR' },
+    { nomina: '1', nombre: 'ACOSTA MARCOS', puesto: 'SUPERVISOR', puestoId: 'supervisor' },
     { nomina: '2', nombre: 'BARRIOS LUIS', puesto: '' },
     { nomina: '3', nombre: 'CARRERA JOEL', puesto: 'OPERADOR' },
   ];
@@ -280,7 +296,8 @@ describe('actualizar nombres y puestos de las asignaciones', () => {
       ['1', 'ACOSTA MARCOS', 'SUPERVISOR'],
       ['2', 'BARRIOS LUIS', 'JEFE DE AREA'],
     ]);
-    expect(plan.cambios[0].cambia).toEqual({ puesto: { antes: '', despues: 'SUPERVISOR' } });
+    expect(plan.cambios[0].cambia).toEqual({ puesto: { antes: '', despues: 'SUPERVISOR' }, puestoId: { antes: '', despues: 'supervisor' } });
+    expect(plan.cambios[0].puestoId).toBe('supervisor');
     expect(plan.cambios[1].cambia).toEqual({ nombre: { antes: 'BARRIOS', despues: 'BARRIOS LUIS' } });
     expect(plan.alDia).toBe(1);
     expect(plan.sinPadron.map(a => a.nomina)).toEqual(['99']);

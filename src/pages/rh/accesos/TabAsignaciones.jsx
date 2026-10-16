@@ -3,16 +3,16 @@
  * y Ver historial. Cada quien solo ve las acciones de los roles que puede dar (admin: todos; RH y Aut. 2: aut1 y solicitante).
  */
 import { useMemo, useState } from 'react';
-import { AlertTriangle, ArrowLeftRight, CalendarPlus, CheckCircle2, History, ListChecks, Loader2, Plus, RefreshCw, Search, ShieldOff } from 'lucide-react';
+import { AlertTriangle, CalendarPlus, CheckCircle2, History, ListChecks, Loader2, Plus, RefreshCw, Search, ShieldOff } from 'lucide-react';
 import Modal from '../../../components/Modal';
 import { useConfirmar } from '../../../hooks/useConfirmar';
 import { useToast } from '../../../hooks/useToast';
 import {
-  ESTADO_LABELS, POSICIONES, POSICION_LABELS, POSICION_OPCIONES, ROLES_OP, ROL_OP_LABELS, admitePosicion, aFecha, aIsoLocal, estadoAsignacion,
+  ESTADO_LABELS, ROLES_OP, ROL_OP_LABELS, aFecha, aIsoLocal, estadoAsignacion,
   formatoFecha, inicioDelDia, finDelDia, planActualizarDatos, rolesAsignables,
 } from '../../../utils/asignaciones';
 import {
-  actualizarDatosAsignaciones, cambiarPosicion, extenderAsignacion, leerHistorialAsignacion, revocarAsignacion,
+  actualizarDatosAsignaciones, extenderAsignacion, leerHistorialAsignacion, revocarAsignacion,
 } from '../../../utils/asignacionesDb';
 import ModalCargaInicial from './ModalCargaInicial';
 import { ESTADO_CLS, inputCls, labelCls, selectCls, btnPrimary, btnSecondary, btnIcon } from './ui';
@@ -30,7 +30,6 @@ export default function TabAsignaciones({ asignaciones, nombresArea, actor, ahor
   const [extender, setExtender] = useState(null);
   const [historial, setHistorial] = useState(null);
   const [cargaInicial, setCargaInicial] = useState(false);
-  const [posicion, setPosicion] = useState(null);
   const [actualizarDatos, setActualizarDatos] = useState(false);
 
   const asignables = rolesAsignables(actor);
@@ -136,11 +135,6 @@ export default function TabAsignaciones({ asignaciones, nombresArea, actor, ahor
                   </td>
                   <td className="px-4 py-2.5 text-[var(--text-main)]">
                     {ROL_OP_LABELS[a.rol]}
-                    {admitePosicion(a.rol) && (
-                      a.posicion
-                        ? <span className="ml-1.5 inline-flex rounded border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--text-secondary)]">{POSICION_LABELS[a.posicion]}</span>
-                        : <span className="ml-1.5 inline-flex rounded border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--status-warning-text)]" title="Falta indicar si es titular o va por ausencia">Sin posición</span>
-                    )}
                   </td>
                   <td className="px-4 py-2.5 text-[var(--text-secondary)]">{a.areaId ? (nombresArea.get(a.areaId) ?? a.areaId) : 'Toda la planta'}</td>
                   <td className="px-4 py-2.5 text-[var(--text-secondary)] whitespace-nowrap">
@@ -154,9 +148,6 @@ export default function TabAsignaciones({ asignaciones, nombresArea, actor, ahor
                     <div className="inline-flex items-center gap-1">
                       {puedeActuar(a) && a.estado !== 'revocada' && (
                         <>
-                          {admitePosicion(a.rol) && (
-                            <button type="button" onClick={() => setPosicion(a)} className={btnIcon} title="Cambiar posición (titular / por ausencia)" aria-label="Cambiar posición"><ArrowLeftRight className="h-3.5 w-3.5" /></button>
-                          )}
                           <button type="button" onClick={() => setExtender(a)} className={btnIcon} title="Extender (cambiar fecha final)" aria-label="Extender"><CalendarPlus className="h-3.5 w-3.5" /></button>
                           <button type="button" onClick={() => revocar(a)} className={btnIcon} title="Revocar" aria-label="Revocar"><ShieldOff className="h-3.5 w-3.5" /></button>
                         </>
@@ -179,61 +170,12 @@ export default function TabAsignaciones({ asignaciones, nombresArea, actor, ahor
         <ModalExtender asignacion={extender} actor={actor} onClose={() => setExtender(null)}
           onGuardado={() => { toast.success('Vigencia actualizada.'); onCambio?.(); }} />
       )}
-      {posicion && (
-        <ModalPosicion asignacion={posicion} actor={actor} onClose={() => setPosicion(null)}
-          onGuardado={() => { toast.success('Posición actualizada.'); onCambio?.(); }} />
-      )}
       {actualizarDatos && (
         <ModalActualizarDatos asignaciones={asignaciones} empleados={empleados} actor={actor} onClose={() => setActualizarDatos(false)}
           onTerminado={(n) => { toast.success(`${n} asignaciones actualizadas.`); onCambio?.(); }} />
       )}
       {historial && <ModalHistorial datos={historial} nombresArea={nombresArea} onClose={() => setHistorial(null)} />}
     </div>
-  );
-}
-
-/** "Cambiar posición": titular o por ausencia (suplente). Lo usan la tabla y el panel de la persona */
-export function ModalPosicion({ asignacion, actor, onClose, onGuardado }) {
-  const [valor, setValor] = useState(asignacion.posicion ?? '');
-  const [error, setError] = useState('');
-  const [guardando, setGuardando] = useState(false);
-
-  const guardar = async (e) => {
-    e.preventDefault();
-    setError('');
-    if (!POSICIONES.includes(valor)) return setError('Elige la posición.');
-    setGuardando(true);
-    try {
-      await cambiarPosicion(actor, asignacion, valor);
-      onGuardado();
-      onClose();
-    } catch (err) { setError('No se pudo guardar: ' + err.message); } finally { setGuardando(false); }
-  };
-
-  return (
-    <Modal isOpen onClose={onClose} title="Cambiar posición" maxWidth="max-w-sm">
-      <form onSubmit={guardar} className="space-y-4">
-        <p className="text-xs text-[var(--text-secondary)]">{asignacion.nombre} · {ROL_OP_LABELS[asignacion.rol]}. Los dos pueden firmar; la posición solo ordena el organigrama.</p>
-        {error && (
-          <div role="alert" className="flex items-start gap-2 rounded-md border border-[var(--status-error-border)] bg-[var(--status-error-bg)] px-3 py-2 text-xs text-[var(--status-error-text)]">
-            <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" /><span>{error}</span>
-          </div>
-        )}
-        <div>
-          <label htmlFor="pos-valor" className={labelCls}>Posición</label>
-          <select id="pos-valor" value={valor} onChange={e => setValor(e.target.value)} className={inputCls}>
-            <option value="">Elige…</option>
-            {POSICIONES.map(p => <option key={p} value={p}>{POSICION_OPCIONES[p]}</option>)}
-          </select>
-        </div>
-        <div className="flex justify-end gap-2 pt-2 border-t border-[var(--border-color)]">
-          <button type="button" onClick={onClose} className={btnSecondary}>Cancelar</button>
-          <button type="submit" disabled={guardando} className={btnPrimary}>
-            {guardando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}Guardar
-          </button>
-        </div>
-      </form>
-    </Modal>
   );
 }
 
@@ -246,7 +188,7 @@ function ModalActualizarDatos({ asignaciones, empleados, actor, onClose, onTermi
   const aplicar = async () => {
     setGuardando(true); setError('');
     try {
-      await actualizarDatosAsignaciones(actor, plan.cambios.map(c => ({ id: c.id, nombre: c.nombre, puesto: c.puesto })));
+      await actualizarDatosAsignaciones(actor, plan.cambios.map(c => ({ id: c.id, nombre: c.nombre, puesto: c.puesto, puestoId: c.puestoId })));
       onTerminado(plan.cambios.length);
       onClose();
     } catch (err) { setError('No se pudo guardar: ' + err.message); } finally { setGuardando(false); }
@@ -256,7 +198,7 @@ function ModalActualizarDatos({ asignaciones, empleados, actor, onClose, onTermi
     <Modal isOpen onClose={() => !guardando && onClose()} title="Actualizar nombres y puestos de las asignaciones" maxWidth="max-w-3xl" preventCloseOnBackdrop={guardando}>
       <div className="space-y-3 text-xs">
         <p className="text-[var(--text-secondary)]">
-          Simulación: aún no se ha cambiado nada. Copia el nombre y el puesto del padrón a cada asignación, para que el organigrama los muestre a quien no puede leer el padrón de otras áreas.
+          Simulación: aún no se ha cambiado nada. Copia el nombre, el puesto y su vínculo con el catálogo de puestos (puestoId) del padrón a cada asignación, para que el organigrama los muestre a quien no puede leer el padrón de otras áreas.
         </p>
         <p className="font-semibold text-[var(--text-main)]">
           {plan.cambios.length} por actualizar · {plan.alDia} ya están al día{plan.sinPadron.length ? ` · ${plan.sinPadron.length} no están en el padrón (no se tocan)` : ''}
@@ -274,7 +216,7 @@ function ModalActualizarDatos({ asignaciones, empleados, actor, onClose, onTermi
                     <td className="px-3 py-1.5 font-mono">{c.asignacion.nomina}</td>
                     <td className="px-3 py-1.5">{ROL_OP_LABELS[c.asignacion.rol]}</td>
                     <td className="px-3 py-1.5">{c.cambia.nombre ? <>{c.cambia.nombre.antes || '—'} → <b>{c.cambia.nombre.despues}</b></> : <span className="text-[var(--text-muted)]">sin cambio</span>}</td>
-                    <td className="px-3 py-1.5">{c.cambia.puesto ? <>{c.cambia.puesto.antes || '—'} → <b>{c.cambia.puesto.despues}</b></> : <span className="text-[var(--text-muted)]">sin cambio</span>}</td>
+                    <td className="px-3 py-1.5">{c.cambia.puesto ? <>{c.cambia.puesto.antes || '—'} → <b>{c.cambia.puesto.despues}</b></> : c.cambia.puestoId ? <span className="text-[var(--text-secondary)]">se vincula al puesto del catálogo</span> : <span className="text-[var(--text-muted)]">sin cambio</span>}</td>
                   </tr>
                 ))}
               </tbody>

@@ -251,44 +251,31 @@ describe('bitácora de asignaciones', () => {
   });
 });
 
-describe('posición (titular / por ausencia) y puesto guardado', () => {
+describe('puesto y puestoId guardados en la asignación', () => {
   const aut2Id = idDe(N.aut2, 'aut2');
   const aut1Id = idDe(N.aut1P, 'aut1', 'produccion');
   const solId = idDe(N.solP, 'solicitante', 'produccion');
 
-  it('al asignar, el admin puede dar posición y puesto a una Aut. 2; RH y la Aut. 2, a un Aut. 1', async () => {
-    await assertSucceeds(asignar('admin', N.nuevo, 'aut2', null, { posicion: 'suplente', puesto: 'GERENTE' }));
-    await assertSucceeds(asignar('rh', N.nuevo, 'aut1', 'calidad', { posicion: 'titular', puesto: 'SUPERVISOR' }));
-    await assertSucceeds(asignar('aut2', N.otro, 'aut1', 'calidad', { posicion: 'suplente' }));
+  it('al asignar se guardan puesto y puestoId; son opcionales y deben ser texto', async () => {
+    await assertSucceeds(asignar('admin', N.nuevo, 'aut2', null, { puesto: 'GERENTE', puestoId: 'gerente' }));
+    await assertSucceeds(asignar('rh', N.nuevo, 'aut1', 'calidad', { puesto: 'SUPERVISOR' }));
+    await assertSucceeds(asignar('aut2', N.otro, 'aut1', 'calidad'));
+    await assertFails(asignar('rh', N.nuevo, 'solicitante', 'calidad', { puestoId: 12 }));
   });
-  it('la posición solo puede ser titular o suplente, y un solicitante no la lleva', async () => {
-    await assertFails(asignar('admin', N.nuevo, 'aut2', null, { posicion: 'jefe' }));
-    await assertFails(asignar('rh', N.nuevo, 'solicitante', 'calidad', { posicion: 'titular' }));
-    await assertSucceeds(asignar('rh', N.nuevo, 'solicitante', 'calidad', { puesto: 'OPERADOR' }));
-    await assertFails(asignar('rh', N.otro, 'solicitante', 'calidad', { puesto: 12 }));
+  it('el campo posicion ya no existe: se rechaza al asignar', async () => {
+    await assertFails(asignar('admin', N.nuevo, 'aut2', null, { posicion: 'titular' }));
   });
-  it('las asignaciones que ya existen (sin posición ni puesto) se pueden revocar y extender como antes', async () => {
+  it('las asignaciones que ya existen (sin puesto ni puestoId) se pueden revocar y extender como antes', async () => {
     await assertSucceeds(updateDoc(doc(dbDe('rh'), 'asignaciones', solId), { hasta: en(dia), motivo: 'x' }));
     await assertSucceeds(updateDoc(doc(dbDe('aut2'), 'asignaciones', aut1Id), { activo: false }));
     await assertSucceeds(updateDoc(doc(dbDe('admin'), 'asignaciones', aut2Id), { activo: false }));
   });
-  it('cambiar posición: el admin la de una Aut. 2; RH y la Aut. 2, la de un Aut. 1; nadie más', async () => {
-    await assertSucceeds(updateDoc(doc(dbDe('admin'), 'asignaciones', aut2Id), { posicion: 'titular' }));
-    await assertSucceeds(updateDoc(doc(dbDe('admin'), 'asignaciones', aut2Id), { posicion: 'suplente' }));
-    await assertFails(updateDoc(doc(dbDe('rh'), 'asignaciones', aut2Id), { posicion: 'titular' }));
-    await assertFails(updateDoc(doc(dbDe('aut2'), 'asignaciones', aut2Id), { posicion: 'titular' })); // ni la propia
-    await assertSucceeds(updateDoc(doc(dbDe('rh'), 'asignaciones', aut1Id), { posicion: 'titular' }));
-    await assertSucceeds(updateDoc(doc(dbDe('aut2'), 'asignaciones', aut1Id), { posicion: 'suplente' }));
-    for (const uid of ['aut1P', 'solP', 'ajeno']) await assertFails(updateDoc(doc(dbDe(uid), 'asignaciones', aut1Id), { posicion: 'titular' }));
-  });
-  it('la posición no admite otro valor ni se pone a un solicitante al cambiarla', async () => {
-    await assertFails(updateDoc(doc(dbDe('admin'), 'asignaciones', aut2Id), { posicion: 'jefe' }));
-    await assertFails(updateDoc(doc(dbDe('rh'), 'asignaciones', solId), { posicion: 'titular' }));
-  });
-  it('copiar nombre y puesto del padrón: RH y admin, solo esos dos campos y de cualquier rol (también Aut. 2)', async () => {
+  it('copiar nombre, puesto y puestoId del padrón: RH y admin, solo esos campos y de cualquier rol (también Aut. 2)', async () => {
     await assertSucceeds(updateDoc(doc(dbDe('admin'), 'asignaciones', aut2Id), { nombre: 'MALDONADO SALVADOR', puesto: 'DIRECTOR' }));
     await assertSucceeds(updateDoc(doc(dbDe('rh'), 'asignaciones', aut2Id), { puesto: 'DIRECTOR GENERAL' }));
-    await assertSucceeds(updateDoc(doc(dbDe('rh'), 'asignaciones', solId), { nombre: 'X', puesto: 'OPERADOR' }));
+    await assertSucceeds(updateDoc(doc(dbDe('rh'), 'asignaciones', solId), { nombre: 'X', puesto: 'OPERADOR', puestoId: 'operador' }));
+    await assertFails(updateDoc(doc(dbDe('rh'), 'asignaciones', solId), { puestoId: 5 }));
+    await assertFails(updateDoc(doc(dbDe('aut2'), 'asignaciones', solId), { puestoId: 'x' }));
     await assertFails(updateDoc(doc(dbDe('rh'), 'asignaciones', solId), { puesto: 'OTRO PUESTO', activo: false })); // más campos: no es la copia
     await assertFails(updateDoc(doc(dbDe('rh'), 'asignaciones', solId), { puesto: 99 }));
     for (const uid of ['aut2', 'aut1P', 'solP', 'ajeno']) await assertFails(updateDoc(doc(dbDe(uid), 'asignaciones', solId), { puesto: 'HACKER' }));

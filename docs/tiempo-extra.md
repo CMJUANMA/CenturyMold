@@ -28,8 +28,8 @@ Solicitante del área ──captura──► pendiente_aut1 ──Aut. 1──�
 ### `asignaciones/{nomina}_{rol}_{areaId|planta}`
 
 ```
-nomina, nombre, puesto, rol ('aut2' | 'aut1' | 'solicitante'), areaId (null en aut2),
-posicion ('titular' | 'suplente'; opcional, solo aut2 y aut1), desde, hasta (null = permanente; se guarda como el fin del día), motivo, activo,
+nomina, nombre, puesto, puestoId, rol ('aut2' | 'aut1' | 'solicitante'), areaId (null en aut2),
+desde, hasta (null = permanente; se guarda como el fin del día), motivo, activo,
 asignadoPor { uid, nombre }, fechaAsignacion (serverTimestamp)
 ```
 
