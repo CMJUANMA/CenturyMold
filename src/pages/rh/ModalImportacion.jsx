@@ -509,7 +509,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
               <label key={op.valor}
                 className={`flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2.5 text-xs transition-colors ${modo === op.valor ? 'border-[var(--text-main)] bg-[var(--bg-surface-hover)]' : 'border-[var(--border-color)] hover:bg-[var(--bg-surface-secondary)]'}`}>
                 <input type="radio" name="modo-importacion" value={op.valor} checked={modo === op.valor}
-                  onChange={() => cambiarModo(op.valor)} className="mt-0.5 accent-[var(--cm-red)]" />
+                  onChange={() => cambiarModo(op.valor)} className="mt-0.5 accent-[var(--accent)]" />
                 <span>
                   <span className="block font-semibold text-[var(--text-main)]">{op.label}</span>
                   <span className="block text-[var(--text-secondary)]">{op.ayuda}</span>
@@ -724,7 +724,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                       <li key={x.key} className="px-3 py-2 text-xs hover:bg-[var(--bg-surface-secondary)]">
                         <label className="flex cursor-pointer items-start gap-2.5">
                           <input type="checkbox" checked={!desmarcadas.has(x.key)} onChange={() => toggleBaja(x.key)}
-                            className="mt-0.5 accent-[var(--cm-red)]" />
+                            className="mt-0.5 accent-[var(--accent)]" />
                           <span className="space-y-0.5">
                             <span className="flex flex-wrap items-center gap-2">
                               {esDir && <Insignia>{x.entidad}</Insignia>}

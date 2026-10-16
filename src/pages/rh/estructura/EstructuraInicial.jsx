@@ -99,7 +99,7 @@ export default function EstructuraInicial({ areas, puestos, usuario, toast, onCl
             {editables.length > 0 && (
               <>
                 <label className="flex cursor-pointer items-center gap-2 font-semibold">
-                  <input type="checkbox" checked={aplicarEquiv} onChange={e => setAplicarEquiv(e.target.checked)} className="accent-[var(--cm-red)]" />
+                  <input type="checkbox" checked={aplicarEquiv} onChange={e => setAplicarEquiv(e.target.checked)} className="accent-[var(--accent)]" />
                   Actualizar los areaIds de {editables.length} usuario(s) con estas equivalencias
                 </label>
                 <ul className="max-h-32 divide-y divide-[var(--border-subtle)] overflow-y-auto rounded border border-[var(--border-subtle)]">

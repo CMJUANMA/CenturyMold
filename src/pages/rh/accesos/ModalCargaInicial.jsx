@@ -86,7 +86,7 @@ function Contenido({ actor, empleados, usuarios, asignaciones, nombresArea, onCl
                     <td className="px-3 py-2">
                       {f.seleccionable && (
                         <input type="checkbox" checked={marcadas.has(f.id)} onChange={() => alternar(f.id)}
-                          aria-label={`Crear ${ROL_OP_CORTOS[f.rol]} ${f.nomina}`} className="h-3.5 w-3.5 accent-[var(--cm-red)]" />
+                          aria-label={`Crear ${ROL_OP_CORTOS[f.rol]} ${f.nomina}`} className="h-3.5 w-3.5 accent-[var(--accent)]" />
                       )}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">{ROL_OP_CORTOS[f.rol]}</td>

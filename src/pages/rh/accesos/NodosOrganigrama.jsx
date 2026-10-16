@@ -82,7 +82,7 @@ export function TarjetaPersona({ t, formato, grande = false, tamano = grande ? '
   }
   return (
     <button type="button" data-org={t.id} onClick={() => onAbrir(t)} aria-label={`${formato.nombre(t.nombre)}, ${n.etiqueta}. Ver detalle`}
-      className={`group cursor-pointer transition-all hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cm-red)] ${cls}`}
+      className={`group cursor-pointer transition-all hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)] ${cls}`}
       style={{ borderTop: `3px solid ${n.acento}` }}>
       {contenido}
     </button>
@@ -94,7 +94,7 @@ export function FilaSolicitante({ t, formato, estado, onAbrir, conTick = true })
   const n = NIVELES.solicitante;
   return (
     <button type="button" data-org={t.id} onClick={() => onAbrir(t)} aria-label={`${formato.nombre(t.nombre)}, solicitante. Ver detalle`}
-      className={`relative flex w-full cursor-pointer items-center gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1 text-left hover:border-[var(--border-color)] hover:bg-[var(--bg-surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cm-red)] ${claseEstado({ ...estado, t })}`}
+      className={`relative flex w-full cursor-pointer items-center gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1 text-left hover:border-[var(--border-color)] hover:bg-[var(--bg-surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)] ${claseEstado({ ...estado, t })}`}
       style={{ borderLeft: `3px solid ${n.acento}` }}>
       {conTick && <span aria-hidden="true" className="absolute -left-3 top-1/2 h-px w-3" style={{ background: COLOR_LINEA }} />}
       <Avatar iniciales={formato.iniciales(t.nombre)} rol="solicitante" tamano={22} />

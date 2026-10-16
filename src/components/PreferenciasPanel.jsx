@@ -1,11 +1,11 @@
 /**
  * PreferenciasPanel.jsx — Cómo quiere ver la aplicación cada persona (se muestra dentro de "Mi cuenta"):
  *   Mostrar ayudas (sí/no) · Tamaño de letra (Normal/Grande) · Tema (Claro/Oscuro/Automático).
- * Se guarda en usuarios/{uid}.preferencias en cuanto se cambia, y se aplica al momento. Botones grandes, pensados para quien no está
- * acostumbrado a la tecnología.
+ * Se guarda en usuarios/{uid}.preferencias en cuanto se cambia, y se aplica al momento. Opciones grandes, pensadas para quien no está
+ * acostumbrado a la tecnología. La opción elegida se marca con borde fuerte y un check (no con rojo).
  */
 import { useState } from 'react';
-import { CircleHelp, Monitor, Moon, Sun, Type } from 'lucide-react';
+import { Check, CircleHelp, Monitor, Moon, Sun, Type } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 import { usePreferencias } from '../hooks/usePreferencias';
 import { useTheme } from '../context/ThemeContext';
@@ -13,26 +13,24 @@ import { useTheme } from '../context/ThemeContext';
 function Opcion({ activa, onClick, icono: Icono, titulo, detalle }) {
   return (
     <button type="button" onClick={onClick} aria-pressed={activa}
-      className={`flex w-full cursor-pointer items-center gap-3 rounded-lg border-2 p-4 text-left transition-colors ${activa
-        ? 'border-[var(--cm-red)] bg-[var(--cm-red-light)] text-[var(--text-main)]'
-        : 'border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-main)] hover:border-[var(--text-muted)]'}`}>
-      {Icono && <Icono className={`h-6 w-6 shrink-0 ${activa ? 'text-[var(--accent-text)]' : 'text-[var(--text-secondary)]'}`} />}
+      className={`flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-lg border p-4 text-left text-[var(--text-main)] transition-colors duration-150 ${activa
+        ? 'border-[var(--text-main)] bg-[var(--bg-surface-hover)]'
+        : 'border-[var(--border-color)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)]'}`}>
+      {Icono && <Icono className="h-5 w-5 shrink-0 text-[var(--text-secondary)]" aria-hidden="true" />}
       <span className="min-w-0">
-        <span className="block text-sm font-semibold">{titulo}</span>
+        <span className="block text-sm font-medium">{titulo}</span>
         {detalle && <span className="block text-xs text-[var(--text-secondary)]">{detalle}</span>}
       </span>
-      <span className={`ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${activa ? 'border-[var(--cm-red)]' : 'border-[var(--border-color)]'}`}>
-        {activa && <span className="h-2.5 w-2.5 rounded-full bg-[var(--cm-red)]" />}
-      </span>
+      {activa && <Check className="ml-auto h-4 w-4 shrink-0 text-[var(--text-main)]" aria-hidden="true" />}
     </button>
   );
 }
 
 function Seccion({ titulo, ayuda, children }) {
   return (
-    <section className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5 shadow-sm">
-      <h2 className="text-sm font-semibold text-[var(--text-main)]">{titulo}</h2>
-      {ayuda && <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{ayuda}</p>}
+    <section className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5">
+      <h2 className="text-lg font-semibold text-[var(--text-main)]">{titulo}</h2>
+      {ayuda && <p className="mt-0.5 text-sm text-[var(--text-secondary)]">{ayuda}</p>}
       <div className="mt-4 grid gap-3 sm:grid-cols-2">{children}</div>
     </section>
   );
@@ -52,7 +50,7 @@ export default function PreferenciasPanel() {
 
   return (
     <div className="space-y-5">
-      <p className="text-xs text-[var(--text-secondary)]">Elige cómo quieres ver el sistema. Los cambios se guardan solos{guardando ? ' (guardando…)' : ''}.</p>
+      <p className="text-sm text-[var(--text-secondary)]" aria-live="polite">Elige cómo quieres ver el sistema. Los cambios se guardan solos{guardando ? ' (guardando…)' : ''}.</p>
 
       <Seccion titulo="Mostrar ayudas" ayuda="Explicaciones cortas debajo de los campos, el signo de interrogación (?) junto a los títulos y el recorrido guiado.">
         <Opcion activa={preferencias.ayudas} icono={CircleHelp} titulo="Sí, mostrar ayudas" detalle="Recomendado si estás empezando" onClick={() => cambiar({ ayudas: true })} />

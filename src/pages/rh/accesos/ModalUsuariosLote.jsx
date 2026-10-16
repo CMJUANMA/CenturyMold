@@ -126,7 +126,7 @@ function Contenido({ actor, usuarios, empleados, asignaciones, nombresArea, ahor
                 {filas.map(f => (
                   <tr key={f.nomina}>
                     <td className="px-3 py-2"><input type="checkbox" checked={marcadas.has(f.nomina)} onChange={() => alternar(f.nomina)}
-                      aria-label={`Crear cuenta de ${f.nombre}`} className="h-3.5 w-3.5 accent-[var(--cm-red)]" /></td>
+                      aria-label={`Crear cuenta de ${f.nombre}`} className="h-3.5 w-3.5 accent-[var(--accent)]" /></td>
                     <td className="px-3 py-2 font-mono font-semibold">{f.nomina}</td>
                     <td className="px-3 py-2">{f.nombre}</td>
                     <td className="px-3 py-2 text-[var(--text-secondary)]">{f.puesto || '—'}</td>
@@ -167,7 +167,7 @@ function Contenido({ actor, usuarios, empleados, asignaciones, nombresArea, ahor
             <Loader2 className="h-4 w-4 animate-spin" />Creando {Math.min(avance.hechas + 1, avance.total)} de {avance.total}…
           </p>
           <div className="h-2 overflow-hidden rounded-full bg-[var(--bg-surface-secondary)]">
-            <div className="h-full bg-[var(--cm-red)] transition-all" style={{ width: `${avance.total ? (avance.hechas / avance.total) * 100 : 0}%` }} />
+            <div className="h-full bg-[var(--accent)] transition-all" style={{ width: `${avance.total ? (avance.hechas / avance.total) * 100 : 0}%` }} />
           </div>
           <p className="text-xs text-[var(--text-muted)]">No cierres esta ventana: las contraseñas solo existen aquí.</p>
         </div>

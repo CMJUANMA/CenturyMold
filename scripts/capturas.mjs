@@ -38,6 +38,8 @@ const PANTALLAS = [
   ['estructura-puestos', '/personal/estructura', true, { texto: 'Puestos' }],
   ['estructura-turnos', '/personal/estructura', true, { texto: 'Turnos' }],
   ['asignar-rol', '/personal/accesos/asignaciones', true, { id: 'btn-asignar-rol' }],
+  ['mi-cuenta-password', '/mi-cuenta', true, { id: 'btn-abrir-cambio-password' }],
+  ['ayuda-pantalla', '/tiempo-extra/consulta', true, { selector: '[aria-label="Ayuda de esta pantalla"]' }],
   ['catalogos-puntos', '/transporte/catalogos', true, { texto: 'Puntos de reunión' }],
 ];
 const VISTAS = [
@@ -99,8 +101,9 @@ for (const [nombre, ruta, conSesion, accion] of PANTALLAS) {
   for (const [vista, v] of VISTAS) {
     for (const tema of TEMAS) {
       await preparar(v, tema);
-      await ir(ruta);
+      await ir(ruta, accion ? 3500 : 2200);
       if (accion?.id) { await js(`document.getElementById('${accion.id}')?.click()`); await esperar(700); }
+      if (accion?.selector) { await js(`document.querySelector('${accion.selector}')?.click()`); await esperar(700); }
       if (accion?.texto) { await js(`[...document.querySelectorAll('button, [role=tab], a')].find(e => e.textContent.trim().startsWith('${accion.texto}'))?.click()`); await esperar(700); }
       await capturar(nombre, vista, tema);
     }

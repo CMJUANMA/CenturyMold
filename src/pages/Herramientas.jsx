@@ -4,15 +4,14 @@
  */
 import RevisarColecciones from './rh/RevisarColecciones';
 import LimpiezaEstructura from './rh/LimpiezaEstructura';
+import Aviso from '../components/ui/Aviso';
+import EncabezadoPagina from '../components/ui/EncabezadoPagina';
 
 export default function Herramientas() {
   return (
-    <div className="space-y-6">
-      <header className="border-b border-[var(--border-color)] pb-4">
-        <div className="text-xs font-semibold text-[var(--text-muted)]">Administrador</div>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[var(--text-main)]">Diagnóstico y limpieza</h1>
-        <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Herramientas que se usan pocas veces. Léelas con calma antes de ejecutar algo: algunas escriben en la base de datos.</p>
-      </header>
+    <div className="space-y-8">
+      <EncabezadoPagina antetitulo="Administrador" titulo="Diagnóstico y limpieza" descripcion="Herramientas que se usan pocas veces." />
+      <Aviso tono="aviso">Léelas con calma antes de ejecutar algo: algunas escriben en la base de datos.</Aviso>
       <RevisarColecciones />
       <LimpiezaEstructura />
     </div>

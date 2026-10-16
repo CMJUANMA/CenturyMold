@@ -7,10 +7,11 @@
  */
 import { useId, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Undo2, Wand2 } from 'lucide-react';
+import { claseBoton } from './ui/Boton';
 
 const btn = 'inline-flex items-center gap-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
-const btnRojo = 'inline-flex items-center gap-1 rounded-md bg-[var(--cm-red)] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[var(--cm-red-hover)] active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
-const campo = 'rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]';
+const btnRojo = claseBoton('contorno', 'sm');
+const campo = 'rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--accent-text)]';
 
 const quienes = (g) => {
   const [primero, ...resto] = g.empleados;

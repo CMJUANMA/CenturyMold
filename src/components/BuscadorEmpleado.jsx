@@ -10,6 +10,7 @@
  *   etiquetaSugeridos: título de la lista de sugeridos (campo vacío)
  */
 import { useMemo, useState } from 'react';
+import { CONTROL, CONTROL_OK } from './ui/estilos';
 import { Search } from 'lucide-react';
 import { esActivo } from '../utils/activo';
 
@@ -49,7 +50,7 @@ export default function BuscadorEmpleado({
         onChange={e => { setTexto(e.target.value); setAbierto(true); }}
         onFocus={() => setAbierto(true)}
         onBlur={() => setTimeout(() => setAbierto(false), 150)}
-        className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] py-1.5 pl-7 pr-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]" />
+        className={`${CONTROL} ${CONTROL_OK} pl-8`} />
       {abierto && hayLista && (
         <ul className="absolute left-0 right-0 top-full z-30 mt-1 max-h-60 overflow-y-auto rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] shadow-lg">
           {!q && sugeridos && resultados.length > 0 && (

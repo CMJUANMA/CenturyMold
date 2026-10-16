@@ -192,7 +192,7 @@ export default function TabPuestos({ areas, puestos, empleados, usuario, toast, 
                   <input type="number" min={1} step={1} inputMode="numeric" defaultValue={nivelJerarquicoValido(p.nivelJerarquico) ?? ''}
                     key={`${p.id}-${p.nivelJerarquico ?? ''}`} aria-label={`Nivel de ${p.nombre}`} placeholder="—"
                     onBlur={e => guardarNivel(p, e.target.value)} onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
-                    className="w-16 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1 text-xs tabular-nums outline-none focus:border-[var(--cm-red)]" />
+                    className="w-16 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1 text-xs tabular-nums outline-none focus:border-[var(--accent-text)]" />
                 </td>
                 <td className="px-4 py-2.5">
                   {(p.alias ?? []).length === 0 ? <span className="text-[var(--text-muted)]">—</span> : (

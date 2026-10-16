@@ -1,35 +1,16 @@
 /**
- * Spinner.jsx - Indicador de carga corporativo
+ * Spinner.jsx — Carga de pantalla completa o de página. Conserva el nombre por compatibilidad con las rutas protegidas, pero ya no gira:
+ * muestra la forma de una página (encabezado + bloques) con el esqueleto del sistema de diseño. Con prefers-reduced-motion queda quieto.
  */
-export default function Spinner({ fullScreen = false, size = 'md', texto = 'Cargando...' }) {
-  const sizes = {
-    sm: 'h-4 w-4 border-2',
-    md: 'h-8 w-8 border-2',
-    lg: 'h-12 w-12 border-3',
-  };
+import { EsqueletoPagina } from './ui/Esqueleto';
 
-  const spinner = (
-    <div className="flex flex-col items-center justify-center gap-3">
-      <div
-        className={`animate-spin rounded-full border-solid border-[var(--cm-red)] border-t-transparent ${sizes[size]}`}
-        role="status"
-        aria-label="Cargando"
-      />
-      {texto && (
-        <p className="text-xs font-medium text-[var(--text-secondary)]">
-          {texto}
-        </p>
-      )}
-    </div>
-  );
-
+export default function Spinner({ fullScreen = false }) {
   if (fullScreen) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-[var(--bg-app)]">
-        {spinner}
+      <div className="min-h-screen w-full bg-[var(--bg-app)] px-4 py-10">
+        <div className="mx-auto max-w-3xl"><EsqueletoPagina /></div>
       </div>
     );
   }
-
-  return <div className="flex items-center justify-center py-10">{spinner}</div>;
+  return <div className="py-6"><EsqueletoPagina /></div>;
 }

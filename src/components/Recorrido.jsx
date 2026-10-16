@@ -4,6 +4,7 @@
  *   <Recorrido pasos={[{ selector, titulo, texto }]} onTerminar={() => …} />
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import Boton from './ui/Boton';
 
 const ANCHO_GLOBO = 320;
 const MARGEN = 12;
@@ -60,16 +61,15 @@ export default function Recorrido({ pasos, onTerminar }) {
   return (
     <div className="fixed inset-0 z-[200]" role="dialog" aria-modal="true" aria-label="Recorrido guiado">
       {rect
-        ? <div className="pointer-events-none fixed rounded-lg ring-2 ring-[var(--cm-red)] transition-all" style={{ top: rect.top - 4, left: rect.left - 4, width: rect.width + 8, height: rect.height + 8, boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)' }} />
+        ? <div className="pointer-events-none fixed rounded-lg ring-2 ring-white/90 transition-all" style={{ top: rect.top - 4, left: rect.left - 4, width: rect.width + 8, height: rect.height + 8, boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)' }} />
         : <div className="fixed inset-0 bg-black/55" />}
-      <div ref={globoRef} className="fixed rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 shadow-2xl" style={{ top, left, width: ancho }}>
+      <div ref={globoRef} className="fixed rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 shadow-md" style={{ top, left, width: ancho }}>
         <p className="text-xs font-semibold text-[var(--text-muted)]">Paso {indice + 1} de {pasos.length}</p>
-        <h3 className="mt-1 text-sm font-semibold text-[var(--text-main)]">{paso.titulo}</h3>
-        <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">{paso.texto}</p>
+        <h3 className="mt-1 text-base font-semibold text-[var(--text-main)]">{paso.titulo}</h3>
+        <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">{paso.texto}</p>
         <div className="mt-3 flex items-center justify-between gap-2">
-          <button type="button" onClick={() => onTerminar?.()} className="cursor-pointer rounded-md px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]">Saltar</button>
-          <button type="button" autoFocus onClick={() => (ultimo ? onTerminar?.() : setIndice(i => i + 1))}
-            className="cursor-pointer rounded-md bg-[var(--cm-red)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--cm-red-hover)]">{ultimo ? 'Entendido' : 'Siguiente'}</button>
+          <Boton variante="fantasma" onClick={() => onTerminar?.()}>Saltar</Boton>
+          <Boton variante="primario" autoFocus onClick={() => (ultimo ? onTerminar?.() : setIndice(i => i + 1))}>{ultimo ? 'Entendido' : 'Siguiente'}</Boton>
         </div>
       </div>
     </div>

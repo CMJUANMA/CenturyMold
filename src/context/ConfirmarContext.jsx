@@ -4,10 +4,10 @@
  */
 import { useCallback, useRef, useState } from 'react';
 import Modal from '../components/Modal';
+import Boton from '../components/ui/Boton';
+import { AreaTexto, Campo, Entrada } from '../components/ui/Campo';
 
 import { ConfirmarContext } from './confirmarStore';
-
-const btnBase = 'rounded-md px-4 py-2 text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
 
 export function ConfirmarProvider({ children }) {
   const [estado, setEstado] = useState(null); // { opciones }
@@ -46,29 +46,16 @@ export function ConfirmarProvider({ children }) {
           <form onSubmit={(e) => { e.preventDefault(); if (valido) cerrar(true); }} className="space-y-4">
             {o.mensaje && <p className="whitespace-pre-line text-sm text-[var(--text-secondary)]">{o.mensaje}</p>}
             {campo && (
-              <div>
-                {campo.etiqueta && <label className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">{campo.etiqueta}</label>}
-                {campo.multilinea ? (
-                  <textarea autoFocus rows={3} value={texto} onChange={e => setTexto(e.target.value)} placeholder={campo.placeholder}
-                    className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]" />
-                ) : (
-                  <input autoFocus type="text" value={texto} onChange={e => setTexto(e.target.value)} placeholder={campo.placeholder}
-                    className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]" />
-                )}
-                {minLength > 1 && (
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">Mínimo {minLength} caracteres ({texto.trim().length}/{minLength}).</p>
-                )}
-              </div>
+              <Campo etiqueta={campo.etiqueta} ayuda={minLength > 1 ? `Mínimo ${minLength} caracteres (${texto.trim().length}/${minLength}).` : undefined}>
+                {campo.multilinea
+                  ? <AreaTexto autoFocus rows={3} value={texto} onChange={e => setTexto(e.target.value)} placeholder={campo.placeholder} />
+                  : <Entrada autoFocus type="text" value={texto} onChange={e => setTexto(e.target.value)} placeholder={campo.placeholder} />}
+              </Campo>
             )}
-            <div className="flex justify-end gap-2 border-t border-[var(--border-color)] pt-3">
-              <button type="button" onClick={() => cerrar(false)}
-                className={`${btnBase} border border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]`}>
-                {o.textoCancelar ?? 'Cancelar'}
-              </button>
-              <button type="submit" disabled={!valido}
-                className={`${btnBase} text-white ${o.peligroso ? 'bg-[var(--status-error-text)] hover:opacity-90' : 'bg-[var(--cm-red)] hover:bg-[var(--cm-red-hover)]'}`}>
-                {o.textoConfirmar ?? 'Confirmar'}
-              </button>
+            <div className="flex flex-col-reverse gap-2 border-t border-[var(--border-color)] pt-4 sm:flex-row sm:justify-end">
+              <Boton onClick={() => cerrar(false)}>{o.textoCancelar ?? 'Cancelar'}</Boton>
+              {/* Una acción destructiva se confirma en contorno de error; solo lo demás usa el botón principal */}
+              <Boton type="submit" variante={o.peligroso ? 'peligro' : 'primario'} disabled={!valido}>{o.textoConfirmar ?? 'Confirmar'}</Boton>
             </div>
           </form>
         )}

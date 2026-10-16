@@ -132,7 +132,7 @@ export default function TabAreas({ areas, puestos, empleados, usuario, toast, gu
             <input value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} className={inputCls} autoFocus />
           </div>
           <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold">
-            <input type="checkbox" checked={form.participaTE} onChange={e => setForm(f => ({ ...f, participaTE: e.target.checked }))} className="accent-[var(--cm-red)]" />
+            <input type="checkbox" checked={form.participaTE} onChange={e => setForm(f => ({ ...f, participaTE: e.target.checked }))} className="accent-[var(--accent)]" />
             Participa en tiempo extra
           </label>
           <div>

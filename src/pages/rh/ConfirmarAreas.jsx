@@ -11,10 +11,11 @@ import {
   FILTROS_AREA, GRUPO_SIN_AREA, impactoPuesto, motivoExcepcionPorDefecto, resumenLista,
 } from '../../utils/areasImportacion';
 import { inputCls } from './estructura/ui';
+import { claseBoton } from '../../components/ui/Boton';
 
 const btn = 'inline-flex items-center gap-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
-const btnRojo = 'inline-flex items-center gap-1 rounded-md bg-[var(--cm-red)] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[var(--cm-red-hover)] active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
-const campo = 'rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]';
+const btnRojo = claseBoton('primario', 'sm');
+const campo = 'rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--accent-text)]';
 const insignia = 'inline-flex items-center rounded border px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap';
 const TONO = {
   nuevo: 'border-[var(--status-success-border)] bg-[var(--status-success-bg)] text-[var(--status-success-text)]',
@@ -49,8 +50,8 @@ function DialogoCambio({ plan, dialogo, areas, empleadosBase, onCancelar, onApli
           {item.puestoNombre} · <span className="font-semibold">{nombreArea(item.areaId) || 'Sin área'}</span> → <span className="font-semibold text-[var(--text-main)]">{nombreArea(areaId)}</span>
         </p>
 
-        <label className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 ${modo === 'persona' ? 'border-[var(--cm-red)] bg-[var(--cm-red-light)]' : 'border-[var(--border-color)]'}`}>
-          <input type="radio" name="modo-cambio" checked={modo === 'persona'} onChange={() => setModo('persona')} className="mt-0.5 accent-[var(--cm-red)]" />
+        <label className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 ${modo === 'persona' ? 'border-[var(--text-main)] bg-[var(--bg-surface-hover)]' : 'border-[var(--border-color)]'}`}>
+          <input type="radio" name="modo-cambio" checked={modo === 'persona'} onChange={() => setModo('persona')} className="mt-0.5 accent-[var(--accent)]" />
           <span className="space-y-1.5">
             <span className="block font-semibold text-[var(--text-main)]">Solo esta persona</span>
             {vuelveAlPuesto
@@ -68,8 +69,8 @@ function DialogoCambio({ plan, dialogo, areas, empleadosBase, onCancelar, onApli
         </label>
 
         {puedePuesto && (
-          <label className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 ${modo === 'puesto' ? 'border-[var(--cm-red)] bg-[var(--cm-red-light)]' : 'border-[var(--border-color)]'}`}>
-            <input type="radio" name="modo-cambio" checked={modo === 'puesto'} onChange={() => setModo('puesto')} className="mt-0.5 accent-[var(--cm-red)]" />
+          <label className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 ${modo === 'puesto' ? 'border-[var(--text-main)] bg-[var(--bg-surface-hover)]' : 'border-[var(--border-color)]'}`}>
+            <input type="radio" name="modo-cambio" checked={modo === 'puesto'} onChange={() => setModo('puesto')} className="mt-0.5 accent-[var(--accent)]" />
             <span className="space-y-1">
               <span className="block font-semibold text-[var(--text-main)]">Todo el puesto {item.puestoNombre}</span>
               <span className="block text-[var(--text-secondary)]">
@@ -193,7 +194,7 @@ export default function ConfirmarAreas({
         <div className="flex flex-wrap gap-1" role="group" aria-label="Filtrar por estado">
           {FILTROS.map(([id, label]) => (
             <button key={id} type="button" onClick={() => setFiltro(id)} aria-pressed={filtro === id}
-              className={`rounded-md border px-2.5 py-1 text-xs font-semibold cursor-pointer ${filtro === id ? 'border-[var(--cm-red)] bg-[var(--cm-red-light)] text-[var(--text-main)]' : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-surface-secondary)]'}`}>
+              className={`rounded-md border px-2.5 py-1 text-xs font-semibold cursor-pointer ${filtro === id ? 'border-[var(--text-main)] bg-[var(--bg-surface-hover)] text-[var(--text-main)]' : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-surface-secondary)]'}`}>
               {label}
             </button>
           ))}
@@ -217,7 +218,7 @@ export default function ConfirmarAreas({
                   </span>
                   {ok && <span className={`${insignia} ${TONO.nuevo}`}>Confirmada</span>}
                 </button>
-                <button type="button" className={ok ? btn : btnRojo} disabled={bloqueado || ok} onClick={() => onConfirmar([{ id: g.id, firma: g.firma }])}>
+                <button type="button" className={btn} disabled={bloqueado || ok} onClick={() => onConfirmar([{ id: g.id, firma: g.firma }])}>
                   <CheckCircle2 className="h-3.5 w-3.5" />{ok ? 'Confirmada' : sinArea ? 'Dejarlos sin área y confirmar' : 'Confirmo las áreas'}
                 </button>
               </div>
