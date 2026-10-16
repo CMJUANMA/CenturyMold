@@ -2,10 +2,10 @@
  * InicioRol.jsx — Inicio de quien NO es RH/admin: directamente su panel, según los roles que tiene hoy.
  * Una persona con varios roles ve la unión de lo que le toca a cada uno. Mientras no existan solicitudes de tiempo extra,
  * las tarjetas muestran 0 (sin error).
+ * Un solo botón principal: «Solicitar tiempo extra» para quien solicita; quien solo autoriza lo tiene en «Por autorizar».
  */
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, BadgeCheck, CheckCircle2, Clock, FilePlus, Users } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, CheckCircle2, Clock, FilePlus, Users } from 'lucide-react';
 import { useAccesos } from '../hooks/useAccesos';
 import { useAreas } from '../hooks/useAreas';
 import { useCatalogos } from '../hooks/useCatalogos';
@@ -19,38 +19,27 @@ import { contarMisSolicitudes, proximosAutorizados, semanaPorArea, ultimasDelAre
 import { formatoFecha } from '../utils/asignaciones';
 import AyudaPantalla from '../components/AyudaPantalla';
 import BadgeEstatus from '../components/BadgeEstatus';
-import Spinner from '../components/Spinner';
+import Aviso from '../components/ui/Aviso';
+import Boton from '../components/ui/Boton';
+import EncabezadoPagina from '../components/ui/EncabezadoPagina';
+import EstadoVacio from '../components/ui/EstadoVacio';
+import { EsqueletoPagina, EsqueletoIndicadores } from '../components/ui/Esqueleto';
+import { Fila, Tabla, Td, Th } from '../components/ui/Tabla';
+import { Indicador } from '../components/ui/Tarjeta';
 
-function Tarjeta({ titulo, valor, ayuda, to, resaltar = false, Icono }) {
-  const cuerpo = (
-    <div className={`h-full rounded-lg border p-4 shadow-sm transition-colors ${resaltar
-      ? 'border-[var(--status-warning-border)] bg-[var(--status-warning-bg)]'
-      : 'border-[var(--border-color)] bg-[var(--bg-surface)]'} ${to ? 'hover:border-[var(--cm-red)]' : ''}`}>
-      <div className="flex items-start justify-between gap-2">
-        <h3 className={`text-xs font-semibold ${resaltar ? 'text-[var(--status-warning-text)]' : 'text-[var(--text-secondary)]'}`}>{titulo}</h3>
-        {Icono && <Icono className={`h-4 w-4 ${resaltar ? 'text-[var(--status-warning-text)]' : 'text-[var(--text-muted)]'}`} />}
-      </div>
-      <p className={`mt-2 text-3xl font-semibold ${resaltar ? 'text-[var(--status-warning-text)]' : 'text-[var(--text-main)]'}`}>{valor}</p>
-      {ayuda && <p className="mt-1 text-xs text-[var(--text-secondary)]">{ayuda}</p>}
-    </div>
-  );
-  return to ? <Link to={to} className="block">{cuerpo}</Link> : cuerpo;
-}
-
-function Tabla({ titulo, columnas, filas, vacio }) {
+/** Tabla con título y mensaje cuando no hay filas. `columnas`: [{ texto, derecha }] */
+function TablaInicio({ titulo, columnas, filas, vacio }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] shadow-sm">
-      <h2 className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)]">{titulo}</h2>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs">
-          <thead className="text-[var(--text-muted)]"><tr>{columnas.map(c => <th key={c} className="px-4 py-2 font-semibold">{c}</th>)}</tr></thead>
-          <tbody className="divide-y divide-[var(--border-subtle)]">
-            {filas.length === 0
-              ? <tr><td colSpan={columnas.length} className="px-4 py-6 text-center text-[var(--text-muted)]">{vacio}</td></tr>
-              : filas.map((f, i) => <tr key={i}>{f.map((c, j) => <td key={j} className="px-4 py-2 text-[var(--text-main)]">{c}</td>)}</tr>)}
-          </tbody>
-        </table>
-      </div>
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold text-[var(--text-main)]">{titulo}</h2>
+      {filas.length === 0 ? (
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]"><EstadoVacio texto={vacio} className="py-8" /></div>
+      ) : (
+        <Tabla etiqueta={titulo}>
+          <thead><tr>{columnas.map(c => <Th key={c.texto} derecha={c.derecha}>{c.texto}</Th>)}</tr></thead>
+          <tbody>{filas.map((f, i) => <Fila key={i}>{f.map((c, j) => <Td key={j} derecha={columnas[j].derecha} mono={columnas[j].mono}>{c}</Td>)}</Fila>)}</tbody>
+        </Tabla>
+      )}
     </section>
   );
 }
@@ -69,6 +58,8 @@ export default function InicioRol() {
   const esAut1 = areasAut1.length > 0;
   const misAreas = useMemo(() => [...new Set([...areasSolicitante, ...areasAut1])], [areasSolicitante, areasAut1]);
   const tieneRol = esSolicitante || esAut1 || esAut2;
+  const puedeSolicitar = esSolicitante || esAut1;
+  const puedeAutorizar = esAut1 || esAut2;
 
   const [ahora] = useState(() => new Date());
   const mias = contarMisSolicitudes(resumen.propias, ahora);
@@ -77,93 +68,75 @@ export default function InicioRol() {
   const empleadosDePlanta = empleados.filter(esActivo).length;
   const nombreArea = (id) => nombres.get(id) ?? id;
 
-  if (cargando) return <Spinner />;
+  if (cargando) return <div className="space-y-8"><EsqueletoPagina bloques={0} /><EsqueletoIndicadores cantidad={4} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" /></div>;
   return (
-    <div className="space-y-6">
-      <header className="border-b border-[var(--border-color)] pb-4">
-        <div className="text-xs font-semibold text-[var(--text-muted)]">Century Mold Querétaro</div>
-        <div className="mt-1 flex items-center gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-main)]">{saludo}{nombre ? `, ${nombre}` : ''}</h1>
-          <AyudaPantalla id="inicioRol" />
-        </div>
-        <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{descripcion || 'Sin roles asignados por ahora'}</p>
-      </header>
+    <div className="space-y-8">
+      <EncabezadoPagina
+        antetitulo="Century Mold Querétaro"
+        titulo={`${saludo}${nombre ? `, ${nombre}` : ''}`}
+        descripcion={descripcion || 'Sin roles asignados por ahora'}
+        ayuda={<AyudaPantalla id="inicioRol" />}
+        accion={puedeSolicitar
+          ? <Boton to={RUTAS.teNueva} variante="primario" icono={FilePlus}>Solicitar tiempo extra</Boton>
+          : (esAut2 && porAutorizar.total > 0 ? <Boton to={RUTAS.teAutorizar} variante="primario" icono={BadgeCheck}>Por autorizar ({porAutorizar.total})</Boton> : null)}
+      />
 
       {!tieneRol && (
-        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-6 text-center text-xs text-[var(--text-secondary)]">
-          Pide acceso a Recursos Humanos.
+        <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
+          <EstadoVacio titulo="Aún no tienes acceso" texto="Pide a Recursos Humanos que te asignen un rol para poder usar el portal." />
         </div>
       )}
 
-      {resumen.error && (
-        <p role="alert" className="flex items-center gap-2 text-xs text-[var(--status-error-text)]"><AlertTriangle className="h-4 w-4" />No se pudieron leer las solicitudes: {resumen.error.message}</p>
+      {resumen.error && <Aviso tono="error" titulo="No se pudieron leer las solicitudes">{resumen.error.message}. Revisa tu conexión y recarga la página.</Aviso>}
+
+      {puedeAutorizar && (puedeSolicitar || porAutorizar.total === 0) && (
+        <Aviso
+          tono={porAutorizar.total > 0 ? 'aviso' : 'info'}
+          icon={BadgeCheck}
+          titulo={`Por autorizar (${porAutorizar.total})`}
+          accion={<Boton to={RUTAS.teAutorizar} variante="contorno" tamano="sm">Ir a la bandeja</Boton>}
+        >
+          {esAut1 && esAut2 ? `Nivel 1: ${porAutorizar.aut1} · Nivel 2: ${porAutorizar.aut2}` : esAut2 ? 'Solicitudes esperando tu firma de nivel 2.' : 'Solicitudes de tu área esperando tu firma.'}
+        </Aviso>
       )}
 
-      {(esSolicitante || esAut1) && (
-        <Link to={RUTAS.teNueva}
-          className="flex items-center justify-between gap-4 rounded-xl bg-[var(--cm-red)] px-6 py-5 text-white shadow-md transition-colors hover:bg-[var(--cm-red-hover)]">
-          <span className="flex items-center gap-4">
-            <FilePlus className="h-8 w-8" />
-            <span><span className="block text-lg font-semibold">Solicitar tiempo extra</span><span className="block text-xs opacity-90">Elige a tus empleados, las horas y la ruta de cada uno.</span></span>
-          </span>
-          <ArrowRight className="h-6 w-6" />
-        </Link>
-      )}
-
-      {(esAut1 || esAut2) && (
-        <Link to={RUTAS.teAutorizar} className="block">
-          <div className={`flex items-center justify-between gap-4 rounded-xl border-2 px-6 py-5 shadow-sm transition-colors hover:border-[var(--cm-red)] ${porAutorizar.total > 0
-            ? 'border-[var(--status-warning-border)] bg-[var(--status-warning-bg)]' : 'border-[var(--border-color)] bg-[var(--bg-surface)]'}`}>
-            <span className="flex items-center gap-4">
-              <BadgeCheck className={`h-8 w-8 ${porAutorizar.total > 0 ? 'text-[var(--status-warning-text)]' : 'text-[var(--text-muted)]'}`} />
-              <span>
-                <span className={`block text-lg font-semibold ${porAutorizar.total > 0 ? 'text-[var(--status-warning-text)]' : 'text-[var(--text-main)]'}`}>Por autorizar ({porAutorizar.total})</span>
-                <span className="block text-xs text-[var(--text-secondary)]">
-                  {esAut1 && esAut2 ? `Nivel 1: ${porAutorizar.aut1} · Nivel 2: ${porAutorizar.aut2}` : esAut2 ? 'Solicitudes esperando tu firma de nivel 2' : 'Solicitudes de tu área esperando tu firma'}
-                </span>
-              </span>
-            </span>
-            <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--accent-text)]">Ir a la bandeja <ArrowRight className="h-4 w-4" /></span>
-          </div>
-        </Link>
-      )}
-
-      {(esSolicitante || esAut1) && (
-        <section aria-label="Mi área" className="space-y-3">
-          <h2 className="text-xs font-semibold text-[var(--text-secondary)]">
+      {puedeSolicitar && (
+        <section aria-label="Mi área" className="space-y-4">
+          <h2 className="text-lg font-semibold text-[var(--text-main)]">
             {misAreas.length === 1 ? `Mi área · ${nombreArea(misAreas[0])}` : `Mis áreas · ${misAreas.map(nombreArea).join(', ')}`}
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <Tarjeta titulo="Empleados de mi área" valor={cargandoEmp ? '…' : empleadosDeMiArea} Icono={Users} />
-            <Tarjeta titulo="En borrador" valor={mias.borrador} to={rutaMisSolicitudes('borrador')} ayuda="Aún no las envías" />
-            <Tarjeta titulo="En autorización" valor={mias.enAutorizacion} to={rutaMisSolicitudes('autorizacion')} Icono={Clock} />
-            <Tarjeta titulo="Devueltas" valor={mias.devueltas} to={rutaMisSolicitudes('devuelta')} resaltar={mias.devueltas > 0} Icono={AlertTriangle}
-              ayuda={mias.devueltas > 0 ? 'Piden que las corrijas' : undefined} />
-            <Tarjeta titulo="Autorizadas este mes" valor={mias.autorizadasMes} to={rutaMisSolicitudes('autorizada')} Icono={CheckCircle2} />
+            <Indicador etiqueta="Empleados de mi área" valor={empleadosDeMiArea} cargando={cargandoEmp} icono={Users} ayuda="activos en tu área" />
+            <Indicador etiqueta="En borrador" valor={mias.borrador} to={rutaMisSolicitudes('borrador')} ayuda="Aún no las envías" />
+            <Indicador etiqueta="En autorización" valor={mias.enAutorizacion} to={rutaMisSolicitudes('autorizacion')} icono={Clock} ayuda="Esperando firmas" />
+            <Indicador etiqueta="Devueltas" valor={mias.devueltas} to={rutaMisSolicitudes('devuelta')} atencion={mias.devueltas > 0} icono={AlertTriangle}
+              ayuda={mias.devueltas > 0 ? 'Piden que las corrijas' : 'Nada por corregir'} />
+            <Indicador etiqueta="Autorizadas este mes" valor={mias.autorizadasMes} to={rutaMisSolicitudes('autorizada')} icono={CheckCircle2} ayuda="solicitudes" />
           </div>
-          <Tabla titulo="Próximos tiempos extra autorizados" columnas={['Folio', 'Fecha', 'Empleados', 'Horas', 'Transporte']}
-            filas={proximos.map(p => [<span key="f" className="font-mono font-semibold">{p.folio}</span>, formatoFecha(`${p.fecha}T12:00:00`), p.empleados, p.horas, p.transporte])}
+          <TablaInicio titulo="Próximos tiempos extra autorizados"
+            columnas={[{ texto: 'Folio', mono: true }, { texto: 'Fecha' }, { texto: 'Empleados', derecha: true }, { texto: 'Horas', derecha: true, mono: true }, { texto: 'Transporte', derecha: true }]}
+            filas={proximos.map(p => [p.folio, formatoFecha(`${p.fecha}T12:00:00`), p.empleados, p.horas, p.transporte])}
             vacio="Todavía no tienes tiempos extra autorizados por venir." />
         </section>
       )}
 
       {esAut1 && (
-        <Tabla titulo="Últimas solicitudes de mi área" columnas={['Folio', 'Área', 'Fecha', 'Estado']}
-          filas={ultimasDelArea(resumen.delArea).map(s => [
-            <span key="f" className="font-mono font-semibold">{s.folio ?? s.id}</span>, nombreArea(s.areaId), formatoFecha(`${s.fechaTE}T12:00:00`), <BadgeEstatus key="e" estatus={s.estatus} modulo="te" />,
-          ])}
+        <TablaInicio titulo="Últimas solicitudes de mi área"
+          columnas={[{ texto: 'Folio', mono: true }, { texto: 'Área' }, { texto: 'Fecha' }, { texto: 'Estado' }]}
+          filas={ultimasDelArea(resumen.delArea).map(s => [s.folio ?? s.id, nombreArea(s.areaId), formatoFecha(`${s.fechaTE}T12:00:00`), <BadgeEstatus key="e" estatus={s.estatus} modulo="te" />])}
           vacio="Aún no hay solicitudes en tu área." />
       )}
 
       {esAut2 && (
-        <section aria-label="Planta" className="space-y-3">
-          <h2 className="text-xs font-semibold text-[var(--text-secondary)]">Planta</h2>
+        <section aria-label="Planta" className="space-y-4">
+          <h2 className="text-lg font-semibold text-[var(--text-main)]">Planta</h2>
           <div className="grid gap-4 sm:grid-cols-3">
-            <Tarjeta titulo="Por autorizar nivel 2" valor={porAutorizar.aut2} to={RUTAS.teAutorizar} resaltar={porAutorizar.aut2 > 0} Icono={BadgeCheck} />
-            <Tarjeta titulo="Empleados de planta" valor={cargandoEmp ? '…' : empleadosDePlanta} Icono={Users} />
-            <Tarjeta titulo="Solicitudes de la semana" valor={semanaPorArea(resumen.planta, areas, ahora).reduce((a, x) => a + x.total, 0)} to={RUTAS.teConsulta} />
+            <Indicador etiqueta="Por autorizar nivel 2" valor={porAutorizar.aut2} to={RUTAS.teAutorizar} atencion={porAutorizar.aut2 > 0} icono={BadgeCheck} ayuda="Esperando tu firma" />
+            <Indicador etiqueta="Empleados de planta" valor={empleadosDePlanta} cargando={cargandoEmp} icono={Users} ayuda="activos" />
+            <Indicador etiqueta="Solicitudes de la semana" valor={semanaPorArea(resumen.planta, areas, ahora).reduce((a, x) => a + x.total, 0)} to={RUTAS.teConsulta} ayuda="enviadas esta semana" />
           </div>
-          <Tabla titulo="Solicitudes de la semana por área" columnas={['Área', 'Solicitudes']}
+          <TablaInicio titulo="Solicitudes de la semana por área"
+            columnas={[{ texto: 'Área' }, { texto: 'Solicitudes', derecha: true }]}
             filas={semanaPorArea(resumen.planta, areas.filter(a => a.participaTE), ahora).map(x => [x.nombre, x.total])} vacio="Sin áreas con tiempo extra." />
         </section>
       )}
