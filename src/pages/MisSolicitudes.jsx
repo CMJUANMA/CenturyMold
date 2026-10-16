@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
+import { rutaEditarTransporte } from '../funciones';
 import { Layers, Loader2, Eye, XCircle, BellRing, Edit, MessageSquareWarning } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { arrayUnion } from 'firebase/firestore';
@@ -145,7 +146,7 @@ export default function MisSolicitudes() {
                   ) : (
                     (sol.estatus === ESTATUS_SOLICITUD.PENDIENTE || sol.estatus === ESTATUS_SOLICITUD.APROBADA) && sol.fechaServicio >= hoy && (
                       <div className="inline-flex">
-                        <button onClick={()=>navigate(`/rutas/solicitud/editar/${sol.id}`)} className="p-1 text-blue-600 hover:text-blue-800" title="Editar"><Edit className="h-4 w-4"/></button>
+                        <button onClick={()=>navigate(rutaEditarTransporte(sol.id))} className="p-1 text-blue-600 hover:text-blue-800" title="Editar"><Edit className="h-4 w-4"/></button>
                         <button onClick={()=>setModalCancelar(sol)} className="p-1 text-[var(--status-error-text)] hover:opacity-80" title="Cancelar"><XCircle className="h-4 w-4"/></button>
                       </div>
                     )

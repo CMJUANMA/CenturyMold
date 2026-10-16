@@ -3,7 +3,9 @@
  * Una persona con varios roles ve la unión de lo que le toca a cada uno. RH y admin conservan el menú por secciones.
  */
 
-/** Rutas de tiempo extra que todavía no tienen pantalla (muestran "Próximamente") */
+import { FUNCIONES, RUTAS_TRANSPORTE_SUELTO, funcionActiva } from '../funciones.js';
+
+/** Rutas de tiempo extra */
 export const RUTAS_TE = {
   nueva: '/tiempo-extra/nueva',
   misSolicitudes: '/tiempo-extra/mis-solicitudes',
@@ -16,7 +18,7 @@ export const RUTAS_TE = {
  * @param {{ esAut2: boolean, areasAut1: string[], areasSolicitante: string[], transporteAnterior: boolean }} p
  * @returns {{ id, path, label, icono, contador?: 'autorizar', end?: boolean }[]}  icono = nombre de ícono de lucide-react
  */
-export function itemsMenuPorRol({ esAut2, areasAut1, areasSolicitante, transporteAnterior }) {
+export function itemsMenuPorRol({ esAut2, areasAut1, areasSolicitante, transporteAnterior, funciones = FUNCIONES }) {
   const esAut1 = areasAut1.length > 0;
   const esSolicitante = areasSolicitante.length > 0;
   const items = [{ id: 'inicio', path: '/', label: 'Inicio', icono: 'Home', end: true }];
@@ -32,21 +34,21 @@ export function itemsMenuPorRol({ esAut2, areasAut1, areasSolicitante, transport
   } else if (esAut1) {
     items.push({ id: 'area', path: '/accesos/organigrama', label: 'Mi área', icono: 'GitBranch' });
   }
-  if (transporteAnterior) items.push({ id: 'transporte', path: '/rutas/mis-solicitudes', label: 'Transporte (consulta)', icono: 'Bus' });
+  if (transporteAnterior && funcionActiva('transporteSuelto', funciones)) items.push({ id: 'transporte', path: RUTAS_TRANSPORTE_SUELTO.misSolicitudes, label: 'Transporte (consulta)', icono: 'Bus' });
   return items;
 }
 
 /**
  * Menú de RH y admin, por secciones. `modulo`: el ítem solo se ve si la persona tiene acceso a ese módulo (modulos.js);
- * `rh`: además exige rol RH/admin. `icono` = nombre de ícono de lucide-react. REGLA: admin y RH ven todo esto; no se quita nada.
+ * `rh`: además exige rol RH/admin. `funcion`: solo si ese interruptor de funciones.js está encendido. `icono` = nombre de ícono de lucide-react. REGLA: admin y RH ven todo esto; no se quita nada.
  */
 export const ITEMS_MENU_RH = [
   { path: '/', label: 'Inicio (portal)', icono: 'Home', end: true },
 
   { section: 'Transporte (rutas)', modulo: 'rutas' },
   { path: '/rutas', label: 'Resumen', icono: 'LayoutGrid', modulo: 'rutas', end: true },
-  { path: '/rutas/solicitud/nueva', label: 'Nueva solicitud', icono: 'FilePlus', modulo: 'rutas' },
-  { path: '/rutas/mis-solicitudes', label: 'Mis solicitudes', icono: 'ClipboardList', modulo: 'rutas' },
+  { path: RUTAS_TRANSPORTE_SUELTO.nueva, label: 'Nueva solicitud', icono: 'FilePlus', modulo: 'rutas', funcion: 'transporteSuelto' },
+  { path: RUTAS_TRANSPORTE_SUELTO.misSolicitudes, label: 'Mis solicitudes', icono: 'ClipboardList', modulo: 'rutas', funcion: 'transporteSuelto' },
   { path: '/rutas/rh/solicitudes', label: 'Todas las solicitudes', icono: 'Layers', modulo: 'rutas', rh: true },
   { path: '/rutas/rh/catalogos', label: 'Catálogos del sistema', icono: 'Database', modulo: 'rutas', rh: true },
 
@@ -69,8 +71,8 @@ export const ITEMS_MENU_RH = [
  * Menú de RH/admin: los ítems visibles según rol y módulos; una sección solo aparece si le queda al menos un ítem.
  * @param {{ esRH: boolean, idsModulos: Set<string> }} p
  */
-export function itemsMenuRH({ esRH, idsModulos }) {
-  const visible = (it) => (!it.modulo || idsModulos.has(it.modulo)) && (!it.rh || esRH);
+export function itemsMenuRH({ esRH, idsModulos, funciones = FUNCIONES }) {
+  const visible = (it) => (!it.modulo || idsModulos.has(it.modulo)) && (!it.rh || esRH) && (!it.funcion || funcionActiva(it.funcion, funciones));
   return ITEMS_MENU_RH.filter(visible).filter((it, i, lista) => !it.section || (!!lista[i + 1] && !lista[i + 1].section));
 }
 

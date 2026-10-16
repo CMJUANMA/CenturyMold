@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
+import { FUNCIONES } from '../funciones';
 import { ESTATUS_SOLICITUD, ESTATUS_TE, ROLES_RH } from '../utils/constantes';
 
 /** Transporte: RH ve las solicitudes por revisar; cada solicitante, las novedades que no ha visto */
@@ -14,9 +15,11 @@ export function usePendientesRutas(usuario, accesos, activo = true) {
   const esRH = ROLES_RH.includes(usuario?.rol);
   // Solo quien puede solicitar rutas (RH, admin o solicitante vigente de algún área) lee solicitudes
   const esSolicitante = esRH || (accesos?.areasSolicitante?.length ?? 0) > 0;
+  // Apagado el transporte suelto (funciones.js) no hay nada que contar: no se escucha ninguna consulta
+  const activa = activo && FUNCIONES.transporteSuelto;
 
   useEffect(() => {
-    if (!uid || !activo) return;
+    if (!uid || !activa) return;
     const unsubs = [];
     if (esRH) {
       unsubs.push(onSnapshot(
@@ -31,7 +34,7 @@ export function usePendientesRutas(usuario, accesos, activo = true) {
       err => console.error('Novedades:', err),
     ));
     return () => unsubs.forEach(u => u());
-  }, [uid, esRH, esSolicitante, activo]);
+  }, [uid, esRH, esSolicitante, activa]);
 
   return { pendientesRh, novedades, total: esRH ? pendientesRh : novedades };
 }

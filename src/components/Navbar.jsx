@@ -17,6 +17,7 @@ import { useTransporteAnterior } from '../hooks/useTransporteAnterior';
 import { useAreas } from '../hooks/useAreas';
 import { modulosDe, moduloDeRuta } from '../modulos';
 import { ROLES_RH } from '../utils/roles';
+import { FUNCIONES, RUTAS_TRANSPORTE_SUELTO } from '../funciones';
 import { descripcionRoles, itemsMenuPorRol, itemsMenuRH } from '../utils/navegacion';
 
 const SUBTITULO_MODULO = { rutas: 'Transporte', 'tiempo-extra': 'Tiempo extra' };
@@ -34,7 +35,7 @@ export default function Navbar() {
   const moduloActual = moduloDeRuta(pathname);
   const esRH = ROLES_RH.includes(usuario?.rol);
   const { nombres: nombresArea } = useAreas();
-  const transporteAnterior = useTransporteAnterior(usuario?.uid, !esRH);
+  const transporteAnterior = useTransporteAnterior(usuario?.uid, !esRH && FUNCIONES.transporteSuelto);
   const porAutorizar = usePorAutorizar(usuario, accesos, true).total;
   const porRecibir = usePorRecibir(usuario, true);
   const subtitulo = esRH ? (SUBTITULO_MODULO[moduloActual?.id] ?? 'Century Mold Querétaro') : 'Century Mold Querétaro';
@@ -122,12 +123,12 @@ export default function Navbar() {
                     {porRecibir}
                   </span>
                 )}
-                {item.path === '/rutas/rh/solicitudes' && pendientesRh > 0 && (
+                {item.path === '/rutas/rh/solicitudes' && FUNCIONES.transporteSuelto && pendientesRh > 0 && (
                   <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-[var(--status-warning-bg)] text-[9px] font-bold text-[var(--status-warning-text)] border border-[var(--status-warning-border)] shrink-0 shadow-sm">
                     {pendientesRh}
                   </span>
                 )}
-                {item.path === '/rutas/mis-solicitudes' && novedadesUser > 0 && (
+                {item.path === RUTAS_TRANSPORTE_SUELTO.misSolicitudes && novedadesUser > 0 && (
                   <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-[var(--status-success-bg)] text-[9px] font-bold text-[var(--status-success-text)] border border-[var(--status-success-border)] shrink-0 shadow-sm">
                     {novedadesUser}
                   </span>

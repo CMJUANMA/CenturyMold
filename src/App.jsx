@@ -16,6 +16,8 @@ import RutaProtegida from './components/RutaProtegida';
 import RutaRol from './components/RutaRol';
 import RutaModulo from './components/RutaModulo';
 import Redirigir from './components/Redirigir';
+import RutaFuncion from './components/RutaFuncion';
+import { RUTAS_TRANSPORTE_SUELTO, RUTA_EDITAR_TRANSPORTE } from './funciones';
 import Layout from './pages/Layout';
 import Login from './pages/Login';
 import Home from './pages/Home';
@@ -53,8 +55,20 @@ const router = createBrowserRouter([
       element: <Layout />,
       children: [
         { path: '/', element: <Home /> },
-        // Consulta del transporte anterior: la ve cualquiera que tenga solicitudes suyas (el menú solo la ofrece si las hay)
-        { path: '/rutas/mis-solicitudes', element: <MisSolicitudes /> },
+        // Transporte suelto (funciones.js): apagado, estas rutas regresan al inicio. El código se conserva.
+        {
+          element: <RutaFuncion funcion="transporteSuelto" />,
+          children: [
+            { path: RUTAS_TRANSPORTE_SUELTO.misSolicitudes, element: <MisSolicitudes /> },
+            {
+              element: <RutaRol roles={ROLES_RH} />,
+              children: [
+                { path: RUTAS_TRANSPORTE_SUELTO.nueva, element: <NuevaSolicitud /> },
+                { path: RUTA_EDITAR_TRANSPORTE, element: <EditarSolicitud /> },
+              ],
+            },
+          ],
+        },
         { path: '/perfil', element: <Perfil /> },
         // Configuración personal (ayudas, tamaño de letra y tema): para todos los usuarios
         { path: '/configuracion', element: <Configuracion /> },
@@ -64,8 +78,6 @@ const router = createBrowserRouter([
           element: <RutaModulo modulo="rutas" />,
           children: [
             { path: '/rutas', element: <Inicio /> },
-            { path: '/rutas/solicitud/nueva', element: <NuevaSolicitud /> },
-            { path: '/rutas/solicitud/editar/:id', element: <EditarSolicitud /> },
             {
               element: <RutaRol roles={ROLES_RH} />,
               children: [
@@ -104,9 +116,6 @@ const router = createBrowserRouter([
         { path: '/accesos/:tab', element: <UsuariosYAccesos /> },
 
         // URLs anteriores a los módulos
-        { path: '/solicitud/nueva', element: <Redirigir a="/rutas/solicitud/nueva" /> },
-        { path: '/solicitud/editar/:id', element: <Redirigir a="/rutas/solicitud/editar/:id" /> },
-        { path: '/mis-solicitudes', element: <Redirigir a="/rutas/mis-solicitudes" /> },
         { path: '/rh/solicitudes', element: <Redirigir a="/rutas/rh/solicitudes" /> },
         { path: '/rh/empleados', element: <Redirigir a="/rutas/rh/empleados" /> },
         { path: '/rh/catalogos', element: <Redirigir a="/rutas/rh/catalogos" /> },

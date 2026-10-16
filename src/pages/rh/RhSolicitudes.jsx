@@ -23,6 +23,10 @@ import { useAreas } from '../../hooks/useAreas';
 import { useConfirmar } from '../../hooks/useConfirmar';
 import { exportarSolicitudes } from '../../utils/exportarSolicitudes';
 import { ESTATUS_SOLICITUD } from '../../utils/constantes';
+import { FUNCIONES, rutaEditarTransporte } from '../../funciones';
+
+// Revisión de transporte suelto (aprobar / rechazar / revertir / editar): apagada con funciones.js. El transporte de tiempo extra nace aprobado.
+const REVISION_ACTIVA = FUNCIONES.transporteSuelto;
 
 // Helpers
 // fechaSolicitud puede ser Timestamp (nuevas) o string ISO (viejas)
@@ -339,9 +343,9 @@ export default function RhSolicitudes() {
             <button key={texto} type="button" onClick={fn}
               className={`${btnRango} border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]`}>{texto}</button>
           ))}
-          <button type="button" onClick={verPendientes}
+          {REVISION_ACTIVA && <button type="button" onClick={verPendientes}
             className={`${btnRango} ${modo === 'pendientes' ? 'border-[var(--cm-red)] bg-[var(--cm-red)] text-white' : 'border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]'}`}
-            title="Todas las pendientes, sin importar la fecha de servicio">Todas las pendientes</button>
+            title="Todas las pendientes, sin importar la fecha de servicio">Todas las pendientes</button>}
         </div>
         <select value={filtroEstatus} onChange={e=>setFiltroEstatus(e.target.value)} className={inputCls}>
           <option value="">Todos los estados</option>
@@ -350,11 +354,13 @@ export default function RhSolicitudes() {
           <option value={ESTATUS_SOLICITUD.RECHAZADA}>Rechazadas</option>
           <option value={ESTATUS_SOLICITUD.CANCELADA}>Canceladas</option>
         </select>
-        <select value={filtroOrigen} onChange={e=>setFiltroOrigen(e.target.value)} className={inputCls} aria-label="Origen">
-          <option value="">Todas</option>
-          <option value="normal">Normales</option>
-          <option value="tiempo_extra">Tiempo extra</option>
-        </select>
+        {REVISION_ACTIVA && (
+          <select value={filtroOrigen} onChange={e=>setFiltroOrigen(e.target.value)} className={inputCls} aria-label="Origen">
+            <option value="">Todas</option>
+            <option value="normal">Normales</option>
+            <option value="tiempo_extra">Tiempo extra</option>
+          </select>
+        )}
         <input type="search" value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar..." className={inputCls} />
         <div className="ml-auto flex items-center gap-2">
           <span className="font-semibold text-[var(--text-main)]">{filtradas.length} solicitudes</span>
@@ -406,14 +412,14 @@ export default function RhSolicitudes() {
                 <td className="px-4 py-3 text-right">
                   <div className="inline-flex gap-1">
                     <button onClick={()=>abrirDetalle(sol)} className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)]" title="Ver Detalle"><Eye className="h-4 w-4"/></button>
-                    {sol.origen !== 'tiempo_extra' && <button onClick={()=>navigate(`/rutas/solicitud/editar/${sol.id}`)} className="p-1.5 text-blue-600 hover:text-blue-800" title="Editar (RH)"><Edit className="h-4 w-4"/></button>}
-                    {sol.estatus === ESTATUS_SOLICITUD.PENDIENTE && (
+                    {REVISION_ACTIVA && sol.origen !== 'tiempo_extra' && <button onClick={()=>navigate(rutaEditarTransporte(sol.id))} className="p-1.5 text-blue-600 hover:text-blue-800" title="Editar (RH)"><Edit className="h-4 w-4"/></button>}
+                    {REVISION_ACTIVA && sol.estatus === ESTATUS_SOLICITUD.PENDIENTE && (
                       <>
                         <button onClick={()=>setModalRechazar(sol)} className="p-1.5 text-[var(--status-error-text)] bg-[var(--status-error-bg)] hover:bg-[var(--status-error-bg)] rounded-md" title="Rechazar"><XCircle className="h-4 w-4"/></button>
                         <button onClick={()=>setModalAprobar(sol)} className="p-1.5 text-[var(--status-success-text)] bg-[var(--status-success-bg)] hover:bg-[var(--status-success-bg)] rounded-md" title="Aprobar"><CheckCircle2 className="h-4 w-4"/></button>
                       </>
                     )}
-                    {[ESTATUS_SOLICITUD.APROBADA,ESTATUS_SOLICITUD.RECHAZADA,ESTATUS_SOLICITUD.ENVIADA_PROVEEDOR].includes(sol.estatus) && (
+                    {REVISION_ACTIVA && [ESTATUS_SOLICITUD.APROBADA,ESTATUS_SOLICITUD.RECHAZADA,ESTATUS_SOLICITUD.ENVIADA_PROVEEDOR].includes(sol.estatus) && (
                       <button onClick={()=>confirmRevert(sol)} title="Revertir a pendiente" className="p-1.5 text-[var(--status-warning-text)] bg-[var(--status-warning-bg)] hover:opacity-80 rounded-md"><Undo2 className="h-4 w-4"/></button>
                     )}
                   </div>

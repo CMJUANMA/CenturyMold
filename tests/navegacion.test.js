@@ -37,8 +37,9 @@ describe('menú por rol', () => {
     expect(ids({ areasSolicitante: ['moldes'] })).not.toContain('organigrama');
     expect(ids({ areasSolicitante: ['moldes'] })).not.toContain('area');
   });
-  it('quien tiene transporte anterior ve "Transporte (consulta)"; los demás no', () => {
-    expect(ids({ areasSolicitante: ['moldes'], transporteAnterior: true })).toContain('transporte');
+  it('quien tiene transporte anterior ve "Transporte (consulta)" solo si el interruptor está encendido; los demás no', () => {
+    expect(ids({ areasSolicitante: ['moldes'], transporteAnterior: true })).not.toContain('transporte');
+    expect(ids({ areasSolicitante: ['moldes'], transporteAnterior: true, funciones: { transporteSuelto: true } })).toContain('transporte');
     expect(ids({ areasSolicitante: ['moldes'] })).not.toContain('transporte');
   });
   it('sin ningún rol solo hay Inicio', () => { expect(ids({})).toEqual(['inicio']); });
@@ -71,7 +72,7 @@ describe('saludo y descripción', () => {
 // REGLA: admin y RH ven TODO lo que veían antes (más lo nuevo). Si esta prueba falla, se quitó un acceso.
 describe('menú de admin y RH: no se les quita nada', () => {
   const PATHS_OBLIGATORIOS = [
-    '/', '/rutas', '/rutas/solicitud/nueva', '/rutas/mis-solicitudes', '/rutas/rh/solicitudes', '/rutas/rh/catalogos',
+    '/', '/rutas', '/rutas/rh/solicitudes', '/rutas/rh/catalogos',
     '/tiempo-extra', '/tiempo-extra/nueva', '/tiempo-extra/mis-solicitudes', '/tiempo-extra/autorizar',
     '/tiempo-extra/recepcion', '/tiempo-extra/consulta', '/accesos/organigrama',
     '/rutas/rh/empleados', '/rutas/rh/estructura', '/accesos',

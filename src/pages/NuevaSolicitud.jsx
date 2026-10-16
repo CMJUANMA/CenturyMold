@@ -9,6 +9,7 @@ import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore
 import { Loader2 } from 'lucide-react';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
+import { RUTAS_TRANSPORTE_SUELTO } from '../funciones';
 import { useToast } from '../hooks/useToast';
 import { useCatalogos } from '../hooks/useCatalogos';
 import { useAccesos } from '../hooks/useAccesos';
@@ -81,7 +82,7 @@ export default function NuevaSolicitud() {
       await batch.commit();
       parchearEmpleados(cambiosEmp);
       toast.success('Solicitud registrada correctamente.');
-      navigate('/rutas/mis-solicitudes');
+      navigate(RUTAS_TRANSPORTE_SUELTO.misSolicitudes);
     } catch (err) {
       console.error(err);
       toast.error('Error al guardar: ' + err.message);
