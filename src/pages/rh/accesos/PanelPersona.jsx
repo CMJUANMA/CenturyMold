@@ -80,7 +80,7 @@ export default function PanelPersona({ nomina, asignaciones, empleado, conUsuari
     <>
       <div className="fixed inset-0 z-[90] bg-black/40" onClick={onClose} aria-hidden="true" />
       <aside role="dialog" aria-label={`Detalle de ${formato.nombre(nombre)}`}
-        className="fixed inset-y-0 right-0 z-[95] flex w-full flex-col overflow-hidden border-l border-[var(--border-color)] bg-[var(--bg-surface)] shadow-2xl sm:w-[26rem]">
+        className="fixed inset-y-0 right-0 z-[95] flex w-full flex-col overflow-hidden border-l border-[var(--border-color)] bg-[var(--bg-surface)] shadow-md sm:w-[26rem]">
         <header className="flex items-start gap-3 border-b border-[var(--border-color)] p-4">
           <Avatar iniciales={formato.iniciales(nombre)} rol={propias.find(a => a.estado === 'vigente')?.rol ?? 'solicitante'} tamano={48} />
           <div className="min-w-0 flex-1">

@@ -3,15 +3,18 @@
  * 19:00 y 0:00). Empiezan vacíos y RH los captura. Con ellos, una extensión de turno sabe a qué hora empieza el tiempo extra de cada empleado.
  */
 import { useEffect, useState } from 'react';
-import { Loader2, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../hooks/useToast';
 import { useTurnosNomina } from '../../../hooks/useTurnosNomina';
 import AyudaPantalla from '../../../components/AyudaPantalla';
+import Aviso from '../../../components/ui/Aviso';
+import Boton from '../../../components/ui/Boton';
+import { Selector } from '../../../components/ui/Campo';
+import { EsqueletoTabla } from '../../../components/ui/Esqueleto';
+import { Fila, Tabla, Td, Th } from '../../../components/ui/Tabla';
 import { HORAS_ENTRADA_TE, HORAS_SALIDA_TE } from '../../../utils/tiempoExtra';
 import { TURNOS_NOMINA_IDS, guardarTurnosNomina } from '../../../utils/turnosNominaDb';
-
-const sel = 'rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-2 text-sm text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]';
 
 export default function TabTurnos() {
   const { usuario } = useAuth();
@@ -32,46 +35,41 @@ export default function TabTurnos() {
     catch (err) { toast.error('No se pudieron guardar los turnos: ' + err.message, 8000); } finally { setGuardando(false); }
   };
 
-  if (cargando) return <div className="flex items-center gap-2 py-10 text-xs text-[var(--text-secondary)]"><Loader2 className="h-4 w-4 animate-spin" />Cargando...</div>;
+  if (cargando) return <EsqueletoTabla filas={3} columnas={3} />;
   return (
     <section className="space-y-4" aria-label="Turnos de nómina">
       <div className="flex items-center gap-2">
-        <h2 className="text-sm font-semibold text-[var(--text-main)]">Horario normal de cada turno</h2>
+        <h2 className="text-lg font-semibold text-[var(--text-main)]">Horario normal de cada turno</h2>
         <AyudaPantalla id="turnos" />
       </div>
-      <p className="text-xs text-[var(--text-secondary)]">
+      <p className="text-sm text-[var(--text-secondary)]">
         Las extensiones de turno empiezan cuando termina el turno normal del empleado. Mientras un turno esté vacío, quien captura la extensión tendrá que escribir a mano la hora en que termina el turno de cada empleado.
       </p>
-      <div className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-xs font-semibold text-[var(--text-secondary)]">
-            <tr><th className="px-4 py-3">Turno</th><th className="px-4 py-3">Entrada</th><th className="px-4 py-3">Salida (fin del turno)</th></tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--border-subtle)]">
-            {TURNOS_NOMINA_IDS.map(t => (
-              <tr key={t}>
-                <th scope="row" className="px-4 py-3 font-semibold text-[var(--text-main)]">Turno {t}</th>
-                <td className="px-4 py-3">
-                  <select aria-label={`Entrada del turno ${t}`} value={form[t].entrada} onChange={e => cambiar(t, 'entrada', e.target.value)} className={sel}>
-                    <option value="">Sin configurar</option>{HORAS_ENTRADA_TE.map(h => <option key={h} value={h}>{h}</option>)}
-                  </select>
-                </td>
-                <td className="px-4 py-3">
-                  <select aria-label={`Salida del turno ${t}`} value={form[t].salida} onChange={e => cambiar(t, 'salida', e.target.value)} className={sel}>
-                    <option value="">Sin configurar</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{h}</option>)}
-                  </select>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {incompletos.length > 0 && <p className="text-xs font-semibold text-[var(--status-warning-text)]">Turno {incompletos.join(', ')}: captura la entrada y la salida, o deja las dos vacías.</p>}
+      <Tabla etiqueta="Horario normal de cada turno">
+        <thead>
+          <tr><Th>Turno</Th><Th>Entrada</Th><Th>Salida (fin del turno)</Th></tr>
+        </thead>
+        <tbody>
+          {TURNOS_NOMINA_IDS.map(t => (
+            <Fila key={t}>
+              <Td className="font-medium">Turno {t}</Td>
+              <Td>
+                <Selector aria-label={`Entrada del turno ${t}`} value={form[t].entrada} onChange={e => cambiar(t, 'entrada', e.target.value)} className="max-w-[12rem]">
+                  <option value="">Sin configurar</option>{HORAS_ENTRADA_TE.map(h => <option key={h} value={h}>{h}</option>)}
+                </Selector>
+              </Td>
+              <Td>
+                <Selector aria-label={`Salida del turno ${t}`} value={form[t].salida} onChange={e => cambiar(t, 'salida', e.target.value)} className="max-w-[12rem]">
+                  <option value="">Sin configurar</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{h}</option>)}
+                </Selector>
+              </Td>
+            </Fila>
+          ))}
+        </tbody>
+      </Tabla>
+      {incompletos.length > 0 && <Aviso tono="aviso">Turno {incompletos.join(', ')}: captura la entrada y la salida, o deja las dos vacías.</Aviso>}
       <div className="flex justify-end">
-        <button type="button" onClick={guardar} disabled={guardando || sinCambios || incompletos.length > 0}
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-[var(--cm-red)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--cm-red-hover)] disabled:opacity-50">
-          {guardando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Guardar turnos
-        </button>
+        <Boton variante="primario" icono={Save} estado={guardando ? 'cargando' : undefined} onClick={guardar} disabled={guardando || sinCambios || incompletos.length > 0}>Guardar turnos</Boton>
       </div>
     </section>
   );

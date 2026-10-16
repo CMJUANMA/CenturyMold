@@ -16,6 +16,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
 import ResolucionPuestos from '../../components/ResolucionPuestos';
 import ConfirmarAreas from './ConfirmarAreas';
+import { btnIcon, btnPrimary, btnSecondary, inputCls } from './estructura/ui';
 import {
   ejecutarEnLotes, leerColeccion, opBitacora, opsCambioAreaPuesto, opsDeResolucion,
 } from '../../utils/estructuraDb';
@@ -50,9 +51,6 @@ const NOMINA_COLS_INFO = [
   { campo: 'nivel_g / alta_g', destino: 'Nivel y fecha de alta' },
 ];
 
-const btnPrimary = 'inline-flex items-center gap-1.5 rounded-md bg-[var(--cm-red)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--cm-red-hover)] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer';
-const btnSecondary = 'inline-flex items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] active:scale-95 transition-all disabled:opacity-50 cursor-pointer';
-const btnIcon = 'rounded p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-surface-secondary)] hover:text-[var(--text-main)] active:scale-95 transition-all cursor-pointer';
 
 const LIMITE_FILAS = 200; // filas visibles por pestaña (el buscador filtra sobre todas)
 const ARTICULO = { Ruta: 'Esta ruta', Comunidad: 'Esta comunidad', Punto: 'Este punto' };
@@ -275,7 +273,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
   const titulo = esDir ? 'Importar directorio de transporte' : 'Importar empleados';
   const descripcion = esDir
     ? 'Carga masiva de rutas, comunidades y puntos desde un .xlsx con formato fijo.'
-    : 'Carga masiva del padron de empleados desde un .xlsx: el formato propio o directamente el reporte de nomina.';
+    : 'Carga masiva del padrón de empleados desde un .xlsx: el formato propio o directamente el reporte de nómina.';
   const colsInfo = esDir ? DIR_COLS_INFO : EMP_COLS_INFO;
   const nombreHoja = esDir ? 'Directorio' : 'Empleados';
 
@@ -468,7 +466,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
   const mensajeBajas = esDir
     ? `${plural(bajas.length, 'elemento activo del directorio no aparece', 'elementos activos del directorio no aparecen')} en el archivo` +
       ` (${['Ruta', 'Comunidad', 'Punto'].map(e => `${bajas.filter(b => b.entidad === e).length} ${PLURAL[e]}`).join(', ')}). ¿Es correcto que ya no estan vigentes?`
-    : `${plural(bajas.length, 'empleado activo no aparece', 'empleados activos no aparecen')} en el archivo. ¿Es correcto que ya no estan en la nomina?`;
+    : `${plural(bajas.length, 'empleado activo no aparece', 'empleados activos no aparecen')} en el archivo. ¿Es correcto que ya no están en la nómina?`;
 
   const bloqueado = paso === 'guardando' || paso === 'resultado';
   const puestosSinResolver = plan?.resolucion?.pendientes.length ?? 0;
@@ -477,13 +475,13 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
   const resumenFinal = plan ? resumenImportacion(plan, idsBaja) : null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget && paso !== 'guardando') onClose(); }}>
-      <div className="relative flex flex-col w-full max-w-4xl max-h-[92vh] rounded-xl bg-[var(--bg-surface)] shadow-2xl overflow-hidden text-[var(--text-main)]">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" onClick={(e) => { if (e.target === e.currentTarget && paso !== 'guardando') onClose(); }}>
+      <div className="relative flex flex-col w-full max-w-4xl max-h-[92vh] rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] shadow-md overflow-hidden text-[var(--text-main)]">
         {/* Encabezado */}
         <div className="flex items-start justify-between gap-4 border-b border-[var(--border-color)] px-6 py-4 flex-shrink-0">
           <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--cm-red-light)] flex-shrink-0 mt-0.5">
-              <FileSpreadsheet className="h-5 w-5 text-[var(--accent-text)]" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--bg-surface-hover)] flex-shrink-0 mt-0.5">
+              <FileSpreadsheet className="h-5 w-5 text-[var(--text-secondary)]" aria-hidden="true" />
             </div>
             <div>
               <h2 className="text-base font-semibold text-[var(--text-main)]">{titulo}</h2>
@@ -503,13 +501,13 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
 
           {/* Modo de importación */}
           <fieldset disabled={bloqueado} className="space-y-2">
-            <legend className="mb-2 text-xs font-semibold text-[var(--text-main)]">Modo de importacion</legend>
+            <legend className="mb-2 text-xs font-semibold text-[var(--text-main)]">Modo de importación</legend>
             {[
               { valor: MODOS.AGREGAR, label: 'Agregar y actualizar', ayuda: 'Crea los nuevos y actualiza los existentes. No da de baja a nadie.' },
-              { valor: MODOS.SINCRONIZAR, label: 'Sincronizar con la lista completa', ayuda: `Ademas propone dar de baja a los ${esDir ? 'elementos' : 'empleados'} activos que no aparezcan en el archivo.` },
+              { valor: MODOS.SINCRONIZAR, label: 'Sincronizar con la lista completa', ayuda: `Además propone dar de baja a los ${esDir ? 'elementos' : 'empleados'} activos que no aparezcan en el archivo.` },
             ].map(op => (
               <label key={op.valor}
-                className={`flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2.5 text-xs transition-colors ${modo === op.valor ? 'border-[var(--cm-red)] bg-[var(--cm-red-light)]' : 'border-[var(--border-color)] hover:bg-[var(--bg-surface-secondary)]'}`}>
+                className={`flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2.5 text-xs transition-colors ${modo === op.valor ? 'border-[var(--text-main)] bg-[var(--bg-surface-hover)]' : 'border-[var(--border-color)] hover:bg-[var(--bg-surface-secondary)]'}`}>
                 <input type="radio" name="modo-importacion" value={op.valor} checked={modo === op.valor}
                   onChange={() => cambiarModo(op.valor)} className="mt-0.5 accent-[var(--cm-red)]" />
                 <span>
@@ -553,9 +551,9 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                   <tbody className="divide-y divide-[var(--border-subtle)]">
                     {colsInfo.map(col => (
                       <tr key={col.letra}>
-                        <td className="px-3 py-2 font-mono font-semibold text-[var(--accent-text)]">{col.letra}</td>
+                        <td className="px-3 py-2 font-mono font-medium text-[var(--text-main)]">{col.letra}</td>
                         <td className="px-3 py-2 font-semibold text-[var(--text-main)]">{col.nombre}</td>
-                        <td className="px-3 py-2"><Insignia tono={col.obligatorio ? 'error' : 'neutro'}>{col.obligatorio ? 'Obligatoria' : 'Opcional'}</Insignia></td>
+                        <td className="px-3 py-2"><Insignia tono={col.obligatorio ? 'info' : 'neutro'}>{col.obligatorio ? 'Obligatoria' : 'Opcional'}</Insignia></td>
                         <td className="px-3 py-2 font-mono text-[var(--text-muted)]">{col.ejemplo}</td>
                       </tr>
                     ))}
@@ -563,13 +561,13 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                 </table>
               </div>
               {!esDir && (
-                <Aviso>Una celda vacia nunca borra un dato que el empleado ya tiene (puesto, turno, departamento, nivel, fecha de alta, ruta, comunidad y punto): solo se actualiza lo que el archivo trae.</Aviso>
+                <Aviso>Una celda vacía nunca borra un dato que el empleado ya tiene (puesto, turno, departamento, nivel, fecha de alta, ruta, comunidad y punto): solo se actualiza lo que el archivo trae.</Aviso>
               )}
               {!esDir && (
                 <div className="space-y-2 rounded-lg border border-[var(--border-color)] p-3 text-xs">
-                  <p className="font-semibold text-[var(--text-main)]">Reporte de nomina</p>
+                  <p className="font-medium text-[var(--text-main)]">Reporte de nómina</p>
                   <p className="text-[var(--text-secondary)]">
-                    Tambien puede subir directamente el reporte de nomina (.xlsx): se reconoce por sus encabezados
+                    También puede subir directamente el reporte de nómina (.xlsx): se reconoce por sus encabezados
                     <span className="font-mono"> numero_i, nombre, depto, desc_depto, turno, puesto, nivel_g, alta_g</span>.
                     El area de cada empleado sale de su puesto (el departamento queda solo como dato informativo); la ruta, comunidad y punto no se tocan.
                   </p>
@@ -626,7 +624,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
                 {pestanas.map(p => (
                   <button key={p.id} type="button" onClick={() => { setPestana(p.id); setBusqueda(''); }}
-                    className={`rounded-lg border px-3 py-2 text-left transition-colors cursor-pointer ${actual?.id === p.id ? 'border-[var(--cm-red)] bg-[var(--cm-red-light)]' : 'border-[var(--border-color)] hover:bg-[var(--bg-surface-secondary)]'}`}>
+                    className={`rounded-lg border px-3 py-2 text-left transition-colors cursor-pointer ${actual?.id === p.id ? 'border-[var(--text-main)] bg-[var(--bg-surface-hover)]' : 'border-[var(--border-color)] hover:bg-[var(--bg-surface-secondary)]'}`}>
                     <span className={`block text-lg font-semibold leading-tight ${p.lista.length && p.tono === 'error' ? 'text-[var(--status-error-text)]' : p.lista.length && p.tono === 'warning' ? 'text-[var(--status-warning-text)]' : 'text-[var(--text-main)]'}`}>
                       {p.lista.length}
                     </span>
@@ -662,10 +660,10 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                     {q ? `${visibles.length} de ${actual?.lista.length}` : actual?.lista.length}
                   </span>
                   <div className="relative ml-auto w-full sm:w-64">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--text-muted)]" />
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" aria-hidden="true" />
                     <input type="search" value={busqueda} onChange={e => setBusqueda(e.target.value)}
-                      placeholder={esDir ? 'Buscar clave, nombre, fila...' : 'Buscar nomina, nombre, puesto, fila...'}
-                      className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] pl-8 pr-3 py-1.5 text-xs outline-none focus:border-[var(--cm-red)]" />
+                      placeholder={esDir ? 'Buscar clave, nombre, fila...' : 'Buscar nómina, nombre, puesto, fila...'}
+                      className={`${inputCls} pl-9`} />
                   </div>
                 </div>
 
@@ -807,7 +805,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                 <input ref={fileRef} type="file" accept=".xlsx" className="hidden"
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }} />
                 <button type="button" onClick={() => fileRef.current?.click()} disabled={parseando || !base}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-[var(--cm-red)] bg-[var(--cm-red-light)] px-3 py-2 text-xs font-semibold text-[var(--accent-text)] hover:bg-[var(--cm-red)] hover:text-white active:scale-95 transition-all disabled:opacity-50 cursor-pointer">
+                  className={paso === 'previa' ? btnSecondary : btnPrimary}>
                   {parseando || !base ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                   {!base ? 'Leyendo base...' : parseando ? 'Leyendo...' : paso === 'previa' ? 'Elegir otro archivo' : 'Seleccionar archivo (.xlsx)'}
                 </button>
@@ -828,7 +826,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
             )}
             {paso === 'previa' && plan && (
               <button type="button" onClick={handleConfirmar} disabled={!puedeConfirmar} className={btnPrimary}>
-                <CheckCircle2 className="h-3.5 w-3.5" />Confirmar importacion
+                <CheckCircle2 className="h-3.5 w-3.5" />Confirmar importación
               </button>
             )}
             <button type="button" onClick={onClose} disabled={paso === 'guardando'} className={btnSecondary}>

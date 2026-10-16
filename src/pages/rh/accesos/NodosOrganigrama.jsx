@@ -44,7 +44,7 @@ function Indicadores({ t, resaltarSin }) {
 }
 
 const claseEstado = ({ resaltado, atenuado, resaltarSin, t }) => [
-  resaltado ? 'ring-2 ring-[var(--cm-red)] ring-offset-1 ring-offset-[var(--bg-app)]' : '',
+  resaltado ? 'ring-2 ring-[var(--text-main)] ring-offset-1 ring-offset-[var(--bg-app)]' : '',
   resaltarSin && t.sinUsuario ? 'outline outline-2 outline-[var(--status-warning-text)]' : '',
   atenuado ? 'opacity-40' : '',
 ].join(' ');

@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { collection, getDocs } from 'firebase/firestore';
-import { GitBranch, Loader2, ShieldCheck, UserCog, AlertTriangle } from 'lucide-react';
+import { GitBranch, ShieldCheck, UserCog } from 'lucide-react';
 import { db } from '../../../firebase';
 import { useAuth } from '../../../hooks/useAuth';
 import { useAccesos } from '../../../hooks/useAccesos';
@@ -22,8 +22,11 @@ import { useToast } from '../../../hooks/useToast';
 import { puedeAsignarAlgo } from '../../../utils/asignaciones';
 import { RUTAS, rutaAccesos } from '../../../rutas';
 import { veOrganigrama } from '../../../utils/navegacion';
-import Spinner from '../../../components/Spinner';
 import AyudaPantalla from '../../../components/AyudaPantalla';
+import Aviso from '../../../components/ui/Aviso';
+import EncabezadoPagina from '../../../components/ui/EncabezadoPagina';
+import { EsqueletoTabla } from '../../../components/ui/Esqueleto';
+import Pestanas from '../../../components/ui/Pestanas';
 import TabUsuarios from './TabUsuarios';
 import TabAsignaciones from './TabAsignaciones';
 import TabOrganigrama from './TabOrganigrama';
@@ -49,9 +52,9 @@ export default function UsuariosYAccesos() {
   // RH, admin y Aut. 2 pueden leer usuarios (reglas): sirve para el "Sin usuario" y para crear usuarios
   const leeUsuarios = accesos.esRH || accesos.esAut2;
   const tabs = [
-    accesos.esRH && { id: 'usuarios', label: 'Usuarios', icon: UserCog },
-    asigna && { id: 'asignaciones', label: 'Asignaciones', icon: ShieldCheck },
-    veOrganigrama(accesos) && { id: 'organigrama', label: accesos.esRH || accesos.esAut2 ? 'Organigrama' : 'Mi área', icon: GitBranch },
+    accesos.esRH && { id: 'usuarios', etiqueta: 'Usuarios', icono: UserCog },
+    asigna && { id: 'asignaciones', etiqueta: 'Asignaciones', icono: ShieldCheck },
+    veOrganigrama(accesos) && { id: 'organigrama', etiqueta: accesos.esRH || accesos.esAut2 ? 'Organigrama' : 'Mi área', icono: GitBranch },
   ].filter(Boolean);
   const tabActiva = tabs.find(t => t.id === tab)?.id;
 
@@ -87,7 +90,7 @@ export default function UsuariosYAccesos() {
     esAdmin: accesos.esAdmin, esRH: accesos.esRH, esAut2: accesos.esAut2, esAut1: accesos.areasAut1.length > 0,
   }), [usuario, accesos.esAdmin, accesos.esRH, accesos.esAut2, accesos.areasAut1.length]);
 
-  if (accesos.cargando) return <Spinner />;
+  if (accesos.cargando) return <div className="space-y-8"><EsqueletoTabla filas={4} columnas={5} /></div>;
   // Un solicitante (o quien no tiene rol) no ve esta pantalla
   if (tabs.length === 0) return <Navigate to="/" replace />;
   if (!tabActiva) return <Navigate to={rutaAccesos(tabs[0].id)} replace />;
@@ -96,58 +99,24 @@ export default function UsuariosYAccesos() {
   const abrirAsignar = (inicial) => setFormAsig(inicial);
 
   return (
-    <div className="space-y-6">
-      <div className="border-b border-[var(--border-color)] pb-4">
-        {soloMiArea ? (
-          <>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-main)]">Mi área</h1>
-              <AyudaPantalla id="organigrama" />
-            </div>
-            <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
-              Organigrama de autorización de {areas.map(a => a.nombre).join(', ') || 'tu área'}
-            </p>
-          </>
-        ) : (
-          <>
-            <div className="text-xs font-semibold text-[var(--text-muted)]">Seguridad y accesos</div>
-            <div className="mt-1 flex items-center gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-main)]">Usuarios y accesos</h1>
-              {tabActiva === 'organigrama' && <AyudaPantalla id="organigrama" />}
-              {tabActiva === 'asignaciones' && <AyudaPantalla id="asignaciones" />}
-            </div>
-            <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
-              Los permisos viven en el rol: se asignan a personas, por área y con fechas si son temporales. El puesto no da permisos.
-            </p>
-          </>
-        )}
-      </div>
-
-      {(error || errorAsig) && (
-        <div role="alert" className="flex items-start gap-2 rounded-md border border-[var(--status-error-border)] bg-[var(--status-error-bg)] px-3 py-2 text-xs text-[var(--status-error-text)]">
-          <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" /><span>{error || `No se pudieron leer las asignaciones: ${errorAsig.message}`}</span>
-        </div>
+    <div className="space-y-8">
+      {soloMiArea ? (
+        <EncabezadoPagina titulo="Mi área" descripcion={`Organigrama de autorización de ${areas.map(a => a.nombre).join(', ') || 'tu área'}`} ayuda={<AyudaPantalla id="organigrama" />} />
+      ) : (
+        <EncabezadoPagina
+          antetitulo="Seguridad y accesos"
+          titulo="Usuarios y accesos"
+          descripcion="Los permisos viven en el rol: se asignan a personas, por área y con fechas si son temporales. El puesto no da permisos."
+          ayuda={tabActiva === 'organigrama' ? <AyudaPantalla id="organigrama" /> : tabActiva === 'asignaciones' ? <AyudaPantalla id="asignaciones" /> : null}
+        />
       )}
 
-      {tabs.length > 1 && <div className="border-b border-[var(--border-color)]">
-        <nav className="-mb-px flex gap-0 overflow-x-auto" aria-label="Secciones">
-          {tabs.map(t => {
-            const Icono = t.icon;
-            const activa = tabActiva === t.id;
-            return (
-              <button key={t.id} type="button" onClick={() => navigate(rutaAccesos(t.id))} aria-current={activa ? 'page' : undefined}
-                className={`inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer ${activa ? 'border-[var(--cm-red)] text-[var(--accent-text)]' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:border-[var(--border-color)]'}`}>
-                <Icono className="h-3.5 w-3.5" />{t.label}
-              </button>
-            );
-          })}
-        </nav>
-      </div>}
+      {(error || errorAsig) && <Aviso tono="error" titulo="No se pudo leer la información">{error || `No se pudieron leer las asignaciones: ${errorAsig.message}`}</Aviso>}
+
+      {tabs.length > 1 && <Pestanas etiqueta="Secciones" items={tabs} activa={tabActiva} onCambio={(id) => navigate(rutaAccesos(id))} />}
 
       {cargando ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-[var(--text-muted)]">
-          <Loader2 className="h-5 w-5 animate-spin" /><span className="text-xs">Cargando…</span>
-        </div>
+        <EsqueletoTabla filas={4} columnas={5} />
       ) : (
         <>
           {tabActiva === 'usuarios' && (

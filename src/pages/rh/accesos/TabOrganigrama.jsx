@@ -18,6 +18,7 @@ import { crearFormateadorNombres } from '../../../utils/nombresPersona';
 import { BotonAgregar, FilaSolicitante, SinAut1, TarjetaPersona } from './NodosOrganigrama';
 import { COLOR_LINEA, NIVELES, textoConteo } from './nivelesOrganigrama';
 import PanelPersona from './PanelPersona';
+import { inputCls } from './ui';
 
 const sinAcentos = (t) => String(t ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 const linea = { background: COLOR_LINEA };
@@ -124,7 +125,7 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, puestos
         <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-muted)]" />
           <input type="search" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar persona en el árbol…" aria-label="Buscar persona en el árbol"
-            className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] py-1.5 pl-8 pr-3 text-xs text-[var(--text-main)] outline-none focus:border-[var(--cm-red)]" />
+            className={`${inputCls} pl-9`} />
         </div>
         {nominasConUsuario && <button type="button" role="switch" aria-checked={resaltarSin} onClick={() => setResaltarSin(v => !v)}
           title="Marca claramente a quien aún no tiene cuenta"

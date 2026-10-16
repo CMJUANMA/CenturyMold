@@ -28,6 +28,17 @@ const PANTALLAS = [
   ['asignaciones', '/personal/accesos/asignaciones', true],
   ['transporte', '/transporte/solicitudes', true],
   ['catalogos', '/transporte/catalogos', true],
+  ['usuarios', '/personal/accesos/usuarios', true],
+  ['herramientas', '/herramientas', true],
+  ['cambiar-password', '/cambiar-password', true],
+  ['no-encontrada', '/esta-pagina-no-existe', true],
+  // Con una acción previa (texto de un botón o pestaña que se pulsa antes de capturar)
+  ['padron-importar', '/personal/padron', true, { id: 'btn-importar-empleados' }],
+  ['padron-nuevo', '/personal/padron', true, { texto: 'Nuevo empleado' }],
+  ['estructura-puestos', '/personal/estructura', true, { texto: 'Puestos' }],
+  ['estructura-turnos', '/personal/estructura', true, { texto: 'Turnos' }],
+  ['asignar-rol', '/personal/accesos/asignaciones', true, { id: 'btn-asignar-rol' }],
+  ['catalogos-puntos', '/transporte/catalogos', true, { texto: 'Puntos de reunión' }],
 ];
 const VISTAS = [
   ['escritorio', { width: 1440, height: 900, deviceScaleFactor: 1.5, mobile: false }],
@@ -83,12 +94,14 @@ await poner('login-password', PASSWORD);
 await js("document.getElementById('btn-ingresar').click()");
 await esperar(3500);
 // 3) Pantallas con sesión
-for (const [nombre, ruta, conSesion] of PANTALLAS) {
+for (const [nombre, ruta, conSesion, accion] of PANTALLAS) {
   if (!conSesion || !quiere(nombre)) continue;
   for (const [vista, v] of VISTAS) {
     for (const tema of TEMAS) {
       await preparar(v, tema);
       await ir(ruta);
+      if (accion?.id) { await js(`document.getElementById('${accion.id}')?.click()`); await esperar(700); }
+      if (accion?.texto) { await js(`[...document.querySelectorAll('button, [role=tab], a')].find(e => e.textContent.trim().startsWith('${accion.texto}'))?.click()`); await esperar(700); }
       await capturar(nombre, vista, tema);
     }
   }

@@ -10,6 +10,7 @@ import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Search, ShieldC
 import {
   FILTROS_AREA, GRUPO_SIN_AREA, impactoPuesto, motivoExcepcionPorDefecto, resumenLista,
 } from '../../utils/areasImportacion';
+import { inputCls } from './estructura/ui';
 
 const btn = 'inline-flex items-center gap-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
 const btnRojo = 'inline-flex items-center gap-1 rounded-md bg-[var(--cm-red)] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[var(--cm-red-hover)] active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
@@ -39,7 +40,7 @@ function DialogoCambio({ plan, dialogo, areas, empleadosBase, onCancelar, onApli
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4" onClick={(e) => { if (e.target === e.currentTarget) onCancelar(); }}>
-      <div className="w-full max-w-lg space-y-3 rounded-xl bg-[var(--bg-surface)] p-5 text-xs shadow-2xl">
+      <div className="w-full max-w-lg space-y-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5 text-xs shadow-md">
         <div className="flex items-start justify-between gap-3">
           <p className="text-sm font-semibold text-[var(--text-main)]">Cambiar área de {item.nombre}</p>
           <button type="button" onClick={onCancelar} className="rounded p-1 text-[var(--text-muted)] hover:bg-[var(--bg-surface-secondary)] cursor-pointer"><X className="h-4 w-4" /></button>
@@ -187,7 +188,7 @@ export default function ConfirmarAreas({
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-muted)]" />
           <input type="search" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar nómina, nombre o puesto..."
-            className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] py-1.5 pl-8 pr-3 text-xs outline-none focus:border-[var(--cm-red)]" />
+            className={`${inputCls} pl-9`} />
         </div>
         <div className="flex flex-wrap gap-1" role="group" aria-label="Filtrar por estado">
           {FILTROS.map(([id, label]) => (

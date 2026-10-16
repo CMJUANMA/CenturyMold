@@ -3,7 +3,10 @@
  * (horario normal de los turnos de nómina A, B y C). Cada colección se lee por separado y, si falla, se dice cuál y con qué código.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import Aviso from '../../components/ui/Aviso';
+import EncabezadoPagina from '../../components/ui/EncabezadoPagina';
+import { EsqueletoTabla } from '../../components/ui/Esqueleto';
+import Pestanas from '../../components/ui/Pestanas';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
 import { ejecutarEnLotes, leerColeccion } from '../../utils/estructuraDb';
@@ -13,10 +16,10 @@ import TabPendientes from './estructura/TabPendientes';
 import TabTurnos from './estructura/TabTurnos';
 
 const PESTANAS = [
-  { id: 'areas', label: 'Áreas' },
-  { id: 'puestos', label: 'Puestos' },
-  { id: 'pendientes', label: 'Excepciones y pendientes' },
-  { id: 'turnos', label: 'Turnos' },
+  { id: 'areas', etiqueta: 'Áreas' },
+  { id: 'puestos', etiqueta: 'Puestos' },
+  { id: 'pendientes', etiqueta: 'Excepciones y pendientes' },
+  { id: 'turnos', etiqueta: 'Turnos' },
 ];
 
 export default function Estructura() {
@@ -53,31 +56,19 @@ export default function Estructura() {
   const props = { ...datos, usuario, toast, guardar, recargar };
 
   return (
-    <div className="space-y-5">
-      <div className="border-b border-[var(--border-color)] pb-4">
-        <div className="text-xs font-semibold text-[var(--text-muted)]">Recursos Humanos</div>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[var(--text-main)]">Estructura</h1>
-        <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Áreas → puestos → empleados: el área de cada empleado sale de su puesto.</p>
-      </div>
+    <div className="space-y-8">
+      <EncabezadoPagina antetitulo="Recursos Humanos" titulo="Estructura" descripcion="Áreas → puestos → empleados: el área de cada empleado sale de su puesto." />
 
       {fallos.length > 0 && (
-        <div className="flex items-start gap-2 rounded-lg border border-[var(--status-error-border)] bg-[var(--status-error-bg)] px-3 py-2.5 text-xs text-[var(--status-error-text)]">
-          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-          <p>No se pudo leer: {fallos.join(', ')}. Los datos de esas colecciones aparecen vacíos; no guarde cambios hasta resolverlo (¿están desplegadas las reglas?).</p>
-        </div>
+        <Aviso tono="error" titulo="No se pudo leer parte de la estructura">
+          No se pudo leer: {fallos.join(', ')}. Esos datos aparecen vacíos; no guardes cambios hasta resolverlo (¿están desplegadas las reglas?).
+        </Aviso>
       )}
 
-      <div className="flex gap-1 border-b border-[var(--border-color)]" role="tablist">
-        {PESTANAS.map(p => (
-          <button key={p.id} type="button" role="tab" aria-selected={pestana === p.id} onClick={() => setPestana(p.id)}
-            className={`-mb-px cursor-pointer border-b-2 px-4 py-2 text-xs font-semibold transition-colors ${pestana === p.id ? 'border-[var(--cm-red)] text-[var(--accent-text)]' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-main)]'}`}>
-            {p.label}
-          </button>
-        ))}
-      </div>
+      <Pestanas etiqueta="Estructura" items={PESTANAS} activa={pestana} onCambio={setPestana} />
 
       {cargando ? (
-        <div className="flex items-center gap-2 py-10 text-xs text-[var(--text-secondary)]"><Loader2 className="h-4 w-4 animate-spin" />Cargando...</div>
+        <EsqueletoTabla filas={4} columnas={5} />
       ) : (
         <>
           {pestana === 'areas' && <TabAreas {...props} />}

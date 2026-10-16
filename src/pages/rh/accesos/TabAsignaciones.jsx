@@ -73,9 +73,9 @@ export default function TabAsignaciones({ asignaciones, nombresArea, actor, ahor
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-3">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--text-muted)]" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" aria-hidden="true" />
           <input type="search" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar por nómina o nombre..."
-            className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] pl-8 pr-3 py-1.5 text-xs text-[var(--text-main)] placeholder-[var(--text-muted)] outline-none focus:border-[var(--cm-red)]" />
+            className={`${inputCls} pl-9`} />
         </div>
         <select aria-label="Filtrar por rol" value={filtroRol} onChange={e => setFiltroRol(e.target.value)} className={selectCls}>
           <option value="">Todos los roles</option>

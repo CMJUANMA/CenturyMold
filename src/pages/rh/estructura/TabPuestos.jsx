@@ -143,7 +143,7 @@ export default function TabPuestos({ areas, puestos, empleados, usuario, toast, 
         <div className="relative min-w-[200px] flex-1">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-muted)]" />
           <input type="search" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar puesto o alias..."
-            className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] py-1.5 pl-8 pr-3 text-xs outline-none focus:border-[var(--cm-red)]" />
+            className={`${inputCls} pl-9`} />
         </div>
         <select value={filtroArea} onChange={e => setFiltroArea(e.target.value)} className={`${inputCls} !w-auto`}>
           <option value="todas">Todas las áreas</option>
