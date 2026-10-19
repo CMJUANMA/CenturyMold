@@ -42,7 +42,7 @@ export function mensajeErrorAlta(err, nomina, usuarios = []) {
       ? 'Ya existe un usuario con esa nómina.'
       : `Esa nómina tiene una cuenta de acceso sin perfil (cuenta huérfana, normalmente de un alta que falló). Bórrala en Firebase Console > Authentication (busca ${n}@rutas.app) y vuelve a crear el usuario.`;
   }
-  if (err.code === 'auth/weak-password') return 'La contraseña debe tener al menos 6 caracteres.';
+  if (err.code === 'auth/weak-password') return 'La contraseña debe tener al menos 8 caracteres.';
   if (err.cuentaHuerfana) {
     return `No se pudo guardar el perfil (${err.message}) y tampoco se pudo borrar la cuenta creada. Bórrala en Firebase Console > Authentication (${n}@rutas.app) antes de reintentar.`;
   }

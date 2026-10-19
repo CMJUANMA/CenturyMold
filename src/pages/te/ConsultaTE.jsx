@@ -33,6 +33,7 @@ import { ESTATUS_TE_VISIBLES, esperaDesde, filtrarSolicitudes } from '../../util
 import { inicioDeMes, inicioDeSemana } from '../../utils/resumenInicio';
 import { leerHistorialTE, leerSolicitudTE } from '../../utils/tiempoExtraDb';
 import AccionesRH from './AccionesRH';
+import { ACCIONES_DESCARGA, registrarDescarga } from '../../utils/bitacoraDb';
 import { RUTAS } from '../../rutas';
 import { BotonDescargaResumenTE } from './DescargaTE';
 import DetalleTE from './DetalleTE';
@@ -113,6 +114,7 @@ export default function ConsultaTE() {
       }
       const { descargarConsulta } = await import('../../utils/exportarConsultaTE');
       await descargarConsulta({ solicitudes: completas, nombresArea: nombres, catalogos: { rutas, comunidades, puntos }, nombre: (x) => formato.nombre(x) });
+      registrarDescarga(ACCIONES_DESCARGA.consultaTE, { solicitudes: completas.length });
       toast.success(`Excel descargado: ${completas.length} solicitudes.`);
     } catch (err) { toast.error('No se pudo exportar: ' + err.message, 8000); } finally { setExportando(null); }
   };

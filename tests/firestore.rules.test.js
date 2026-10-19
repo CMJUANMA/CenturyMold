@@ -22,7 +22,7 @@ const U = {
   primerAcceso: 'primer1',
 };
 
-const perfil = (rol, extra = {}) => ({ nombre: rol, email: `${rol}@test.com`, rol, activo: true, ...extra });
+const perfil = (rol, extra = {}) => ({ nombre: rol, email: `${rol}@test.com`, rol, nomina: `n-${rol}`, activo: true, ...extra });
 // Rol del sistema: 'usuario'. Quien solicita rutas lo hace por una asignación vigente de solicitante en un área (nomina_rol_area)
 const NOMINA = { sup1: '5001', sup2: '5002', inactivo1: '5003', primer1: '5004' };
 const asignacion = (nomina, areaId) => ({

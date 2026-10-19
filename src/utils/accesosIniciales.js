@@ -5,6 +5,7 @@
 import { ROL_OP_CORTOS, esVigente } from './asignaciones.js';
 import { agregarHojaReporte, nuevoLibro } from './formatosImportacion.js';
 import { ALFABETO_PASSWORD, generarPassword } from './passwordTemporal.js';
+import { bufferSeguro } from './excelSeguro.js';
 
 // La contraseña temporal vive en passwordTemporal.js (la comparte "Restablecer acceso"); se vuelve a exportar aquí
 export { ALFABETO_PASSWORD, generarPassword };
@@ -41,7 +42,7 @@ export const PASOS_PRIMER_ACCESO = [
   ['1', 'Abre la aplicación de Century Mold en el navegador (la liga te la da Recursos Humanos).'],
   ['2', 'En "Usuario" escribe tu número de nómina, tal como aparece en este archivo (solo números).'],
   ['3', 'En "Contraseña" escribe la contraseña temporal respetando mayúsculas y guiones, por ejemplo CM-7K4P-Q9TX.'],
-  ['4', 'La primera vez el sistema te pedirá crear una contraseña nueva. Debe ser distinta de la temporal y de al menos 6 caracteres.'],
+  ['4', 'La primera vez el sistema te pedirá crear una contraseña nueva. Debe ser distinta de la temporal, de al menos 8 caracteres y con letras y números.'],
   ['5', 'Después de cambiarla entrarás al Portal de procesos. La contraseña temporal deja de servir.'],
   ['6', 'Si no puedes entrar, avisa a Recursos Humanos; no compartas tu contraseña con nadie.'],
   ['', 'ESTE ARCHIVO CONTIENE CONTRASEÑAS: entrégalo en persona o en sobre cerrado y bórralo después. No se puede volver a generar.'],
@@ -58,7 +59,7 @@ export function construirLibroAccesos(filas) {
 
 /** Descarga el libro como .xlsx en el navegador */
 export async function descargarLibroAccesos(filas, fecha = new Date()) {
-  const buffer = await construirLibroAccesos(filas).xlsx.writeBuffer();
+  const buffer = await bufferSeguro(construirLibroAccesos(filas));
   const url = URL.createObjectURL(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
   const a = Object.assign(document.createElement('a'), { href: url, download: nombreArchivoAccesos(fecha) });
   document.body.appendChild(a);

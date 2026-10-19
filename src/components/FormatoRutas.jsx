@@ -15,6 +15,7 @@ import { useCatalogos } from '../hooks/useCatalogos';
 import { useToast } from '../hooks/useToast';
 import { ESTATUS_SOLICITUD } from '../utils/constantes';
 import { exportarSolicitudes } from '../utils/exportarSolicitudes';
+import { ACCIONES_DESCARGA, registrarDescarga } from '../utils/bitacoraDb';
 import Ayuda from './Ayuda';
 import Modal from './Modal';
 import Aviso from './ui/Aviso';
@@ -91,6 +92,7 @@ export default function BotonFormatoRutas({ id = 'btn-formato-rutas' }) {
         conPasajeros.push(...tanda);
       }
       await exportarSolicitudes(conPasajeros, catalogos, toast, `Transporte_${sufijo}.xlsx`);
+      registrarDescarga(ACCIONES_DESCARGA.formatoRutas, { archivo: `Transporte_${sufijo}.xlsx`, solicitudes: conPasajeros.length });
       setAbierto(false);
     } catch (err) {
       console.error(err);

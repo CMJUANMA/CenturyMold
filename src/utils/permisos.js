@@ -196,6 +196,7 @@ export const MATRIZ = [
 
   { grupo: 'Herramientas (admin)', tipo: 'pantalla', id: 'herramientas', nombre: 'Herramientas › Diagnóstico y limpieza', ruta: RUTAS.herramientas, quien: por('admin'), menu: 'rh' },
   { grupo: 'Herramientas (admin)', tipo: 'pantalla', id: 'vistaPrevia', nombre: 'Herramientas › Vista previa por rol', ruta: RUTAS.herramientas, quien: por('admin'), menu: null, nota: 'Dentro de Herramientas' },
+  { grupo: 'Herramientas (admin)', tipo: 'boton', id: 'respaldoCompleto', nombre: 'Herramientas › Respaldo completo (JSON)', quien: soloAdmin },
   { grupo: 'Herramientas (admin)', tipo: 'pantalla', id: 'guiaEstilo', nombre: 'Guía de estilo', ruta: RUTAS.guiaEstilo, quien: por('admin'), menu: 'rh' },
 
   // ── Acciones y botones: tiempo extra

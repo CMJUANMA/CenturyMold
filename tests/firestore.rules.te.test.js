@@ -114,13 +114,15 @@ const ts = serverTimestamp;
 const firma = (nomina, extra = {}) => ({ nomina, nombre: `Usuario ${nomina}`, fecha: ts(), comentario: '', comoRH: [N.rh, N.rh2, N.admin].includes(nomina), ...extra });
 const devolucion = (nivel, nomina, motivo = 'Revisar horas') => ({ nivel, nomina, nombre: `Usuario ${nomina}`, motivo, fecha: ts() });
 
+// Nombres reales del área y de la persona: las reglas no dejan aparentar otra área ni otra persona
+const AREA_NOMBRE = { produccion: 'Producción', almacen: 'Almacén', calidad: 'Calidad', mantenimiento: 'Mantenimiento', moldes: 'Moldes', administrativo: 'Administrativo' };
 const ANIO = new Date().getFullYear();
 const FOLIO = `TE-${ANIO}-0013`;
 const BR = 'BR-ABCDEFGH12';
 
 /** Borrador nuevo: sin folio, con id propio. Lo que manda la pantalla al guardar el borrador */
 const nuevo = (uid, areaId, extra = {}) => ({
-  areaId, areaNombre: areaId, creadoPor: uid, creadoPorNomina: N[uid], creadoPorNombre: uid,
+  areaId, areaNombre: AREA_NOMBRE[areaId] ?? areaId, creadoPor: uid, creadoPorNomina: N[uid], creadoPorNombre: `Usuario ${N[uid]}`,
   fechaTE: '2026-11-05', motivo: 'Producción', comentario: 'Pedido urgente del cliente', estatus: 'borrador',
   resumen: { totalEmpleados: 2, totalHoras: 4, totalTransporte: 1, totalAlimentos: 2 },
   fechaCreacion: ts(), fechaActualizacion: ts(), ...extra,
@@ -128,7 +130,7 @@ const nuevo = (uid, areaId, extra = {}) => ({
 
 const historial = (db, folio, h) => ({
   ref: doc(collection(db, 'tiempoExtra', folio, 'historial')),
-  data: { nivel: 0, porUid: h.uid, porNomina: N[h.uid], porNombre: h.uid, comentario: '', fecha: ts(), accion: h.accion, ...(h.nivel ? { nivel: h.nivel } : {}) },
+  data: { nivel: 0, porUid: h.uid, porNomina: N[h.uid], porNombre: `Usuario ${N[h.uid]}`, comentario: '', fecha: ts(), accion: h.accion, ...(h.nivel ? { nivel: h.nivel } : {}) },
 });
 
 const empleadoDoc = (n) => ({
@@ -635,7 +637,7 @@ describe('firmas y devoluciones: quién puede y cómo', () => {
 
 // (La recepción con transporte, la devolución y la cancelación de RH se prueban en firestore.rules.recepcion-te.test.js)
 describe('RH recibe: autorizada → procesada', () => {
-  const recibida = (uid) => ({ estatus: 'procesada', recibidaPor: { nomina: N[uid], nombre: uid, fecha: ts() }, fechaRecepcion: ts() });
+  const recibida = (uid) => ({ estatus: 'procesada', recibidaPor: { nomina: N[uid], nombre: `Usuario ${N[uid]}`, fecha: ts() }, fechaRecepcion: ts() });
   it('RH y admin procesan una autorizada sin transporte', async () => {
     await assertSucceeds(transicion('rh', 'TE-2026-0003', recibida('rh'), 'recibida_rh'));
     await reiniciar();

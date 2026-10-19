@@ -15,7 +15,7 @@ const rutasDelMenu = (perfil) => menuDePerfil(perfil).filter(i => !i.section).ma
 // Lo que cada columna debe ver, escrito A MANO (no sale de la matriz): si alguien cambia un permiso, esta prueba lo avisa.
 const ESPERADO = {
   admin: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'transporteCatalogos',
-    'padron', 'estructura', 'accesos', 'accesosUsuarios', 'accesosAsignaciones', 'organigrama', 'herramientas', 'vistaPrevia', 'guiaEstilo',
+    'padron', 'estructura', 'accesos', 'accesosUsuarios', 'accesosAsignaciones', 'organigrama', 'herramientas', 'vistaPrevia', 'respaldoCompleto', 'guiaEstilo',
     'capturarSinTE', 'firmarNivel2', 'confirmarRH', 'cancelarRH', 'formatoRutas', 'exportarConsulta', 'editarPadron', 'editarEstructura', 'estructuraInicial',
     'nuevoUsuario', 'editarUsuario', 'darRolRH', 'restablecerAcceso', 'asignarAut1', 'asignarAut2', 'historialPersona', 'cargaAsignaciones', 'cambiarPassword'],
   rh: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'transporteCatalogos',

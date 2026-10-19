@@ -50,6 +50,7 @@ La tabla se **genera** desde `src/utils/permisos.js` (`npm run docs:permisos`); 
 | **Herramientas (admin)** |||||||
 | Pantalla: Herramientas › Diagnóstico y limpieza | ✔ | — | — | — | — | — |
 | Pantalla: Herramientas › Vista previa por rol _(Dentro de Herramientas)_ | ✔ | — | — | — | — | — |
+| Botón: Herramientas › Respaldo completo (JSON) | ✔ | — | — | — | — | — |
 | Pantalla: Guía de estilo | ✔ | — | — | — | — | — |
 | **Usuarios y accesos** |||||||
 | Botón: Nuevo usuario / Crear usuarios en lote (rol «usuario») | ✔ | ✔ | — | — | — | — |

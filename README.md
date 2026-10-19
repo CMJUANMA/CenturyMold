@@ -40,6 +40,12 @@ Cada persona entra con su nómina; internamente su correo es `{nómina}@rutas.ap
 
 > Permisos por rol y por combinación: `docs/permisos.md` (matriz generada desde `src/utils/permisos.js`).
 
+## Seguridad
+
+Auditoría completa, hallazgos, pasos de consola y pendientes: **`docs/seguridad.md`**. Lo esencial: la barrera real son las reglas de Firestore (probadas con intentos de ataque en `tests/firestore.rules.auditoria.test.js`); `firebase.json` envía una política de seguridad de contenido y
+los demás encabezados; la sesión se cierra a los 15 minutos sin actividad; todo Excel que se descarga pasa por `bufferSeguro` (`src/utils/excelSeguro.js`, neutraliza fórmulas); las contraseñas piden 8 caracteres con letra y número; las descargas de información y los cambios de usuarios quedan en la bitácora;
+*Herramientas › Respaldo completo (JSON)* (admin) descarga todos los datos. La configuración web de Firebase es pública por diseño.
+
 ## Pantallas y URLs
 
 Todas las URLs están en `src/rutas.js` (las del transporte suelto, en `src/funciones.js`); el menú sale de `src/utils/navegacion.js`.

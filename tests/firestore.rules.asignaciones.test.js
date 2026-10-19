@@ -35,7 +35,7 @@ async function sembrar() {
     for (const [uid, rol, nomina] of [
       ['admin', 'admin', N.admin], ['rh', 'rh', N.rh], ['aut2', 'usuario', N.aut2], ['aut1P', 'usuario', N.aut1P],
       ['solP', 'usuario', N.solP], ['ajeno', 'usuario', N.ajeno],
-    ]) await setDoc(doc(db, 'usuarios', uid), perfil(rol, nomina));
+    ]) await setDoc(doc(db, 'usuarios', uid), perfil(rol, nomina, { nombre: uid }));
     for (const [id, nombre, participaTE] of [['produccion', 'Producción', true], ['calidad', 'Calidad', true], ['administrativo', 'Administrativo', false]]) {
       await setDoc(doc(db, 'areas', id), { nombre, participaTE, activa: true, orden: 1 });
     }
@@ -296,7 +296,7 @@ describe('privacidad: quién asignó a quién queda en la bitácora, y el Aut. 1
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'bitacora', 'b1'), {
         accion: 'asignar', entidad: 'asignacion', antes: null, despues: { id: idDe(N.solP, 'solicitante', 'produccion') },
-        porUid: 'rh', porNombre: 'RH', fecha: Timestamp.now(),
+        porUid: 'rh', porNombre: 'rh', fecha: Timestamp.now(),
       });
     });
   };

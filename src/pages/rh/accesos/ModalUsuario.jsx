@@ -18,6 +18,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { CheckCircle2, AlertTriangle, Info, Loader2, X } from 'lucide-react';
 import { db } from '../../../firebase';
 import { crearCuentaUsuario, mensajeErrorAlta } from '../../../utils/usuariosDb';
+import { ACCIONES_USUARIO, registrarUsuario } from '../../../utils/bitacoraDb';
 import Modal from '../../../components/Modal';
 import BuscadorEmpleado from '../../../components/BuscadorEmpleado';
 import { ROLES, ROL_LABELS } from '../../../utils/constantes';
@@ -57,17 +58,19 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
       if (!form.nomina.trim() || !form.nombre.trim() || !form.password) {
         setError(form.nomina.trim() ? 'Todos los campos son obligatorios.' : 'Elige a la persona del padrón (o captura la nómina a mano).'); return;
       }
-      if (form.password.length < 6) { setError('La contraseña temporal debe tener al menos 6 caracteres.'); return; }
+      if (form.password.length < 8) { setError('La contraseña temporal debe tener al menos 8 caracteres.'); return; }
     } else if (!form.nombre.trim()) { setError('El nombre es obligatorio.'); return; }
 
     setGuardando(true);
     try {
       if (edicion) {
         await updateDoc(doc(db, 'usuarios', usuario.uid), { nombre: form.nombre.trim(), rol: form.rol });
+        registrarUsuario(ACCIONES_USUARIO.editar, { ...usuario, nombre: form.nombre.trim(), rol: form.rol }, { nombre: usuario.nombre, rol: usuario.rol });
         onGuardado({ ...usuario, nombre: form.nombre.trim(), rol: form.rol }, { nuevo: false });
         setExito('Usuario actualizado correctamente.');
       } else {
         const { uid, perfil } = await crearCuentaUsuario({ nomina: form.nomina, nombre: form.nombre, rol: form.rol, password: form.password });
+        registrarUsuario(ACCIONES_USUARIO.crear, { uid, ...perfil });
         onGuardado({ uid, ...perfil }, { nuevo: true });
         setExito('Usuario creado correctamente.');
       }
@@ -141,7 +144,7 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
         {!edicion && (
           <div>
             <label className={labelCls}>Contraseña temporal</label>
-            <input required type="password" minLength={6} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className={inputCls} placeholder="Mínimo 6 caracteres" />
+            <input required type="password" minLength={8} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className={inputCls} placeholder="Mínimo 8 caracteres" />
           </div>
         )}
         {edicion && (

@@ -12,13 +12,14 @@ import { Campo, Entrada } from '../components/ui/Campo';
 import EncabezadoPagina from '../components/ui/EncabezadoPagina';
 import Insignia from '../components/ui/Insignia';
 import { ROL_LABELS } from '../utils/constantes';
+import { AYUDA_PASSWORD, errorPasswordNueva } from '../utils/passwordPolitica';
 
 const ERRORES_PASS = {
   'auth/wrong-password': 'La contraseña actual es incorrecta.',
   'auth/invalid-credential': 'La contraseña actual es incorrecta.',
   'auth/too-many-requests': 'Demasiados intentos seguidos. Espera unos minutos antes de volver a intentar.',
   'auth/requires-recent-login': 'Por seguridad, tu sesión expiró para esta operación. Inicia sesión de nuevo.',
-  'auth/weak-password': 'La nueva contraseña debe tener al menos 8 caracteres.',
+  'auth/weak-password': 'La nueva contraseña es muy débil: usa al menos 8 caracteres, con letras y números.',
   'auth/network-request-failed': 'Sin conexión al servidor. Revisa tu conexión a Internet.',
 };
 
@@ -86,8 +87,9 @@ export default function MiCuenta() {
     }
     if (!passNueva) {
       nuevosErrores.nueva = 'Escribe la nueva contraseña.';
-    } else if (passNueva.length < 8) {
-      nuevosErrores.nueva = 'La contraseña debe tener un mínimo de 8 caracteres.';
+    } else {
+      const malaClave = errorPasswordNueva(passNueva, { nomina: usuario?.nomina });
+      if (malaClave) nuevosErrores.nueva = malaClave;
     }
     if (!passConfirm) {
       nuevosErrores.confirm = 'Confirma la nueva contraseña.';
@@ -163,7 +165,7 @@ export default function MiCuenta() {
             <Campo etiqueta="Contraseña actual" error={erroresCampos.actual}>
               <Clave id="pass-actual" autoComplete="current-password" required value={passActual} onChange={(e) => setPassActual(e.target.value)} />
             </Campo>
-            <Campo etiqueta="Nueva contraseña" ayuda="Mínimo 8 caracteres." error={erroresCampos.nueva}>
+            <Campo etiqueta="Nueva contraseña" ayuda={AYUDA_PASSWORD} error={erroresCampos.nueva}>
               <Clave id="pass-nueva" autoComplete="new-password" required value={passNueva} onChange={(e) => setPassNueva(e.target.value)} />
             </Campo>
             <Campo etiqueta="Confirmar nueva contraseña" error={erroresCampos.confirm}>

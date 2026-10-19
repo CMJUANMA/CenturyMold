@@ -8,13 +8,12 @@ import { useAuth } from '../hooks/useAuth';
 import Aviso from '../components/ui/Aviso';
 import Boton from '../components/ui/Boton';
 import { Campo, Entrada } from '../components/ui/Campo';
-
-const MIN = 8;
+import { AYUDA_PASSWORD, errorPasswordNueva } from '../utils/passwordPolitica';
 
 const ERRORES = {
   'auth/wrong-password': 'La contraseña temporal es incorrecta.',
   'auth/invalid-credential': 'La contraseña temporal es incorrecta.',
-  'auth/weak-password': `La contraseña debe tener al menos ${MIN} caracteres.`,
+  'auth/weak-password': 'La contraseña es muy débil: usa al menos 8 caracteres, con letras y números.',
   'auth/requires-recent-login': 'Tu sesión expiró. Cierra sesión e ingresa de nuevo.',
   'auth/too-many-requests': 'Demasiados intentos. Espera unos minutos.',
   'auth/network-request-failed': 'Sin conexión al servidor.',
@@ -40,7 +39,8 @@ export default function CambiarPassword() {
     e.preventDefault();
     setError('');
     if (pideTemporal && !temporal) return setError('Ingresa tu contraseña temporal.');
-    if (nueva.length < MIN) return setError(`La contraseña debe tener al menos ${MIN} caracteres.`);
+    const malaClave = errorPasswordNueva(nueva, { nomina: usuario?.nomina, anteriores: [temporal] });
+    if (malaClave) return setError(malaClave);
     if (nueva !== confirm) return setError('Las contraseñas no coinciden.');
     setEnviando(true);
     try {
@@ -67,7 +67,7 @@ export default function CambiarPassword() {
               <Entrada type="password" autoComplete="current-password" value={temporal} onChange={e => setTemporal(e.target.value)} />
             </Campo>
           )}
-          <Campo etiqueta="Contraseña nueva" ayuda={`Mínimo ${MIN} caracteres.`}>
+          <Campo etiqueta="Contraseña nueva" ayuda={AYUDA_PASSWORD}>
             <Entrada type="password" autoComplete="new-password" value={nueva} onChange={e => setNueva(e.target.value)} />
           </Campo>
           <Campo etiqueta="Confirmar contraseña nueva">

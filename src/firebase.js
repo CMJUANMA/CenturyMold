@@ -1,4 +1,5 @@
 import { initializeApp } from 'firebase/app';
+import { ReCaptchaV3Provider, initializeAppCheck } from 'firebase/app-check';
 import { connectAuthEmulator, getAuth } from 'firebase/auth';
 import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
 
@@ -12,6 +13,13 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+
+// App Check (opcional): si hay VITE_APPCHECK_SITE_KEY, cada petición a Firestore y Auth lleva una prueba de que viene de esta app y no de un script ajeno.
+// Sin la clave no hace nada. Pasos para activarlo (reCAPTCHA v3, CSP y "Aplicar" en la consola): docs/seguridad.md.
+const claveAppCheck = import.meta.env.VITE_APPCHECK_SITE_KEY;
+if (claveAppCheck && import.meta.env.VITE_USE_EMULATORS !== 'true') {
+  initializeAppCheck(app, { provider: new ReCaptchaV3Provider(claveAppCheck), isTokenAutoRefreshEnabled: true });
+}
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);

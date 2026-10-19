@@ -8,6 +8,7 @@
  * El archivo es un documento: aquí se usan colores fijos, no tokens de la UI.
  */
 import ExcelJS from 'exceljs';
+import { motivoArchivoNoValido, motivoLibroDemasiadoGrande } from './excelSeguro.js';
 import { limpiarTexto, normalizarPuesto } from './puestos.js';
 import { esActivo } from './activo.js';
 import { slugify } from './comparacionImportacion.js';
@@ -451,12 +452,17 @@ function textoCelda(cell) {
 }
 
 async function cargarLibro(buffer) {
+  // Límites antes y después de leer: un archivo enorme o con millones de filas se rechaza (ver excelSeguro.js)
+  const noValido = motivoArchivoNoValido(buffer?.byteLength ?? buffer?.length ?? 0);
+  if (noValido) throw new Error(noValido);
   const wb = new ExcelJS.Workbook();
   try {
     await wb.xlsx.load(buffer);
   } catch {
     throw new Error('No se pudo leer el archivo. Verifique que sea un .xlsx válido.');
   }
+  const grande = motivoLibroDemasiadoGrande(wb.worksheets);
+  if (grande) throw new Error(grande);
   return wb;
 }
 

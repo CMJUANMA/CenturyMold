@@ -15,6 +15,7 @@ import Ayuda from '../../components/Ayuda';
 import Modal from '../../components/Modal';
 import Aviso from '../../components/ui/Aviso';
 import Boton from '../../components/ui/Boton';
+import { ACCIONES_DESCARGA, registrarDescarga } from '../../utils/bitacoraDb';
 import { Campo, Entrada, Selector } from '../../components/ui/Campo';
 import { Esqueleto } from '../../components/ui/Esqueleto';
 import { INCLUIR_DESCARGA, PERIODOS_DESCARGA, estatusDeIncluir, rangoDePeriodo } from '../../utils/tiempoExtra';
@@ -95,6 +96,7 @@ export default function DescargaTE({ isOpen, onClose, areas, nombresArea, catalo
         ExcelJS, solicitudes: completas, nombresArea, catalogos, nombre,
         filtros: { desde: rango.desde, hasta: rango.hasta, areaId, estatus: estatusDeIncluir(incluir) },
       });
+      registrarDescarga(ACCIONES_DESCARGA.resumenTE, { solicitudes: completas.length, desde: rango.desde ?? '', hasta: rango.hasta ?? '', areaId: areaId || '' });
       toast.success(`Excel descargado: ${completas.length} ${completas.length === 1 ? 'solicitud' : 'solicitudes'}.`);
       onClose();
     } catch (err) {

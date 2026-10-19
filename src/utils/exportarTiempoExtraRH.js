@@ -4,6 +4,7 @@
  * Hojas: "Detalle" (una fila por empleado), "Horas por empleado" (para nómina), "Alimentos" (para el comedor) y "Resumen" (por área y fecha).
  * Sin dependencias del navegador; exceljs se carga con import() dinámico desde la pantalla.
  */
+import { bufferSeguro } from './excelSeguro.js';
 import { ESTATUS_DESCARGA, INCLUIR_DESCARGA, TEXTO_SENTIDO, calcularHoras, esExtension, etiquetaBloque, firmaTexto, motivoTexto, sentidoDe, textoRuta } from './tiempoExtra.js';
 
 export const ENCABEZADOS_DETALLE_RH = [
@@ -213,7 +214,7 @@ export function construirLibroTiempoExtra({ ExcelJS, solicitudes, nombresArea, c
 }
 
 export async function descargarTiempoExtra(datos) {
-  const buffer = await construirLibroTiempoExtra(datos).xlsx.writeBuffer();
+  const buffer = await bufferSeguro(construirLibroTiempoExtra(datos));
   const url = URL.createObjectURL(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
   const a = Object.assign(document.createElement('a'), { href: url, download: nombreArchivoTiempoExtra(datos.filtros?.desde, datos.filtros?.hasta) });
   document.body.appendChild(a);

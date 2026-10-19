@@ -7,7 +7,8 @@ service cloud.firestore {
     function perfilPath()  { return /databases/$(database)/documents/usuarios/$(request.auth.uid); }
     function tienePerfil() { return isAuth() && exists(perfilPath()); }
     function perfil()      { return get(perfilPath()).data; }
-    function activo()      { return tienePerfil() && perfil().get('activo', true) != false; }
+    // (Sin sesión, request.auth es nulo y la expresión da error, que niega igual que "false"; así se ahorran expresiones del tope de 1000.)
+    function activo()      { let p = perfil(); return exists(perfilPath()) && p.get('activo', true) != false; }
     function rol()         { return perfil().get('rol', ''); }
 
     // Rol del SISTEMA (usuarios/{uid}.rol): solo admin, rh o usuario. Los permisos operativos (Aut. 2, Aut. 1, solicitante)
@@ -15,6 +16,9 @@ service cloud.firestore {
     function esAdmin()        { return activo() && rol() == 'admin'; }
     function esRH()           { return activo() && rol() in ['rh', 'admin']; }
     function miNomina()       { return perfil().get('nomina', ''); }
+    function miNombre()       { return perfil().get('nombre', ''); }
+    // Texto con tope de largo (nada de documentos enormes ni de otro tipo de dato)
+    function textoHasta(v, max) { return v is string && v.size() <= max; }
 
     // ---------- Asignaciones (roles operativos) ----------
     // asignaciones/{nomina}_{rol}_{areaId|planta}. Vigente = activo, desde <= ahora y (sin hasta o ahora <= hasta).
@@ -26,8 +30,10 @@ service cloud.firestore {
       return a.get('activo', false) == true && a.desde <= request.time
         && (a.get('hasta', null) == null || request.time <= a.hasta);
     }
+    // (Una nómina vacía no existe: las asignaciones exigen nomina no vacía.) El tope de 1000 expresiones por petición es justo: se evita repetir cálculos.
     function asignacionVigente(rol, area) {
-      return activo() && miNomina() != '' && area is string && exists(asigPath(rol, area)) && asigVigente(get(asigPath(rol, area)).data);
+      let p = asigPath(rol, area);
+      return activo() && area is string && exists(p) && asigVigente(get(p).data);
     }
     function esAut2() { return asignacionVigente('aut2', 'planta'); }
     function esAut1De(areaId)        { return asignacionVigente('aut1', areaId); }
@@ -49,12 +55,19 @@ service cloud.firestore {
       // La Aut. 2 también los lee: necesita saber quién aún no tiene usuario al asignar roles
       allow read: if (isAuth() && request.auth.uid == uid) || esRH() || esAut2();
       // Solo admin da o quita los roles rh y admin: RH crea usuarios con rol 'usuario'
-      allow create: if esAdmin() || (esRH() && request.resource.data.rol == 'usuario');
+      allow create: if (esAdmin() || (esRH() && request.resource.data.rol == 'usuario')) && perfilValido();
+      // Un perfil trae nómina y nombre con tope de largo y activo booleano (el resto de campos los pone la app)
+      function perfilValido() {
+        let d = request.resource.data;
+        return textoHasta(d.get('nomina', ''), 20) && d.get('nomina', '') != '' && textoHasta(d.get('nombre', ''), 120) && d.get('activo', true) is bool;
+      }
       // RH edita a los usuarios que no son rh/admin y solo los deja en 'usuario' (un rol anterior sin migrar puede conservarse)
       allow update: if esAdmin()
+        // RH solo toca nombre, rol y activo (la nómina NO cambia: las asignaciones van por nómina y moverla heredaría los roles de otra persona)
         || (esRH() && !(resource.data.rol in ['rh', 'admin'])
             && (request.resource.data.rol == 'usuario' || request.resource.data.rol == resource.data.rol)
-            && !(request.resource.data.rol in ['rh', 'admin']))
+            && !(request.resource.data.rol in ['rh', 'admin'])
+            && soloCambia(['nombre', 'rol', 'activo']) && perfilValido())
         // Primer acceso: el propio usuario solo puede bajar debeCambiarPassword de true a false (nunca al revés)
         || (activo() && request.auth.uid == uid
             && soloCambia(['debeCambiarPassword'])
@@ -98,7 +111,8 @@ service cloud.firestore {
     match /areas/{id} {
       allow read: if activo();
       allow create, update: if esRH()
-        && request.resource.data.nombre is string && request.resource.data.nombre.trim().size() > 0
+        && request.resource.data.nombre is string && request.resource.data.nombre.trim().size() > 0 && request.resource.data.nombre.size() <= 120
+        && request.resource.data.keys().size() <= 20
         && request.resource.data.get('participaTE', false) is bool
         && request.resource.data.get('activa', true) is bool
         && request.resource.data.get('orden', 0) is number;
@@ -107,8 +121,8 @@ service cloud.firestore {
     match /puestos/{id} {
       function p() { return request.resource.data; }
       function puestoValido() {
-        return p().nombre is string && p().nombre.size() > 0 && p().nombre == p().nombre.upper()
-          && p().areaId is string && p().activo is bool && p().alias is list
+        return p().nombre is string && p().nombre.size() > 0 && p().nombre.size() <= 120 && p().nombre == p().nombre.upper()
+          && p().areaId is string && p().areaId.size() <= 100 && p().activo is bool && p().alias is list && p().alias.size() <= 50
           // nivelJerarquico (opcional): entero >= 1, 1 = el puesto más alto; ordena el organigrama
           && (!p().keys().hasAny(['nivelJerarquico']) || (p().nivelJerarquico is int && p().nivelJerarquico >= 1));
       }
@@ -123,16 +137,20 @@ service cloud.firestore {
     // El Aut. 1 y el solicitante NO la leen: ahí queda quién asignó a quién y cuándo. Nadie la edita ni la borra.
     match /bitacora/{id} {
       allow read: if esRH() || (esAut2() && resource.data.get('entidad', '') == 'asignacion');
-      allow create: if (esRH() || (esAut2() && request.resource.data.entidad == 'asignacion'))
+      // Quien la crea queda con su uid Y su nombre reales (no se puede firmar a nombre de otra persona). La Aut. 2 también registra sus descargas.
+      allow create: if (esRH() || (esAut2() && request.resource.data.entidad in ['asignacion', 'descarga']))
         && request.resource.data.keys().hasOnly(['accion', 'entidad', 'antes', 'despues', 'porUid', 'porNombre', 'fecha'])
-        && request.resource.data.accion is string && request.resource.data.entidad is string
+        && textoHasta(request.resource.data.accion, 60) && textoHasta(request.resource.data.entidad, 120)
         && request.resource.data.porUid == request.auth.uid
+        && request.resource.data.get('porNombre', '') == miNombre()
+        && (request.resource.data.get('antes', null) is map || request.resource.data.get('antes', null) == null)
+        && (request.resource.data.get('despues', null) is map || request.resource.data.get('despues', null) == null)
         && request.resource.data.fecha == request.time;
       allow update, delete: if false;
     }
-    match /rutas/{id}         { allow read: if activo(); allow write: if esRH(); }
-    match /comunidades/{id}   { allow read: if activo(); allow write: if esRH(); }
-    match /puntosReunion/{id} { allow read: if activo(); allow write: if esRH(); }
+    match /rutas/{id}         { allow read: if activo(); allow create, update: if esRH() && request.resource.data.keys().size() <= 25; allow delete: if esRH(); }
+    match /comunidades/{id}   { allow read: if activo(); allow create, update: if esRH() && request.resource.data.keys().size() <= 25; allow delete: if esRH(); }
+    match /puntosReunion/{id} { allow read: if activo(); allow create, update: if esRH() && request.resource.data.keys().size() <= 25; allow delete: if esRH(); }
     // Colección heredada (mayúscula) usada solo por Diagnóstico/migración de RH
     match /PuntosReunion/{id} { allow read, write: if esRH(); }
 
@@ -149,6 +167,8 @@ service cloud.firestore {
       allow create: if esRH();
       allow update: if esRH()
         || (soloCambia(['rutaId', 'comunidadId', 'puntoReunionId'])
+            && textoHasta(request.resource.data.get('rutaId', ''), 100) && textoHasta(request.resource.data.get('comunidadId', ''), 100)
+            && textoHasta(request.resource.data.get('puntoReunionId', ''), 100)
             && (esSolicitanteDe(resource.data.get('areaId', null)) || esAut1De(resource.data.get('areaId', null))));
       allow delete: if esRH();
     }
@@ -199,10 +219,11 @@ service cloud.firestore {
             && resource.data.estatus in ['pendiente', 'aprobada']
             && request.resource.data.estatus in ['pendiente', 'cancelada']
             && soloCambia(['fechaServicio', 'solicitanteNombre', 'totalPasajeros', 'totalAlimentos', 'conteoTurnos', 'conteoPuestos',
-                        'estatus', 'modificada', 'historial']))
+                        'estatus', 'modificada', 'historial'])
+            && request.resource.data.get('historial', []).size() <= 300 && textoHasta(request.resource.data.get('solicitanteNombre', ''), 120))
         // Dueño: marcar como vista y avisar a RH, en cualquier estatus
         || (activo() && esDueno()
-            && soloCambia(['vistoPorSolicitante', 'historial']));
+            && soloCambia(['vistoPorSolicitante', 'historial']) && request.resource.data.get('historial', []).size() <= 300);
       allow delete: if esAdmin();
 
       match /pasajeros/{pasId} {
@@ -230,7 +251,8 @@ service cloud.firestore {
     // Quién captura en un área: un solicitante o el Aut. 1 vigente de esa área (el Aut. 1 captura y su solicitud se salta
     // su propio nivel); en un área que no participa en TE (Administrativo) solo RH o un Aut. 2
     function puedeCapturarTE(areaId) {
-      return areaActiva(areaId) && (areaParticipaTE(areaId) ? (esSolicitanteDe(areaId) || esAut1De(areaId)) : (esRH() || esAut2()));
+      return areaActiva(areaId) && (get(areaPath(areaId)).data.get('participaTE', false) == true
+        ? (esSolicitanteDe(areaId) || esAut1De(areaId)) : (esRH() || esAut2()));
     }
     // Folio asignado al enviar: TE-AAAA-NNNN, con el número que deja el contador del año en el mismo lote/transacción
     // (el contador debe subir exactamente 1; así los borradores no gastan folios y no hay folios repetidos)
@@ -243,7 +265,7 @@ service cloud.firestore {
     }
     // Al capturar o reenviar, el Aut. 1 de esa área se salta su propio nivel; en un área que no participa se va directo a Aut. 2
     function estatusInicial(areaId) {
-      return (!areaParticipaTE(areaId) || esAut1De(areaId)) ? 'pendiente_aut2' : 'pendiente_aut1';
+      return (get(areaPath(areaId)).data.get('participaTE', false) != true || esAut1De(areaId)) ? 'pendiente_aut2' : 'pendiente_aut1';
     }
 
     // t = datos de una solicitud de tiempo extra. Un borrador solo lo ve su creador
@@ -254,12 +276,15 @@ service cloud.firestore {
     // Firma o devolución bien formada: {nomina, nombre, fecha, ...} de quien la hace
     // comoRH: true si firma el nivel 2 por su rol RH/admin (sin ser Aut. 2); así se sabe si firmó la Aut. 2 o alguien de RH
     function firmaValida(f, comoRH) {
-      return f.nomina == miNomina() && f.fecha == request.time && f.get('comoRH', false) == comoRH;
+      return f is map && f.keys().hasOnly(['nomina', 'nombre', 'fecha', 'comentario', 'comoRH'])
+        && f.nomina == miNomina() && f.fecha == request.time && f.get('comoRH', false) == comoRH
+        && f.get('nombre', '') == miNombre() && textoHasta(f.get('comentario', ''), 1000);
     }
     // Devolver exige un motivo de al menos 10 caracteres
     function devolucionValida(d, nivel) {
-      return d.nivel == nivel && d.nomina == miNomina() && d.fecha == request.time
-        && d.motivo is string && d.motivo.trim().size() >= 10;
+      return d is map && d.keys().hasOnly(['nivel', 'nomina', 'nombre', 'motivo', 'fecha'])
+        && d.nivel == nivel && d.nomina == miNomina() && d.fecha == request.time && d.get('nombre', '') == miNombre()
+        && d.motivo is string && d.motivo.trim().size() >= 10 && d.motivo.size() <= 1000;
     }
 
     // Asignaciones: las lee cualquier usuario activo; las escribe admin (cualquier rol) o RH / Aut. 2 (solo aut1 y solicitante,
@@ -271,16 +296,17 @@ service cloud.firestore {
         // puesto y puestoId (copia del padrón) son opcionales: las asignaciones anteriores no los traen
         return n().keys().hasOnly(['nomina', 'nombre', 'puesto', 'puestoId', 'rol', 'areaId', 'desde', 'hasta', 'motivo', 'activo', 'asignadoPor', 'fechaAsignacion'])
           && n().keys().hasAll(['nomina', 'nombre', 'rol', 'areaId', 'desde', 'hasta', 'motivo', 'activo', 'asignadoPor', 'fechaAsignacion'])
-          && n().nomina is string && n().nomina.size() > 0 && n().nombre is string
-          && n().get('puesto', '') is string && n().get('puestoId', '') is string
+          && n().nomina is string && n().nomina.size() > 0 && n().nomina.size() <= 20 && textoHasta(n().nombre, 120)
+          && textoHasta(n().get('puesto', ''), 120) && textoHasta(n().get('puestoId', ''), 120)
           && n().rol in ['aut2', 'aut1', 'solicitante']
           && (n().rol == 'aut2' ? n().areaId == null : n().areaId is string)
           && asigId == idEsperado(n())
           && n().desde is timestamp
           && (n().hasta == null || (n().hasta is timestamp && n().hasta >= n().desde))
-          && n().motivo is string && (n().hasta == null || n().motivo.trim().size() > 0)
+          && textoHasta(n().motivo, 300) && (n().hasta == null || n().motivo.trim().size() > 0)
           && n().activo is bool
-          && n().asignadoPor is map && n().asignadoPor.uid is string;
+          && n().asignadoPor is map && n().asignadoPor.keys().hasOnly(['uid', 'nombre']) && n().asignadoPor.uid is string
+          && n().asignadoPor.get('nombre', '') == miNombre();
       }
       // d = una asignación (la que había o la nueva): ¿puede esta persona darla o cambiarla?
       function puedeAsignar(d) {
@@ -303,7 +329,7 @@ service cloud.firestore {
       function cambioValido() {
         return n().activo is bool
           && (n().hasta == null || (n().hasta is timestamp && n().hasta >= n().desde))
-          && n().motivo is string && (n().hasta == null || n().motivo.trim().size() > 0);
+          && textoHasta(n().motivo, 300) && (n().hasta == null || n().motivo.trim().size() > 0);
       }
       allow update: if soloCambia(['activo', 'hasta', 'motivo']) && cambioValido() && puedeAsignar(resource.data);
       // Volver a asignar: el documento completo, con fecha y autor nuevos
@@ -312,7 +338,7 @@ service cloud.firestore {
         && puedeAsignar(resource.data) && puedeAsignar(n());
       // Copiar nombre, puesto y puestoId del padrón (botón del admin e importación del padrón por RH): solo esos campos, de cualquier rol
       allow update: if esRH() && soloCambia(['nombre', 'puesto', 'puestoId'])
-        && n().nombre is string && n().get('puesto', '') is string && n().get('puestoId', '') is string;
+        && textoHasta(n().nombre, 120) && textoHasta(n().get('puesto', ''), 120) && textoHasta(n().get('puestoId', ''), 120);
       allow delete: if false;
     }
 
@@ -366,6 +392,25 @@ service cloud.firestore {
               || (despues().get('justificacionRutas', '') is string && despues().get('justificacionRutas', '').trim().size() >= 15));
       }
 
+      // Contenido de la solicitud: tipos y topes (la fecha, el comentario, el resumen y las rutas los calcula la app, pero un cliente
+      // modificado podría escribir cualquier cosa o documentos enormes). Se exige en la captura, la corrección y el envío.
+      // (Compacto a propósito: cada petición tiene un tope de 1000 expresiones. Comparar un valor de otro tipo con un número da error y
+      // niega, así que los topes también obligan a que sean números, textos o listas.)
+      function contenidoValido() {
+        let d = despues();
+        let r = d.get('resumen', {});
+        return d.get('fechaTE', '').matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')
+          && d.get('motivo', '').size() <= 60 && d.get('comentario', '').size() <= 1000 && d.get('justificacionRutas', '').size() <= 1000
+          && r.keys().size() <= 5 && r.get('totalEmpleados', 0) <= 150 && r.get('totalTransporte', 0) <= 150
+          && r.get('totalAlimentos', 0) <= 150 && r.get('totalHoras', 0) <= 3600 && r.get('porBloque', {}).size() <= 60
+          && d.get('rutasDistintas', 0) <= 60 && d.get('desgloseRutas', []).size() <= 60;
+      }
+      // Quien crea queda con su nombre real y el nombre real del área (no se puede aparentar ser otra persona u otra área)
+      function nombresDeCreacionValidos() {
+        return despues().get('creadoPorNombre', miNombre()) == miNombre()
+          && despues().get('areaNombre', get(areaPath(despues().areaId)).data.get('nombre', '')) == get(areaPath(despues().areaId)).data.get('nombre', '');
+      }
+
       // Motivo "Otro": motivoOtro (¿Cuál?) solo existe con ese motivo, es texto de hasta 60 caracteres y, al enviar, de al menos 3
       function motivoOtroValido() {
         return despues().motivo == 'Otro'
@@ -393,6 +438,7 @@ service cloud.firestore {
         && despues().creadoPorNomina == miNomina()
         && despues().areaId is string
         && puedeCapturarTE(despues().areaId)
+        && contenidoValido() && nombresDeCreacionValidos()
         && despues().fechaCreacion == request.time
         && despues().fechaActualizacion == request.time;
 
@@ -441,6 +487,7 @@ service cloud.firestore {
         && despues().fechaRecepcion == request.time
         && despues().recibidaPor.keys().hasOnly(['nomina', 'nombre', 'fecha'])
         && despues().recibidaPor.nomina == miNomina() && despues().recibidaPor.fecha == request.time
+        && despues().recibidaPor.get('nombre', '') == miNombre()
         && (despues().get('solicitudTransporteId', null) != null
             ? transporteGenerado(despues().solicitudTransporteId)
             : antes().resumen.get('totalTransporte', 0) == 0)
@@ -461,9 +508,10 @@ service cloud.firestore {
       allow update: if antes().estatus in ['autorizada', 'procesada'] && despues().estatus == 'cancelada'
         && despues().fechaActualizacion == request.time
         && soloCambia(['estatus', 'motivoCancelacion', 'canceladaPor', 'fechaActualizacion'])
-        && despues().motivoCancelacion is string && despues().motivoCancelacion.trim().size() >= 10
+        && despues().motivoCancelacion is string && despues().motivoCancelacion.trim().size() >= 10 && despues().motivoCancelacion.size() <= 1000
         && despues().canceladaPor.keys().hasOnly(['nomina', 'nombre', 'fecha', 'comoRH'])
         && despues().canceladaPor.nomina == miNomina() && despues().canceladaPor.fecha == request.time
+        && despues().canceladaPor.get('nombre', '') == miNombre()
         && (antes().get('solicitudTransporteId', null) == null || transporteResuelto(antes().solicitudTransporteId))
         && esRH();
 
@@ -471,7 +519,7 @@ service cloud.firestore {
       allow update: if antes().estatus in ['pendiente_aut1', 'pendiente_aut2', 'devuelta'] && despues().estatus == 'cancelada'
         && despues().fechaActualizacion == request.time
         && soloCambia(['estatus', 'motivoCancelacion', 'fechaActualizacion'])
-        && despues().motivoCancelacion is string && despues().motivoCancelacion.trim().size() >= 3
+        && despues().motivoCancelacion is string && despues().motivoCancelacion.trim().size() >= 3 && despues().motivoCancelacion.size() <= 1000
         && antes().creadoPor == uid() && activo();
 
       // El creador corrige el contenido de una devuelta (sin cambiar de estatus)
@@ -479,7 +527,7 @@ service cloud.firestore {
       allow update: if antes().estatus in ['devuelta', 'borrador'] && despues().estatus == antes().estatus
         && despues().fechaActualizacion == request.time
         && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'fechaActualizacion'])
-        && tipoValido() && motivoOtroValido()
+        && tipoValido() && motivoOtroValido() && contenidoValido()
         && antes().creadoPor == uid() && activo();
 
       // Enviar a autorización: el borrador recibe su FOLIO (del contador, en el mismo lote), el resumen calculado y el estatus inicial
@@ -488,7 +536,7 @@ service cloud.firestore {
         && despues().fechaActualizacion == request.time
         && !despues().keys().hasAny(['aut1', 'aut2'])
         && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'folio', 'fechaActualizacion'])
-        && tipoValido() && rutasJustificadas() && motivoOtroValido() && motivoOtroCompleto()
+        && tipoValido() && rutasJustificadas() && motivoOtroValido() && motivoOtroCompleto() && contenidoValido()
         && antes().creadoPor == uid()
         && puedeCapturarTE(antes().areaId)
         && despues().estatus == estatusInicial(antes().areaId)
@@ -499,7 +547,7 @@ service cloud.firestore {
         && despues().fechaActualizacion == request.time
         && !despues().keys().hasAny(['aut1', 'aut2'])
         && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'aut1', 'aut2', 'fechaActualizacion'])
-        && tipoValido() && rutasJustificadas() && motivoOtroValido() && motivoOtroCompleto()
+        && tipoValido() && rutasJustificadas() && motivoOtroValido() && motivoOtroCompleto() && contenidoValido()
         && antes().creadoPor == uid()
         && puedeCapturarTE(antes().areaId)
         && despues().estatus == estatusInicial(antes().areaId);
@@ -523,8 +571,15 @@ service cloud.firestore {
 
         allow read: if puedeLeerTE(padreAntes());
         function formaEmpleado() {
-          return request.resource.data.keys().hasOnly(['nombre', 'puesto', 'turnoNomina', 'horaEntrada', 'horaSalida', 'horas',
-                                                       'requiereAlimentos', 'requiereTransporte', 'transporteLlegada', 'transporteSalida', 'rutaId', 'comunidadId', 'puntoReunionId']);
+          let e = request.resource.data;
+          return e.keys().hasOnly(['nombre', 'puesto', 'turnoNomina', 'horaEntrada', 'horaSalida', 'horas',
+                                   'requiereAlimentos', 'requiereTransporte', 'transporteLlegada', 'transporteSalida', 'rutaId', 'comunidadId', 'puntoReunionId'])
+            && textoHasta(e.get('nombre', ''), 120) && textoHasta(e.get('puesto', ''), 120) && textoHasta(e.get('turnoNomina', ''), 10)
+            && textoHasta(e.get('horaEntrada', ''), 10) && textoHasta(e.get('horaSalida', ''), 10)
+            && e.get('horas', 0) is number && e.get('horas', 0) >= 0 && e.get('horas', 0) <= 48
+            && e.get('requiereAlimentos', false) is bool && e.get('requiereTransporte', false) is bool
+            && e.get('transporteLlegada', false) is bool && e.get('transporteSalida', false) is bool
+            && textoHasta(e.get('rutaId', ''), 100) && textoHasta(e.get('comunidadId', ''), 100) && textoHasta(e.get('puntoReunionId', ''), 100);
         }
         function puedeEscribirEmpleado() {
           return activo()
@@ -555,8 +610,11 @@ service cloud.firestore {
 
         allow read: if puedeLeerTE(hAntes());
         allow create: if activo()
+          && h().keys().hasOnly(['accion', 'nivel', 'porUid', 'porNomina', 'porNombre', 'comentario', 'fecha'])
           && h().porUid == uid()
           && h().porNomina == miNomina()
+          && h().get('porNombre', '') == miNombre()
+          && textoHasta(h().get('comentario', ''), 1000) && h().get('nivel', 0) is int
           && h().fecha == request.time
           && (
             (h().accion == 'creada' && !exists(hPadrePath())

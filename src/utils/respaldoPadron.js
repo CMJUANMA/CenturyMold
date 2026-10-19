@@ -5,6 +5,7 @@
  */
 import { esActivo } from './activo.js';
 import { agregarHojaReporte, nuevoLibro } from './formatosImportacion.js';
+import { bufferSeguro } from './excelSeguro.js';
 
 export const ENCABEZADOS_RESPALDO = [
   'nomina', 'nombre', 'puesto', 'puestoId', 'areaId', 'area', 'areaExcepcion', 'areaExcepcionMotivo',
@@ -37,7 +38,7 @@ export function construirRespaldoPadron({ empleados, areas = [], rutas = [], com
 /** Arma el libro y lo descarga en el navegador; devuelve cuántos empleados incluyó */
 export async function descargarRespaldoPadron(datos) {
   const wb = construirRespaldoPadron(datos);
-  const buffer = await wb.xlsx.writeBuffer();
+  const buffer = await bufferSeguro(wb);
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

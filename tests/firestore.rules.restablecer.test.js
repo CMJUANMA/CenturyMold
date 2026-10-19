@@ -39,12 +39,13 @@ async function restablecer(db, uidViejo, nominaViejo, rolViejo, cambios = {}) {
   if (!cambios.omitirBitacora) {
     lote.set(doc(db, 'bitacora', cambios.idBitacora ?? `restablecer-${uidViejo}`), {
       accion: 'restablecer_acceso', entidad: `usuarios/${uidNuevo}`, antes: { uid: uidViejo }, despues: { uid: uidNuevo, nomina: nominaViejo, nombre: 'x' },
-      porUid: cambios.porUid ?? db._authUid, porNombre: 'Quien restablece', fecha: serverTimestamp(), ...(cambios.bitacora ?? {}),
+      porUid: cambios.porUid ?? db._authUid, porNombre: db._nombre, fecha: serverTimestamp(), ...(cambios.bitacora ?? {}),
     });
   }
   return lote.commit();
 }
-const comoRH = (uid) => { const db = dbDe(uid); db._authUid = uid; return db; };
+const NOMINA = { admin: '1', rh: '2', rh2: '3', marco: '5001', otro: '5002' };
+const comoRH = (uid) => { const db = dbDe(uid); db._authUid = uid; db._nombre = `Persona ${NOMINA[uid]}`; return db; };
 
 beforeAll(async () => {
   env = await initializeTestEnvironment({ projectId: 'demo-solicitud-rutas', firestore: { rules: readFileSync('firestore.rules', 'utf8') } });

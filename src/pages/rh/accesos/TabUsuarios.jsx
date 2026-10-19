@@ -13,6 +13,7 @@ import { useToast } from '../../../hooks/useToast';
 import { useAuth } from '../../../hooks/useAuth';
 import ModalUsuario from './ModalUsuario';
 import { sugiereRolRH } from '../../../utils/permisos';
+import { ACCIONES_USUARIO, registrarUsuario } from '../../../utils/bitacoraDb';
 // Trae exceljs (el Excel de accesos) solo cuando se abre el modal
 const ModalUsuariosLote = lazy(() => import('./ModalUsuariosLote'));
 const ModalRestablecerAcceso = lazy(() => import('./ModalRestablecerAcceso'));
@@ -45,6 +46,7 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
     })) return;
     try {
       await updateDoc(doc(db, 'usuarios', u.uid), { activo: u.activo === false });
+      registrarUsuario(desactivar ? ACCIONES_USUARIO.desactivar : ACCIONES_USUARIO.activar, u);
       setUsuarios(prev => prev.map(x => x.uid === u.uid ? { ...x, activo: x.activo === false } : x));
     } catch (err) {
       toast.error('No se pudo actualizar el usuario: ' + err.message);

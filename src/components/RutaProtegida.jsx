@@ -10,6 +10,7 @@ import { AlertCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import Spinner from './Spinner';
 import Boton from './ui/Boton';
+import CierrePorInactividad from './CierrePorInactividad';
 
 const RUTA_CAMBIAR_PASSWORD = '/cambiar-password';
 
@@ -44,5 +45,10 @@ export default function RutaProtegida() {
   if (usuario.debeCambiarPassword === true && pathname !== RUTA_CAMBIAR_PASSWORD) {
     return <Navigate to={RUTA_CAMBIAR_PASSWORD} replace />;
   }
-  return <Outlet />;
+  return (
+    <>
+      <CierrePorInactividad />
+      <Outlet />
+    </>
+  );
 }

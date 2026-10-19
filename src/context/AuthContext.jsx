@@ -25,6 +25,7 @@ import { auth, db } from '../firebase';
 import { AuthContext } from './authStore';
 
 const MSG_DESACTIVADO = 'Tu usuario fue desactivado. Contacta a RH.';
+const MSG_INACTIVIDAD = 'Tu sesión se cerró por inactividad. Vuelve a iniciar sesión.';
 
 // ── Constante de dominio ficticio ─────────────────────────────────────────
 const nominaToEmail = (nomina) => `${nomina.trim()}@rutas.app`;
@@ -132,6 +133,13 @@ export function AuthProvider({ children }) {
     await signOut(auth);
   }, []);
 
+  // ── Cierre por inactividad (equipos compartidos): igual que cerrar sesión, con el aviso en el login
+  const cerrarPorInactividad = useCallback(async () => {
+    ultimoPassword.current = '';
+    setMensajeSesion(MSG_INACTIVIDAD);
+    await signOut(auth);
+  }, []);
+
   // ── Cambiar contraseña (requiere reautenticación) ───────────────────────
   const cambiarPassword = useCallback(
     async (passwordActual, passwordNueva) => {
@@ -172,7 +180,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider
       value={{
         usuario, fireUser, cargando, errorPerfil, mensajeSesion,
-        login, cerrarSesion, cambiarPassword, cambiarPasswordInicial,
+        login, cerrarSesion, cerrarPorInactividad, cambiarPassword, cambiarPasswordInicial,
         requiereTemporal, reintentarPerfil,
       }}
     >

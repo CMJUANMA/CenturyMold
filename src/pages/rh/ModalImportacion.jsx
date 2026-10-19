@@ -17,6 +17,7 @@ import { useToast } from '../../hooks/useToast';
 import ResolucionPuestos from '../../components/ResolucionPuestos';
 import ConfirmarAreas from './ConfirmarAreas';
 import { btnIcon, btnPrimary, btnSecondary, inputCls } from './estructura/ui';
+import { bufferSeguro, motivoArchivoNoValido } from '../../utils/excelSeguro';
 import {
   ejecutarEnLotes, leerColeccion, opBitacora, opsCambioAreaPuesto, opsDeResolucion,
 } from '../../utils/estructuraDb';
@@ -61,7 +62,7 @@ const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
 
 // ── Utilidades del navegador ──────────────────────────────────────────────
 async function descargarLibro(workbook, nombre) {
-  const buffer = await workbook.xlsx.writeBuffer();
+  const buffer = await bufferSeguro(workbook);
   const blob = new Blob([buffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
@@ -403,6 +404,8 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
   const handleFile = async (file) => {
     if (!file || !base) return;
     setErrorParse('');
+    const demasiado = motivoArchivoNoValido(file.size); // antes de leerlo en memoria
+    if (demasiado) { setErrorParse(demasiado); return; }
     let buffer;
     try { buffer = await file.arrayBuffer(); } catch (err) { setErrorParse(err.message); return; }
     setArchivo({ buffer, nombre: file.name });

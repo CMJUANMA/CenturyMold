@@ -5,6 +5,7 @@
  */
 import { ESTATUS_TE_MAP } from './constantes.js';
 import { agregarHojaReporte, nuevoLibro } from './formatosImportacion.js';
+import { bufferSeguro } from './excelSeguro.js';
 import { calcularHoras, etiquetaBloque, firmaTexto, motivoTexto, textoRuta } from './tiempoExtra.js';
 
 const ORDEN_ESTATUS = ['pendiente_aut1', 'pendiente_aut2', 'autorizada', 'procesada', 'devuelta', 'cancelada'];
@@ -60,7 +61,7 @@ export function construirLibroConsulta({ solicitudes, nombresArea, catalogos, no
 }
 
 export async function descargarConsulta(datos) {
-  const buffer = await construirLibroConsulta(datos).xlsx.writeBuffer();
+  const buffer = await bufferSeguro(construirLibroConsulta(datos));
   const url = URL.createObjectURL(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
   const a = Object.assign(document.createElement('a'), { href: url, download: nombreArchivoConsulta() });
   document.body.appendChild(a);

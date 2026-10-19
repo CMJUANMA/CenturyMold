@@ -18,6 +18,7 @@ import { EsqueletoTabla } from '../../components/ui/Esqueleto';
 import Insignia from '../../components/ui/Insignia';
 import { Fila, Tabla, Td, Th } from '../../components/ui/Tabla';
 import { useAuth } from '../../hooks/useAuth';
+import { ACCIONES_DESCARGA, registrarDescarga } from '../../utils/bitacoraDb';
 import { areaEfectiva } from '../../utils/estructura';
 import { ejecutarEnLotes, leerColeccion, opBitacora } from '../../utils/estructuraDb';
 import { esActivo, opcionesVigentes } from '../../utils/activo';
@@ -85,6 +86,7 @@ export default function RhEmpleados() {
       const [emps, ares, ruts, coms, pts] = lecturas.map(l => l.datos);
       const { descargarRespaldoPadron } = await import('../../utils/respaldoPadron');
       const n = await descargarRespaldoPadron({ empleados: emps, areas: ares, rutas: ruts, comunidades: coms, puntos: pts });
+      registrarDescarga(ACCIONES_DESCARGA.padron, { empleados: n });
       toast.success(`Respaldo descargado: ${n} empleados (activos e inactivos).`);
     } catch (err) {
       toast.error('No se pudo generar el respaldo: ' + err.message, 8000);

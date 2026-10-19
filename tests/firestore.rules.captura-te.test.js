@@ -26,7 +26,7 @@ async function sembrar() {
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
     for (const [uid, nomina, rol] of [['solP', N.solP, 'usuario'], ['aut1P', N.aut1P, 'usuario'], ['aut2', N.aut2, 'usuario'], ['rh', '90001', 'rh']]) {
-      await setDoc(doc(db, 'usuarios', uid), { nombre: uid, rol, nomina, activo: true });
+      await setDoc(doc(db, 'usuarios', uid), { nombre: USUARIOS[uid]?.nombre ?? uid, rol, nomina, activo: true });
     }
     await setDoc(doc(db, 'areas', 'produccion'), { nombre: 'Producción', participaTE: true, activa: true, orden: 1 });
     await setDoc(doc(db, 'asignaciones', `${N.solP}_solicitante_produccion`), asig(N.solP, 'solicitante', 'produccion'));
