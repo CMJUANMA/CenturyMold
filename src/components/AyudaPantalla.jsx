@@ -27,7 +27,8 @@ export default function AyudaPantalla({ id, listo = true }) {
   }, [primeraVez, listo]);
 
   if (!preferencias.ayudas || !ayuda) return null;
-  const terminar = () => { setRecorrido(false); marcarRecorridoVisto(id); };
+  // Si no había nada que señalar (vacio), no se marca como visto: la próxima vez se intenta otra vez
+  const terminar = (info) => { setRecorrido(false); if (!info?.vacio) marcarRecorridoVisto(id); };
 
   return (
     <>

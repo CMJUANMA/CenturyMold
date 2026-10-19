@@ -316,7 +316,7 @@ describe('textos de ayuda', () => {
       expect(pasos.length, id).toBeGreaterThanOrEqual(3);
       for (const p of pasos) {
         const marca = /\[data-tour="([^"]+)"\]/.exec(p.selector)?.[1];
-        expect(codigo, `${id}: ${p.selector}`).toMatch(new RegExp(`data-tour=({[^}]*)?["']${marca}["']`));
+        expect(codigo, `${id}: ${p.selector}`).toMatch(new RegExp(`(?:data-tour|tour)=({[^}]*)?["']${marca}["']`));
         expect(p.titulo && p.texto).toBeTruthy();
       }
     }

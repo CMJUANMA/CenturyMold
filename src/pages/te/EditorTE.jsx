@@ -431,11 +431,11 @@ export default function EditorTE() {
           )}
 
           {empleados.length === 0 ? (
-            <div data-tour="solicitar-empleados" className="rounded-lg border border-dashed border-[var(--border-color)]">
+            <div data-tour="solicitar-empleados-vacio" className="rounded-lg border border-dashed border-[var(--border-color)]">
               <EstadoVacio texto="Aún no hay empleados. Usa «Agregar empleados» para elegir a quienes harán tiempo extra." />
             </div>
           ) : (
-            <div className="space-y-3" data-tour="solicitar-empleados">
+            <div className="space-y-3">
               <div className={`hidden px-3 text-xs font-medium text-[var(--text-muted)] ${COLUMNAS_FILA}`}>
                 <span /><span>Empleado</span>
                 <span>{extension ? 'Termina su turno' : 'Entrada'}<Ayuda clave={extension ? 'solicitar.finTurno' : 'solicitar.entrada'} className="normal-case tracking-normal font-normal" /></span>
@@ -450,8 +450,8 @@ export default function EditorTE() {
                 <Ayuda clave="solicitar.alimentos" className="!mt-0" />
                 <Ayuda clave="solicitar.transporte" className="!mt-0" />
               </div>
-              {empleados.map(e => (
-                <FilaEmpleadoTE key={e.nomina} e={e} tipo={tipo} finFijo={!!finDeTurno(e.turnoNomina, turnos)} rutas={rutas} comunidades={comunidades} puntos={puntos} seleccionado={seleccion.has(e.nomina)}
+              {empleados.map((e, i) => (
+                <FilaEmpleadoTE key={e.nomina} tour={i === 0 ? 'solicitar-empleado-fila' : undefined} e={e} tipo={tipo} finFijo={!!finDeTurno(e.turnoNomina, turnos)} rutas={rutas} comunidades={comunidades} puntos={puntos} seleccionado={seleccion.has(e.nomina)}
                   aviso={avisoDe(e.nomina)} error={errorDe(e.nomina)} onSeleccionar={alternarSeleccion} onCambio={cambiar} onQuitar={quitar} />
               ))}
               <Ayuda clave="solicitar.ruta" />

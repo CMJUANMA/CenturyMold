@@ -5,7 +5,8 @@
  * acostumbrado a la tecnología. La opción elegida se marca con borde fuerte y un check (no con rojo).
  */
 import { useState } from 'react';
-import { Check, CircleHelp, Monitor, Moon, Sun, Type } from 'lucide-react';
+import { Check, CircleHelp, Monitor, Moon, RotateCcw, Sun, Type } from 'lucide-react';
+import Boton from './ui/Boton';
 import { useToast } from '../hooks/useToast';
 import { usePreferencias } from '../hooks/usePreferencias';
 import { useTheme } from '../context/ThemeContext';
@@ -45,7 +46,7 @@ export default function PreferenciasPanel() {
   const cambiar = async (parche, aplicar) => {
     aplicar?.(); // se ve al instante; si no se pudo guardar, se avisa
     setGuardando(true);
-    try { await guardar(parche); } catch (err) { console.error(err); toast.error('Se aplicó en este equipo, pero no se pudo guardar en tu cuenta: ' + err.message, 8000); } finally { setGuardando(false); }
+    try { await guardar(parche); return true; } catch (err) { console.error(err); toast.error('Se aplicó en este equipo, pero no se pudo guardar en tu cuenta: ' + err.message, 8000); return false; } finally { setGuardando(false); }
   };
 
   return (
@@ -56,6 +57,19 @@ export default function PreferenciasPanel() {
         <Opcion activa={preferencias.ayudas} icono={CircleHelp} titulo="Sí, mostrar ayudas" detalle="Recomendado si estás empezando" onClick={() => cambiar({ ayudas: true })} />
         <Opcion activa={!preferencias.ayudas} icono={CircleHelp} titulo="No, pantalla limpia" detalle="Sin textos de ayuda" onClick={() => cambiar({ ayudas: false })} />
       </Seccion>
+
+      <section className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5">
+        <h2 className="text-lg font-semibold text-[var(--text-main)]">Recorridos guiados</h2>
+        <p className="mt-0.5 text-sm text-[var(--text-secondary)]">Los globos que señalan cada parte de la pantalla la primera vez que la abres. Si ya los viste y quieres repasarlos, vuelven a salir.</p>
+        <div className="mt-4">
+          <Boton id="btn-reiniciar-recorridos" icono={RotateCcw} disabled={guardando || preferencias.recorridosVistos.length === 0}
+            onClick={() => cambiar({ recorridosVistos: [] }).then((ok) => ok && toast.success('Listo: los recorridos volverán a salir la próxima vez que abras cada pantalla.'))}>
+            Volver a ver los recorridos
+          </Boton>
+          {preferencias.recorridosVistos.length === 0 && <p className="mt-2 text-xs text-[var(--text-muted)]">Todavía no has visto ninguno: saldrán solos.</p>}
+          {!preferencias.ayudas && <p className="mt-2 text-xs text-[var(--text-muted)]">Las ayudas están apagadas: actívalas arriba para ver los recorridos.</p>}
+        </div>
+      </section>
 
       <Seccion titulo="Tamaño de letra" ayuda="Si te cuesta leer, elige Grande: todo el sistema se ve más grande.">
         <Opcion activa={preferencias.tamanoLetra === 'normal'} icono={Type} titulo="Normal" onClick={() => cambiar({ tamanoLetra: 'normal' })} />

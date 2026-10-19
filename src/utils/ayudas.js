@@ -164,7 +164,9 @@ export const AYUDAS = {
     solicitar: [
       { selector: '[data-tour="solicitar-datos"]', titulo: 'Datos de la solicitud', texto: 'Aquí eliges el día, el motivo y el tipo de tiempo extra, y explicas para qué se necesita.' },
       { selector: '[data-tour="solicitar-agregar"]', titulo: 'Agregar empleados', texto: 'Toca aquí para elegir a los empleados de tu área. Puedes marcar a varios de una vez.' },
-      { selector: '[data-tour="solicitar-empleados"]', titulo: 'Horario, comida y transporte', texto: 'Cada empleado tiene su horario, si necesita comida y si necesita transporte. Si lleva transporte, elige su ruta.' },
+      // Solo uno de estos dos pasos existe a la vez: con empleados en la lista se señala el primero; sin empleados, el espacio donde aparecerán
+      { selector: '[data-tour="solicitar-empleado-fila"]', titulo: 'Horario, comida y transporte', texto: 'Cada empleado tiene su horario, si necesita comida y si necesita transporte. Si lleva transporte, elige su ruta. Las casillas de la izquierda sirven para cambiar a varios a la vez.' },
+      { selector: '[data-tour="solicitar-empleados-vacio"]', titulo: 'Aquí aparecerán tus empleados', texto: 'Cuando agregues empleados, cada uno tendrá su horario, si necesita comida y si necesita transporte. Si lleva transporte, elige su ruta.' },
       { selector: '[data-tour="solicitar-resumen"]', titulo: 'Resumen', texto: 'Aquí ves el total de empleados, horas y rutas. Si usas más de una ruta, tendrás que explicar por qué.' },
       { selector: '[data-tour="solicitar-enviar"]', titulo: 'Enviar', texto: 'Cuando todo esté listo, envía la solicitud. También puedes guardarla como borrador y seguir después.' },
     ],

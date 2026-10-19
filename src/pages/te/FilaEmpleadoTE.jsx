@@ -20,7 +20,7 @@ const SEL = 'md:!min-h-9 !py-1.5';
 const etiqueta = 'mb-1 block text-xs font-medium text-[var(--text-muted)] lg:hidden';
 export const COLUMNAS_FILA = 'lg:grid lg:grid-cols-[2rem_minmax(0,2.2fr)_7rem_7rem_4rem_6rem_8rem_2.5rem] lg:items-center lg:gap-3';
 
-export default function FilaEmpleadoTE({ e, tipo = TIPOS_TE.TURNO_EXTRA, finFijo = false, rutas, comunidades, puntos, seleccionado, aviso, error, onSeleccionar, onCambio, onQuitar }) {
+export default function FilaEmpleadoTE({ tour, e, tipo = TIPOS_TE.TURNO_EXTRA, finFijo = false, rutas, comunidades, puntos, seleccionado, aviso, error, onSeleccionar, onCambio, onQuitar }) {
   const extension = tipo === TIPOS_TE.EXTENSION;
   const horas = calcularHoras(e.horaEntrada, e.horaSalida);
   const pedirConfirmar = e.transporte && e.necesitaConfirmar && !e.confirmada;
@@ -28,7 +28,7 @@ export default function FilaEmpleadoTE({ e, tipo = TIPOS_TE.TURNO_EXTRA, finFijo
   const posteriores = extension ? salidasPosteriores(e.horaEntrada) : [];
 
   return (
-    <div className={`relative rounded-lg border bg-[var(--bg-surface)] p-4 lg:p-3 ${error ? 'border-[var(--status-error-text)]' : 'border-[var(--border-color)]'}`}>
+    <div data-tour={tour} className={`relative rounded-lg border bg-[var(--bg-surface)] p-4 lg:p-3 ${error ? 'border-[var(--status-error-text)]' : 'border-[var(--border-color)]'}`}>
       <div className={`space-y-3 ${COLUMNAS_FILA} lg:space-y-0`}>
         <label className="absolute left-1 top-1 flex h-11 w-11 cursor-pointer items-center justify-center lg:static lg:h-8 lg:w-8">
           <input type="checkbox" checked={seleccionado} onChange={() => onSeleccionar(e.nomina)} aria-label={`Seleccionar a ${e.nombre}`} className={CASILLA} />
