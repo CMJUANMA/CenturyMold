@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { User, LogOut, Menu, X } from 'lucide-react';
 import { ICONOS, IconoInicio } from './iconosMenu';
+import { useBloqueoScroll } from '../hooks/useBloqueoScroll';
 import Logo from './Logo';
 import { useAuth } from '../hooks/useAuth';
 import { useAccesos } from '../hooks/useAccesos';
@@ -54,6 +55,8 @@ export default function Navbar() {
   const lista = esRH ? itemsMenuRH({ esRH, esAdmin: accesos.esAdmin }) : itemsMenuPorRol({ ...accesos, transporteAnterior });
   const items = lista.map(it => ({ ...it, icon: ICONOS[it.icono] ?? IconoInicio }));
 
+  useBloqueoScroll(menuAbierto); // con el cajón abierto en celular, la página de atrás no se mueve
+
   const handleCerrarSesion = async () => {
     await cerrarSesion();
     navigate('/login', { replace: true });
@@ -89,7 +92,7 @@ export default function Navbar() {
       {menuAbierto && <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={cerrarMenu} aria-hidden="true" />}
 
       <aside id="menu-lateral" aria-label="Menú principal"
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-[var(--border-color)] bg-[var(--bg-sidebar)] transition-transform duration-200 ease-out lg:z-40 lg:w-72 ${menuAbierto ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r border-[var(--border-color)] bg-[var(--bg-sidebar)] transition-transform duration-200 ease-out lg:z-40 lg:w-72 lg:max-w-none ${menuAbierto ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
         {/* Logo con su espacio */}
         <div className="flex h-14 shrink-0 items-center px-6">
           <NavLink to={RUTAS.inicio} aria-label="Century Mold, ir al inicio" className="rounded-md"><Logo className="w-40" /></NavLink>

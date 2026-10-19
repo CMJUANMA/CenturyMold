@@ -6,12 +6,13 @@
  * y el modal recalcula el plan. Una confirmación solo vale mientras el grupo no cambie (ver `firma`).
  */
 import { useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Search, ShieldCheck, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Search, ShieldCheck } from 'lucide-react';
 import {
   FILTROS_AREA, GRUPO_SIN_AREA, impactoPuesto, motivoExcepcionPorDefecto, resumenLista,
 } from '../../utils/areasImportacion';
 import { inputCls } from './estructura/ui';
 import { claseBoton } from '../../components/ui/Boton';
+import Modal from '../../components/Modal';
 
 const btn = 'inline-flex items-center gap-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2.5 py-1 text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
 const btnRojo = claseBoton('primario', 'sm');
@@ -40,12 +41,8 @@ function DialogoCambio({ plan, dialogo, areas, empleadosBase, onCancelar, onApli
   const vuelveAlPuesto = areaId === item.areaPuestoId;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4" onClick={(e) => { if (e.target === e.currentTarget) onCancelar(); }}>
-      <div className="w-full max-w-lg space-y-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5 text-xs shadow-md">
-        <div className="flex items-start justify-between gap-3">
-          <p className="text-sm font-semibold text-[var(--text-main)]">Cambiar área de {item.nombre}</p>
-          <button type="button" onClick={onCancelar} className="rounded p-1 text-[var(--text-muted)] hover:bg-[var(--bg-surface-secondary)] cursor-pointer"><X className="h-4 w-4" /></button>
-        </div>
+    <Modal isOpen onClose={onCancelar} title={`Cambiar área de ${item.nombre}`} maxWidth="max-w-lg">
+      <div className="space-y-3 text-xs">
         <p className="text-[var(--text-secondary)]">
           {item.puestoNombre} · <span className="font-semibold">{nombreArea(item.areaId) || 'Sin área'}</span> → <span className="font-semibold text-[var(--text-main)]">{nombreArea(areaId)}</span>
         </p>
@@ -92,7 +89,7 @@ function DialogoCambio({ plan, dialogo, areas, empleadosBase, onCancelar, onApli
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 

@@ -6,6 +6,7 @@ import { ROL_OP_CORTOS, esVigente } from './asignaciones.js';
 import { agregarHojaReporte, nuevoLibro } from './formatosImportacion.js';
 import { ALFABETO_PASSWORD, generarPassword } from './passwordTemporal.js';
 import { bufferSeguro } from './excelSeguro.js';
+import { comparar } from './orden.js';
 
 // La contraseña temporal vive en passwordTemporal.js (la comparte "Restablecer acceso"); se vuelve a exportar aquí
 export { ALFABETO_PASSWORD, generarPassword };
@@ -28,7 +29,7 @@ export function candidatosSinCuenta({ asignaciones, usuarios, empleados, nombres
     e.roles.push(a.rol === 'aut2' ? ROL_OP_CORTOS.aut2 : `${ROL_OP_CORTOS[a.rol]} · ${nombresArea.get(a.areaId) ?? a.areaId}`);
     personas.set(nomina, e);
   }
-  return [...personas.values()].sort((x, y) => x.nombre.localeCompare(y.nombre, 'es'));
+  return [...personas.values()].sort((x, y) => comparar(x.nombre, y.nombre) || comparar(x.nomina, y.nomina));
 }
 
 export function nombreArchivoAccesos(d = new Date()) {

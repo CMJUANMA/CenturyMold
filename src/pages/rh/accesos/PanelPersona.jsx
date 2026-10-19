@@ -6,7 +6,9 @@
  *     Sin quién la asignó, sin fecha de asignación, sin motivo, sin historial y sin acciones.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Clock, History, Loader2, ShieldOff, CalendarPlus, X } from 'lucide-react';
+import { useBloqueoScroll } from '../../../hooks/useBloqueoScroll';
 import { useConfirmar } from '../../../hooks/useConfirmar';
 import { useToast } from '../../../hooks/useToast';
 import {
@@ -73,13 +75,15 @@ export default function PanelPersona({ nomina, asignaciones, empleado, conUsuari
     } catch (err) { toast.error('No se pudo revocar: ' + err.message); }
   };
 
+  useBloqueoScroll(true); // el panel cubre la pantalla: el fondo no se desplaza mientras está abierto
   const nombre = empleado?.nombre ?? propias[0]?.nombre ?? String(nomina);
   const fechaHora = (f) => (f?.toDate ? f.toDate().toLocaleString('es-MX') : '');
 
-  return (
+  return createPortal(
     <>
       <div className="fixed inset-0 z-[90] bg-black/40" onClick={onClose} aria-hidden="true" />
       <aside role="dialog" aria-label={`Detalle de ${formato.nombre(nombre)}`}
+        style={{ height: '100dvh' }}
         className="fixed inset-y-0 right-0 z-[95] flex w-full flex-col overflow-hidden border-l border-[var(--border-color)] bg-[var(--bg-surface)] shadow-md sm:w-[26rem]">
         <header className="flex items-start gap-3 border-b border-[var(--border-color)] p-4">
           <Avatar iniciales={formato.iniciales(nombre)} rol={propias.find(a => a.estado === 'vigente')?.rol ?? 'solicitante'} tamano={48} />
@@ -170,6 +174,7 @@ export default function PanelPersona({ nomina, asignaciones, empleado, conUsuari
         <ModalExtender asignacion={extender} actor={actor} onClose={() => setExtender(null)}
           onGuardado={() => { toast.success('Vigencia actualizada.'); setVersion(v => v + 1); }} />
       )}
-    </>
+    </>,
+    document.body,
   );
 }

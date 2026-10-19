@@ -1,3 +1,5 @@
+import { comparar } from './orden.js';
+
 /**
  * asignaciones.js — Roles operativos (aut2 / aut1 / solicitante) asignados a personas. Sin dependencias del navegador.
  *
@@ -185,7 +187,7 @@ export function construirOrganigrama({ asignaciones, areas, empleados, puestos =
     };
   };
   // Por nivel jerárquico del puesto (el número más bajo primero; sin nivel, al final) y, si empatan, por nombre
-  const porJerarquia = (x, y) => (x.nivelJerarquico ?? Infinity) - (y.nivelJerarquico ?? Infinity) || x.nombre.localeCompare(y.nombre, 'es');
+  const porJerarquia = (x, y) => (x.nivelJerarquico ?? Infinity) - (y.nivelJerarquico ?? Infinity) || comparar(x.nombre, y.nombre);
 
   const columnas = [...(areas ?? [])]
     .filter(a => a.participaTE === true && a.activa !== false)

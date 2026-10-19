@@ -30,9 +30,10 @@ export async function exportarSolicitudes(solicitudesExport, catalogos, toast, f
   }
 
   const workbook = construirLibroProveedor({
-    ExcelJS, solicitudes: solicitudesExport, catalogos, empleadoDe: (nomina) => empList.find(e => e.nomina === nomina) || {},
+    ExcelJS, solicitudes: solicitudesExport, catalogos, empleadoDe: (nomina) => empList.find(e => String(e.nomina) === String(nomina)) || {},
   });
-  if (!workbook) return toast.error('No hay pasajeros válidos para exportar.');
+  // Si no hay nada que bajar se avisa con un error (la pantalla lo muestra); antes solo salía un aviso y el panel se cerraba como si se hubiera descargado
+  if (!workbook) throw new Error('No hay pasajeros válidos para exportar.');
 
   const buffer = await bufferSeguro(workbook);
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -40,10 +41,13 @@ export async function exportarSolicitudes(solicitudesExport, catalogos, toast, f
   const a = document.createElement('a');
   a.href = url;
   a.download = fileName;
+  document.body.appendChild(a);
   a.click();
-  window.URL.revokeObjectURL(url);
+  a.remove();
+  setTimeout(() => window.URL.revokeObjectURL(url), 1000);
 
   let tot = 0;
   for (const s of solicitudesExport) tot += (s.pasajeros || []).length;
   toast.success(`Archivo "${fileName}" generado con ${tot} pasajeros.`);
+  return tot;
 }

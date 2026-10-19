@@ -487,7 +487,7 @@ export default function EditorTE() {
       )}
 
       {/* Barra fija abajo: el resumen y las acciones (la principal, Enviar, es el único botón rojo) */}
-      <div data-tour="solicitar-resumen" className="sticky bottom-0 z-20 -mx-4 border-t border-[var(--border-color)] bg-[var(--bg-surface)] px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10" aria-label="Resumen">
+      <div data-tour="solicitar-resumen" className="[@media(min-height:600px)]:sticky bottom-0 z-20 -mx-4 border-t border-[var(--border-color)] bg-[var(--bg-surface)] px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10" aria-label="Resumen">
         {trabajo && (
           <div className="mb-3" role="status">
             <p className="flex items-center gap-2 text-xs font-medium text-[var(--text-main)]"><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />{trabajo.texto}… lote {Math.min(trabajo.hechos + 1, trabajo.total)} de {trabajo.total}</p>

@@ -89,7 +89,7 @@ export default function RhEmpleados() {
       registrarDescarga(ACCIONES_DESCARGA.padron, { empleados: n });
       toast.success(`Respaldo descargado: ${n} empleados (activos e inactivos).`);
     } catch (err) {
-      toast.error('No se pudo generar el respaldo: ' + err.message, 8000);
+      console.error(err); toast.error(`No se pudo generar el Excel: ${err.message}`, 10000);
     } finally { setExportando(false); }
   };
 

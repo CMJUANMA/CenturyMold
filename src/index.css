@@ -211,9 +211,16 @@
   0%, 100% { opacity: 0.55; }
   50%      { opacity: 1; }
 }
-.anim-pagina  { animation: cm-aparecer 180ms ease-out both; }
+/* Entradas: fill-mode «backwards» (no «both»): al terminar la animación NO queda ningún transform en el elemento. Un transform, aunque sea la
+   identidad, vuelve al elemento el bloque contenedor de todo lo que sea position: fixed dentro de él (modales, barras fijas), y se descolocaban. */
+.anim-pagina  { animation: cm-aparecer 180ms ease-out backwards; }
 .anim-modal   { animation: cm-aparecer 170ms ease-out both; }
-.anim-panel   { animation: cm-aparecer-lado 190ms ease-out both; }
+/* Modal: nunca más alto que lo visible (100dvh descuenta las barras del navegador del celular; 100vh es el respaldo). En celular sube desde abajo. */
+.modal-panel { max-height: calc(100vh - 1rem); max-height: calc(100dvh - 1rem); }
+@media (min-width: 640px) { .modal-panel { max-height: calc(100vh - 2rem); max-height: calc(100dvh - 2rem); } }
+@keyframes cm-subir { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+@media (max-width: 639px) { .anim-modal.modal-panel { animation: cm-subir 200ms ease-out both; } }
+.anim-panel   { animation: cm-aparecer-lado 190ms ease-out backwards; }
 .anim-toast   { animation: cm-aparecer 170ms ease-out both; }
 
 /* Esqueleto de carga: bloque con la forma del contenido (se dimensiona con las clases de alto y ancho) */
@@ -232,3 +239,6 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Filas de botones de un modal: si no caben en una línea (celular, zoom, letra grande) pasan a la siguiente en vez de salirse por la izquierda */
+.modal-panel .justify-end, .modal-panel .justify-between { flex-wrap: wrap; }

@@ -14,6 +14,7 @@ import { ACCIONES_TE_LABELS } from '../../utils/constantes';
 import { formatoFecha } from '../../utils/asignaciones';
 import { calcularHoras, esExtension, etiquetaBloque, firmaTexto, motivoTexto, quienDevolvio, resumenTE, textoRuta, textoRutas } from '../../utils/tiempoExtra';
 import { leerTransporteDeTE } from '../../utils/tiempoExtraDb';
+import { quienCancelo } from '../../utils/cancelacion';
 
 const fechaHora = (f) => (f?.toDate ? f.toDate().toLocaleString('es-MX') : '');
 
@@ -63,7 +64,9 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
       {devolucionPrevia && (
         <Aviso tono="aviso" titulo={`Fue devuelta antes (${quienDevolvio(t.devolucion.nivel)}, ${nombre(t.devolucion.nombre)})`}>{t.devolucion.motivo}</Aviso>
       )}
-      {t.estatus === 'cancelada' && t.motivoCancelacion && <Aviso tono="info">Motivo de la cancelación{t.canceladaPor ? ` (RH, ${nombre(t.canceladaPor.nombre)})` : ''}: {t.motivoCancelacion}</Aviso>}
+      {t.estatus === 'cancelada' && (t.motivoCancelacion || t.canceladaPor) && (
+        <Aviso tono="info" titulo={quienCancelo(t, nombre) ?? 'Cancelada'}>{t.motivoCancelacion ? `Motivo: ${t.motivoCancelacion}` : ''}</Aviso>
+      )}
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-5 sm:grid-cols-4">
         {[['Estatus', <span key="e" className="flex flex-wrap items-center gap-1.5"><BadgeEstatus estatus={t.estatus} modulo="te" /><InsigniasTE t={t} /></span>], ['Tipo', esExtension(t) ? 'Extensión de turno' : 'Turno extra / día extra'], ['Área', area], ['Solicitante', nombre(t.creadoPorNombre ?? '—')],

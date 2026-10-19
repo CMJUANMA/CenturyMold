@@ -9,6 +9,7 @@
  * turno; su bloque dice "Solicitante: [solicitante original] · Tiempo extra TE-AAAA-NNNN" (no el nombre de RH).
  */
 import { solicitanteDeTransporte } from './tiempoExtra.js';
+import { aFechaIso, comparar, texto } from './orden.js';
 
 export const ENCABEZADOS_PROVEEDOR = ['AREA', 'PUESTO', 'NÓMINA', 'NOMBRE', 'ENTRADA', 'SALIDA', 'ALIMENTOS', 'RUTA', 'COMUNIDAD O COLONIA', 'PUNTO DE REUNION'];
 const COLUMNAS = ENCABEZADOS_PROVEEDOR.length;
@@ -19,18 +20,21 @@ const CODIGO_TURNO = { 'Turno 1': '1', 'Turno 2': '2', 'Turno 3': '3', 'Tiempo e
 const relleno = (argb) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
 const bordeFino = (argb) => ({ top: { style: 'thin', color: { argb } }, left: { style: 'thin', color: { argb } }, bottom: { style: 'thin', color: { argb } }, right: { style: 'thin', color: { argb } } });
 
-const formatIsoDate = (iso) => {
+const formatIsoDate = (valor) => {
+  const iso = aFechaIso(valor) || texto(valor);
   if (!iso) return '';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 };
-const formatYMD = (ymd) => {
+const formatYMD = (valor) => {
+  const ymd = texto(valor);
   const [y, m, d] = ymd.split('-');
   if (!y || !m || !d) return ymd;
   return `${d}/${m}/${y}`;
 };
-const diaLocal = (fs) => {
+const diaLocal = (valor) => {
+  const fs = aFechaIso(valor) || texto(valor);
   if (!fs) return '';
   const d = new Date(fs);
   return isNaN(d.getTime()) ? fs : `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -44,9 +48,9 @@ export function agruparHojas(solicitudes, { puestoDe = () => '', areaDe = () => 
   const hojasData = {};
   for (const sol of solicitudes) {
     for (const pas of sol.pasajeros || []) {
-      const fechaServicio = sol.fechaServicio || 'Sin fecha';
+      const fechaServicio = texto(sol.fechaServicio) || 'Sin fecha';
       const turnoRaw = pas.turno || sol.turno || 'Sin turno';
-      const turnoName = NOMBRE_TURNO[turnoRaw] ?? turnoRaw;
+      const turnoName = NOMBRE_TURNO[turnoRaw] ?? texto(turnoRaw);
       const key = `${fechaServicio}|${turnoName}`;
       if (!hojasData[key]) hojasData[key] = { fechaServicio, turnoName, pasajeros: [] };
       hojasData[key].pasajeros.push({ solicitud: sol, pasajero: { ...pas, puesto: pas.puesto || puestoDe(pas.nomina), area: areaDe(pas, sol) } });
@@ -64,15 +68,15 @@ export function agruparHojas(solicitudes, { puestoDe = () => '', areaDe = () => 
  * @returns el libro, o null si no hay pasajeros
  */
 export function construirLibroProveedor({ ExcelJS, solicitudes, catalogos, empleadoDe = () => ({}) }) {
-  const nombreDe = (lista, id) => (lista ?? []).find(x => x.id === id)?.nombre || '';
+  const nombreDe = (lista, id) => texto((lista ?? []).find(x => x.id === id)?.nombre);
   const nombreRuta = id => nombreDe(catalogos.rutas, id);
   const nombreCom = id => nombreDe(catalogos.comunidades, id);
   const nombrePunto = id => nombreDe(catalogos.puntos, id);
   const nombreArea = id => nombreDe(catalogos.areas, id);
 
   const hojasData = agruparHojas(solicitudes, {
-    puestoDe: (nomina) => empleadoDe(nomina).puesto || '',
-    areaDe: (pas, sol) => nombreArea(pas.areaId || sol.areaId) || pas.areaNombre || '',
+    puestoDe: (nomina) => texto(empleadoDe(nomina).puesto),
+    areaDe: (pas, sol) => nombreArea(pas.areaId || sol.areaId) || texto(pas.areaNombre),
   });
   if (Object.keys(hojasData).length === 0) return null;
 
@@ -86,36 +90,34 @@ export function construirLibroProveedor({ ExcelJS, solicitudes, catalogos, emple
 
     let sheetName = turnoName;
     if (isRange) {
-      const [y, m, d] = fechaServicio.split('-');
+      const [y, m, d] = texto(fechaServicio).split('-');
       if (y && m && d) sheetName = `${d}-${m} ${turnoName}`;
       else sheetName = `${fechaServicio} ${turnoName}`;
     }
-    sheetName = sheetName.substring(0, 31);
+    sheetName = texto(sheetName).replace(/[\\/?*[\]:]/g, '-').substring(0, 31) || 'Hoja';
 
     const bloquesMap = {};
     for (const p of pasajeros) {
       const sol = p.solicitud;
-      const solNombre = solicitanteDeTransporte(sol) || 'Desconocido';
+      const solNombre = texto(solicitanteDeTransporte(sol)) || 'Desconocido';
+      // fechaSolicitud es un Timestamp en las solicitudes nuevas y un texto ISO en las viejas: se compara siempre como texto ISO
+      const fechaSol = aFechaIso(sol.fechaSolicitud);
       if (!bloquesMap[solNombre]) {
         bloquesMap[solNombre] = {
           solicitanteNombre: solNombre,
-          fechaSolicitudMin: sol.fechaSolicitud,
-          fechasSolicitud: new Set([sol.fechaSolicitud]),
+          fechaSolicitudMin: fechaSol,
+          fechasSolicitud: new Set([fechaSol]),
           pasajeros: [],
         };
       }
-      if (sol.fechaSolicitud < bloquesMap[solNombre].fechaSolicitudMin) {
-        bloquesMap[solNombre].fechaSolicitudMin = sol.fechaSolicitud;
+      if (fechaSol && (!bloquesMap[solNombre].fechaSolicitudMin || fechaSol < bloquesMap[solNombre].fechaSolicitudMin)) {
+        bloquesMap[solNombre].fechaSolicitudMin = fechaSol;
       }
-      bloquesMap[solNombre].fechasSolicitud.add(sol.fechaSolicitud);
+      bloquesMap[solNombre].fechasSolicitud.add(fechaSol);
       bloquesMap[solNombre].pasajeros.push(p.pasajero);
     }
 
-    const bloques = Object.values(bloquesMap).sort((a, b) => {
-      const aDate = a.fechaSolicitudMin || '';
-      const bDate = b.fechaSolicitudMin || '';
-      return aDate.localeCompare(bDate);
-    });
+    const bloques = Object.values(bloquesMap).sort((a, b) => comparar(a.fechaSolicitudMin, b.fechaSolicitudMin) || comparar(a.solicitanteNombre, b.solicitanteNombre));
 
     const ws = workbook.addWorksheet(sheetName, {
       pageSetup: { orientation: 'landscape', paperSize: 1, fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.25, right: 0.25, top: 0.25, bottom: 0.25, header: 0.1, footer: 0.1 } },
@@ -141,7 +143,7 @@ export function construirLibroProveedor({ ExcelJS, solicitudes, catalogos, emple
     const uniqueDaysSol = new Set(fsArr.map(diaLocal).filter(Boolean));
 
     const isVarias = uniqueDaysSol.size > 1;
-    let singleDateSolFormat = formatIsoDate(fsArr[0]);
+    let singleDateSolFormat = formatIsoDate(fsArr.find(Boolean) ?? '');
     if (uniqueDaysSol.size === 0) singleDateSolFormat = '';
 
     if (isVarias) {
@@ -191,7 +193,7 @@ export function construirLibroProveedor({ ExcelJS, solicitudes, catalogos, emple
         const fsBlockArr = Array.from(bloque.fechasSolicitud);
         const uniqueDaysBlock = new Set(fsBlockArr.map(diaLocal).filter(Boolean));
 
-        let blockDateDisplay = formatIsoDate(fsBlockArr[0]);
+        let blockDateDisplay = formatIsoDate(fsBlockArr.find(Boolean) ?? '');
         if (uniqueDaysBlock.size > 1) blockDateDisplay = 'Varias fechas';
 
         const rSolDate = ws.getRow(currentRow);
@@ -230,16 +232,11 @@ export function construirLibroProveedor({ ExcelJS, solicitudes, catalogos, emple
       });
       currentRow++;
 
-      const pasSorted = bloque.pasajeros.sort((a, b) => {
-        const rA = nombreRuta(a.rutaId); const rB = nombreRuta(b.rutaId);
-        if (rA !== rB) return rA.localeCompare(rB);
-        const cA = nombreCom(a.comunidadId); const cB = nombreCom(b.comunidadId);
-        if (cA !== cB) return cA.localeCompare(cB);
-        const pA = nombrePunto(a.puntoReunionId); const pB = nombrePunto(b.puntoReunionId);
-        if (pA !== pB) return pA.localeCompare(pB);
-        const nA = a.nombre || ''; const nB = b.nombre || '';
-        return nA.localeCompare(nB);
-      });
+      // Ruta, comunidad, punto y nombre; todo se compara como texto (la nómina o un nombre vacío no deben romper el orden)
+      const pasSorted = bloque.pasajeros.sort((a, b) => comparar(nombreRuta(a.rutaId), nombreRuta(b.rutaId))
+        || comparar(nombreCom(a.comunidadId), nombreCom(b.comunidadId))
+        || comparar(nombrePunto(a.puntoReunionId), nombrePunto(b.puntoReunionId))
+        || comparar(a.nombre, b.nombre) || comparar(a.nomina, b.nomina));
 
       let conAlimentos = 0;
       let sinAlimentos = 0;
@@ -252,8 +249,9 @@ export function construirLibroProveedor({ ExcelJS, solicitudes, catalogos, emple
         else { sinAlimentos++; sheetTotalSinAlimentos++; }
 
         const rPas = ws.getRow(currentRow);
+        // Todo como texto: una nómina numérica o un campo vacío no cambian el tipo de la celda
         const rData = [
-          p.area || '', p.puesto || '', p.nomina || '', p.nombre || '', p.horaEntrada || '', p.horaSalida || '',
+          texto(p.area), texto(p.puesto), texto(p.nomina), texto(p.nombre), texto(p.horaEntrada), texto(p.horaSalida),
           tieneAli ? 'SI' : 'NO', nombreRuta(p.rutaId), nombreCom(p.comunidadId), nombrePunto(p.puntoReunionId),
         ];
 

@@ -527,13 +527,15 @@ service cloud.firestore {
         && soloCambia(['estatus', 'devolucion', 'fechaActualizacion'])
         && esRH() && devolucionValida(despues().devolucion, 3);
 
-      // RH cancela lo autorizado o ya recibido, con motivo (10+ caracteres). Si ya había generado transporte, esa solicitud queda en la
-      // misma operación cancelada o marcada para revisión (si ya se envió al proveedor): nada a medias
+      // CANCELAR (siempre con motivo de 10+ caracteres y dejando quién, cuándo y por qué en la solicitud y en el historial):
+      //   RH y admin: cualquier solicitud ya enviada hasta "procesada" (esta regla). Si ya había generado transporte, esa solicitud queda en la
+      //   misma operación cancelada o marcada para revisión (si ya se envió al proveedor): nada a medias.
+      //   El creador (mientras no esté autorizada), el Aut. 1 (lo de su área en su nivel) y la Aut. 2 (nivel 2 o autorizada): regla de abajo.
       function transporteResuelto(sid) {
         let p = /databases/$(database)/documents/solicitudes/$(sid);
         return getAfter(p).data.estatus == 'cancelada' || getAfter(p).data.get('requiereRevision', false) == true;
       }
-      allow update: if antes().estatus in ['autorizada', 'procesada'] && despues().estatus == 'cancelada'
+      allow update: if antes().estatus in ['pendiente_aut1', 'pendiente_aut2', 'devuelta', 'autorizada', 'procesada'] && despues().estatus == 'cancelada'
         && despues().fechaActualizacion == request.time
         && soloCambia(['estatus', 'motivoCancelacion', 'canceladaPor', 'fechaActualizacion'])
         && despues().motivoCancelacion is string && despues().motivoCancelacion.trim().size() >= 10 && despues().motivoCancelacion.size() <= 1000
@@ -543,12 +545,22 @@ service cloud.firestore {
         && (antes().get('solicitudTransporteId', null) == null || transporteResuelto(antes().solicitudTransporteId))
         && esRH();
 
-      // El creador cancela mientras no esté autorizada, siempre con motivo (un borrador no se cancela: se elimina)
-      allow update: if antes().estatus in ['pendiente_aut1', 'pendiente_aut2', 'devuelta'] && despues().estatus == 'cancelada'
+      // Firma de quien cancela (no RH): la suya, con su nombre real y la fecha del servidor
+      function canceladaPorValida() {
+        let c = despues().canceladaPor;
+        return c.keys().hasOnly(['nomina', 'nombre', 'fecha', 'comoRH']) && c.nomina == miNomina() && c.fecha == request.time
+          && c.get('nombre', '') == miNombre() && c.get('comoRH', false) == false;
+      }
+      // El creador cancela mientras no esté autorizada; el Aut. 1, lo de su área en nivel 1; la Aut. 2, lo de nivel 2 y lo autorizado que RH aún
+      // no confirma. Un borrador no se cancela: se elimina.
+      allow update: if antes().estatus in ['pendiente_aut1', 'pendiente_aut2', 'devuelta', 'autorizada'] && despues().estatus == 'cancelada'
         && despues().fechaActualizacion == request.time
-        && soloCambia(['estatus', 'motivoCancelacion', 'fechaActualizacion'])
-        && despues().motivoCancelacion is string && despues().motivoCancelacion.trim().size() >= 3 && despues().motivoCancelacion.size() <= 1000
-        && antes().creadoPor == uid() && activo();
+        && soloCambia(['estatus', 'motivoCancelacion', 'canceladaPor', 'fechaActualizacion'])
+        && despues().motivoCancelacion is string && despues().motivoCancelacion.trim().size() >= 10 && despues().motivoCancelacion.size() <= 1000
+        && canceladaPorValida()
+        && ((antes().creadoPor == uid() && antes().estatus != 'autorizada')
+            || (antes().estatus == 'pendiente_aut1' && esAut1De(antes().areaId))
+            || (antes().estatus in ['pendiente_aut2', 'autorizada'] && esAut2()));
 
       // El creador corrige el contenido de una devuelta (sin cambiar de estatus)
       // (y de un borrador, mientras se arma)
@@ -683,10 +695,11 @@ service cloud.firestore {
               && ((h().nivel == 1 && hAntes().estatus == 'pendiente_aut1' && esAut1De(hAntes().areaId))
                   || (h().nivel == 2 && hAntes().estatus == 'pendiente_aut2' && puedeFirmarAut2())
                   || (h().nivel == 3 && hAntes().estatus == 'autorizada' && esRH())))
-            || (h().accion == 'cancelada' && hAntes().creadoPor == uid()
-              && hAntes().estatus in ['pendiente_aut1', 'pendiente_aut2', 'devuelta'] && hDespues().estatus == 'cancelada')
-            || (h().accion == 'cancelada' && esRH()
-              && hAntes().estatus in ['autorizada', 'procesada'] && hDespues().estatus == 'cancelada')
+            || (h().accion == 'cancelada' && hDespues().estatus == 'cancelada'
+              && ((hAntes().creadoPor == uid() && hAntes().estatus in ['pendiente_aut1', 'pendiente_aut2', 'devuelta'])
+                  || (hAntes().estatus == 'pendiente_aut1' && esAut1De(hAntes().areaId))
+                  || (hAntes().estatus in ['pendiente_aut2', 'autorizada'] && esAut2())
+                  || (hAntes().estatus in ['pendiente_aut1', 'pendiente_aut2', 'devuelta', 'autorizada', 'procesada'] && esRH())))
             || (h().accion == 'recibida_rh' && esRH()
               && hAntes().estatus == 'autorizada' && hDespues().estatus == 'procesada')
           );

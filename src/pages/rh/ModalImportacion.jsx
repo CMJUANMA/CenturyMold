@@ -5,7 +5,7 @@
  */
 import { useState, useRef, useEffect, useMemo } from 'react';
 import {
-  Upload, Loader2, CheckCircle2, AlertTriangle, X, Download, FileSpreadsheet,
+  Upload, Loader2, CheckCircle2, AlertTriangle, Download, FileSpreadsheet,
   Info, ChevronDown, ChevronUp, Search, UserMinus, ShieldAlert,
 } from 'lucide-react';
 import {
@@ -16,8 +16,9 @@ import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
 import ResolucionPuestos from '../../components/ResolucionPuestos';
 import ConfirmarAreas from './ConfirmarAreas';
-import { btnIcon, btnPrimary, btnSecondary, inputCls } from './estructura/ui';
+import { btnPrimary, btnSecondary, inputCls } from './estructura/ui';
 import { bufferSeguro, motivoArchivoNoValido } from '../../utils/excelSeguro';
+import Modal from '../../components/Modal';
 import {
   ejecutarEnLotes, leerColeccion, opBitacora, opsCambioAreaPuesto, opsDeResolucion,
 } from '../../utils/estructuraDb';
@@ -477,24 +478,54 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
   const puedeConfirmar = paso === 'previa' && !!plan && bajasResueltas && puestosSinResolver === 0 && areasConfirmadas && !!base?.completa;
   const resumenFinal = plan ? resumenImportacion(plan, idsBaja) : null;
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" onClick={(e) => { if (e.target === e.currentTarget && paso !== 'guardando') onClose(); }}>
-      <div className="relative flex flex-col w-full max-w-4xl max-h-[92vh] rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] shadow-md overflow-hidden text-[var(--text-main)]">
-        {/* Encabezado */}
-        <div className="flex items-start justify-between gap-4 border-b border-[var(--border-color)] px-6 py-4 flex-shrink-0">
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--bg-surface-hover)] flex-shrink-0 mt-0.5">
-              <FileSpreadsheet className="h-5 w-5 text-[var(--text-secondary)]" aria-hidden="true" />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold text-[var(--text-main)]">{titulo}</h2>
-              <p className="text-xs text-[var(--text-secondary)] mt-0.5 max-w-xl">{descripcion}</p>
-            </div>
+  const pie = (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            <button type="button"
+              onClick={() => descargarLibro(esDir ? construirFormatoDirectorio() : construirFormatoEmpleados(catalogo.map(p => p.nombre).sort((a, b) => a.localeCompare(b, 'es'))), esDir ? 'Formato_Directorio.xlsx' : 'Formato_Empleados.xlsx')}
+              className={btnSecondary}>
+              <Download className="h-3.5 w-3.5 text-[var(--text-secondary)]" />Descargar formato en blanco
+            </button>
+            {!bloqueado && (
+              <>
+                <input ref={fileRef} type="file" accept=".xlsx" className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }} />
+                <button type="button" onClick={() => fileRef.current?.click()} disabled={parseando || !base}
+                  className={paso === 'previa' ? btnSecondary : btnPrimary}>
+                  {parseando || !base ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                  {!base ? 'Leyendo base...' : parseando ? 'Leyendo...' : paso === 'previa' ? 'Elegir otro archivo' : 'Seleccionar archivo (.xlsx)'}
+                </button>
+              </>
+            )}
           </div>
-          <button type="button" onClick={onClose} disabled={paso === 'guardando'} className={btnIcon}><X className="h-4 w-4" /></button>
-        </div>
+          <div className="flex items-center gap-2">
+            {paso === 'previa' && plan && puestosSinResolver > 0 && (
+              <span className="text-xs text-[var(--status-warning-text)]">Resuelva {plural(puestosSinResolver, 'puesto', 'puestos')} para confirmar.</span>
+            )}
+            {paso === 'previa' && plan && !esDir && puestosSinResolver === 0 && !areasConfirmadas && (
+              <span className="text-xs text-[var(--status-warning-text)]">Confirme las áreas para continuar.</span>
+            )}
+            {paso === 'previa' && plan && !bajasResueltas && (
+              <span className="text-xs text-[var(--status-warning-text)]">
+                {decisionBajas === 'baja' ? 'Escriba CONFIRMAR para continuar.' : 'Decida que hacer con los que ya no aparecen.'}
+              </span>
+            )}
+            {paso === 'previa' && plan && (
+              <button type="button" onClick={handleConfirmar} disabled={!puedeConfirmar} className={btnPrimary}>
+                <CheckCircle2 className="h-3.5 w-3.5" />Confirmar importación
+              </button>
+            )}
+            <button type="button" onClick={onClose} disabled={paso === 'guardando'} className={btnSecondary}>
+              {paso === 'resultado' ? 'Cerrar' : 'Cancelar'}
+            </button>
+          </div>
+    </div>
+  );
 
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+  return (
+    <Modal isOpen onClose={onClose} title={titulo} subtitulo={descripcion} icono={FileSpreadsheet} maxWidth="max-w-4xl" pie={pie}
+      preventCloseOnBackdrop cerrarDeshabilitado={paso === 'guardando'}>
+      <div className="space-y-5">
           {errorBase && <Aviso tono="error" icon={AlertTriangle}>{errorBase}</Aviso>}
           {!esDir && base && base.puntos.length === 0 && (
             <Aviso tono="warning" icon={AlertTriangle}>
@@ -793,51 +824,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
               </button>
             </div>
           )}
-        </div>
-
-        {/* Pie */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-color)] px-6 py-4 flex-shrink-0 bg-[var(--bg-surface-secondary)]">
-          <div className="flex flex-wrap gap-2">
-            <button type="button"
-              onClick={() => descargarLibro(esDir ? construirFormatoDirectorio() : construirFormatoEmpleados(catalogo.map(p => p.nombre).sort((a, b) => a.localeCompare(b, 'es'))), esDir ? 'Formato_Directorio.xlsx' : 'Formato_Empleados.xlsx')}
-              className={btnSecondary}>
-              <Download className="h-3.5 w-3.5 text-[var(--text-secondary)]" />Descargar formato en blanco
-            </button>
-            {!bloqueado && (
-              <>
-                <input ref={fileRef} type="file" accept=".xlsx" className="hidden"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }} />
-                <button type="button" onClick={() => fileRef.current?.click()} disabled={parseando || !base}
-                  className={paso === 'previa' ? btnSecondary : btnPrimary}>
-                  {parseando || !base ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                  {!base ? 'Leyendo base...' : parseando ? 'Leyendo...' : paso === 'previa' ? 'Elegir otro archivo' : 'Seleccionar archivo (.xlsx)'}
-                </button>
-              </>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {paso === 'previa' && plan && puestosSinResolver > 0 && (
-              <span className="text-xs text-[var(--status-warning-text)]">Resuelva {plural(puestosSinResolver, 'puesto', 'puestos')} para confirmar.</span>
-            )}
-            {paso === 'previa' && plan && !esDir && puestosSinResolver === 0 && !areasConfirmadas && (
-              <span className="text-xs text-[var(--status-warning-text)]">Confirme las áreas para continuar.</span>
-            )}
-            {paso === 'previa' && plan && !bajasResueltas && (
-              <span className="text-xs text-[var(--status-warning-text)]">
-                {decisionBajas === 'baja' ? 'Escriba CONFIRMAR para continuar.' : 'Decida que hacer con los que ya no aparecen.'}
-              </span>
-            )}
-            {paso === 'previa' && plan && (
-              <button type="button" onClick={handleConfirmar} disabled={!puedeConfirmar} className={btnPrimary}>
-                <CheckCircle2 className="h-3.5 w-3.5" />Confirmar importación
-              </button>
-            )}
-            <button type="button" onClick={onClose} disabled={paso === 'guardando'} className={btnSecondary}>
-              {paso === 'resultado' ? 'Cerrar' : 'Cancelar'}
-            </button>
-          </div>
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 }

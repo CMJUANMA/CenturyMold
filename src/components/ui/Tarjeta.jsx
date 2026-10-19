@@ -10,7 +10,7 @@ export function Tarjeta({ titulo, accion, className = '', cuerpoClassName = 'p-5
   return (
     <section className={`rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] ${className}`}>
       {(titulo || accion) && (
-        <header className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-3">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-3">
           {titulo && <h2 className="text-base font-semibold text-[var(--text-main)]">{titulo}</h2>}
           {accion}
         </header>

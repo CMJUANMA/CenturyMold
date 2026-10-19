@@ -4,6 +4,7 @@
  * con import() dinámico desde la pantalla.
  */
 import { ESTATUS_TE_MAP } from './constantes.js';
+import { comparar } from './orden.js';
 import { agregarHojaReporte, nuevoLibro } from './formatosImportacion.js';
 import { bufferSeguro } from './excelSeguro.js';
 import { calcularHoras, etiquetaBloque, firmaTexto, motivoTexto, textoRuta } from './tiempoExtra.js';
@@ -39,7 +40,7 @@ export function construirLibroConsulta({ solicitudes, nombresArea, catalogos, no
     g.horas += t.resumen?.totalHoras ?? 0;
     grupos.set(k, g);
   }
-  const filas = [...grupos.values()].sort((a, b) => a.area.localeCompare(b.area, 'es') || ORDEN_ESTATUS.indexOf(a.estatus) - ORDEN_ESTATUS.indexOf(b.estatus));
+  const filas = [...grupos.values()].sort((a, b) => comparar(a.area, b.area) || ORDEN_ESTATUS.indexOf(a.estatus) - ORDEN_ESTATUS.indexOf(b.estatus));
   const total = filas.reduce((a, g) => ({ s: a.s + g.solicitudes, e: a.e + g.empleados, h: a.h + g.horas }), { s: 0, e: 0, h: 0 });
   const wb = nuevoLibro();
   agregarHojaReporte(wb, 'Resumen', ENCABEZADOS_RESUMEN, [
@@ -48,7 +49,7 @@ export function construirLibroConsulta({ solicitudes, nombresArea, catalogos, no
   ]);
 
   const detalle = [];
-  for (const t of [...solicitudes].sort((a, b) => String(a.folio).localeCompare(String(b.folio)))) {
+  for (const t of [...solicitudes].sort((a, b) => comparar(a.folio, b.folio))) {
     for (const e of t.empleados ?? []) {
       detalle.push([
         t.folio ?? '', area(t.areaId), t.fechaTE ?? '', motivoTexto(t), String(e.nomina), nombre(e.nombre), e.puesto ?? '', etiquetaBloque(e), calcularHoras(e.horaEntrada, e.horaSalida),

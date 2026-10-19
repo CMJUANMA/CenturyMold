@@ -40,6 +40,7 @@ export default function BotonFormatoRutas({ id = 'btn-formato-rutas' }) {
 
   const [abierto, setAbierto] = useState(false);
   const [exportando, setExportando] = useState(false);
+  const [errorDescarga, setErrorDescarga] = useState('');
   const { hoy, manana } = useMemo(fechasLocales, []);
   const [tipoFecha, setTipoFecha] = useState('manana');
   const [esRango, setEsRango] = useState(false);
@@ -82,6 +83,7 @@ export default function BotonFormatoRutas({ id = 'btn-formato-rutas' }) {
   const descargar = async () => {
     const sufijo = esRango && tipoFecha === 'elegir' ? `${desde}_a_${hasta}` : rangoDesde;
     setExportando(true);
+    setErrorDescarga('');
     try {
       const conPasajeros = [];
       for (let i = 0; i < paraExportar.length; i += 20) {
@@ -96,7 +98,9 @@ export default function BotonFormatoRutas({ id = 'btn-formato-rutas' }) {
       setAbierto(false);
     } catch (err) {
       console.error(err);
-      toast.error('No se pudo exportar: ' + err.message);
+      // Se queda en el panel, con el motivo a la vista (un aviso que se va solo se podía no ver)
+      setErrorDescarga(`No se pudo generar el Excel: ${err.message}`);
+      toast.error(`No se pudo generar el Excel: ${err.message}`, 10000);
     } finally {
       setExportando(false);
     }
@@ -142,6 +146,8 @@ export default function BotonFormatoRutas({ id = 'btn-formato-rutas' }) {
               </div>
             </fieldset>
           )}
+
+          {errorDescarga && <Aviso tono="error" titulo="No se descargó">{errorDescarga} Inténtalo de nuevo; si sigue igual, avisa al área de Sistemas.</Aviso>}
 
           <div aria-live="polite">
             {!valido ? (

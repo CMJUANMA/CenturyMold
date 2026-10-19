@@ -15,6 +15,8 @@ import {
   COMENTARIO_AUT2_PROPIA, datosSolicitudTransporte, docAEmpleado, empleadoADoc, folioDe, pasajerosDeTE, resumenTE, trozos,
 } from './tiempoExtra';
 import { normalizarEstatus } from './constantes';
+import { comparar } from './orden.js';
+import { MIN_MOTIVO_CANCELACION } from './cancelacion.js';
 
 const refTE = (id) => doc(db, 'tiempoExtra', id);
 
@@ -27,7 +29,7 @@ export async function leerSolicitudTE(id) {
   const snap = await getDoc(refTE(id));
   if (!snap.exists()) return null;
   const emps = await getDocs(collection(db, 'tiempoExtra', id, 'empleados'));
-  const empleados = emps.docs.map(d => docAEmpleado(d.id, d.data())).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  const empleados = emps.docs.map(d => docAEmpleado(d.id, d.data())).sort((a, b) => comparar(a.nombre, b.nombre));
   return { id: snap.id, ...snap.data(), empleados };
 }
 
@@ -130,11 +132,19 @@ export async function enviarSolicitud({ id, devuelta, usuario, estatus, fechaTE,
   });
 }
 
-/** Cancela una solicitud pendiente o devuelta; el motivo queda en la solicitud y en el historial */
+/**
+ * Cancela una solicitud en autorización o devuelta (la persona que la solicitó, el Aut. 1 de su área en nivel 1 o una Aut. 2) o, si es RH
+ * y no hay transporte de por medio, cualquiera ya enviada. Motivo de 10+ caracteres. Queda quién (canceladaPor), cuándo y por qué en la
+ * solicitud y en el historial. (RH sobre lo autorizado o confirmado usa cancelarAutorizada, que además atiende el transporte.)
+ */
 export async function cancelarSolicitud({ id, usuario, motivo }) {
-  const texto = String(motivo).trim();
+  const texto = String(motivo ?? '').trim();
+  if (texto.length < MIN_MOTIVO_CANCELACION) throw new Error(`El motivo de la cancelación debe tener al menos ${MIN_MOTIVO_CANCELACION} caracteres.`);
   const b = writeBatch(db);
-  b.update(refTE(id), { estatus: 'cancelada', motivoCancelacion: texto, fechaActualizacion: serverTimestamp() });
+  b.update(refTE(id), {
+    estatus: 'cancelada', motivoCancelacion: texto, fechaActualizacion: serverTimestamp(),
+    canceladaPor: { nomina: String(usuario.nomina), nombre: usuario.nombre ?? '', fecha: serverTimestamp(), comoRH: false },
+  });
   b.set(doc(collection(db, 'tiempoExtra', id, 'historial')), entradaHistorial(usuario, 'cancelada', texto));
   await b.commit();
 }

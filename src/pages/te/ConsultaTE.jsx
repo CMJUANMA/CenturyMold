@@ -32,7 +32,7 @@ import { crearFormateadorNombres } from '../../utils/nombresPersona';
 import { ESTATUS_TE_VISIBLES, esperaDesde, filtrarSolicitudes } from '../../utils/tiempoExtra';
 import { inicioDeMes, inicioDeSemana } from '../../utils/resumenInicio';
 import { leerHistorialTE, leerSolicitudTE } from '../../utils/tiempoExtraDb';
-import AccionesRH from './AccionesRH';
+import AccionCancelarTE from './AccionCancelarTE';
 import { ACCIONES_DESCARGA, registrarDescarga } from '../../utils/bitacoraDb';
 import { RUTAS } from '../../rutas';
 import { BotonDescargaResumenTE } from './DescargaTE';
@@ -95,12 +95,18 @@ export default function ConsultaTE() {
 
   // Consulta es de solo lectura: lo autorizado se confirma, devuelve o cancela en "Por enviar al proveedor". Lo ya confirmado no está allí,
   // así que su cancelación (que avisa al transporte) se queda aquí.
+  // Cancelar: RH y admin cualquier solicitud hasta procesada; la Aut. 2, lo de nivel 2 y lo autorizado (AccionCancelarTE decide por rol y estatus)
   const accionesDeRH = (t) => {
-    if (!esRH) return null;
-    if (t.estatus === 'autorizada') {
-      return <Boton to={RUTAS.teRecepcion} variante="contorno">Está por confirmar: ir a «Por enviar al proveedor»</Boton>;
+    const cancelar = <AccionCancelarTE t={t} onHecho={() => setDetalle(null)} />;
+    if (esRH && t.estatus === 'autorizada') {
+      return (
+        <div className="flex flex-wrap items-center gap-2">
+          <Boton to={RUTAS.teRecepcion} variante="contorno">Está por confirmar: ir a «Por enviar al proveedor»</Boton>
+          {cancelar}
+        </div>
+      );
     }
-    return t.estatus === 'procesada' ? <AccionesRH t={t} acciones={['cancelar']} onHecho={() => setDetalle(null)} /> : null;
+    return cancelar;
   };
 
   const exportar = async () => {
@@ -116,7 +122,7 @@ export default function ConsultaTE() {
       await descargarConsulta({ solicitudes: completas, nombresArea: nombres, catalogos: { rutas, comunidades, puntos }, nombre: (x) => formato.nombre(x) });
       registrarDescarga(ACCIONES_DESCARGA.consultaTE, { solicitudes: completas.length });
       toast.success(`Excel descargado: ${completas.length} solicitudes.`);
-    } catch (err) { toast.error('No se pudo exportar: ' + err.message, 8000); } finally { setExportando(null); }
+    } catch (err) { console.error(err); toast.error(`No se pudo generar el Excel: ${err.message}`, 10000); } finally { setExportando(null); }
   };
 
   if (cargando) return <div className="space-y-8"><EsqueletoPagina bloques={0} /><EsqueletoIndicadores cantidad={3} className="grid gap-4 sm:grid-cols-3" /><EsqueletoTabla filas={5} columnas={7} /></div>;

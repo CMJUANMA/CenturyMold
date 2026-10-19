@@ -25,7 +25,7 @@ export const TAMANOS = {
 
 /** Clases de un botón (para <Link> o <label> que deben verse como botón): claseBoton('primario', 'md') */
 export const claseBoton = (variante = 'contorno', tamano = 'md', extra = '') =>
-  `inline-flex cursor-pointer items-center justify-center gap-2 rounded-md font-medium whitespace-nowrap transition-colors duration-150 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 ${VARIANTES[variante]} ${TAMANOS[tamano]} ${extra}`;
+  `inline-flex cursor-pointer items-center justify-center gap-2 rounded-md font-medium sm:whitespace-nowrap transition-colors duration-150 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 ${VARIANTES[variante]} ${TAMANOS[tamano]} ${extra}`;
 
 export default function Boton({
   variante = 'contorno', tamano = 'md', icono: Icono, estado, to, type = 'button', className = '', disabled, children, ...resto

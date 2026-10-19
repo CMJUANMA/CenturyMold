@@ -39,6 +39,7 @@ import {
 import { YaRespondida, autorizarSolicitud, autorizarVarias, devolverSolicitud, leerHistorialTE, leerSolicitudTE } from '../../utils/tiempoExtraDb';
 import { ymd } from '../../utils/fechas';
 import DetalleTE from './DetalleTE';
+import AccionCancelarTE from './AccionCancelarTE';
 
 function Vencida() {
   return <Insignia tono="aviso" icono={Clock}>Fecha vencida</Insignia>;
@@ -303,7 +304,12 @@ export default function BandejaTE() {
           {detalle.cargando ? <EsqueletoTabla filas={3} columnas={4} /> : (
             <DetalleTE t={detalle.solicitud} historial={detalle.historial} area={nombreArea(detalle.solicitud.areaId)} catalogos={{ rutas, comunidades, puntos }} formato={formato}
               acciones={detalle.soloLectura ? null : esPropia(detalle.solicitud, usuario.uid)
-                ? <p className="text-sm text-[var(--text-muted)]">No puedes autorizar tu propia solicitud.</p>
+                ? (
+                  <div className="flex w-full flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm text-[var(--text-muted)]">No puedes autorizar tu propia solicitud.</p>
+                    <AccionCancelarTE t={detalle.solicitud} onHecho={() => setDetalle(null)} />
+                  </div>
+                )
                 : (
                   <div className="w-full space-y-3">
                     <Campo etiqueta="Comentario" ayuda={`Opcional al autorizar. Obligatorio al devolver: mínimo ${MIN_MOTIVO_DEVOLUCION} caracteres (llevas ${texto.trim().length}).`}>
@@ -313,7 +319,8 @@ export default function BandejaTE() {
                     <Ayuda clave="autorizar.autorizar" className="!mt-0" />
                     <Ayuda clave="autorizar.devolver" className="!mt-0" />
                     {(detalle.solicitud.rutasDistintas ?? 0) > 1 && <Ayuda clave="autorizar.rutas" className="!mt-0 font-semibold !text-[var(--status-warning-text)]" />}
-                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+                      <AccionCancelarTE id="btn-cancelar-solicitud" tamano="md" t={detalle.solicitud} onHecho={() => setDetalle(null)} />
                       <Boton id="btn-devolver" variante="peligro" icono={Undo2} disabled={trabajando || texto.trim().length < MIN_MOTIVO_DEVOLUCION} onClick={devolver}>Devolver</Boton>
                       <Boton id="btn-autorizar" variante="primario" icono={CheckCircle2} estado={trabajando ? 'cargando' : undefined} onClick={autorizar}>{detalle.nivel === 1 ? 'Autorizar (pasa a nivel 2)' : 'Autorizar'}</Boton>
                     </div>

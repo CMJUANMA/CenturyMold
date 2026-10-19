@@ -7,8 +7,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Eye, FilePlus, Pencil, Trash2, XCircle } from 'lucide-react';
-import { useAuth } from '../../hooks/useAuth';
+import { Eye, FilePlus, Pencil, Trash2 } from 'lucide-react';
 import { useResumenTE } from '../../hooks/useResumenTE';
 import { useAreas } from '../../hooks/useAreas';
 import { useConfirmar } from '../../hooks/useConfirmar';
@@ -29,12 +28,24 @@ import { formatoFecha } from '../../utils/asignaciones';
 import { PESTANAS_TE, nivelEnTexto, textoRecibida } from '../../utils/tiempoExtra';
 import { useCatalogos } from '../../hooks/useCatalogos';
 import DetalleTE from './DetalleTE';
-import { cancelarSolicitud, eliminarBorrador, leerHistorialTE, leerSolicitudTE } from '../../utils/tiempoExtraDb';
+import { eliminarBorrador, leerHistorialTE, leerSolicitudTE } from '../../utils/tiempoExtraDb';
+import { quienCancelo } from '../../utils/cancelacion';
+import AccionCancelarTE from './AccionCancelarTE';
+
+/** Quién canceló, cuándo y por qué (en la pestaña Canceladas) */
+function TextoCancelada({ t, className = 'mt-1' }) {
+  const quien = quienCancelo(t);
+  return (
+    <div className={`${className} space-y-0.5 text-xs text-[var(--text-secondary)]`}>
+      {quien && <p>{quien}</p>}
+      {t.motivoCancelacion && <p>Motivo: {t.motivoCancelacion}</p>}
+    </div>
+  );
+}
 
 const cuando = (t) => t.fechaActualizacion?.toMillis?.() ?? t.fechaCreacion?.toMillis?.() ?? 0;
 
 export default function MisSolicitudesTE() {
-  const { usuario } = useAuth();
   const { propias, cargando, error } = useResumenTE();
   const { nombres } = useAreas();
   const { rutas, comunidades, puntos } = useCatalogos({ empleados: false });
@@ -66,15 +77,6 @@ export default function MisSolicitudesTE() {
     setOcupadoId(t.id);
     try { await eliminarBorrador(t.id); toast.success('Borrador eliminado.'); } catch (err) { toast.error('No se pudo eliminar: ' + err.message); } finally { setOcupadoId(null); }
   };
-  const cancelar = async (t) => {
-    const motivo = await confirmar({
-      titulo: 'Cancelar solicitud', mensaje: `¿Cancelar ${t.folio ?? 'la solicitud'}? Ya no seguirá en autorización.`, textoConfirmar: 'Cancelar solicitud', peligroso: true,
-      campo: { etiqueta: 'Motivo de la cancelación', minLength: 3, multilinea: true },
-    });
-    if (!motivo) return;
-    setOcupadoId(t.id);
-    try { await cancelarSolicitud({ id: t.id, usuario, motivo }); toast.success('Solicitud cancelada.'); setDetalle(null); } catch (err) { toast.error('No se pudo cancelar: ' + err.message); } finally { setOcupadoId(null); }
-  };
 
   const acciones = (t) => {
     const cargandoFila = ocupadoId === t.id;
@@ -87,13 +89,12 @@ export default function MisSolicitudesTE() {
     if (t.estatus === 'devuelta') return (
       <>
         <Boton tamano="sm" icono={Pencil} disabled={cargandoFila} onClick={() => navigate(`/tiempo-extra/${t.id}/editar`)}>Corregir y reenviar</Boton>
-        <Boton tamano="sm" variante="peligro" icono={XCircle} disabled={cargandoFila} onClick={() => cancelar(t)}>Cancelar</Boton>
+        <AccionCancelarTE t={t} onHecho={() => setDetalle(null)} />
       </>
     );
-    if (['pendiente_aut1', 'pendiente_aut2'].includes(t.estatus)) return (
-      <Boton tamano="sm" variante="peligro" icono={XCircle} disabled={cargandoFila} onClick={() => cancelar(t)}>Cancelar</Boton>
-    );
-    return null; // autorizada, procesada, cancelada: solo consulta
+    // En autorización: Cancelar. Ya autorizada o confirmada: el botón solo existe para quien puede (RH, Aut. 2); el solicitante ve a quién avisar
+    if (['pendiente_aut1', 'pendiente_aut2', 'autorizada', 'procesada'].includes(t.estatus)) return <AccionCancelarTE t={t} onHecho={() => setDetalle(null)} />;
+    return null; // cancelada: solo consulta
   };
 
   const textoVacio = {
@@ -131,7 +132,7 @@ export default function MisSolicitudesTE() {
               <Tabla etiqueta={`Solicitudes: ${activa.label}`}>
                 <thead>
                   <tr>
-                    <Th>Folio</Th><Th>Fecha</Th><Th>Área</Th><Th derecha>Empleados</Th><Th derecha>Horas</Th><Th derecha>Transporte</Th><Th>Estatus</Th><Th>Nivel</Th><Th derecha>Acciones</Th>
+                    <Th>Folio</Th><Th>Fecha</Th><Th>Área</Th><Th derecha>Empleados</Th><Th derecha>Horas</Th><Th derecha>Transporte</Th><Th>Estatus</Th><Th derecha>Acciones</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -143,8 +144,7 @@ export default function MisSolicitudesTE() {
                       <Td derecha>{t.resumen?.totalEmpleados ?? 0}</Td>
                       <Td derecha mono>{t.resumen?.totalHoras ?? 0}</Td>
                       <Td derecha>{t.resumen?.totalTransporte ?? 0}</Td>
-                      <Td><BadgeEstatus estatus={t.estatus} modulo="te" />{pendienteCon(t) && <p className="mt-1 text-xs text-[var(--text-secondary)]">{pendienteCon(t)}</p>}{t.estatus === 'procesada' && <p className="mt-1 text-xs text-[var(--text-secondary)]">{textoRecibida(t)}</p>}</Td>
-                      <Td className="text-[var(--text-secondary)]">{nivelEnTexto(t.estatus)}</Td>
+                      <Td><BadgeEstatus estatus={t.estatus} modulo="te" />{pendienteCon(t) && <p className="mt-1 text-xs text-[var(--text-secondary)]">{pendienteCon(t)}</p>}{t.estatus === 'procesada' && <p className="mt-1 text-xs text-[var(--text-secondary)]">{textoRecibida(t)}</p>}{t.estatus === 'cancelada' && <TextoCancelada t={t} />}</Td>
                       <Td>
                         <div className="flex flex-wrap justify-end gap-2">
                           <Boton tamano="sm" icono={Eye} onClick={() => abrirDetalle(t)} aria-label={`Ver detalle ${t.folio ?? 'del borrador'}`}>Ver</Boton>
@@ -169,6 +169,7 @@ export default function MisSolicitudesTE() {
                   <InsigniasTE t={t} className="mt-2" />
                   {pendienteCon(t) && <p className="mt-2 text-xs text-[var(--text-secondary)]">{pendienteCon(t)}</p>}
                   {t.estatus === 'procesada' && <p className="mt-2 text-xs text-[var(--text-secondary)]">{textoRecibida(t)}</p>}
+                  {t.estatus === 'cancelada' && <TextoCancelada t={t} className="mt-2" />}
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <Boton icono={Eye} onClick={() => abrirDetalle(t)} aria-label={`Ver detalle ${t.folio ?? 'del borrador'}`}>Ver</Boton>
                     {acciones(t)}

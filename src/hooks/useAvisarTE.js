@@ -7,7 +7,7 @@ import { useAuth } from './useAuth';
 import { useAreas } from './useAreas';
 import { useRecordatorios } from './useRecordatorios';
 import { leerAsignacionesParaAvisar } from '../utils/avisosDb';
-import { avisoAutorizacion, avisoAutorizacionVarias, avisoDevolucion, avisoEnvio, destinatariosDe, nivelPendiente } from '../utils/avisos';
+import { avisoAutorizacion, avisoAutorizacionVarias, avisoCancelacion, avisoDevolucion, avisoEnvio, destinatariosDe, nivelPendiente } from '../utils/avisos';
 import { crearFormateadorNombres } from '../utils/nombresPersona';
 
 export function useAvisarTE() {
@@ -39,6 +39,11 @@ export function useAvisarTE() {
     autorizacionVarias: useCallback(async ({ nivel, cantidad }) => {
       mostrar(avisoAutorizacionVarias({ nivel, cantidad, destinatarios: nivel === 1 ? await quien(2) : [], opciones: opciones() }));
     }, [quien, mostrar, opciones]),
+    /** Después de cancelar lo de otra persona: avisar a quien la solicitó */
+    cancelacion: useCallback(({ folio, creadoPorNombre }) => {
+      const solicitante = creadoPorNombre ? crearFormateadorNombres([]).nombre(creadoPorNombre) : '';
+      mostrar(avisoCancelacion({ folio, solicitante }));
+    }, [mostrar]),
     /** Después de devolver: avisar a quien la solicitó */
     devolucion: useCallback(({ folio, creadoPorNombre }) => {
       const solicitante = creadoPorNombre ? crearFormateadorNombres([]).nombre(creadoPorNombre) : '';

@@ -58,6 +58,7 @@ export default function DescargaTE({ isOpen, onClose, areas, nombresArea, catalo
   const [areaId, setAreaId] = useState('');
   const [incluir, setIncluir] = useState(INCLUIR_DESCARGA[0].id);
   const [progreso, setProgreso] = useState(null); // { hechos, total } | 'buscando'
+  const [errorDescarga, setErrorDescarga] = useState('');
   const [vista, setVista] = useState({ clave: null, lista: [], error: '' });
 
   const rango = useMemo(() => (periodo === 'rango' ? personalizado : rangoDePeriodo(periodo, hoy)), [periodo, hoy, personalizado]);
@@ -80,6 +81,7 @@ export default function DescargaTE({ isOpen, onClose, areas, nombresArea, catalo
   const ocupado = progreso !== null;
 
   const descargar = async () => {
+    setErrorDescarga('');
     setProgreso('buscando');
     try {
       const lista = await consultar({ desde: rango.desde, hasta: rango.hasta, areaId, incluir });
@@ -100,7 +102,9 @@ export default function DescargaTE({ isOpen, onClose, areas, nombresArea, catalo
       toast.success(`Excel descargado: ${completas.length} ${completas.length === 1 ? 'solicitud' : 'solicitudes'}.`);
       onClose();
     } catch (err) {
-      toast.error(`No se pudo descargar: ${err.message}`, 8000);
+      console.error(err);
+      setErrorDescarga(`No se pudo generar el Excel: ${err.message}`);
+      toast.error(`No se pudo generar el Excel: ${err.message}`, 10000);
     } finally { setProgreso(null); }
   };
 
@@ -153,6 +157,8 @@ export default function DescargaTE({ isOpen, onClose, areas, nombresArea, catalo
             ))}
           </div>
         </fieldset>
+
+        {errorDescarga && <Aviso tono="error" titulo="No se descargó">{errorDescarga} Inténtalo de nuevo; si sigue igual, avisa al área de Sistemas.</Aviso>}
 
         <section aria-label="Vista previa" className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-4">
           <h3 className="mb-3 text-sm font-semibold text-[var(--text-main)]">Vista previa</h3>

@@ -58,6 +58,9 @@ function normalizarSol(d) {
   };
 }
 
+/** Folio que se muestra: el del tiempo extra (TE-2026-0012) si viene de uno; en las anteriores, el id corto de siempre */
+const folioVisible = (sol) => (sol.origen === 'tiempo_extra' && sol.folioTE ? sol.folioTE : sol.id.slice(0, 8));
+
 function ordenarSols(sols) {
   return sols.sort((a, b) => {
     const fsA = a.fechaServicio || ''; const fsB = b.fechaServicio || '';
@@ -289,7 +292,7 @@ export default function RhSolicitudes() {
           <tbody>
             {filtradas.map(sol => (
               <Fila key={sol.id}>
-                <Td mono>{sol.id.slice(0, 8)}</Td>
+                <Td mono>{folioVisible(sol)}</Td>
                 <Td className="font-medium">{sol.solicitanteNombre}
                   <div className="mt-1 flex flex-col items-start gap-1">
                     {sol.origen === 'tiempo_extra' && (
@@ -313,7 +316,7 @@ export default function RhSolicitudes() {
                 </Td>
                 <Td className="text-right">
                   <div className="inline-flex gap-1">
-                    <Boton variante="fantasma" tamano="icono" onClick={() => abrirDetalle(sol)} title="Ver detalle" aria-label={`Ver detalle de ${sol.id.slice(0, 8)}`}><Eye className="h-4 w-4" aria-hidden="true" /></Boton>
+                    <Boton variante="fantasma" tamano="icono" onClick={() => abrirDetalle(sol)} title="Ver detalle" aria-label={`Ver detalle de ${folioVisible(sol)}`}><Eye className="h-4 w-4" aria-hidden="true" /></Boton>
                     {REVISION_ACTIVA && sol.origen !== 'tiempo_extra' && <Boton variante="fantasma" tamano="icono" onClick={() => navigate(rutaEditarTransporte(sol.id))} title="Editar (RH)" aria-label="Editar"><Edit className="h-4 w-4" aria-hidden="true" /></Boton>}
                     {REVISION_ACTIVA && sol.estatus === ESTATUS_SOLICITUD.PENDIENTE && (
                       <>

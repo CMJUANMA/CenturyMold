@@ -659,10 +659,13 @@ describe('RH recibe: autorizada → procesada', () => {
 });
 
 describe('creador: cancelar, corregir y reenviar', () => {
-  it('cancela mientras no esté autorizada, siempre con motivo (y su bitácora)', async () => {
-    await assertSucceeds(transicion('solP', 'TE-2026-0001', { estatus: 'cancelada', motivoCancelacion: 'Ya no se necesita' }, 'cancelada'));
-    await assertSucceeds(actualizar('solP', 'TE-2026-0002', { estatus: 'cancelada', motivoCancelacion: 'Cambió el pedido' }));
-    await assertSucceeds(actualizar('solP', 'TE-2026-0004', { estatus: 'cancelada', motivoCancelacion: 'Duplicada' }));
+  // Quién y cuándo cancela queda en canceladaPor (la matriz completa por rol y estatus está en firestore.rules.cancelar.test.js)
+  const cancelacion = (uid, motivo) => ({ estatus: 'cancelada', motivoCancelacion: motivo, canceladaPor: { nomina: N[uid], nombre: `Usuario ${N[uid]}`, fecha: ts(), comoRH: false } });
+  it('cancela mientras no esté autorizada, siempre con motivo de 10+ caracteres y su firma (y su historial)', async () => {
+    await assertSucceeds(transicion('solP', 'TE-2026-0001', cancelacion('solP', 'Ya no se necesita'), 'cancelada'));
+    await assertSucceeds(actualizar('solP', 'TE-2026-0002', cancelacion('solP', 'Cambió el pedido')));
+    await assertSucceeds(actualizar('solP', 'TE-2026-0004', cancelacion('solP', 'Solicitud duplicada')));
+    await assertFails(actualizar('solP', 'TE-2026-0010', cancelacion('solP', 'Duplicada'))); // 9 caracteres
   });
   it('cancelar sin motivo (o con uno vacío o de una letra) no pasa', async () => {
     await assertFails(actualizar('solP', 'TE-2026-0001', { estatus: 'cancelada' }));
@@ -670,16 +673,16 @@ describe('creador: cancelar, corregir y reenviar', () => {
     await assertFails(actualizar('solP', 'TE-2026-0001', { estatus: 'cancelada', motivoCancelacion: '  x ' }));
   });
   it('no cancela una autorizada, procesada o ya cancelada', async () => {
-    await assertFails(actualizar('solP', 'TE-2026-0003', { estatus: 'cancelada', motivoCancelacion: 'Quiero cancelar' }));
-    await assertFails(actualizar('solP', 'TE-2026-0011', { estatus: 'cancelada', motivoCancelacion: 'Quiero cancelar' }));
+    await assertFails(actualizar('solP', 'TE-2026-0003', cancelacion('solP', 'Quiero cancelar esto')));
+    await assertFails(actualizar('solP', 'TE-2026-0011', cancelacion('solP', 'Quiero cancelar esto')));
   });
-  it('otro solicitante, el Aut. 1 y la Aut. 2 no cancelan lo ajeno', async () => {
-    for (const uid of ['solP2', 'aut1P', 'aut2', 'rh', 'ajeno']) {
-      await assertFails(actualizar(uid, 'TE-2026-0001', { estatus: 'cancelada', motivoCancelacion: 'No me toca' }));
+  it('otro solicitante, la Aut. 2 (en nivel 1) y quien no tiene rol no cancelan lo ajeno (el Aut. 1 y RH sí: ver firestore.rules.cancelar.test.js)', async () => {
+    for (const uid of ['solP2', 'aut2', 'ajeno']) {
+      await assertFails(actualizar(uid, 'TE-2026-0001', cancelacion(uid, 'No me toca cancelarla')));
     }
   });
   it('al cancelar no se tocan otros campos', async () => {
-    await assertFails(actualizar('solP', 'TE-2026-0001', { estatus: 'cancelada', motivoCancelacion: 'Ya no', motivo: 'x' }));
+    await assertFails(actualizar('solP', 'TE-2026-0001', { ...cancelacion('solP', 'Ya no se necesita'), motivo: 'x' }));
   });
 
   it('corrige el contenido solo en estatus devuelta', async () => {

@@ -212,8 +212,8 @@ describe('cancelar lo autorizado o recibido (RH)', () => {
       await assertFails(cancelar(uid, 'te3', { sol: 'sol3' }));
     }
   });
-  it('no cancela lo que está en autorización', async () => {
-    await assertFails(cancelar('rh', 'te4'));
+  it('RH también cancela lo que está en autorización (cualquier solicitud ya enviada, hasta procesada)', async () => {
+    await assertSucceeds(cancelar('rh', 'te4'));
   });
 });
 

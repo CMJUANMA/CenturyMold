@@ -196,9 +196,11 @@ export const AVISOS = {
   listasEnRH: ({ cantidad }) => `Listo. Recursos Humanos ya tiene ${cantidad} solicitudes en 'Por enviar al proveedor'.`,
   /** Alguien devuelve: hay que avisarle a quien la capturó */
   devuelta: ({ folio, solicitante }) => `Devolviste ${folio}. Recuerda avisarle a ${solicitante || 'quien la solicitó'} para que la corrija.`,
+  /** Cancelaste una solicitud que no era tuya: hay que avisarle a quien la capturó */
+  cancelada: ({ folio, solicitante }) => `Cancelaste ${folio}. Recuerda avisarle a ${solicitante || 'quien la solicitó'} que ya no va.`,
   /** Línea de "Mis solicitudes" en cada solicitud pendiente */
   pendienteCon: ({ lista, desde }) => (lista ? `Pendiente con: ${lista} · en espera desde ${desde}` : `Pendiente de autorización · en espera desde ${desde}`),
-  titulos: { enviada: 'Solicitud enviada', reenviada: 'Solicitud reenviada', autorizada: 'Solicitud autorizada', devuelta: 'Solicitud devuelta' },
+  titulos: { enviada: 'Solicitud enviada', reenviada: 'Solicitud reenviada', autorizada: 'Solicitud autorizada', devuelta: 'Solicitud devuelta', cancelada: 'Solicitud cancelada' },
   /** "A, B y C" */
   unir: (nombres) => (nombres.length <= 1 ? (nombres[0] ?? '') : `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`),
   destinoNivel: { 1: 'Autorización 1', 2: 'Autorización 2' },

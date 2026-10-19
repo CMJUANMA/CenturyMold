@@ -5,6 +5,7 @@
  * Sin dependencias del navegador; exceljs se carga con import() dinámico desde la pantalla.
  */
 import { bufferSeguro } from './excelSeguro.js';
+import { comparar, compararHoras } from './orden.js';
 import { ESTATUS_DESCARGA, INCLUIR_DESCARGA, TEXTO_SENTIDO, calcularHoras, esExtension, etiquetaBloque, firmaTexto, motivoTexto, sentidoDe, textoRuta } from './tiempoExtra.js';
 
 export const ENCABEZADOS_DETALLE_RH = [
@@ -37,13 +38,13 @@ export function filtrarParaDescarga(solicitudes, { desde = '', hasta = '', areaI
     && (!desde || String(t.fechaTE ?? '') >= desde) && (!hasta || String(t.fechaTE ?? '') <= hasta) && (!areaId || t.areaId === areaId));
 }
 
-const porFechaYFolio = (a, b) => String(a.fechaTE).localeCompare(String(b.fechaTE)) || String(a.folio).localeCompare(String(b.folio));
+const porFechaYFolio = (a, b) => comparar(a.fechaTE, b.fechaTE) || comparar(a.folio, b.folio);
 
 /** Hoja "Detalle": una fila por empleado */
 export function filasDetalle(solicitudes, { nombresArea, catalogos, nombre = (x) => x }) {
   const filas = [];
   for (const t of [...solicitudes].sort(porFechaYFolio)) {
-    for (const e of [...(t.empleados ?? [])].sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'))) {
+    for (const e of [...(t.empleados ?? [])].sort((a, b) => comparar(a.nombre, b.nombre) || comparar(a.nomina, b.nomina))) {
       filas.push([
         t.folio ?? '', fmtYMD(t.fechaTE), nombresArea.get(t.areaId) ?? t.areaNombre ?? t.areaId, esExtension(t) ? 'Extensión de turno' : 'Turno extra', motivoTexto(t), String(e.nomina), nombre(e.nombre), e.puesto ?? '', e.turnoNomina ?? '',
         e.horaEntrada ?? '', e.horaSalida ?? '', calcularHoras(e.horaEntrada, e.horaSalida), e.alimentos ? 'Sí' : 'No', e.transporte ? 'Sí' : 'No',
@@ -66,7 +67,7 @@ export function filasHorasPorEmpleado(solicitudes, { nombresArea, nombre = (x) =
     }
   }
   return [...porNomina.values()]
-    .sort((a, b) => String(a.area).localeCompare(String(b.area), 'es') || String(a.nombre).localeCompare(String(b.nombre), 'es'))
+    .sort((a, b) => comparar(a.area, b.area) || comparar(a.nombre, b.nombre) || comparar(a.nomina, b.nomina))
     .map(g => [g.nomina, nombre(g.nombre), g.area, g.puesto, g.dias.size, redondeo(g.horas)]);
 }
 
@@ -77,12 +78,13 @@ export function filasAlimentos(solicitudes) {
     for (const e of t.empleados ?? []) {
       if (!e.alimentos) continue;
       const k = `${t.fechaTE}|${etiquetaBloque(e)}`;
-      const g = grupos.get(k) ?? { fecha: t.fechaTE, horario: etiquetaBloque(e), n: 0 };
+      const g = grupos.get(k) ?? { fecha: t.fechaTE, horario: etiquetaBloque(e), entrada: e.horaEntrada, salida: e.horaSalida, n: 0 };
       g.n++;
       grupos.set(k, g);
     }
   }
-  const filas = [...grupos.values()].sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || a.horario.localeCompare(b.horario, 'es', { numeric: true }));
+  // Los horarios se ordenan por su hora (9:00 antes que 16:00), no como texto; «Sin horario» al final
+  const filas = [...grupos.values()].sort((a, b) => comparar(a.fecha, b.fecha) || compararHoras(a.entrada, b.entrada) || compararHoras(a.salida, b.salida) || comparar(a.horario, b.horario));
   return { filas: filas.map(g => [fmtYMD(g.fecha), g.horario, g.n]), total: filas.reduce((a, g) => a + g.n, 0) };
 }
 
@@ -98,7 +100,7 @@ export function filasResumen(solicitudes, { nombresArea }) {
     g.horas += t.resumen?.totalHoras ?? (t.empleados ?? []).reduce((a, e) => a + calcularHoras(e.horaEntrada, e.horaSalida), 0);
     grupos.set(k, g);
   }
-  const filas = [...grupos.values()].sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || String(a.area).localeCompare(String(b.area), 'es'));
+  const filas = [...grupos.values()].sort((a, b) => comparar(a.fecha, b.fecha) || comparar(a.area, b.area));
   const total = filas.reduce((a, g) => ({ s: a.s + g.solicitudes, e: a.e + g.empleados, h: a.h + g.horas }), { s: 0, e: 0, h: 0 });
   return { filas: filas.map(g => [fmtYMD(g.fecha), g.area, g.solicitudes, g.empleados, redondeo(g.horas)]), total: ['TOTAL', '', total.s, total.e, redondeo(total.h)] };
 }

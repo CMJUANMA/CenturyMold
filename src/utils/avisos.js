@@ -77,6 +77,9 @@ export function avisoAutorizacionVarias({ nivel, cantidad, destinatarios = [], o
 /** Después de DEVOLVER: hay que avisarle a quien la solicitó. `solicitante` ya viene en formato de nombre de pila */
 export const avisoDevolucion = ({ folio, solicitante }) => aviso('aviso', AVISOS.titulos.devuelta, AVISOS.devuelta({ folio, solicitante }));
 
+/** Después de CANCELAR lo de otra persona: hay que avisarle a quien la solicitó. `solicitante` ya viene en formato de nombre de pila */
+export const avisoCancelacion = ({ folio, solicitante }) => aviso('aviso', AVISOS.titulos.cancelada, AVISOS.cancelada({ folio, solicitante }));
+
 /**
  * Línea de "Mis solicitudes" para una solicitud pendiente: "Pendiente con: A, B · en espera desde hace 2 días". null si no está pendiente.
  * @param {object} t   solicitud (estatus, areaId, fechaActualizacion/fechaCreacion)
