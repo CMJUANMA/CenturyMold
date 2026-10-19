@@ -42,6 +42,7 @@ const Estructura = lazy(() => import('./pages/rh/Estructura'));
 import { ROLES_RH } from './utils/roles';
 import { ToastProvider } from './components/Toast';
 import { ConfirmarProvider } from './context/ConfirmarContext';
+import { RecordatoriosProvider } from './context/RecordatoriosContext';
 
 const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
@@ -128,7 +129,9 @@ export default function App() {
           <CatalogosProvider>
             <ToastProvider>
               <ConfirmarProvider>
-                <RouterProvider router={router} />
+                <RecordatoriosProvider>
+                  <RouterProvider router={router} />
+                </RecordatoriosProvider>
               </ConfirmarProvider>
             </ToastProvider>
           </CatalogosProvider>

@@ -13,6 +13,7 @@ import { useResumenTE } from '../../hooks/useResumenTE';
 import { useAreas } from '../../hooks/useAreas';
 import { useConfirmar } from '../../hooks/useConfirmar';
 import { useToast } from '../../hooks/useToast';
+import { usePendienteCon } from '../../hooks/usePendienteCon';
 import AyudaPantalla from '../../components/AyudaPantalla';
 import BadgeEstatus from '../../components/BadgeEstatus';
 import InsigniasTE from '../../components/InsigniasTE';
@@ -40,6 +41,7 @@ export default function MisSolicitudesTE() {
   const navigate = useNavigate();
   const confirmar = useConfirmar();
   const toast = useToast();
+  const pendienteCon = usePendienteCon(propias);
   const [params] = useSearchParams();
   // ?pestana=... llega desde las tarjetas del Inicio
   const [pestana, setPestana] = useState(() => (PESTANAS_TE.some(p => p.id === params.get('pestana')) ? params.get('pestana') : 'borrador'));
@@ -141,7 +143,7 @@ export default function MisSolicitudesTE() {
                       <Td derecha>{t.resumen?.totalEmpleados ?? 0}</Td>
                       <Td derecha mono>{t.resumen?.totalHoras ?? 0}</Td>
                       <Td derecha>{t.resumen?.totalTransporte ?? 0}</Td>
-                      <Td><BadgeEstatus estatus={t.estatus} modulo="te" />{t.estatus === 'procesada' && <p className="mt-1 text-xs text-[var(--text-secondary)]">{textoRecibida(t)}</p>}</Td>
+                      <Td><BadgeEstatus estatus={t.estatus} modulo="te" />{pendienteCon(t) && <p className="mt-1 text-xs text-[var(--text-secondary)]">{pendienteCon(t)}</p>}{t.estatus === 'procesada' && <p className="mt-1 text-xs text-[var(--text-secondary)]">{textoRecibida(t)}</p>}</Td>
                       <Td className="text-[var(--text-secondary)]">{nivelEnTexto(t.estatus)}</Td>
                       <Td>
                         <div className="flex flex-wrap justify-end gap-2">
@@ -165,6 +167,7 @@ export default function MisSolicitudesTE() {
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">{nombres.get(t.areaId) ?? t.areaNombre ?? t.areaId} · {t.fechaTE ? formatoFecha(`${t.fechaTE}T12:00:00`) : '—'}</p>
                   <p className="mt-1 text-xs text-[var(--text-muted)]">{t.resumen?.totalEmpleados ?? 0} empleados · {t.resumen?.totalHoras ?? 0} h · {t.resumen?.totalTransporte ?? 0} con transporte · {nivelEnTexto(t.estatus)}</p>
                   <InsigniasTE t={t} className="mt-2" />
+                  {pendienteCon(t) && <p className="mt-2 text-xs text-[var(--text-secondary)]">{pendienteCon(t)}</p>}
                   {t.estatus === 'procesada' && <p className="mt-2 text-xs text-[var(--text-secondary)]">{textoRecibida(t)}</p>}
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <Boton icono={Eye} onClick={() => abrirDetalle(t)} aria-label={`Ver detalle ${t.folio ?? 'del borrador'}`}>Ver</Boton>

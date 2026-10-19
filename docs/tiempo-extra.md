@@ -336,3 +336,20 @@ Todavía **no se borra nada de Firebase**. Esta es la lista de lo que la herrami
 - `tiempoExtra` (con sus `empleados` e `historial`), `solicitudes` (con `pasajeros`) y `bitacora` creados durante las pruebas.
 - `contadores/te-AAAA`: reiniciar el folio si se borran los tiempos extra de prueba.
 - Usuarios, asignaciones y empleados de prueba.
+
+## Recordatorios de "a quién avisar"
+
+Mientras no haya avisos por correo, la pantalla recuerda a quién avisar (solo el mensaje: sin botones de envío). El aviso **no se cierra solo**; la persona lo cierra.
+Los textos están en `AVISOS` de `src/utils/ayudas.js` y la lógica en `src/utils/avisos.js` (pruebas en `tests/avisos.test.js`).
+
+| Paso | Aviso | A quién |
+|---|---|---|
+| Enviar o reenviar | "Tu solicitud TE-… se envió a Autorización 1/2…" | Aut. 1 vigentes del área, o Aut. 2 vigentes si va directo al nivel 2 |
+| Aut. 1 autoriza | "Autorizaste TE-… y pasó a Autorización 2…" | Aut. 2 vigentes |
+| Aut. 2 autoriza | "Listo. Recursos Humanos ya la tiene en 'Por enviar al proveedor'." | — |
+| Alguien devuelve (incluye RH en recepción) | "Recuerda avisarle a [solicitante]…" | Quien la capturó |
+| Mis solicitudes (pendientes) | "Pendiente con: … · en espera desde hace N días" | Los mismos destinatarios del nivel en que está |
+
+Los nombres salen **solo de las asignaciones vigentes** (nombre y puesto copiados del padrón), en formato de nombre de pila; no se leen usuarios.
+Los Aut. 2 van del nivel jerárquico más alto al más bajo; quien actúa no aparece en su propio aviso. Si no hay nadie vigente, el aviso manda a avisar a RH.
+Regla nueva: el solicitante puede leer las asignaciones de **Aut. 1 de su área** (consulta con `areaId` y `rol == 'aut1'`); las de Aut. 2 ya eran legibles.

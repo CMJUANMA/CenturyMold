@@ -15,6 +15,7 @@ import { useCatalogos } from '../../hooks/useCatalogos';
 import { useResumenTE } from '../../hooks/useResumenTE';
 import { useConfirmar } from '../../hooks/useConfirmar';
 import { useToast } from '../../hooks/useToast';
+import { useAvisarTE } from '../../hooks/useAvisarTE';
 import Ayuda from '../../components/Ayuda';
 import AyudaPantalla from '../../components/AyudaPantalla';
 import BadgeEstatus from '../../components/BadgeEstatus';
@@ -52,6 +53,7 @@ export default function BandejaTE() {
   const { delArea } = useResumenTE();
   const confirmar = useConfirmar();
   const toast = useToast();
+  const avisar = useAvisarTE();
   const [hoy] = useState(() => ymd());
   const [ahora, setAhora] = useState(() => Date.now());
   const [pestana, setPestana] = useState('bandeja');
@@ -106,17 +108,19 @@ export default function BandejaTE() {
     try {
       await autorizarSolicitud({ id, usuario, nivel, comoRH: !accesos.esAut2, comentario: texto });
       toast.success(nivel === 1 ? 'Autorizada: pasó a Autorización 2.' : 'Autorizada.');
+      await avisar.autorizacion({ nivel, folio: solicitud.folio });
       setDetalle(null);
     } catch (err) {
       if (err instanceof YaRespondida) { toast.warning(MSG_YA_RESPONDIDA, 7000); setDetalle(null); } else toast.error('No se pudo autorizar: ' + err.message, 8000);
     } finally { setTrabajando(false); setTimeout(() => { ocupadoRef.current = false; }, 1500); }
   };
   const devolver = async () => {
-    const { id, nivel } = detalle;
+    const { id, nivel, solicitud } = detalle;
     setTrabajando(true); ocupadoRef.current = true;
     try {
       await devolverSolicitud({ id, usuario, nivel, motivo: texto });
       toast.success('Devuelta al solicitante.');
+      avisar.devolucion({ folio: solicitud.folio, creadoPorNombre: solicitud.creadoPorNombre });
       setDetalle(null);
     } catch (err) {
       if (err instanceof YaRespondida) { toast.warning(MSG_YA_RESPONDIDA, 7000); setDetalle(null); } else toast.error('No se pudo devolver: ' + err.message, 8000);
@@ -139,6 +143,7 @@ export default function BandejaTE() {
     setSeleccion(s => ({ ...s, [nivel]: new Set() }));
     const folioDe = (id) => elegidas.find(t => t.id === id)?.folio ?? id;
     setResultado({ ok: r.ok.map(folioDe), fallidas: r.fallidas.map(f => ({ folio: folioDe(f.id), motivo: f.motivo })) });
+    if (r.ok.length) avisar.autorizacionVarias({ nivel, cantidad: r.ok.length });
     setTrabajando(false); setTimeout(() => { ocupadoRef.current = false; }, 1500);
   };
 

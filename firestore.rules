@@ -273,9 +273,11 @@ service cloud.firestore {
       }
 
       // Cada quien lee las suyas; el Aut. 1, las de su área y las de Aut. 2 (el Nivel 2 que ve arriba en su organigrama);
-      // Aut. 2, RH y admin, todas. Las consultas deben probarse: where('nomina' == la suya), where('areaId' == su área) o where('rol' == 'aut2')
+      // Aut. 2, RH y admin, todas. El solicitante, ademas, los Aut. 1 de su área. Las consultas deben probarse: where('nomina' == la suya), where('areaId' == su área) o where('rol' == 'aut2'); la del solicitante agrega where('rol' == 'aut1')
       allow read: if esRH() || esAut2()
-        || (activo() && (resource.data.nomina == miNomina() || resource.data.rol == 'aut2' || esAut1De(resource.data.areaId)));
+        || (activo() && (resource.data.nomina == miNomina() || resource.data.rol == 'aut2' || esAut1De(resource.data.areaId)))
+        // El solicitante lee los Aut. 1 de su área: la pantalla le recuerda a quién avisar al enviar su solicitud
+        || (resource.data.rol == 'aut1' && esSolicitanteDe(resource.data.areaId));
       allow create: if formaValida() && puedeAsignar(n()) && n().activo == true
         && n().fechaAsignacion == request.time && n().asignadoPor.uid == request.auth.uid;
       // Cada transición es su propio "allow update" (se evalúan en OR) y comprueba lo mínimo: una regla tiene tope de 1000 expresiones.

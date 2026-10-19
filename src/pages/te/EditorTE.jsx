@@ -17,6 +17,7 @@ import { useAreas } from '../../hooks/useAreas';
 import { useCatalogos } from '../../hooks/useCatalogos';
 import { useConfirmar } from '../../hooks/useConfirmar';
 import { useToast } from '../../hooks/useToast';
+import { useAvisarTE } from '../../hooks/useAvisarTE';
 import { useTurnosNomina } from '../../hooks/useTurnosNomina';
 import Ayuda from '../../components/Ayuda';
 import AyudaPantalla from '../../components/AyudaPantalla';
@@ -52,6 +53,7 @@ export default function EditorTE() {
   const { turnos, cargando: cargandoTurnos } = useTurnosNomina();
   const confirmar = useConfirmar();
   const toast = useToast();
+  const avisar = useAvisarTE();
 
   const [idNuevo] = useState(() => nuevoIdBorrador());
   const id = idParam ?? idNuevo;
@@ -263,6 +265,7 @@ export default function EditorTE() {
       setTrabajo({ texto: 'Enviando', hechos: 1, total: 1 });
       const folio = await enviarSolicitud({ id, devuelta: esDevuelta, usuario, estatus, fechaTE, motivo, comentario, empleados, extras: extras() });
       toast.success(esDevuelta ? `Reenviada (${folio}).` : `Enviada con el folio ${folio}.`);
+      await avisar.envio({ folio, estatus, areaId: areaActual, reenviada: esDevuelta });
       navigate('/tiempo-extra/mis-solicitudes', { replace: true });
     } catch (err) { console.error(err); toast.error('No se pudo enviar: ' + err.message, 8000); setTrabajo(null); }
   };

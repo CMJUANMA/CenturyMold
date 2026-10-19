@@ -176,6 +176,33 @@ export const AYUDAS = {
   },
 };
 
+/**
+ * Recordatorios en pantalla de "a quién avisar" (mientras no haya avisos por correo). Se muestran siempre, aunque las ayudas estén apagadas,
+ * y no se cierran solos. `lista` es el texto ya armado con los nombres ("Jose Anselmo Mendoza (Aut. 1 de Mantenimiento)").
+ */
+export const AVISOS = {
+  /** Después de enviar (o reenviar) una solicitud, o de que el Aut. 1 la autoriza y pasa a Aut. 2 */
+  paraAvisar: ({ folio, destino, lista, accion = 'envió' }) => `Tu solicitud ${folio} se ${accion} a ${destino}. `
+    + (lista ? `Para que se revise a la brevedad, recuerda avisarle a: ${lista}.` : 'Por ahora no hay una persona vigente con ese rol: avisa a Recursos Humanos para que lo resuelvan.'),
+  /** Autorizaste tú: la solicitud sigue su camino con otra persona (Aut. 1 → Aut. 2) */
+  autorizadaPasa: ({ folio, lista }) => `Autorizaste ${folio} y pasó a Autorización 2. `
+    + (lista ? `Para que se revise a la brevedad, recuerda avisarle a: ${lista}.` : 'Por ahora no hay un Aut. 2 vigente: avisa a Recursos Humanos para que lo resuelvan.'),
+  autorizadasPasan: ({ cantidad, lista }) => `Autorizaste ${cantidad} solicitudes y pasaron a Autorización 2. `
+    + (lista ? `Para que se revisen a la brevedad, recuerda avisarle a: ${lista}.` : 'Por ahora no hay un Aut. 2 vigente: avisa a Recursos Humanos para que lo resuelvan.'),
+  /** El Aut. 2 autoriza: ya está con RH */
+  listaEnRH: () => 'Listo. Recursos Humanos ya la tiene en \'Por enviar al proveedor\'.',
+  listasEnRH: ({ cantidad }) => `Listo. Recursos Humanos ya tiene ${cantidad} solicitudes en 'Por enviar al proveedor'.`,
+  /** Alguien devuelve: hay que avisarle a quien la capturó */
+  devuelta: ({ folio, solicitante }) => `Devolviste ${folio}. Recuerda avisarle a ${solicitante || 'quien la solicitó'} para que la corrija.`,
+  /** Línea de "Mis solicitudes" en cada solicitud pendiente */
+  pendienteCon: ({ lista, desde }) => (lista ? `Pendiente con: ${lista} · en espera desde ${desde}` : `Pendiente de autorización · en espera desde ${desde}`),
+  titulos: { enviada: 'Solicitud enviada', reenviada: 'Solicitud reenviada', autorizada: 'Solicitud autorizada', devuelta: 'Solicitud devuelta' },
+  /** "A, B y C" */
+  unir: (nombres) => (nombres.length <= 1 ? (nombres[0] ?? '') : `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`),
+  destinoNivel: { 1: 'Autorización 1', 2: 'Autorización 2' },
+  cerrar: 'Cerrar aviso',
+};
+
 /** Texto de ayuda de un campo ('' si no existe) */
 export const textoAyuda = (clave) => AYUDAS.campos[clave] ?? '';
 /** Explicación en pasos de una pantalla, o null */

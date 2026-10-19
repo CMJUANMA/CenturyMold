@@ -9,6 +9,7 @@ import Boton from '../../components/ui/Boton';
 import { useAuth } from '../../hooks/useAuth';
 import { useConfirmar } from '../../hooks/useConfirmar';
 import { useToast } from '../../hooks/useToast';
+import { useAvisarTE } from '../../hooks/useAvisarTE';
 import { formatoFecha } from '../../utils/asignaciones';
 import { MIN_MOTIVO_CANCELACION_RH, MIN_MOTIVO_DEVOLUCION, MSG_YA_RESPONDIDA, NIVEL_RECEPCION, mensajeConfirmada, textoConfirmar } from '../../utils/tiempoExtra';
 import { YaRespondida, cancelarAutorizada, devolverSolicitud, recibirSolicitud } from '../../utils/tiempoExtraDb';
@@ -33,6 +34,7 @@ export default function AccionesRH({ t, acciones, onHecho, onTrabajando, onConfi
   const { usuario } = useAuth();
   const confirmar = useConfirmar();
   const toast = useToast();
+  const avisar = useAvisarTE();
   const [trabajando, setTrabajando] = useState(false);
 
   const ejecutar = async (fn) => {
@@ -57,6 +59,7 @@ export default function AccionesRH({ t, acciones, onHecho, onTrabajando, onConfi
     if (!motivo) return;
     await devolverSolicitud({ id: t.id, usuario, nivel: NIVEL_RECEPCION, motivo });
     toast.success(`${t.folio} devuelta al solicitante.`);
+    avisar.devolucion({ folio: t.folio, creadoPorNombre: t.creadoPorNombre });
     onHecho?.();
   });
 

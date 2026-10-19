@@ -7,6 +7,7 @@
 import { Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import Recordatorios from '../components/Recordatorios';
 import Spinner from '../components/Spinner';
 
 export default function Layout() {
@@ -19,6 +20,7 @@ export default function Layout() {
       </a>
       <Navbar />
       <main id="contenido" className="min-h-screen pt-16 lg:ml-72 lg:pt-0">
+        <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 sm:pt-8 lg:px-10 lg:pt-10 empty:hidden"><Recordatorios /></div>
         <div key={pathname} className="anim-pagina mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-10">
           <Suspense fallback={<Spinner />}>
             <Outlet />
