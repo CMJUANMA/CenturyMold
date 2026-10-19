@@ -59,8 +59,8 @@ export const CAPACIDADES = {
   organigrama: (a) => veOrganigrama(a),
   /** Pestaña Asignaciones: quien puede dar o quitar algún rol operativo */
   asignar: (a) => puedeAsignarAlgo(a),
-  /** Pestaña Usuarios */
-  usuarios: (a) => a.esRH,
+  /** Pestaña Usuarios: RH, admin y Aut. 2 vigente */
+  usuarios: (a) => a.esRH || a.esAut2,
   /** Usuarios y accesos: al menos una de sus pestañas */
   accesos: (a) => a.esRH || puedeAsignarAlgo(a) || veOrganigrama(a),
 };
@@ -216,10 +216,11 @@ export const MATRIZ = [
   { grupo: 'Personal y estructura', tipo: 'boton', id: 'estructuraInicial', nombre: 'Estructura inicial y limpieza de estructura vieja', quien: soloAdmin },
 
   // ── Acciones y botones: usuarios y asignaciones
-  { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'nuevoUsuario', nombre: 'Nuevo usuario / Crear usuarios en lote (rol «usuario»)', quien: rh },
-  { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'editarUsuario', nombre: 'Editar, activar o desactivar usuarios con rol «usuario»', quien: rh },
-  { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'darRolRH', nombre: 'Dar o quitar el rol del sistema RH o Administrador, y tocar a quien ya lo tiene', quien: soloAdmin },
-  { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'restablecerAcceso', nombre: 'Restablecer acceso (RH: a usuarios con rol «usuario»; admin: a cualquiera menos a sí mismo)', quien: rh },
+  { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'nuevoUsuario', nombre: 'Nuevo usuario / Crear usuarios en lote (rol «usuario»)', quien: nivel2 },
+  { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'editarUsuario', nombre: 'Editar, activar o desactivar usuarios con rol «usuario»', quien: nivel2, nota: 'Nadie edita su propio usuario (salvo admin)' },
+  { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'darRolRH', nombre: 'Dar o quitar el rol del sistema RH (con confirmación y bitácora)', quien: nivel2, nota: 'Nadie cambia su propio rol. A un RH solo se le cambia el rol (nombre y estado, solo el admin)' },
+  { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'darRolAdmin', nombre: 'Dar o quitar el rol del sistema Administrador', quien: soloAdmin },
+  { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'restablecerPassword', nombre: 'Restablecer contraseña (RH y Aut. 2: a usuarios con rol «usuario»; admin: a cualquiera menos a sí mismo)', quien: nivel2, nota: 'Contraseña temporal que se muestra una sola vez; nadie la restablece a sí mismo' },
   { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'asignarAut1', nombre: 'Asignar, extender o revocar Aut. 1 y Solicitante', quien: (a) => a.esAdmin || a.esRH || a.esAut2, nota: 'Nadie, salvo admin, se asigna a sí mismo. Solo en áreas que participan' },
   { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'asignarAut2', nombre: 'Asignar, extender o revocar Aut. 2', quien: soloAdmin },
   { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'historialPersona', nombre: 'Ver el historial de una persona en el organigrama', quien: nivel2 },

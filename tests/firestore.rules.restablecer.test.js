@@ -89,9 +89,13 @@ describe('quién no puede restablecer', () => {
   it('RH no restablece su propia cuenta (y ya no puede con un rol rh de todas formas)', async () => {
     await assertFails(restablecer(comoRH('rh'), 'rh', '2', 'rh'));
   });
-  it('un usuario común o una Aut. 2 sin rol RH no pueden', async () => {
+  it('un usuario común no puede; una Aut. 2 vigente sí (a un usuario, nunca a sí misma ni a un RH)', async () => {
     await assertFails(restablecer(comoRH('otro'), 'marco', '5001', 'usuario'));
-    await assertFails(restablecer(comoRH('marco'), 'otro', '5002', 'usuario'));
+    await assertSucceeds(restablecer(comoRH('marco'), 'otro', '5002', 'usuario'));
+  });
+  it('la Aut. 2 no restablece a un RH ni a sí misma', async () => {
+    await assertFails(restablecer(comoRH('marco'), 'rh2', '3', 'rh'));
+    await assertFails(restablecer(comoRH('marco'), 'marco', '5001', 'usuario'));
   });
 });
 

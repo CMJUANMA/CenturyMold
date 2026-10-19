@@ -137,7 +137,7 @@ export default function UsuariosYAccesos() {
       <FormAsignacion inicial={formAsig} actor={actor} areas={areas} empleados={empleados} usuarios={usuarios}
         asignaciones={asignaciones} onClose={() => setFormAsig(null)}
         onGuardado={(texto) => toast.success(`Rol asignado — ${texto}`)}
-        onCrearUsuario={accesos.esRH ? (emp) => setCrearUsuario({ nomina: String(emp.nomina), nombre: emp.nombre ?? '' }) : null} />
+        onCrearUsuario={accesos.esRH || accesos.esAut2 ? (emp) => setCrearUsuario({ nomina: String(emp.nomina), nombre: emp.nombre ?? '' }) : null} />
 
       <ModalUsuario abierto={!!crearUsuario} onClose={() => setCrearUsuario(null)} precarga={crearUsuario}
         usuarios={usuarios ?? []} empleados={empleados} esAdmin={accesos.esAdmin}

@@ -1,7 +1,8 @@
 /**
  * ModalUsuario.jsx — Alta y edición de un usuario del sistema (cuenta + perfil usuarios/{uid}).
  * El rol del sistema es solo admin, rh o usuario; los permisos operativos se dan en Asignaciones.
- * Solo un admin puede dar o quitar rh y admin (las reglas lo exigen).
+ * RH, Aut. 2 vigente y admin dan y quitan el rol rh (con confirmación y bitácora; nadie cambia el suyo); el rol admin solo lo da y quita un admin
+ * (las reglas lo exigen). A un RH que no es admin solo se le cambia el rol.
  *
  * Props:
  *   abierto, onClose
@@ -24,6 +25,7 @@ import BuscadorEmpleado from '../../../components/BuscadorEmpleado';
 import { ROLES, ROL_LABELS } from '../../../utils/constantes';
 import { esVigente, etiquetaAsignacion } from '../../../utils/asignaciones';
 import { sugiereRolRH } from '../../../utils/permisos';
+import { useConfirmar } from '../../../hooks/useConfirmar';
 import { inputCls, btnPrimary, btnSecondary, btnIcon, labelCls } from './ui';
 
 const formDe = (usuario, precarga) => ({
@@ -41,13 +43,17 @@ export default function ModalUsuario({ abierto, ...resto }) {
 
 function Contenido({ onClose, usuario = null, precarga = null, usuarios, empleados, esAdmin, onGuardado, asignaciones = [], nombresArea = new Map(), ahora }) {
   const edicion = !!usuario;
+  const confirmar = useConfirmar();
   const [form, setForm] = useState(() => formDe(usuario, precarga));
   const [manual, setManual] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
   const [exito, setExito] = useState('');
 
-  const opcionesRol = esAdmin ? [ROLES.USUARIO, ROLES.RH, ROLES.ADMIN] : [ROLES.USUARIO];
+  // Admin: los tres. RH y Aut. 2: usuario o RH al editar; solo usuario al crear (las reglas lo exigen)
+  const opcionesRol = esAdmin ? [ROLES.USUARIO, ROLES.RH, ROLES.ADMIN] : edicion ? [ROLES.USUARIO, ROLES.RH] : [ROLES.USUARIO];
+  // A un RH, quien no es admin solo le cambia el rol: el nombre queda fijo
+  const soloRol = edicion && !esAdmin && usuario.rol === ROLES.RH;
   const vigentes = edicion ? asignaciones.filter(a => String(a.nomina) === String(usuario.nomina) && esVigente(a, ahora)) : [];
   const avisarRH = edicion && sugiereRolRH({ rol: form.rol, nomina: usuario.nomina }, vigentes);
 
@@ -64,9 +70,17 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
     setGuardando(true);
     try {
       if (edicion) {
-        await updateDoc(doc(db, 'usuarios', usuario.uid), { nombre: form.nombre.trim(), rol: form.rol });
-        registrarUsuario(ACCIONES_USUARIO.editar, { ...usuario, nombre: form.nombre.trim(), rol: form.rol }, { nombre: usuario.nombre, rol: usuario.rol });
-        onGuardado({ ...usuario, nombre: form.nombre.trim(), rol: form.rol }, { nuevo: false });
+        const daRH = form.rol === ROLES.RH && usuario.rol !== ROLES.RH;
+        const quitaRH = usuario.rol === ROLES.RH && form.rol !== ROLES.RH;
+        if ((daRH || quitaRH) && !await confirmar({
+          titulo: daRH ? 'Dar acceso de Recursos Humanos' : 'Quitar acceso de Recursos Humanos',
+          mensaje: daRH ? `¿Dar acceso de Recursos Humanos a ${usuario.nombre}? Podrá ver y administrar lo de RH.` : `¿Quitar el acceso de Recursos Humanos a ${usuario.nombre}?`,
+          textoConfirmar: daRH ? 'Dar acceso' : 'Quitar acceso', peligroso: quitaRH,
+        })) { setGuardando(false); return; }
+        await updateDoc(doc(db, 'usuarios', usuario.uid), soloRol ? { rol: form.rol } : { nombre: form.nombre.trim(), rol: form.rol });
+        registrarUsuario(daRH ? ACCIONES_USUARIO.darRH : quitaRH ? ACCIONES_USUARIO.quitarRH : ACCIONES_USUARIO.editar,
+          { ...usuario, nombre: soloRol ? usuario.nombre : form.nombre.trim(), rol: form.rol }, { nombre: usuario.nombre, rol: usuario.rol });
+        onGuardado({ ...usuario, nombre: soloRol ? usuario.nombre : form.nombre.trim(), rol: form.rol }, { nuevo: false });
         setExito('Usuario actualizado correctamente.');
       } else {
         const { uid, perfil } = await crearCuentaUsuario({ nomina: form.nomina, nombre: form.nombre, rol: form.rol, password: form.password });
@@ -98,7 +112,7 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
         {edicion ? (
           <div>
             <label className={labelCls}>Nombre completo</label>
-            <input required value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} className={inputCls} />
+            <input required value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} className={inputCls} readOnly={soloRol} />
           </div>
         ) : manual ? (
           <div className="grid grid-cols-2 gap-3">
@@ -163,8 +177,8 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
           </select>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
             {esAdmin
-              ? 'Solo tú puedes dar o quitar Recursos Humanos y Administrador.'
-              : 'Solo un administrador puede dar o quitar Recursos Humanos y Administrador.'}
+              ? 'Tú das y quitas Recursos Humanos y Administrador.'
+              : 'Puedes dar o quitar Recursos Humanos. Administrador solo lo da y quita un administrador.'}
             {' '}Aut. 1, Aut. 2 y solicitante se asignan en la pestaña Asignaciones.
           </p>
         </div>
@@ -181,7 +195,6 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <span>
               ¿Esta persona también es de RH? Si sí, cámbiale el rol a RH.
-              {!esAdmin && ' Solo un administrador puede hacerlo: avísale.'}
             </span>
           </div>
         )}

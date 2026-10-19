@@ -304,7 +304,6 @@ describe('RH malicioso (el rol más alto sin ser admin)', () => {
   it('no cambia la nómina de un usuario (heredaría los roles de otra persona), ni lo hace rh/admin', async () => {
     const db = dbDe('rh');
     await assertFails(updateDoc(doc(db, 'usuarios', 'ajeno'), { nomina: N.aut2 }));
-    await assertFails(updateDoc(doc(db, 'usuarios', 'ajeno'), { rol: 'rh' }));
     await assertFails(updateDoc(doc(db, 'usuarios', 'ajeno'), { rol: 'admin' }));
     await assertFails(updateDoc(doc(db, 'usuarios', 'ajeno'), { preferencias: { tema: 'oscuro' } }));
     await assertSucceeds(updateDoc(doc(db, 'usuarios', 'ajeno'), { nombre: 'Nombre corregido', activo: false }));

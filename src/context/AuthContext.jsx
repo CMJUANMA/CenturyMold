@@ -6,7 +6,7 @@
  * Helpers: login(nomina, password), cerrarSesion(), cambiarPassword(actual, nueva),
  *          cambiarPasswordInicial(nueva, temporal?), reintentarPerfil().
  *
- * Conversión de nómina → email: `${nomina}@rutas.app`
+ * Conversión de nómina → email: accesos/{nomina}.version (1 = `${nomina}@rutas.app`, N = `${nomina}.v${N}@rutas.app`), ver utils/accesos.js
  * El perfil usuarios/{uid} se escucha con onSnapshot mientras haya sesión: si el usuario
  * se desactiva o se borra su documento se cierra la sesión; si cambia el rol, la interfaz
  * se actualiza sin recargar.
@@ -26,12 +26,12 @@ import { AuthContext } from './authStore';
 import { MSG_BORRADOR_GUARDADO } from '../utils/guardadoAutomatico';
 import { CLAVE_ULTIMA_ACTIVIDAD, crearMarca } from '../utils/inactividad';
 import { limpiarEstadoDeSesion } from '../utils/sesion';
+import { correoDeAcceso } from '../utils/accesos';
+import { leerAcceso } from '../utils/accesosDb';
 
 const MSG_DESACTIVADO = 'Tu usuario fue desactivado. Contacta al área de Sistemas o, en su caso, a Recursos Humanos.';
 const MSG_INACTIVIDAD = 'Tu sesión se cerró por inactividad. Vuelve a iniciar sesión.';
 
-// ── Constante de dominio ficticio ─────────────────────────────────────────
-const nominaToEmail = (nomina) => `${nomina.trim()}@rutas.app`;
 
 // ── Provider ──────────────────────────────────────────────────────────────
 export function AuthProvider({ children }) {
@@ -110,7 +110,9 @@ export function AuthProvider({ children }) {
   // ── Login con nómina ────────────────────────────────────────────────────
   const login = useCallback(async (nomina, password) => {
     setMensajeSesion(''); // el aviso de «cerrada por inactividad» se muestra una sola vez
-    const email = nominaToEmail(nomina);
+    // Qué cuenta usa esta nómina (versión 1 = {nomina}@rutas.app; tras «Restablecer contraseña», la versión siguiente). Se lee sin sesión.
+    const { version } = await leerAcceso(nomina);
+    const email = correoDeAcceso(nomina, version);
     // signInWithEmailAndPassword puede lanzar; el componente captura el error
     const cred = await signInWithEmailAndPassword(auth, email, password);
 

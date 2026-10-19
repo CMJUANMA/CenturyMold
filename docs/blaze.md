@@ -11,7 +11,7 @@ Hoy la app crea las cuentas **desde el navegador** y no puede cambiar contraseñ
 | Hoy (Spark) | Con Blaze |
 |---|---|
 | Registro abierto: cualquiera con la configuración pública puede crear cuentas basura u ocupar una nómina | Registro cerrado; solo la función crea cuentas |
-| Restablecer acceso = borrar en consola + crear cuenta nueva (el uid cambia y se pierde «Mis solicitudes» de la persona) | La función pone una contraseña temporal a la **misma** cuenta; no se pierde nada |
+| Restablecer contraseña = crear una cuenta de la versión siguiente y mover el perfil (el uid cambia y se pierde «Mis solicitudes» de la persona; accesos/{nomina} dice qué correo usar) | La función pone una contraseña temporal a la **misma** cuenta; no se pierde nada |
 | Desactivar un usuario: la app y las reglas lo bloquean al instante, pero el token de Authentication sigue vivo | Se revocan sus sesiones y se deshabilita la cuenta |
 | Bitácora e historial escritos por el navegador | Escritos por el servidor: inalterables |
 | Respaldo manual (JSON) semanal | Copias diarias automáticas con retención y recuperación a un punto en el tiempo |
@@ -22,10 +22,10 @@ Hoy la app crea las cuentas **desde el navegador** y no puede cambiar contraseñ
 1. **Funciones de usuarios** (callable, solo admin/RH; región `us-central1` o la más cercana):
    - `crearUsuario({ nomina, nombre, rol })`: crea la cuenta `{nómina}@rutas.app` con contraseña temporal `CM-XXXX-XXXX` y `debeCambiarPassword: true`, y el perfil `usuarios/{uid}`. Rechaza nómina repetida. Un RH solo puede crear rol `usuario` (como las reglas actuales).
    - `crearUsuariosLote([...])`: lo mismo en lote (para el Excel de accesos).
-   - `restablecerPassword({ uid })`: nueva contraseña temporal para la **misma** cuenta, `debeCambiarPassword: true`, revoca sesiones. Reemplaza el asistente manual.
+   - `restablecerPassword({ uid })`: nueva contraseña temporal para la **misma** cuenta, `debeCambiarPassword: true`, revoca sesiones. **Reemplaza el flujo actual de «Restablecer contraseña»** (cuenta nueva `{nómina}.vN@rutas.app` + `accesos/{nomina}`): al llegar Blaze la función cambia la contraseña directamente, el login deja de leer `accesos/`, se **limpian las cuentas viejas** (las que quedaron sin perfil, de las versiones anteriores) con el Admin SDK y se retiran la colección `accesos`, sus reglas (`get` público) y `utils/accesos*.js`.
    - `cambiarEstadoUsuario({ uid, activo })`: pone `activo`, **deshabilita la cuenta** y revoca los tokens (hoy solo cambia el perfil).
    - La contraseña temporal se devuelve **una sola vez** a quien la pide y no se guarda.
-   - Después: **cerrar el registro abierto** (ver pasos) y retirar la app secundaria (`firebaseSecundario.js`) y el asistente «Restablecer acceso» manual.
+   - Después: **cerrar el registro abierto** (ver pasos) y retirar la app secundaria (`firebaseSecundario.js`) y el flujo de «Restablecer contraseña» por versiones de cuenta.
 2. **Bitácora e historial del lado del servidor**: disparadores sobre `asignaciones`, `usuarios` y `tiempoExtra` que escriben el renglón de bitácora/historial (quién, qué, antes/después) con el uid de la petición.
    Las reglas pasan a `allow create, update, delete: if false` para esas colecciones de bitácora/historial (el cliente solo lee).
 3. **Respaldos programados de Firestore**: copia diaria con retención (por ejemplo 7 diarias + 4 semanales) y recuperación a un punto en el tiempo (7 días). El «Respaldo completo (JSON)» se conserva como segunda copia.

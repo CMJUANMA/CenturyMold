@@ -38,6 +38,8 @@ service cloud.firestore {
       return exists(perfilPath()) && p.get('activo', true) != false && area is string && exists(ap) && asigVigente(get(ap).data);
     }
     function esAut2() { return asignacionVigente('aut2', 'planta'); }
+    // Gestiona usuarios (alta, edición, restablecer contraseña, dar o quitar el rol rh): RH, admin y Aut. 2 vigente. Admin siempre cuenta como RH.
+    function gestorUsuarios() { return esRH() || esAut2(); }
     function esAut1De(areaId)        { return asignacionVigente('aut1', areaId); }
     function esSolicitanteDe(areaId) { return asignacionVigente('solicitante', areaId); }
 
@@ -56,19 +58,21 @@ service cloud.firestore {
       // Cada quien lee su propio perfil (AuthContext); RH lee todos
       // La Aut. 2 también los lee: necesita saber quién aún no tiene usuario al asignar roles
       allow read: if (isAuth() && request.auth.uid == uid) || esRH() || esAut2();
-      // Solo admin da o quita los roles rh y admin: RH crea usuarios con rol 'usuario'
-      allow create: if (esAdmin() || (esRH() && request.resource.data.rol == 'usuario')) && perfilValido();
+      // El rol admin solo lo da un admin; los demás gestores (RH, Aut. 2) crean usuarios con rol 'usuario'
+      allow create: if (esAdmin() || (gestorUsuarios() && request.resource.data.rol == 'usuario')) && perfilValido();
       // Un perfil trae nómina y nombre con tope de largo y activo booleano (el resto de campos los pone la app)
       function perfilValido() {
         let d = request.resource.data;
         return textoHasta(d.get('nomina', ''), 20) && d.get('nomina', '') != '' && textoHasta(d.get('nombre', ''), 120) && d.get('activo', true) is bool;
       }
-      // RH edita a los usuarios que no son rh/admin y solo los deja en 'usuario' (un rol anterior sin migrar puede conservarse)
+      // Gestores (RH, Aut. 2): nunca a sí mismos ni a un admin. Pueden dar o quitar el rol rh (usuario <-> rh); 'admin' solo lo da y quita un admin.
+      // A quien ya es rh solo le cambian el rol (nombre y activo no). La nómina NO cambia: las asignaciones van por nómina y moverla heredaría
+      // los roles de otra persona. (Un rol anterior sin migrar puede conservarse.)
       allow update: if esAdmin()
-        // RH solo toca nombre, rol y activo (la nómina NO cambia: las asignaciones van por nómina y moverla heredaría los roles de otra persona)
-        || (esRH() && !(resource.data.rol in ['rh', 'admin'])
-            && (request.resource.data.rol == 'usuario' || request.resource.data.rol == resource.data.rol)
-            && !(request.resource.data.rol in ['rh', 'admin'])
+        || (gestorUsuarios() && request.auth.uid != uid && resource.data.get('rol', '') != 'admin'
+            && request.resource.data.get('rol', '') != 'admin'
+            && (request.resource.data.get('rol', '') in ['usuario', 'rh'] || request.resource.data.get('rol', '') == resource.data.get('rol', ''))
+            && (resource.data.get('rol', '') != 'rh' || soloCambia(['rol']))
             && soloCambia(['nombre', 'rol', 'activo']) && perfilValido())
         // Primer acceso: el propio usuario solo puede bajar debeCambiarPassword de true a false (nunca al revés)
         || (activo() && request.auth.uid == uid
@@ -90,7 +94,7 @@ service cloud.firestore {
       // Borrar: el admin. RH solo para "Restablecer acceso": el perfil de un «usuario» (nunca el propio ni el de otro rh/admin) se borra
       // únicamente si en el MISMO lote se crea su perfil nuevo y su renglón de bitácora 'restablecer-{uid}' (ver `restablece`).
       allow delete: if esAdmin()
-        || (esRH() && request.auth.uid != uid && resource.data.get('rol', '') == 'usuario' && restablece(uid));
+        || (gestorUsuarios() && request.auth.uid != uid && resource.data.get('rol', '') == 'usuario' && restablece(uid));
       // El perfil se mueve al uid nuevo: misma nómina y mismo rol, que ya no existía, con debeCambiarPassword en true (contraseña temporal).
       // La bitácora (despues.uid) dice cuál es el uid nuevo; su alta la valida la regla de /bitacora (quién lo hizo y cuándo).
       function restablece(uid) {
@@ -104,6 +108,25 @@ service cloud.firestore {
           && getAfter(nuevo).data.nomina == resource.data.nomina
           && getAfter(nuevo).data.rol == resource.data.rol
           && getAfter(nuevo).data.get('debeCambiarPassword', false) == true;
+      }
+    }
+
+    // ---------- Accesos (qué cuenta de Firebase Auth usa cada nómina) ----------
+    // accesos/{nomina} = { version, uid }. Versión 1 = {nomina}@rutas.app (también si el documento no existe); versión N = {nomina}.vN@rutas.app.
+    // El login lo lee SIN sesión (get; nunca list) para saber qué correo usar. Solo un restablecimiento lo cambia: la versión sube de 1 en 1, el
+    // uid es el de un perfil que se crea en el MISMO lote con esa nómina (ver docs/blaze.md: con Cloud Functions esto se reemplaza).
+    match /accesos/{nomina} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if gestorUsuarios()
+        && request.resource.data.keys().hasOnly(['version', 'uid'])
+        && request.resource.data.version is int && request.resource.data.uid is string
+        && (resource == null ? request.resource.data.version in [1, 2] : request.resource.data.version == resource.data.version + 1)
+        && accesoDelPerfilNuevo(nomina, request.resource.data.uid);
+      allow delete: if false;
+      function accesoDelPerfilNuevo(nomina, uidNuevo) {
+        let nuevo = /databases/$(database)/documents/usuarios/$(uidNuevo);
+        return !exists(nuevo) && existsAfter(nuevo) && getAfter(nuevo).data.nomina == nomina;
       }
     }
 
@@ -140,7 +163,7 @@ service cloud.firestore {
     match /bitacora/{id} {
       allow read: if esRH() || (esAut2() && resource.data.get('entidad', '') == 'asignacion');
       // Quien la crea queda con su uid Y su nombre reales (no se puede firmar a nombre de otra persona). La Aut. 2 también registra sus descargas.
-      allow create: if (esRH() || (esAut2() && request.resource.data.entidad in ['asignacion', 'descarga']))
+      allow create: if (esRH() || (esAut2() && (request.resource.data.entidad in ['asignacion', 'descarga'] || request.resource.data.entidad.matches('usuarios/.*'))))
         && request.resource.data.keys().hasOnly(['accion', 'entidad', 'antes', 'despues', 'porUid', 'porNombre', 'fecha'])
         && textoHasta(request.resource.data.accion, 60) && textoHasta(request.resource.data.entidad, 120)
         && request.resource.data.porUid == request.auth.uid

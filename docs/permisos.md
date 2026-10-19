@@ -6,7 +6,7 @@ Dos capas que **se suman** (unión):
 - **Roles operativos** (Aut. 2, Aut. 1, Solicitante): capturar y autorizar. Se dan en *Usuarios y accesos › Asignaciones*, por nómina, con vigencia.
 
 Una cuenta con rol del sistema `usuario` y una asignación de Aut. 2 solo ve lo de Aut. 2: **no ve nada de RH**. Si esa persona también es de RH, hay que cambiarle el rol del sistema a RH
-(Usuarios › editar; solo un admin puede dar RH). *RH + Aut. 2* ve lo de ambos; *admin + Aut. 1* ve el menú de admin y además firma el nivel 1 de su área.
+(Usuarios › editar). RH, Aut. 2 vigente y admin pueden dar o quitar el rol RH, con confirmación y registro en la bitácora; nadie cambia su propio rol; Administrador solo lo da y lo quita un admin. A un RH que no es admin solo se le cambia el rol (no su nombre ni su estado). *RH + Aut. 2* ve lo de ambos; *admin + Aut. 1* ve el menú de admin y además firma el nivel 1 de su área.
 
 ## La matriz
 
@@ -42,7 +42,7 @@ La tabla se **genera** desde `src/utils/permisos.js` (`npm run docs:permisos`); 
 | Pantalla: Padrón de empleados | ✔ | ✔ | — | — | — | — |
 | Pantalla: Estructura (áreas, puestos, turnos) | ✔ | ✔ | — | — | — | — |
 | Pantalla: Usuarios y accesos (cada quien ve solo las pestañas que le tocan) _(En el menú de RH es un ítem; los demás entran por su pestaña)_ | ✔ | ✔ | ✔ | ✔ | — | — |
-| Pantalla: Usuarios y accesos › Usuarios | ✔ | ✔ | — | — | — | — |
+| Pantalla: Usuarios y accesos › Usuarios | ✔ | ✔ | ✔ | — | — | — |
 | Pantalla: Usuarios y accesos › Asignaciones («Asignar roles» en el menú de Aut. 2) | ✔ | ✔ | ✔ | — | — | — |
 | Pantalla: Organigrama («Mi área» para Aut. 1: solo su área) | ✔ | ✔ | ✔ | ✔ | — | — |
 | Acción: Padrón: alta, edición, baja, importación y respaldo | ✔ | ✔ | — | — | — | — |
@@ -54,10 +54,11 @@ La tabla se **genera** desde `src/utils/permisos.js` (`npm run docs:permisos`); 
 | Botón: Herramientas › Respaldo completo (JSON) | ✔ | — | — | — | — | — |
 | Pantalla: Guía de estilo | ✔ | — | — | — | — | — |
 | **Usuarios y accesos** |||||||
-| Botón: Nuevo usuario / Crear usuarios en lote (rol «usuario») | ✔ | ✔ | — | — | — | — |
-| Botón: Editar, activar o desactivar usuarios con rol «usuario» | ✔ | ✔ | — | — | — | — |
-| Botón: Dar o quitar el rol del sistema RH o Administrador, y tocar a quien ya lo tiene | ✔ | — | — | — | — | — |
-| Botón: Restablecer acceso (RH: a usuarios con rol «usuario»; admin: a cualquiera menos a sí mismo) | ✔ | ✔ | — | — | — | — |
+| Botón: Nuevo usuario / Crear usuarios en lote (rol «usuario») | ✔ | ✔ | ✔ | — | — | — |
+| Botón: Editar, activar o desactivar usuarios con rol «usuario» _(Nadie edita su propio usuario (salvo admin))_ | ✔ | ✔ | ✔ | — | — | — |
+| Botón: Dar o quitar el rol del sistema RH (con confirmación y bitácora) _(Nadie cambia su propio rol. A un RH solo se le cambia el rol (nombre y estado, solo el admin))_ | ✔ | ✔ | ✔ | — | — | — |
+| Botón: Dar o quitar el rol del sistema Administrador | ✔ | — | — | — | — | — |
+| Botón: Restablecer contraseña (RH y Aut. 2: a usuarios con rol «usuario»; admin: a cualquiera menos a sí mismo) _(Contraseña temporal que se muestra una sola vez; nadie la restablece a sí mismo)_ | ✔ | ✔ | ✔ | — | — | — |
 | Botón: Asignar, extender o revocar Aut. 1 y Solicitante _(Nadie, salvo admin, se asigna a sí mismo. Solo en áreas que participan)_ | ✔ | ✔ | ✔ | — | — | — |
 | Botón: Asignar, extender o revocar Aut. 2 | ✔ | — | — | — | — | — |
 | Botón: Ver el historial de una persona en el organigrama | ✔ | ✔ | ✔ | — | — | — |

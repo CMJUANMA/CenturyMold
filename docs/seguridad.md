@@ -95,7 +95,7 @@ Nombres, puestos, motivos y comentarios los capturan usuarios y llegan a los Exc
 (`=HYPERLINK(...)`, DDE). Ahora **todo** libro pasa por `bufferSeguro` (`src/utils/excelSeguro.js`): antepone una comilla a esos textos (también en texto con formato y enlaces) y descarta fórmulas. Una prueba falla si cualquier archivo del código vuelve a llamar `writeBuffer` directamente.
 
 ### S-09 · Medio · Bitácora de usuarios y descargas  ✅
-Se registran (uid y nombre reales, sin contraseñas ni contenido): alta, cambio de nombre/rol, activar y desactivar usuarios; restablecer acceso (ya existía); y las descargas: respaldo del padrón, resumen de horas extra, consulta de tiempo extra
+Se registran (uid y nombre reales, sin contraseñas ni contenido): alta, cambio de nombre/rol, activar y desactivar usuarios; restablecer contraseña (quién a quién; sin la contraseña), dar y quitar el rol RH; y las descargas: respaldo del padrón, resumen de horas extra, consulta de tiempo extra
 (la Aut. 2 también), formato de rutas y respaldo completo. **El padrón no tenía registro de descargas**; ahora sí. Quién descarga qué: RH y admin (padrón, formato de rutas, resumen), Aut. 2 y RH (consulta de tiempo extra, solo lectura), admin (respaldo completo).
 La Aut. 2 solo puede escribir renglones de asignaciones y de descargas; no lee la bitácora de descargas.
 
@@ -168,7 +168,7 @@ aunque su token siga vigente. Igual con un cambio de rol: la interfaz se actuali
 
 **3. Hosting.** S-06. En producción ya existía HSTS de Firebase; se agregó el resto.
 
-**4. Código del cliente.** Sin `dangerouslySetInnerHTML`, `innerHTML`, `eval`, `new Function` ni `document.write` (React escapa todo el texto). El único enlace externo (consola de Firebase en «Restablecer acceso») lleva `rel="noopener noreferrer"`.
+**4. Código del cliente.** Sin `dangerouslySetInnerHTML`, `innerHTML`, `eval`, `new Function` ni `document.write` (React escapa todo el texto). Ya no hay enlaces externos en «Restablecer contraseña» (el flujo es 100 % dentro de la app).
 `localStorage`/`sessionStorage` solo guardan el tema, la hora de la última actividad y una marca de recarga: nada de tokens ni datos personales (los tokens de Firebase los guarda el SDK en IndexedDB, como cualquier app de Firebase). Sin `console.log`; los `console.error` imprimen objetos de error de Firebase (códigos y rutas
 de documentos, p. ej. un número de nómina), no datos de personas. Todo está vigilado por `tests/seguridad.test.js`.
 

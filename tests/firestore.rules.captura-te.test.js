@@ -179,6 +179,7 @@ describe('cancelar y eliminar', () => {
     const { db, m } = await comoUsuario('solP');
     await enviada(m);
     await expect(m.cancelarSolicitud({ id: 'BR-AAAAAAAAAA', usuario: USUARIOS.solP, motivo: ' x ' })).rejects.toThrow();
+    await new Promise(r => setTimeout(r, 25)); // el historial se ordena por fecha del servidor: que no empaten en el mismo milisegundo
     await m.cancelarSolicitud({ id: 'BR-AAAAAAAAAA', usuario: USUARIOS.solP, motivo: 'Ya no se necesita' });
     expect((await getDoc(doc(db, 'tiempoExtra', 'BR-AAAAAAAAAA'))).data()).toMatchObject({ estatus: 'cancelada', motivoCancelacion: 'Ya no se necesita' });
     const h = await m.leerHistorialTE('BR-AAAAAAAAAA');

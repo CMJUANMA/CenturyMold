@@ -3,23 +3,31 @@
  * La cuenta se crea con la app secundaria (para no cerrar la sesión de quien la crea) y el perfil con la sesión principal.
  * La contraseña temporal NUNCA se guarda en Firestore: solo viaja a Firebase Auth.
  */
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, writeBatch } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, deleteUser, signOut } from 'firebase/auth';
 import { db } from '../firebase';
 import { authSecundaria } from '../firebaseSecundario';
+import { correoDeAcceso } from './accesos';
+import { leerAcceso } from './accesosDb';
 
 /**
- * Crea la cuenta `${nomina}@rutas.app` y su perfil (rol de sistema, activo, debeCambiarPassword: true).
+ * Crea la cuenta de la nómina (`{nomina}@rutas.app`, o la versión siguiente si ya hubo un restablecimiento) y, en un solo lote, su perfil
+ * (rol de sistema, activo, debeCambiarPassword: true) y accesos/{nomina} (qué cuenta usa: accesos.js).
  * Si el perfil no se puede guardar, borra la cuenta recién creada; siempre cierra la sesión de la app secundaria.
  * @returns {Promise<{uid: string, perfil: object}>}
  */
 export async function crearCuentaUsuario({ nomina, nombre, rol = 'usuario', password }) {
   const n = String(nomina).trim();
-  const cred = await createUserWithEmailAndPassword(authSecundaria, `${n}@rutas.app`, password);
+  const previo = await leerAcceso(n);
+  const version = previo.existe ? previo.version + 1 : 1;
+  const cred = await createUserWithEmailAndPassword(authSecundaria, correoDeAcceso(n, version), password);
   const { uid } = cred.user;
   const perfil = { nomina: n, nombre: String(nombre).trim(), rol, activo: true, debeCambiarPassword: true };
   try {
-    await setDoc(doc(db, 'usuarios', uid), perfil);
+    const lote = writeBatch(db);
+    lote.set(doc(db, 'usuarios', uid), perfil);
+    lote.set(doc(db, 'accesos', n), { version, uid });
+    await lote.commit();
   } catch (errPerfil) {
     try {
       await deleteUser(cred.user);

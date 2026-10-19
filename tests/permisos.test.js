@@ -17,13 +17,14 @@ const ESPERADO = {
   admin: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'transporteCatalogos',
     'padron', 'estructura', 'accesos', 'accesosUsuarios', 'accesosAsignaciones', 'organigrama', 'herramientas', 'vistaPrevia', 'respaldoCompleto', 'guiaEstilo',
     'capturarSinTE', 'firmarNivel2', 'confirmarRH', 'cancelarRH', 'formatoRutas', 'exportarConsulta', 'editarPadron', 'editarEstructura', 'estructuraInicial',
-    'nuevoUsuario', 'editarUsuario', 'darRolRH', 'restablecerAcceso', 'asignarAut1', 'asignarAut2', 'historialPersona', 'cargaAsignaciones', 'cambiarPassword'],
+    'nuevoUsuario', 'editarUsuario', 'darRolRH', 'darRolAdmin', 'restablecerPassword', 'asignarAut1', 'asignarAut2', 'historialPersona', 'cargaAsignaciones', 'cambiarPassword'],
   rh: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'transporteCatalogos',
     'padron', 'estructura', 'accesos', 'accesosUsuarios', 'accesosAsignaciones', 'organigrama',
     'capturarSinTE', 'firmarNivel2', 'confirmarRH', 'cancelarRH', 'formatoRutas', 'exportarConsulta', 'editarPadron', 'editarEstructura',
-    'nuevoUsuario', 'editarUsuario', 'restablecerAcceso', 'asignarAut1', 'historialPersona', 'cambiarPassword'],
-  aut2: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'accesos', 'accesosAsignaciones', 'organigrama',
-    'capturarSinTE', 'autorizarLoPropio', 'firmarNivel2', 'exportarConsulta', 'asignarAut1', 'historialPersona', 'cambiarPassword'],
+    'nuevoUsuario', 'editarUsuario', 'darRolRH', 'restablecerPassword', 'asignarAut1', 'historialPersona', 'cambiarPassword'],
+  aut2: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'accesos', 'accesosUsuarios', 'accesosAsignaciones', 'organigrama',
+    'capturarSinTE', 'autorizarLoPropio', 'firmarNivel2', 'exportarConsulta', 'nuevoUsuario', 'editarUsuario', 'darRolRH', 'restablecerPassword', 'asignarAut1',
+    'historialPersona', 'cambiarPassword'],
   aut1: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'accesos', 'organigrama', 'capturarArea', 'firmarNivel1', 'cambiarPassword'],
   solicitante: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'capturarArea', 'cambiarPassword'],
   sinRol: ['inicio', 'miCuenta', 'cambiarPassword'],
@@ -54,10 +55,10 @@ describe('combinaciones: la unión de lo que le toca a cada rol', () => {
       expect(new Set(filas(c.perfil))).toEqual(union);
     });
   }
-  it('RH + Aut. 2 conserva todo RH y suma firmar como Aut. 2 sin ganar Herramientas ni dar RH/Aut. 2', () => {
+  it('RH + Aut. 2 conserva todo RH y suma firmar como Aut. 2 sin ganar Herramientas ni dar Administrador/Aut. 2', () => {
     const f = filas(COMBINACIONES.find(c => c.id === 'rh+aut2').perfil);
     expect(f).toEqual(expect.arrayContaining(ESPERADO.rh));
-    for (const no of ['herramientas', 'vistaPrevia', 'darRolRH', 'asignarAut2', 'cargaAsignaciones']) expect(f).not.toContain(no);
+    for (const no of ['herramientas', 'vistaPrevia', 'darRolAdmin', 'asignarAut2', 'cargaAsignaciones']) expect(f).not.toContain(no);
   });
   it('Admin + Aut. 1 ve el menú de admin (que ya incluye Mi área/Organigrama) y firma nivel 1 y 2', () => {
     const f = filas(COMBINACIONES.find(c => c.id === 'admin+aut1').perfil);
@@ -104,7 +105,7 @@ describe('rutas permitidas', () => {
     const ver = (id) => pestanasAccesos(accesosDePerfil(col(id).perfil));
     expect(ver('admin')).toEqual(['usuarios', 'asignaciones', 'organigrama']);
     expect(ver('rh')).toEqual(['usuarios', 'asignaciones', 'organigrama']);
-    expect(ver('aut2')).toEqual(['asignaciones', 'organigrama']);
+    expect(ver('aut2')).toEqual(['usuarios', 'asignaciones', 'organigrama']);
     expect(ver('aut1')).toEqual(['organigrama']);
     expect(ver('solicitante')).toEqual([]);
     expect(ver('sinRol')).toEqual([]);

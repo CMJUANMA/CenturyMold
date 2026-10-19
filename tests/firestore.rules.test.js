@@ -252,20 +252,21 @@ describe('RH', () => {
     await assertSucceeds(updateDoc(doc(db, 'usuarios', U.sup), { rol: 'usuario' }));
   });
 
-  it('no puede dar rh ni admin (crear ni promover): solo el admin', async () => {
+  it('no crea usuarios con rol rh ni admin y no da admin; sí da el rol rh a un usuario existente (ver firestore.rules.accesos.test.js)', async () => {
     const db = dbDe(U.rh);
     await assertFails(setDoc(doc(db, 'usuarios', 'nuevoRH'), perfil('rh')));
     await assertFails(setDoc(doc(db, 'usuarios', 'nuevoAdmin'), perfil('admin')));
-    await assertFails(updateDoc(doc(db, 'usuarios', U.sup), { rol: 'rh' }));
+    await assertSucceeds(updateDoc(doc(db, 'usuarios', U.sup), { rol: 'rh' }));
     await assertFails(updateDoc(doc(db, 'usuarios', U.sup), { rol: 'admin' }));
   });
 
-  it('no puede quitar el rol rh a otro RH ni tocar a un admin', async () => {
+  it('puede quitar el rol rh a otro RH, pero no desactivarlo ni cambiarle el nombre, ni tocar a un admin', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'usuarios', 'rh2'), perfil('rh'));
     });
-    await assertFails(updateDoc(doc(dbDe(U.rh), 'usuarios', 'rh2'), { rol: 'usuario' }));
     await assertFails(updateDoc(doc(dbDe(U.rh), 'usuarios', 'rh2'), { activo: false }));
+    await assertSucceeds(updateDoc(doc(dbDe(U.rh), 'usuarios', 'rh2'), { rol: 'usuario' }));
+    await assertFails(updateDoc(doc(dbDe(U.rh), 'usuarios', U.admin), { rol: 'usuario' }));
   });
 
   it('el admin sí da y quita rh', async () => {

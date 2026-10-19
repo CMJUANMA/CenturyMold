@@ -1,6 +1,6 @@
 /**
  * TabUsuarios.jsx — Tabla de usuarios del sistema (rol del sistema + roles operativos vigentes) y su alta/edición.
- * Acceso: RH y admin. Solo un admin toca a rh/admin.
+ * Acceso: RH, Aut. 2 vigente y admin. Dar o quitar el rol RH: RH, Aut. 2 y admin (nunca a sí mismos); el rol admin y la edición de datos de un RH, solo el admin.
  */
 import { Suspense, lazy, useState } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -16,7 +16,7 @@ import { sugiereRolRH } from '../../../utils/permisos';
 import { ACCIONES_USUARIO, registrarUsuario } from '../../../utils/bitacoraDb';
 // Trae exceljs (el Excel de accesos) solo cuando se abre el modal
 const ModalUsuariosLote = lazy(() => import('./ModalUsuariosLote'));
-const ModalRestablecerAcceso = lazy(() => import('./ModalRestablecerAcceso'));
+const ModalRestablecerPassword = lazy(() => import('./ModalRestablecerPassword'));
 import { btnPrimary, btnSecondary, btnIcon, inputCls, selectCls, etiquetaCls } from './ui';
 
 const rolLabel = (r) => ROL_LABELS[r] ?? `${r} (rol anterior: edítalo para pasarlo a Usuario)`;
@@ -32,9 +32,10 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
   const [restablecer, setRestablecer] = useState(null);
   const [modal, setModal] = useState(precarga ? { usuario: null, precarga } : null);
 
-  // Un RH que no es admin no puede tocar a otros rh/admin (las reglas lo rechazan)
-  const puedeEditar = (u) => esAdmin || ![ROLES.RH, ROLES.ADMIN].includes(u.rol);
-  // Restablecer acceso: el admin a cualquiera menos a sí mismo; RH solo a quien tiene rol «usuario» (las reglas lo exigen)
+  // Quien no es admin (RH, Aut. 2) no se toca a sí mismo ni toca a un admin (las reglas lo rechazan); a un RH solo le cambia el rol
+  const puedeEditar = (u) => esAdmin || (u.uid !== yo?.uid && u.rol !== ROLES.ADMIN);
+  const puedeActivar = (u) => esAdmin || (u.uid !== yo?.uid && u.rol !== ROLES.ADMIN && u.rol !== ROLES.RH);
+  // Restablecer contraseña: el admin a cualquiera menos a sí mismo; RH y Aut. 2 solo a quien tiene rol «usuario» (las reglas lo exigen)
   const puedeRestablecer = (u) => u.uid !== yo?.uid && (esAdmin || u.rol === ROLES.USUARIO);
 
   const toggleActivo = async (u) => {
@@ -74,7 +75,7 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
           <span>
             <b>Rol del sistema</b> (Usuario, Recursos Humanos o Administrador) = acceso a las pantallas de administración y RH. Lo que cada quien
             puede capturar y autorizar sale de sus <b>roles operativos</b> (Aut. 2, Aut. 1, Solicitante), que se dan en la pestaña Asignaciones.
-            Si alguien olvidó su contraseña, usa <b>Restablecer acceso</b> (<KeyRound className="inline h-3 w-3" aria-hidden="true" />) en su fila.
+            Si alguien olvidó su contraseña, usa <b>Restablecer contraseña</b> (<KeyRound className="inline h-3 w-3" aria-hidden="true" />) en su fila.
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -157,13 +158,15 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
                       <div className="inline-flex items-center gap-1">
                         <button type="button" onClick={() => setModal({ usuario: u, precarga: null })} className={btnIcon} title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
                         {puedeRestablecer(u) && (
-                          <button type="button" onClick={() => setRestablecer(u)} className={btnIcon} title="Restablecer acceso" aria-label={`Restablecer acceso de ${u.nombre}`}>
+                          <button type="button" onClick={() => setRestablecer(u)} className={btnIcon} title="Restablecer contraseña" aria-label={`Restablecer contraseña de ${u.nombre}`}>
                             <KeyRound className="h-3.5 w-3.5" />
                           </button>
                         )}
-                        <button type="button" onClick={() => toggleActivo(u)} className={btnIcon} title={u.activo !== false ? 'Desactivar' : 'Activar'}>
-                          {u.activo !== false ? <ToggleRight className="h-4 w-4 text-[var(--status-success-text)]" /> : <ToggleLeft className="h-4 w-4" />}
-                        </button>
+                        {puedeActivar(u) && (
+                          <button type="button" onClick={() => toggleActivo(u)} className={btnIcon} title={u.activo !== false ? 'Desactivar' : 'Activar'}>
+                            {u.activo !== false ? <ToggleRight className="h-4 w-4 text-[var(--status-success-text)]" /> : <ToggleLeft className="h-4 w-4" />}
+                          </button>
+                        )}
                       </div>
                     )}
                   </td>
@@ -184,7 +187,7 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
 
       {restablecer && (
         <Suspense fallback={null}>
-          <ModalRestablecerAcceso abierto usuario={restablecer} actor={{ uid: yo?.uid, nombre: yo?.nombre ?? '' }} onClose={() => setRestablecer(null)}
+          <ModalRestablecerPassword abierto usuario={restablecer} actor={{ uid: yo?.uid, nombre: yo?.nombre ?? '' }} onClose={() => setRestablecer(null)}
             onRestablecido={(viejoUid, nuevo) => setUsuarios(prev => prev.map(x => (x.uid === viejoUid ? nuevo : x)))} />
         </Suspense>
       )}

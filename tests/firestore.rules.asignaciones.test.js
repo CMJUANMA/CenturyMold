@@ -223,10 +223,11 @@ describe('usuarios: solo admin da o quita rh y admin', () => {
     await assertFails(setDoc(doc(dbDe('rh'), 'usuarios', 'u3'), perfil('admin', N.otro)));
     await assertSucceeds(setDoc(doc(dbDe('admin'), 'usuarios', 'u4'), perfil('rh', N.otro)));
   });
-  it('RH no se promueve ni degrada; el admin sí cambia roles', async () => {
+  it('RH no se promueve a admin; da el rol rh a otro (RH y Aut. 2 pueden); el rol admin solo lo da el admin', async () => {
     await assertFails(updateDoc(doc(dbDe('rh'), 'usuarios', 'rh'), { rol: 'admin' }));
-    await assertFails(updateDoc(doc(dbDe('rh'), 'usuarios', 'solP'), { rol: 'rh' }));
-    await assertSucceeds(updateDoc(doc(dbDe('admin'), 'usuarios', 'solP'), { rol: 'rh' }));
+    await assertFails(updateDoc(doc(dbDe('rh'), 'usuarios', 'solP'), { rol: 'admin' }));
+    await assertSucceeds(updateDoc(doc(dbDe('rh'), 'usuarios', 'solP'), { rol: 'rh' }));
+    await assertSucceeds(updateDoc(doc(dbDe('admin'), 'usuarios', 'solP'), { rol: 'admin' }));
   });
   it('la Aut. 2 vigente lee usuarios (para ver quién no tiene usuario); un Aut. 1 no', async () => {
     await assertSucceeds(getDocs(collection(dbDe('aut2'), 'usuarios')));
