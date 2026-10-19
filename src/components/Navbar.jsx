@@ -9,10 +9,8 @@
  */
 import { useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import {
-  Home, FilePlus, ClipboardList, Layers, Users, Database, LayoutGrid, ShieldCheck, User, LogOut, Menu, X, Clock, Network,
-  GitBranch, BadgeCheck, Bus, Inbox, Wrench, Palette,
-} from 'lucide-react';
+import { User, LogOut, Menu, X } from 'lucide-react';
+import { ICONOS, IconoInicio } from './iconosMenu';
 import Logo from './Logo';
 import { useAuth } from '../hooks/useAuth';
 import { useAccesos } from '../hooks/useAccesos';
@@ -23,8 +21,6 @@ import { ROLES_RH } from '../utils/roles';
 import { FUNCIONES, RUTAS_TRANSPORTE_SUELTO } from '../funciones';
 import { RUTAS } from '../rutas';
 import { descripcionRoles, itemsMenuPorRol, itemsMenuRH } from '../utils/navegacion';
-
-const ICONOS = { Home, FilePlus, ClipboardList, BadgeCheck, Layers, GitBranch, ShieldCheck, Bus, LayoutGrid, Database, Clock, Inbox, Users, Network, Wrench, Palette };
 
 /** Contador discreto: gris; con pendientes, tono de aviso. Lleva texto para lectores de pantalla ("3 pendientes"). */
 function Contador({ n, aviso = true }) {
@@ -56,7 +52,7 @@ export default function Navbar() {
 
   // RH/admin: por secciones (utils/navegacion.js); los demás: menú plano por rol
   const lista = esRH ? itemsMenuRH({ esRH, esAdmin: accesos.esAdmin }) : itemsMenuPorRol({ ...accesos, transporteAnterior });
-  const items = lista.map(it => ({ ...it, icon: ICONOS[it.icono] ?? Home }));
+  const items = lista.map(it => ({ ...it, icon: ICONOS[it.icono] ?? IconoInicio }));
 
   const handleCerrarSesion = async () => {
     await cerrarSesion();

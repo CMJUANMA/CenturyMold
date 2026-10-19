@@ -41,6 +41,9 @@ const PANTALLAS = [
   ['mi-cuenta-password', '/mi-cuenta', true, { id: 'btn-abrir-cambio-password' }],
   ['ayuda-pantalla', '/tiempo-extra/consulta', true, { selector: '[aria-label="Ayuda de esta pantalla"]' }],
   ['catalogos-puntos', '/transporte/catalogos', true, { texto: 'Puntos de reunión' }],
+  ['usuarios-editar', '/personal/accesos/usuarios', true, { selector: 'button[title="Editar"]' }],
+  ['usuarios-restablecer', '/personal/accesos/usuarios', true, { selector: 'button[title="Restablecer acceso"]' }],
+  ['usuarios-lote', '/personal/accesos/usuarios', true, { id: 'btn-usuarios-lote' }],
 ];
 const VISTAS = [
   ['escritorio', { width: 1440, height: 900, deviceScaleFactor: 1.5, mobile: false }],
@@ -86,6 +89,14 @@ await cdp('Storage.clearDataForOrigin', { origin: new URL(BASE).origin, storageT
 // 1) Login (sin sesión)
 if (quiere('login')) {
   for (const [vista, v] of VISTAS) for (const tema of TEMAS) { await preparar(v, tema); await ir('/login', 1500); await capturar('login', vista, tema); }
+}
+// 1b) Login con el aviso de «¿Olvidaste tu contraseña?» abierto
+if (quiere('login-olvide')) {
+  for (const [vista, v] of VISTAS) for (const tema of TEMAS) {
+    await preparar(v, tema); await ir('/login', 1500);
+    await js("document.getElementById('btn-olvide-password').click()"); await esperar(500);
+    await capturar('login-olvide', vista, tema);
+  }
 }
 // 2) Entrar como admin
 await preparar(VISTAS[0][1], 'claro');

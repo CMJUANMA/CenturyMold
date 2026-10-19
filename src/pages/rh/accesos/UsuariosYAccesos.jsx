@@ -19,9 +19,8 @@ import { useAreas } from '../../../hooks/useAreas';
 import { useCatalogos } from '../../../hooks/useCatalogos';
 import { useAsignaciones } from '../../../hooks/useAsignaciones';
 import { useToast } from '../../../hooks/useToast';
-import { puedeAsignarAlgo } from '../../../utils/asignaciones';
 import { RUTAS, rutaAccesos } from '../../../rutas';
-import { veOrganigrama } from '../../../utils/navegacion';
+import { pestanasAccesos } from '../../../utils/permisos';
 import AyudaPantalla from '../../../components/AyudaPantalla';
 import Aviso from '../../../components/ui/Aviso';
 import EncabezadoPagina from '../../../components/ui/EncabezadoPagina';
@@ -42,7 +41,6 @@ export default function UsuariosYAccesos() {
   const { areas: todasLasAreas, nombres: nombresArea, cargando: cargandoAreas } = useAreas();
   const { empleados, cargando: cargandoEmp } = useCatalogos({ empleados: true });
 
-  const asigna = puedeAsignarAlgo(accesos);
   const veTodo = accesos.esRH || accesos.esAut2;
   // El Aut. 1 que solo tiene su área ve "Mi área", no la pantalla de administración de accesos
   const soloMiArea = !veTodo && accesos.areasAut1.length > 0;
@@ -51,11 +49,13 @@ export default function UsuariosYAccesos() {
   const { asignaciones, cargando: cargandoAsig, error: errorAsig } = useAsignaciones();
   // RH, admin y Aut. 2 pueden leer usuarios (reglas): sirve para el "Sin usuario" y para crear usuarios
   const leeUsuarios = accesos.esRH || accesos.esAut2;
-  const tabs = [
-    accesos.esRH && { id: 'usuarios', etiqueta: 'Usuarios', icono: UserCog },
-    asigna && { id: 'asignaciones', etiqueta: 'Asignaciones', icono: ShieldCheck },
-    veOrganigrama(accesos) && { id: 'organigrama', etiqueta: accesos.esRH || accesos.esAut2 ? 'Organigrama' : 'Mi área', icono: GitBranch },
-  ].filter(Boolean);
+  // Qué pestañas ve cada quien sale de la matriz de permisos (utils/permisos.js)
+  const INFO_TAB = {
+    usuarios: { etiqueta: 'Usuarios', icono: UserCog },
+    asignaciones: { etiqueta: 'Asignaciones', icono: ShieldCheck },
+    organigrama: { etiqueta: veTodo ? 'Organigrama' : 'Mi área', icono: GitBranch },
+  };
+  const tabs = pestanasAccesos(accesos).map(id => ({ id, ...INFO_TAB[id] }));
   const tabActiva = tabs.find(t => t.id === tab)?.id;
 
   const [usuarios, setUsuarios] = useState(null);

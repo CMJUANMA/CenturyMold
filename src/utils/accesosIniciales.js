@@ -4,21 +4,10 @@
  */
 import { ROL_OP_CORTOS, esVigente } from './asignaciones.js';
 import { agregarHojaReporte, nuevoLibro } from './formatosImportacion.js';
+import { ALFABETO_PASSWORD, generarPassword } from './passwordTemporal.js';
 
-/** Sin caracteres ambiguos: ni 0/O, ni 1/I/l, ni L */
-export const ALFABETO_PASSWORD = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-
-/** Formato CM-7K4P-Q9TX (8 caracteres al azar, ~40 bits). `azar(n)` devuelve n bytes aleatorios (por defecto crypto) */
-export function generarPassword(azar = (n) => globalThis.crypto.getRandomValues(new Uint8Array(n))) {
-  const letras = [];
-  while (letras.length < 8) {
-    // Se descartan bytes que sesgarían el reparto (256 no es múltiplo del largo del alfabeto)
-    for (const b of azar(16)) {
-      if (b < 256 - (256 % ALFABETO_PASSWORD.length) && letras.length < 8) letras.push(ALFABETO_PASSWORD[b % ALFABETO_PASSWORD.length]);
-    }
-  }
-  return `CM-${letras.slice(0, 4).join('')}-${letras.slice(4).join('')}`;
-}
+// La contraseña temporal vive en passwordTemporal.js (la comparte "Restablecer acceso"); se vuelve a exportar aquí
+export { ALFABETO_PASSWORD, generarPassword };
 
 /**
  * Personas con asignación vigente que todavía no tienen cuenta.

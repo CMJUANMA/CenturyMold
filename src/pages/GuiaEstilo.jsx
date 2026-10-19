@@ -134,7 +134,7 @@ export default function GuiaEstilo() {
 
       <Seccion id="campos" titulo="Campos de formulario" descripcion="La etiqueta siempre está visible; el error va junto al campo con ícono y dice qué hacer. Áreas táctiles de 44 px en celular.">
         <div className="grid gap-5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5 sm:grid-cols-2">
-          <Campo etiqueta="Número de nómina" ayuda="Escríbalo tal como aparece en su gafete."><Entrada placeholder="Ejemplo: 12345" /></Campo>
+          <Campo etiqueta="Número de nómina" ayuda="Su número de empleado. Si no lo recuerda, pregúntelo a Recursos Humanos."><Entrada placeholder="Ejemplo: 12345" /></Campo>
           <Campo etiqueta="Área" obligatorio><Selector defaultValue=""><option value="" disabled>Elige el área…</option><option>Moldes</option><option>Producción</option></Selector></Campo>
           <Campo etiqueta="Fecha del tiempo extra" error={error ? 'Elige una fecha de hoy en adelante.' : undefined}><Entrada type="date" /></Campo>
           <Campo etiqueta="Comentario"><AreaTexto placeholder="Explica por qué se necesita el tiempo extra" /></Campo>

@@ -1,7 +1,8 @@
 /**
  * ModalUsuariosLote.jsx — "Crear usuarios en lote" (RH y admin).
  * Selecciona a las personas con asignación vigente y sin cuenta (más otras del padrón si hace falta), genera una contraseña
- * temporal por persona, crea las cuentas una por una (rol de sistema siempre "usuario", debeCambiarPassword: true) y entrega
+ * temporal por persona, crea las cuentas una por una (rol de sistema "usuario" por defecto; un admin puede elegir RH por persona,
+ * debeCambiarPassword: true) y entrega
  * un Excel con los accesos. Las contraseñas solo existen en memoria mientras este modal siga abierto: no se guardan en
  * Firestore ni en la bitácora.
  */
@@ -14,7 +15,8 @@ import { useToast } from '../../../hooks/useToast';
 import { crearCuentaUsuario, mensajeErrorAlta } from '../../../utils/usuariosDb';
 import { ejecutarEnLotes, opBitacora } from '../../../utils/estructuraDb';
 import { candidatosSinCuenta, descargarLibroAccesos, generarPassword } from '../../../utils/accesosIniciales';
-import { btnPrimary, btnSecondary, btnIcon } from './ui';
+import { ROLES, ROL_LABELS } from '../../../utils/constantes';
+import { btnPrimary, btnSecondary, btnIcon, selectCls } from './ui';
 
 const PAUSA_MS = 400; // entre cuenta y cuenta, para no topar los límites de Firebase Auth
 const esperar = (ms) => new Promise(r => setTimeout(r, ms));
@@ -34,6 +36,9 @@ function Contenido({ actor, usuarios, empleados, asignaciones, nombresArea, ahor
   const [extras, setExtras] = useState([]); // empleados sin asignación agregados a mano
   const [marcadas, setMarcadas] = useState(() => new Set(candidatos.map(c => c.nomina)));
   const [otros, setOtros] = useState(false);
+  // Rol del sistema por persona (nómina → rol). Solo un admin puede dar RH; los demás siempre crean «usuario»
+  const [rolesSistema, setRolesSistema] = useState({});
+  const rolDe = (nomina) => (actor.esAdmin && rolesSistema[nomina] === ROLES.RH ? ROLES.RH : ROLES.USUARIO);
   const [fase, setFase] = useState('seleccion'); // seleccion | creando | resultado
   const [avance, setAvance] = useState({ hechas: 0, total: 0 });
   const [resultados, setResultados] = useState([]);
@@ -58,7 +63,7 @@ function Contenido({ actor, usuarios, empleados, asignaciones, nombresArea, ahor
   };
 
   const crear = async () => {
-    const lista = seleccion.map(f => ({ ...f, password: generarPassword() }));
+    const lista = seleccion.map(f => ({ ...f, rol: rolDe(f.nomina), password: generarPassword() }));
     setFase('creando');
     setAvance({ hechas: 0, total: lista.length });
     cuentas.current = [];
@@ -67,7 +72,7 @@ function Contenido({ actor, usuarios, empleados, asignaciones, nombresArea, ahor
     for (let i = 0; i < lista.length; i++) {
       const f = lista[i];
       try {
-        const { uid, perfil } = await crearCuentaUsuario({ nomina: f.nomina, nombre: f.nombre, rol: 'usuario', password: f.password });
+        const { uid, perfil } = await crearCuentaUsuario({ nomina: f.nomina, nombre: f.nombre, rol: f.rol, password: f.password });
         perfiles.push({ uid, ...perfil });
         cuentas.current.push({ nomina: f.nomina, nombre: f.nombre, area: nombreArea(f.areaId), roles: f.roles.join(' · '), password: f.password });
         salida.push({ nomina: f.nomina, nombre: f.nombre, ok: true });
@@ -83,7 +88,10 @@ function Contenido({ actor, usuarios, empleados, asignaciones, nombresArea, ahor
       // Quién creó cuántas cuentas; nunca contraseñas
       ejecutarEnLotes([opBitacora({
         accion: 'crear_usuarios_lote', entidad: 'usuarios',
-        despues: { creadas: perfiles.length, fallidas: salida.length - perfiles.length, nominas: perfiles.map(p => p.nomina) },
+        despues: {
+          creadas: perfiles.length, fallidas: salida.length - perfiles.length, nominas: perfiles.map(p => p.nomina),
+          conRolRH: perfiles.filter(p => p.rol === ROLES.RH).map(p => p.nomina),
+        },
       }, actor)]).catch(err => toast.error('Las cuentas se crearon, pero no se pudo registrar en la bitácora: ' + err.message, 8000));
       descargar();
     }
@@ -110,19 +118,21 @@ function Contenido({ actor, usuarios, empleados, asignaciones, nombresArea, ahor
       {fase === 'seleccion' && (
         <div className="space-y-3">
           <p className="text-xs text-[var(--text-secondary)]">
-            Personas con rol operativo vigente que todavía no tienen cuenta. Se crean con rol de sistema <b>Usuario</b> (Recursos Humanos y Administrador
-            los da solo un administrador, aparte) y una contraseña temporal propia que deberán cambiar al entrar.
+            Personas con rol operativo vigente que todavía no tienen cuenta. Se crean con rol del sistema <b>Usuario</b> y una contraseña temporal propia
+            que deberán cambiar al entrar. {actor.esAdmin
+              ? <>Si alguien también es de RH (por ejemplo, una Aut. 2 que debe ver las pantallas de RH), elígelo en la columna «Rol del sistema».</>
+              : <>El rol Recursos Humanos solo lo da un administrador.</>}
           </p>
           <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
             <table className="w-full text-left text-xs">
               <thead className="border-b border-[var(--border-color)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] font-semibold">
                 <tr>
                   <th className="px-3 py-2" /><th className="px-3 py-2">Nómina</th><th className="px-3 py-2">Nombre (padrón)</th>
-                  <th className="px-3 py-2">Puesto</th><th className="px-3 py-2">Área</th><th className="px-3 py-2">Roles operativos</th>
+                  <th className="px-3 py-2">Puesto</th><th className="px-3 py-2">Área</th><th className="px-3 py-2">Roles operativos</th><th className="px-3 py-2">Rol del sistema</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-subtle)]">
-                {filas.length === 0 && <tr><td colSpan={6} className="py-6 text-center text-[var(--text-muted)]">Todas las personas con asignación ya tienen cuenta.</td></tr>}
+                {filas.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-[var(--text-muted)]">Todas las personas con asignación ya tienen cuenta.</td></tr>}
                 {filas.map(f => (
                   <tr key={f.nomina}>
                     <td className="px-3 py-2"><input type="checkbox" checked={marcadas.has(f.nomina)} onChange={() => alternar(f.nomina)}
@@ -132,6 +142,15 @@ function Contenido({ actor, usuarios, empleados, asignaciones, nombresArea, ahor
                     <td className="px-3 py-2 text-[var(--text-secondary)]">{f.puesto || '—'}</td>
                     <td className="px-3 py-2 text-[var(--text-secondary)]">{nombreArea(f.areaId) || '—'}</td>
                     <td className="px-3 py-2 text-[var(--text-secondary)]">{f.roles.length ? f.roles.join(' · ') : <i>sin asignación</i>}</td>
+                    <td className="px-3 py-2">
+                      {actor.esAdmin ? (
+                        <select aria-label={`Rol del sistema de ${f.nombre}`} value={rolDe(f.nomina)} className={selectCls}
+                          onChange={(e) => setRolesSistema(prev => ({ ...prev, [f.nomina]: e.target.value }))}>
+                          <option value={ROLES.USUARIO}>{ROL_LABELS[ROLES.USUARIO]}</option>
+                          <option value={ROLES.RH}>{ROL_LABELS[ROLES.RH]}</option>
+                        </select>
+                      ) : <span className="text-[var(--text-secondary)]">{ROL_LABELS[ROLES.USUARIO]}</span>}
+                    </td>
                   </tr>
                 ))}
               </tbody>

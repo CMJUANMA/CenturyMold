@@ -112,7 +112,7 @@ Todas salen de `src/rutas.js` (una línea por URL) y las del transporte suelto d
 
 - `/` Inicio por rol · `/tiempo-extra/...` tiempo extra · `/transporte/solicitudes` y `/transporte/catalogos` · `/personal/padron`, `/personal/estructura`, `/personal/accesos[/:tab]`
 - `/mi-cuenta` (todos) · `/herramientas` (solo admin). Cualquier otra URL muestra «No encontramos esa página».
-- Acceso: `RutaAcceso` (tiene algún rol), `RutaCapacidad` (solicitar / autorizar / consultar / recibir), `RutaRol` (RH/admin, o admin) y `RutaFuncion` (interruptores).
+- Acceso: `RutaPuede` (capacidades de `src/utils/permisos.js`: solicitar / autorizar / consultar / recibir / rh / admin); ver `docs/permisos.md` y `RutaFuncion` (interruptores).
 
 Contador de tiempo extra: Aut. 1 → `pendiente_aut1` de sus áreas; Aut. 2 y RH → `pendiente_aut2`; RH → `autorizada` por recibir;
 solicitante → sus `devuelta`. Nunca cuenta lo que creó la propia persona.

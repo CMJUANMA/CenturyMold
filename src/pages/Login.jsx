@@ -11,6 +11,7 @@ import { Eye, EyeOff, Sun, Moon } from 'lucide-react';
 import Boton from '../components/ui/Boton';
 import { Campo, Entrada } from '../components/ui/Campo';
 import Aviso from '../components/ui/Aviso';
+import Modal from '../components/Modal';
 import Logo from '../components/Logo';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
@@ -48,6 +49,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [mostrarPass, setMostrarPass] = useState(false);
+  const [ayudaClave, setAyudaClave] = useState(false);
 
   // Redirigir si ya existe sesión activa
   if (!cargando && usuario) {
@@ -109,7 +111,7 @@ export default function Login() {
             {!error && mensajeSesion && <Aviso tono="aviso">{mensajeSesion}</Aviso>}
             {error && <Aviso tono="error">{error}</Aviso>}
 
-            <Campo etiqueta="Número de nómina" ayuda="Escríbalo tal como aparece en su gafete.">
+            <Campo etiqueta="Número de nómina" ayuda="Su número de empleado. Si no lo recuerda, pregúntelo a Recursos Humanos.">
               <Entrada
                 id="login-nomina"
                 type="text"
@@ -139,10 +141,32 @@ export default function Login() {
               {enviando ? 'Verificando…' : 'Iniciar sesión'}
             </Boton>
           </form>
+
+          <div className="mt-2 text-center">
+            <button
+              type="button"
+              id="btn-olvide-password"
+              onClick={() => setAyudaClave(true)}
+              className="inline-flex min-h-11 cursor-pointer items-center rounded-md px-2 text-sm font-medium text-[var(--accent-text)] hover:underline md:min-h-10"
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+          </div>
         </div>
 
         <p className="mt-8 text-center text-xs text-[var(--text-muted)]">© {new Date().getFullYear()} Century Mold</p>
       </main>
+
+      {/* Solo informa: no envía ni registra nada */}
+      <Modal isOpen={ayudaClave} onClose={() => setAyudaClave(false)} title="Restablecer contraseña">
+        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+          Por seguridad, y porque este portal contiene información confidencial de la empresa, las contraseñas solo se restablecen en persona.
+          Acude a Recursos Humanos o al área de Sistemas con tu identificación. Nunca te pediremos tu contraseña por teléfono, correo ni mensaje.
+        </p>
+        <div className="mt-5 flex justify-end">
+          <Boton id="btn-entendido-password" variante="primario" onClick={() => setAyudaClave(false)}>Entendido</Boton>
+        </div>
+      </Modal>
     </div>
   );
 }

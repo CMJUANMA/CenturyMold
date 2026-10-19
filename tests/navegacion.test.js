@@ -124,13 +124,14 @@ describe('menú nuevo por rol y rutas', () => {
     for (const url of Object.values(RUTAS)) expect(url).not.toMatch(/^\/rutas\/|^\/accesos/);
   });
   it('cada URL del menú está registrada en App.jsx (por su nombre en RUTAS) y las pestañas cuelgan de /personal/accesos', () => {
-    const app = readFileSync('src/App.jsx', 'utf8');
+    // Las rutas se registran desde RUTAS_PROTEGIDAS (utils/permisos.js)
+    const app = readFileSync('src/utils/permisos.js', 'utf8');
     for (const k of ['transporteSolicitudes', 'transporteCatalogos', 'padron', 'estructura', 'accesos', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'teRecepcion']) {
       expect(app, k).toContain(`RUTAS.${k}`);
     }
     expect(RUTAS.organigrama.startsWith(`${RUTAS.accesos}/`)).toBe(true);
     expect(RUTAS.asignaciones.startsWith(`${RUTAS.accesos}/`)).toBe(true);
-    expect(app).toContain("path: '*'");
+    expect(readFileSync('src/App.jsx', 'utf8')).toContain("path: '*'");
   });
   it('no quedan las 9 redirecciones de URLs anteriores', () => {
     expect(readFileSync('src/App.jsx', 'utf8')).not.toContain('Redirigir');
@@ -148,13 +149,13 @@ describe('Herramientas y Mi cuenta', () => {
   });
   it('Mi cuenta es una sola URL y ya no existen /perfil ni /configuracion', () => {
     expect(RUTAS.miCuenta).toBe('/mi-cuenta');
-    const app = readFileSync('src/App.jsx', 'utf8');
+    const app = readFileSync('src/utils/permisos.js', 'utf8');
     expect(app).toContain('RUTAS.miCuenta');
-    expect(app).not.toMatch(/['"]\/(perfil|configuracion)['"]/);
+    expect(readFileSync('src/App.jsx', 'utf8')).not.toMatch(/['"]\/(perfil|configuracion)['"]/);
   });
   it('Herramientas está registrada solo para el rol admin', () => {
-    const app = readFileSync('src/App.jsx', 'utf8');
-    expect(app).toMatch(/RutaRol roles=\{\['admin'\]\}[\s\S]*RUTAS\.herramientas/);
+    const app = readFileSync('src/utils/permisos.js', 'utf8');
+    expect(app).toMatch(/ruta: RUTAS.herramientas, puede: 'admin'/);
   });
 });
 

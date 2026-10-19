@@ -72,7 +72,24 @@ service cloud.firestore {
           && p.get('tema', 'auto') in ['claro', 'oscuro', 'auto']
           && p.get('recorridosVistos', []) is list && p.get('recorridosVistos', []).size() <= 20;
       }
-      allow delete: if esAdmin();
+      // Borrar: el admin. RH solo para "Restablecer acceso": el perfil de un «usuario» (nunca el propio ni el de otro rh/admin) se borra
+      // únicamente si en el MISMO lote se crea su perfil nuevo y su renglón de bitácora 'restablecer-{uid}' (ver `restablece`).
+      allow delete: if esAdmin()
+        || (esRH() && request.auth.uid != uid && resource.data.get('rol', '') == 'usuario' && restablece(uid));
+      // El perfil se mueve al uid nuevo: misma nómina y mismo rol, que ya no existía, con debeCambiarPassword en true (contraseña temporal).
+      // La bitácora (despues.uid) dice cuál es el uid nuevo; su alta la valida la regla de /bitacora (quién lo hizo y cuándo).
+      function restablece(uid) {
+        let bit = /databases/$(database)/documents/bitacora/$('restablecer-' + uid);
+        let nuevoUid = getAfter(bit).data.despues.uid;
+        let nuevo = /databases/$(database)/documents/usuarios/$(nuevoUid);
+        return !exists(bit) && existsAfter(bit)
+          && getAfter(bit).data.accion == 'restablecer_acceso' && getAfter(bit).data.antes.uid == uid
+          && nuevoUid is string && nuevoUid != uid
+          && !exists(nuevo) && existsAfter(nuevo)
+          && getAfter(nuevo).data.nomina == resource.data.nomina
+          && getAfter(nuevo).data.rol == resource.data.rol
+          && getAfter(nuevo).data.get('debeCambiarPassword', false) == true;
+      }
     }
 
     // ---------- Catálogos ----------

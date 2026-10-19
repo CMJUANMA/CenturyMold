@@ -10,16 +10,19 @@
  *   usuarios      todos los usuarios (para no repetir nómina)
  *   empleados     padrón (para elegir a la persona en un alta)
  *   esAdmin       el usuario actual es admin
+ *   asignaciones, nombresArea, ahora   para mostrar los roles operativos vigentes de quien se edita y avisar si tiene Aut. 2 sin ser de RH
  *   onGuardado    (usuario, { nuevo }) => void
  */
 import { useState } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
-import { CheckCircle2, AlertTriangle, Loader2, X } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Info, Loader2, X } from 'lucide-react';
 import { db } from '../../../firebase';
 import { crearCuentaUsuario, mensajeErrorAlta } from '../../../utils/usuariosDb';
 import Modal from '../../../components/Modal';
 import BuscadorEmpleado from '../../../components/BuscadorEmpleado';
 import { ROLES, ROL_LABELS } from '../../../utils/constantes';
+import { esVigente, etiquetaAsignacion } from '../../../utils/asignaciones';
+import { sugiereRolRH } from '../../../utils/permisos';
 import { inputCls, btnPrimary, btnSecondary, btnIcon, labelCls } from './ui';
 
 const formDe = (usuario, precarga) => ({
@@ -35,7 +38,7 @@ export default function ModalUsuario({ abierto, ...resto }) {
   return abierto ? <Contenido {...resto} /> : null;
 }
 
-function Contenido({ onClose, usuario = null, precarga = null, usuarios, empleados, esAdmin, onGuardado }) {
+function Contenido({ onClose, usuario = null, precarga = null, usuarios, empleados, esAdmin, onGuardado, asignaciones = [], nombresArea = new Map(), ahora }) {
   const edicion = !!usuario;
   const [form, setForm] = useState(() => formDe(usuario, precarga));
   const [manual, setManual] = useState(false);
@@ -44,6 +47,8 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
   const [exito, setExito] = useState('');
 
   const opcionesRol = esAdmin ? [ROLES.USUARIO, ROLES.RH, ROLES.ADMIN] : [ROLES.USUARIO];
+  const vigentes = edicion ? asignaciones.filter(a => String(a.nomina) === String(usuario.nomina) && esVigente(a, ahora)) : [];
+  const avisarRH = edicion && sugiereRolRH({ rol: form.rol, nomina: usuario.nomina }, vigentes);
 
   const guardar = async (e) => {
     e.preventDefault();
@@ -139,6 +144,15 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
             <input required type="password" minLength={6} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className={inputCls} placeholder="Mínimo 6 caracteres" />
           </div>
         )}
+        {edicion && (
+          <div className="flex items-start gap-2 rounded-md border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-3 py-2 text-xs text-[var(--status-info-text)]">
+            <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <p>
+              <b>Rol del sistema</b> = acceso a pantallas de administración/RH. <b>Roles operativos</b> (Aut. 2, Aut. 1, Solicitante) = capturar y autorizar;
+              se dan en Asignaciones.
+            </p>
+          </div>
+        )}
         <div>
           <label className={labelCls}>Rol del sistema</label>
           <select required value={form.rol} onChange={e => setForm(f => ({ ...f, rol: e.target.value }))} className={inputCls} disabled={opcionesRol.length === 1}>
@@ -151,6 +165,23 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
             {' '}Aut. 1, Aut. 2 y solicitante se asignan en la pestaña Asignaciones.
           </p>
         </div>
+        {edicion && (
+          <div>
+            <span className={labelCls}>Roles operativos vigentes</span>
+            <p className="text-xs text-[var(--text-secondary)]">
+              {vigentes.length ? vigentes.map(a => etiquetaAsignacion(a, nombresArea)).join(' · ') : 'Ninguno por ahora.'}
+            </p>
+          </div>
+        )}
+        {avisarRH && (
+          <div role="status" className="flex items-start gap-2 rounded-md border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-xs text-[var(--status-warning-text)]">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>
+              ¿Esta persona también es de RH? Si sí, cámbiale el rol a RH.
+              {!esAdmin && ' Solo un administrador puede hacerlo: avísale.'}
+            </span>
+          </div>
+        )}
         <div className="flex justify-end gap-2 pt-2 border-t border-[var(--border-color)] mt-2">
           <button type="button" onClick={onClose} className={btnSecondary}>Cancelar</button>
           <button type="submit" disabled={guardando} className={btnPrimary}>

@@ -29,14 +29,16 @@ Cada persona entra con su nómina; internamente su correo es `{nómina}@rutas.ap
   del padrón). El lote genera una contraseña temporal por persona (`CM-7K4P-Q9TX`, sin 0/O/1/I/L), crea las cuentas una por una y descarga
   `Accesos_Iniciales_AAAA-MM-DD_HHmm.xlsx` con los accesos y una hoja de instrucciones. Las contraseñas **no se guardan** en Firestore ni en la bitácora:
   solo viven en el navegador mientras el modal siga abierto. Todos entran con `debeCambiarPassword: true` (cambio obligatorio en el primer acceso).
-- **Restablecer la contraseña de otra persona: la app NO puede**, y no hay forma segura de hacerlo sin Cloud Functions. Cambiar una contraseña ajena exige
-  el Admin SDK de Firebase (servidor); el cliente solo puede cambiar la de la sesión que tiene abierta. El correo de restablecimiento de Firebase tampoco sirve,
-  porque `{nómina}@rutas.app` no existe. La consola de Firebase tampoco permite asignar una contraseña a una cuenta de correo.
-  - **Alternativa simple hoy (sin servidor)**: en Firebase Console, borrar la cuenta en *Authentication* (`{nómina}@rutas.app`) **y** su perfil en Firestore
-    (`usuarios/{uid}`; si no, el alta se rechaza por nómina repetida o queda un perfil huérfano), y volver a crearla con *Nuevo usuario* o *Crear usuarios en lote*
-    para obtener una contraseña temporal nueva. Los roles operativos no se pierden: las asignaciones van por nómina, no por cuenta.
-  - **Alternativa definitiva (pendiente)**: una Cloud Function invocable solo por admin/RH que ponga una contraseña temporal con el Admin SDK y marque
-    `debeCambiarPassword: true`. Requiere el plan Blaze de Firebase.
+- **Restablecer el acceso de otra persona** (RH y admin; mientras no haya funciones de servidor): *Usuarios › Restablecer acceso* abre un asistente. La app no puede cambiar una
+  contraseña ajena (exige el Admin SDK), así que: 1) se borra la cuenta en Firebase Console > Authentication (el asistente da el enlace y la nómina para copiar);
+  2) al confirmarlo, crea una cuenta nueva con contraseña temporal `CM-XXXX-XXXX` y `debeCambiarPassword: true`, mueve el perfil al uid nuevo (rol, preferencias y datos) y borra el viejo;
+  3) muestra la contraseña una sola vez. Las asignaciones no se tocan (van por nómina). Queda en la bitácora quién restableció a quién (sin contraseña).
+  RH solo restablece a usuarios con rol «usuario»; el admin, a cualquiera menos a sí mismo. Las reglas (`restablece` en `firestore.rules`) solo dejan borrar el perfil viejo en el mismo lote que crea el nuevo y su bitácora.
+  Limitación: los borradores y solicitudes de tiempo extra que la persona creó con la cuenta anterior quedan ligados al uid viejo y ya no le aparecen en «Mis solicitudes».
+  En el login, «¿Olvidaste tu contraseña?» solo explica que se restablece en persona.
+  - **Alternativa definitiva (pendiente)**: una Cloud Function invocable solo por admin/RH que ponga la contraseña con el Admin SDK. Requiere el plan Blaze de Firebase.
+
+> Permisos por rol y por combinación: `docs/permisos.md` (matriz generada desde `src/utils/permisos.js`).
 
 ## Pantallas y URLs
 
