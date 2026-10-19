@@ -94,7 +94,7 @@ describe('1. Al enviar', () => {
   });
   it('sin nadie vigente, manda a avisar a RH en vez de dejar la lista vacía', () => {
     const a = avisoEnvio({ folio: 'TE-1', estatus: 'pendiente_aut1', destinatarios: [] });
-    expect(a.texto).toMatch(/avisa a Recursos Humanos/);
+    expect(a.texto).toMatch(/avisa al área de Sistemas o, en su caso, a Recursos Humanos/);
     expect(a.texto).not.toMatch(/recuerda avisarle a:/);
   });
 });

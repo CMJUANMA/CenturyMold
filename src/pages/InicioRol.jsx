@@ -83,7 +83,7 @@ export default function InicioRol() {
 
       {!tieneRol && (
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
-          <EstadoVacio titulo="Aún no tienes acceso" texto="Pide a Recursos Humanos que te asignen un rol para poder usar el portal." />
+          <EstadoVacio titulo="Aún no tienes acceso" texto="Pide al área de Sistemas o, en su caso, a Recursos Humanos que te asignen un rol para poder usar el portal." />
         </div>
       )}
 

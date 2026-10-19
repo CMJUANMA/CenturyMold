@@ -39,12 +39,12 @@ export function nombreArchivoAccesos(d = new Date()) {
 export const ENCABEZADOS_ACCESOS = ['Nómina', 'Nombre', 'Área', 'Roles', 'Usuario', 'Contraseña temporal'];
 
 export const PASOS_PRIMER_ACCESO = [
-  ['1', 'Abre la aplicación de Century Mold en el navegador (la liga te la da Recursos Humanos).'],
+  ['1', 'Abre la aplicación de Century Mold en el navegador (la liga te la da el área de Sistemas o, en su caso, Recursos Humanos).'],
   ['2', 'En "Usuario" escribe tu número de nómina, tal como aparece en este archivo (solo números).'],
   ['3', 'En "Contraseña" escribe la contraseña temporal respetando mayúsculas y guiones, por ejemplo CM-7K4P-Q9TX.'],
   ['4', 'La primera vez el sistema te pedirá crear una contraseña nueva. Debe ser distinta de la temporal, de al menos 8 caracteres y con letras y números.'],
   ['5', 'Después de cambiarla entrarás al Portal de procesos. La contraseña temporal deja de servir.'],
-  ['6', 'Si no puedes entrar, avisa a Recursos Humanos; no compartas tu contraseña con nadie.'],
+  ['6', 'Si no puedes entrar, acude al área de Sistemas o, en su caso, a Recursos Humanos; no compartas tu contraseña con nadie.'],
   ['', 'ESTE ARCHIVO CONTIENE CONTRASEÑAS: entrégalo en persona o en sobre cerrado y bórralo después. No se puede volver a generar.'],
 ];
 

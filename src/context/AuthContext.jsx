@@ -24,7 +24,7 @@ import { doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { AuthContext } from './authStore';
 
-const MSG_DESACTIVADO = 'Tu usuario fue desactivado. Contacta a RH.';
+const MSG_DESACTIVADO = 'Tu usuario fue desactivado. Contacta al área de Sistemas o, en su caso, a Recursos Humanos.';
 const MSG_INACTIVIDAD = 'Tu sesión se cerró por inactividad. Vuelve a iniciar sesión.';
 
 // ── Constante de dominio ficticio ─────────────────────────────────────────

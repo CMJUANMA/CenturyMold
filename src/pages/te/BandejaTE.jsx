@@ -185,7 +185,7 @@ export default function BandejaTE() {
           </div>
 
           {secciones.length === 0 && (
-            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]"><EstadoVacio texto="No tienes un nivel de autorización asignado. Si crees que debería tenerlo, pide a Recursos Humanos que te lo asignen." /></div>
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]"><EstadoVacio texto="No tienes un nivel de autorización asignado. Si crees que debería tenerlo, pide al área de Sistemas o, en su caso, a Recursos Humanos que te lo asignen." /></div>
           )}
           {secciones.map(({ nivel, titulo, lista: todas }) => {
             const items = lista(nivel);

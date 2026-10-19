@@ -189,7 +189,7 @@ export default function GuiaEstilo() {
         <div className="grid gap-3">
           <Aviso tono="exito">Se guardó la solicitud y se envió a autorización.</Aviso>
           <Aviso tono="aviso" titulo="Falta un dato">Elige la ruta de dos empleados antes de enviar.</Aviso>
-          <Aviso tono="error" titulo="No se pudo guardar">Revisa tu conexión y vuelve a intentarlo. Si sigue igual, avisa a Recursos Humanos.</Aviso>
+          <Aviso tono="error" titulo="No se pudo guardar">Revisa tu conexión y vuelve a intentarlo. Si sigue igual, avisa al área de Sistemas o, en su caso, a Recursos Humanos.</Aviso>
           <Aviso tono="info">Las solicitudes se actualizan solas; no necesitas recargar la página.</Aviso>
         </div>
         <div className="flex flex-wrap gap-3">

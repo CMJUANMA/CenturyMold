@@ -26,7 +26,7 @@ export default function RutaProtegida() {
           <h1 className="mt-3 text-lg font-semibold text-[var(--text-main)]">No se pudo cargar tu perfil</h1>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">
             {errorPerfil.code === 'permission-denied'
-              ? 'No tienes permiso para leer tu perfil. Contacta a Recursos Humanos.'
+              ? 'No tienes permiso para leer tu perfil. Contacta al área de Sistemas o, en su caso, a Recursos Humanos.'
               : 'Revisa tu conexión e inténtalo de nuevo.'}
           </p>
           <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row">

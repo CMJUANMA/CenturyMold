@@ -183,12 +183,12 @@ export const AYUDAS = {
 export const AVISOS = {
   /** Después de enviar (o reenviar) una solicitud, o de que el Aut. 1 la autoriza y pasa a Aut. 2 */
   paraAvisar: ({ folio, destino, lista, accion = 'envió' }) => `Tu solicitud ${folio} se ${accion} a ${destino}. `
-    + (lista ? `Para que se revise a la brevedad, recuerda avisarle a: ${lista}.` : 'Por ahora no hay una persona vigente con ese rol: avisa a Recursos Humanos para que lo resuelvan.'),
+    + (lista ? `Para que se revise a la brevedad, recuerda avisarle a: ${lista}.` : 'Por ahora no hay una persona vigente con ese rol: avisa al área de Sistemas o, en su caso, a Recursos Humanos para que lo resuelvan.'),
   /** Autorizaste tú: la solicitud sigue su camino con otra persona (Aut. 1 → Aut. 2) */
   autorizadaPasa: ({ folio, lista }) => `Autorizaste ${folio} y pasó a Autorización 2. `
-    + (lista ? `Para que se revise a la brevedad, recuerda avisarle a: ${lista}.` : 'Por ahora no hay un Aut. 2 vigente: avisa a Recursos Humanos para que lo resuelvan.'),
+    + (lista ? `Para que se revise a la brevedad, recuerda avisarle a: ${lista}.` : 'Por ahora no hay un Aut. 2 vigente: avisa al área de Sistemas o, en su caso, a Recursos Humanos para que lo resuelvan.'),
   autorizadasPasan: ({ cantidad, lista }) => `Autorizaste ${cantidad} solicitudes y pasaron a Autorización 2. `
-    + (lista ? `Para que se revisen a la brevedad, recuerda avisarle a: ${lista}.` : 'Por ahora no hay un Aut. 2 vigente: avisa a Recursos Humanos para que lo resuelvan.'),
+    + (lista ? `Para que se revisen a la brevedad, recuerda avisarle a: ${lista}.` : 'Por ahora no hay un Aut. 2 vigente: avisa al área de Sistemas o, en su caso, a Recursos Humanos para que lo resuelvan.'),
   /** El Aut. 2 autoriza: ya está con RH */
   listaEnRH: () => 'Listo. Recursos Humanos ya la tiene en \'Por enviar al proveedor\'.',
   listasEnRH: ({ cantidad }) => `Listo. Recursos Humanos ya tiene ${cantidad} solicitudes en 'Por enviar al proveedor'.`,

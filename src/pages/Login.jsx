@@ -24,15 +24,15 @@ const ERRORES = {
   'auth/wrong-password': MSG_CREDENCIALES,
   'auth/invalid-email': MSG_CREDENCIALES,
   'app/inactivo':
-    'Tu usuario está desactivado. Contacta a RH',
+    'Tu usuario está desactivado. Contacta al área de Sistemas o, en su caso, a Recursos Humanos.',
   'auth/too-many-requests':
     'Demasiados intentos fallidos. Espere unos minutos antes de reintentar.',
   'auth/user-disabled':
-    'Esta cuenta ha sido inhabilitada. Contacte al departamento de Recursos Humanos.',
+    'Esta cuenta ha sido inhabilitada. Contacte al área de Sistemas o, en su caso, a Recursos Humanos.',
   'auth/network-request-failed':
     'Sin conexión al servidor. Verifique su red local e intente de nuevo.',
   'app/sin-acceso':
-    'Usuario sin acceso. Comuníquese con el administrador del sistema.',
+    'Usuario sin acceso. Comuníquese con el área de Sistemas o, en su caso, con Recursos Humanos.',
 };
 
 function traducirError(code) {
@@ -161,7 +161,7 @@ export default function Login() {
       <Modal isOpen={ayudaClave} onClose={() => setAyudaClave(false)} title="Restablecer contraseña">
         <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
           Por seguridad, y porque este portal contiene información confidencial de la empresa, las contraseñas solo se restablecen en persona.
-          Acude a Recursos Humanos o al área de Sistemas con tu identificación. Nunca te pediremos tu contraseña por teléfono, correo ni mensaje.
+          Acude al área de Sistemas o, en su caso, a Recursos Humanos, con tu identificación. Nunca te pediremos tu contraseña por teléfono, correo ni mensaje.
         </p>
         <div className="mt-5 flex justify-end">
           <Boton id="btn-entendido-password" variante="primario" onClick={() => setAyudaClave(false)}>Entendido</Boton>

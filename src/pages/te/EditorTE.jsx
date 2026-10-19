@@ -288,7 +288,7 @@ export default function EditorTE() {
 
   if (accesos.cargando || cargandoAreas || cargandoCat || cargandoDoc || cargandoTurnos) return <EsqueletoPagina />;
   if (areasCaptura.length === 0 && !idParam) {
-    return <EstadoVacio titulo="No tienes un área asignada" texto="Para solicitar tiempo extra necesitas un área asignada. Pide a Recursos Humanos que te la asignen." accion={{ texto: 'Volver al inicio', to: '/' }} />;
+    return <EstadoVacio titulo="No tienes un área asignada" texto="Para solicitar tiempo extra necesitas un área asignada. Pide al área de Sistemas o, en su caso, a Recursos Humanos que te la asignen." accion={{ texto: 'Volver al inicio', to: '/' }} />;
   }
   const nombreArea = area?.nombre ?? areasCaptura.find(a => a.id === areaActual)?.nombre ?? areaActual;
   const sinGuardar = sucios.size > 0 || eliminados.size > 0;

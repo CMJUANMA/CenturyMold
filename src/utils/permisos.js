@@ -268,7 +268,7 @@ export function bloquesDeInicio(perfil) {
   const solicita = a.areasSolicitante.length > 0 || a.areasAut1.length > 0;
   const autoriza = a.areasAut1.length > 0 || a.esAut2;
   const bloques = [];
-  if (!a.tieneAcceso) bloques.push('Aviso «Aún no tienes acceso»: pide a Recursos Humanos que te asignen un rol');
+  if (!a.tieneAcceso) bloques.push('Aviso «Aún no tienes acceso»: pide al área de Sistemas o, en su caso, a Recursos Humanos que te asignen un rol');
   if (autoriza) bloques.push('Aviso «Por autorizar» con enlace a la bandeja');
   if (solicita) bloques.push('Mi área: empleados, borradores, en autorización, devueltas, autorizadas del mes y próximos tiempos extra');
   if (a.areasAut1.length > 0) bloques.push('Últimas solicitudes de mi área');
