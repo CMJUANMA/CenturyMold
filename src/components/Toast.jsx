@@ -14,7 +14,7 @@ let uid = 0;
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
-  const addToast = useCallback((msg, tipo = 'info', duracion = 3500) => {
+  const addToast = useCallback((msg, tipo = 'info', duracion = 6000) => {
     const id = ++uid;
     setToasts(prev => [...prev, { id, msg, tipo }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duracion);
@@ -56,7 +56,9 @@ function ToastItem({ msg, tipo, onClose }) {
     >
       <Icon className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
       <span className="flex-1 text-sm font-medium">{msg}</span>
-      <X className="mt-0.5 h-4 w-4 flex-shrink-0 opacity-70" aria-label="Cerrar aviso" />
+      <button type="button" onClick={(e) => { e.stopPropagation(); onClose(); }} aria-label="Cerrar aviso" className="-m-2 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md hover:bg-black/5">
+        <X className="h-4 w-4 opacity-70" aria-hidden="true" />
+      </button>
     </div>
   );
 }

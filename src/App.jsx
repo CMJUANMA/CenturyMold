@@ -4,7 +4,9 @@
  * Un solo Inicio en "/" por rol (RH y admin: indicadores; el resto: su panel). Las URLs salen de rutas.js.
  */
 import { lazy } from 'react';
+import { Fragment, useState } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { useAuth } from './hooks/useAuth';
 import { ThemeProvider } from './context/ThemeContext';
 import { PreferenciasProvider } from './context/PreferenciasContext';
 import { AuthProvider } from './context/AuthContext';
@@ -101,10 +103,23 @@ const router = createBrowserRouter([
   },
 ]);
 
+/**
+ * Aísla las sesiones: al cerrar sesión o entrar con OTRA cuenta, todo lo que hay debajo (filtros, avisos, toasts, borradores y contadores en
+ * memoria, catálogos, preferencias) se vuelve a crear desde cero. Entrar desde la pantalla de login (sin sesión previa) no remonta nada.
+ */
+function AislarSesion({ children }) {
+  const { fireUser } = useAuth();
+  const uid = fireUser?.uid ?? null;
+  const [estado, setEstado] = useState({ uid, epoca: 0 });
+  if (estado.uid !== uid) setEstado({ uid, epoca: estado.uid ? estado.epoca + 1 : estado.epoca });
+  return <Fragment key={estado.epoca}>{children}</Fragment>;
+}
+
 export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
+        <AislarSesion>
         <PreferenciasProvider>
         <AccesosProvider>
           <CatalogosProvider>
@@ -118,6 +133,7 @@ export default function App() {
           </CatalogosProvider>
         </AccesosProvider>
         </PreferenciasProvider>
+        </AislarSesion>
       </AuthProvider>
     </ThemeProvider>
   );

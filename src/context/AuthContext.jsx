@@ -23,7 +23,9 @@ import {
 import { doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { AuthContext } from './authStore';
-import { mensajeCierreInactividad } from '../utils/guardadoAutomatico';
+import { MSG_BORRADOR_GUARDADO } from '../utils/guardadoAutomatico';
+import { CLAVE_ULTIMA_ACTIVIDAD, crearMarca } from '../utils/inactividad';
+import { limpiarEstadoDeSesion } from '../utils/sesion';
 
 const MSG_DESACTIVADO = 'Tu usuario fue desactivado. Contacta al área de Sistemas o, en su caso, a Recursos Humanos.';
 const MSG_INACTIVIDAD = 'Tu sesión se cerró por inactividad. Vuelve a iniciar sesión.';
@@ -49,6 +51,8 @@ export function AuthProvider({ children }) {
   const tuvoPerfil = useRef(false);
   /** Última contraseña usada en login (solo memoria): sirve para exigir una distinta en el primer acceso */
   const ultimoPassword = useRef('');
+  /** Cierre por inactividad reciente: de quién era la sesión y si se guardó su borrador (solo memoria; se ofrece únicamente a esa misma cuenta) */
+  const cierrePrevio = useRef(null);
 
   // ── Sesión de Firebase Auth ─────────────────────────────────────────────
   useEffect(() => {
@@ -61,6 +65,7 @@ export function AuthProvider({ children }) {
         setUsuario(null);
         setErrorPerfil(null);
         setCargando(false);
+        limpiarEstadoDeSesion(); // nada de la sesión que terminó sobrevive: marca de actividad, avisos, filtros
       }
     });
     return unsub;
@@ -104,7 +109,7 @@ export function AuthProvider({ children }) {
 
   // ── Login con nómina ────────────────────────────────────────────────────
   const login = useCallback(async (nomina, password) => {
-    setMensajeSesion('');
+    setMensajeSesion(''); // el aviso de «cerrada por inactividad» se muestra una sola vez
     const email = nominaToEmail(nomina);
     // signInWithEmailAndPassword puede lanzar; el componente captura el error
     const cred = await signInWithEmailAndPassword(auth, email, password);
@@ -125,7 +130,13 @@ export function AuthProvider({ children }) {
       throw err;
     }
     ultimoPassword.current = password;
-    return { uid: cred.user.uid, ...data };
+    // Sesión nueva: el reloj de inactividad parte de ahora y se borra cualquier marca de la sesión anterior
+    try { localStorage.setItem(CLAVE_ULTIMA_ACTIVIDAD, crearMarca(cred.user.uid, Date.now())); } catch { /* sin almacenamiento */ }
+    // El borrador guardado al cerrar se ofrece solo a la misma cuenta
+    const previo = cierrePrevio.current;
+    cierrePrevio.current = null;
+    const avisoBorrador = previo?.uid === cred.user.uid && previo.borradorGuardado ? `${MSG_BORRADOR_GUARDADO}. Lo encuentras en Mis solicitudes.` : '';
+    return { uid: cred.user.uid, ...data, avisoBorrador };
   }, []);
 
   // ── Cerrar sesión ───────────────────────────────────────────────────────
@@ -137,9 +148,10 @@ export function AuthProvider({ children }) {
   // ── Cierre por inactividad (equipos compartidos): igual que cerrar sesión, con el aviso en el login
   const cerrarPorInactividad = useCallback(async ({ borradorGuardado = false } = {}) => {
     ultimoPassword.current = '';
-    setMensajeSesion(mensajeCierreInactividad(MSG_INACTIVIDAD, borradorGuardado));
+    cierrePrevio.current = { uid: fireUser?.uid ?? null, borradorGuardado };
+    setMensajeSesion(MSG_INACTIVIDAD);
     await signOut(auth);
-  }, []);
+  }, [fireUser]);
 
   // ── Cambiar contraseña (requiere reautenticación) ───────────────────────
   const cambiarPassword = useCallback(

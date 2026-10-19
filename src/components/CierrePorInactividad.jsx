@@ -9,17 +9,18 @@ import Modal from './Modal';
 import Boton from './ui/Boton';
 import { useAuth } from '../hooks/useAuth';
 import { guardarBorradorAntesDeCerrar } from '../utils/guardadoAutomatico';
-import { CLAVE_ULTIMA_ACTIVIDAD, estadoInactividad, ultimaActividad } from '../utils/inactividad';
+import { CLAVE_ULTIMA_ACTIVIDAD, crearMarca, estadoInactividad, leerMarca, ultimaActividad } from '../utils/inactividad';
 
 const REVISION_MS = 5_000;
 const GUARDAR_CADA_MS = 10_000;
 const EVENTOS = ['pointerdown', 'keydown', 'wheel', 'touchstart', 'mousemove', 'scroll'];
 
-const leer = () => { try { return Number(localStorage.getItem(CLAVE_ULTIMA_ACTIVIDAD)) || 0; } catch { return 0; } };
-const guardar = (t) => { try { localStorage.setItem(CLAVE_ULTIMA_ACTIVIDAD, String(t)); } catch { /* sin almacenamiento: solo cuenta esta pestaña */ } };
+const leer = (uid) => { try { return leerMarca(localStorage.getItem(CLAVE_ULTIMA_ACTIVIDAD), uid); } catch { return 0; } };
+const guardar = (uid, t) => { try { localStorage.setItem(CLAVE_ULTIMA_ACTIVIDAD, crearMarca(uid, t)); } catch { /* sin almacenamiento: solo cuenta esta pestaña */ } };
 
 export default function CierrePorInactividad() {
-  const { cerrarPorInactividad } = useAuth();
+  const { cerrarPorInactividad, usuario } = useAuth();
+  const uid = usuario?.uid;
   const propia = useRef(0); // se fija al montar (marcar)
   const guardada = useRef(0);
   const aviso = useRef(false);
@@ -30,8 +31,8 @@ export default function CierrePorInactividad() {
   const marcar = useCallback(() => {
     const t = Date.now();
     propia.current = t;
-    if (t - guardada.current > GUARDAR_CADA_MS) { guardada.current = t; guardar(t); }
-  }, []);
+    if (t - guardada.current > GUARDAR_CADA_MS) { guardada.current = t; guardar(uid, t); }
+  }, [uid]);
 
   /** Antes de salir se guarda el borrador de tiempo extra con cambios sin guardar (si lo hay); el login avisa que se guardó */
   const cerrarGuardando = useCallback(async () => {
@@ -42,16 +43,17 @@ export default function CierrePorInactividad() {
   }, [cerrarPorInactividad]);
 
   const revisar = useCallback(() => {
-    const { estado, restanteMs } = estadoInactividad(Date.now(), ultimaActividad(propia.current, leer()));
+    const { estado, restanteMs } = estadoInactividad(Date.now(), ultimaActividad(propia.current, leer(uid)));
     if (estado === 'vencida') { aviso.current = false; setRestante(null); cerrarGuardando(); return; }
     aviso.current = estado === 'aviso';
     setRestante(estado === 'aviso' ? Math.ceil(restanteMs / 1000) : null);
-  }, [cerrarGuardando]);
+  }, [cerrarGuardando, uid]);
 
   useEffect(() => {
     // Al abrir: si la última actividad guardada ya venció (navegador cerrado mucho tiempo) se cierra; si no, empieza el conteo
-    const previa = leer();
-    if (previa && estadoInactividad(Date.now(), previa).estado === 'vencida') { cerrarPorInactividad(); return; }
+    if (!uid) return undefined; // sin sesión no corre ningún temporizador
+    const previa = leer(uid);
+    if (previa && estadoInactividad(Date.now(), previa).estado === 'vencida') { cerrarPorInactividad(); return undefined; }
     marcar();
     // Durante el aviso solo cuenta el botón "Seguir aquí": mover el mouse no renueva la sesión
     const alActividad = () => { if (!aviso.current) marcar(); };
@@ -63,7 +65,7 @@ export default function CierrePorInactividad() {
       clearInterval(t);
       document.removeEventListener('visibilitychange', revisar);
     };
-  }, [marcar, revisar, cerrarPorInactividad]);
+  }, [uid, marcar, revisar, cerrarPorInactividad]);
 
   // Cuenta regresiva del aviso
   useEffect(() => {

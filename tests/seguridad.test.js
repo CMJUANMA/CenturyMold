@@ -90,7 +90,7 @@ describe('guardar el borrador antes de cerrar por inactividad', () => {
     const cierre = leer('src/components/CierrePorInactividad.jsx');
     expect(cierre.indexOf('guardarBorradorAntesDeCerrar()')).toBeGreaterThan(-1);
     expect(cierre.indexOf('guardarBorradorAntesDeCerrar()')).toBeLessThan(cierre.indexOf('await cerrarPorInactividad({ borradorGuardado })'));
-    expect(leer('src/context/AuthContext.jsx')).toContain('mensajeCierreInactividad');
+    expect(leer('src/context/AuthContext.jsx')).toContain('MSG_BORRADOR_GUARDADO');
   });
 });
 

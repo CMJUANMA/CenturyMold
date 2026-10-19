@@ -1,13 +1,18 @@
 /**
  * Recordatorios.jsx — Muestra los recordatorios pendientes arriba del contenido (en Layout). No se cierran solos: la persona los cierra.
  */
+import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { useRecordatorios } from '../hooks/useRecordatorios';
 import { AVISOS } from '../utils/ayudas';
 import Aviso from './ui/Aviso';
 
 export default function Recordatorios() {
-  const { recordatorios, cerrar } = useRecordatorios();
+  const { recordatorios, cerrar, alNavegar } = useRecordatorios();
+  const { pathname } = useLocation();
+  // Al cambiar de pantalla se quitan los recordatorios de la anterior
+  useEffect(() => { alNavegar(pathname); }, [pathname, alNavegar]);
   if (!recordatorios.length) return null;
   return (
     <div className="mb-6 space-y-3" data-testid="recordatorios">

@@ -15,6 +15,7 @@ import Modal from '../components/Modal';
 import Logo from '../components/Logo';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../hooks/useToast';
 
 // Mismo mensaje para nómina inexistente y contraseña incorrecta (no revela qué nóminas existen)
 const MSG_CREDENCIALES = 'Nómina o contraseña incorrecta';
@@ -43,6 +44,7 @@ export default function Login() {
   const { login, usuario, cargando, mensajeSesion } = useAuth();
   const { esOscuro, alternarTema } = useTheme();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [nomina, setNomina] = useState('');
   const [password, setPassword] = useState('');
@@ -72,7 +74,8 @@ export default function Login() {
 
     setEnviando(true);
     try {
-      await login(nominaLimpia, password);
+      const entro = await login(nominaLimpia, password);
+      if (entro.avisoBorrador) toast.info(entro.avisoBorrador);
       navigate('/', { replace: true });
     } catch (err) {
       setError(traducirError(err.code));
