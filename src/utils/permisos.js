@@ -47,8 +47,8 @@ export const CAPACIDADES = {
   rh: (a) => a.esRH,
   /** Rol del sistema admin */
   admin: (a) => a.esAdmin,
-  /** Capturar tiempo extra: solicitante o Aut. 1 de un área; RH (áreas que no participan) */
-  solicitar: (a) => a.esRH || a.areasSolicitante.length > 0 || a.areasAut1.length > 0,
+  /** Capturar tiempo extra: solicitante o Aut. 1 de un área; RH y Aut. 2 (áreas que no participan, como Administrativo) */
+  solicitar: (a) => a.esRH || a.esAut2 || a.areasSolicitante.length > 0 || a.areasAut1.length > 0,
   /** Autorizar: Aut. 1, Aut. 2 y RH (RH solo firma el nivel 2) */
   autorizar: (a) => a.esRH || a.esAut2 || a.areasAut1.length > 0,
   /** Ver todas las solicitudes de la planta */
@@ -201,7 +201,8 @@ export const MATRIZ = [
 
   // ── Acciones y botones: tiempo extra
   { grupo: 'Tiempo extra', tipo: 'accion', id: 'capturarArea', nombre: 'Capturar y enviar tiempo extra de un área que participa', quien: (a) => a.areasSolicitante.length > 0 || a.areasAut1.length > 0, nota: 'Solo en sus áreas. RH no captura en áreas que participan' },
-  { grupo: 'Tiempo extra', tipo: 'accion', id: 'capturarSinTE', nombre: 'Capturar tiempo extra de un área que no participa (Administrativo)', quien: rh, nota: 'Las reglas también lo permiten a un Aut. 2 sin RH, pero la pantalla no le da acceso: ver docs/permisos.md › Pendiente' },
+  { grupo: 'Tiempo extra', tipo: 'accion', id: 'capturarSinTE', nombre: 'Capturar tiempo extra de un área que no participa (Administrativo)', quien: nivel2, nota: 'RH la deja en nivel 2 (la firma un Aut. 2 u otra persona de RH); la Aut. 2 la deja autorizada al enviarla' },
+  { grupo: 'Tiempo extra', tipo: 'accion', id: 'autorizarLoPropio', nombre: 'Lo que captura y envía queda autorizado al enviarlo (firma de nivel 2 «Capturada y autorizada por Aut. 2»)', quien: (a) => a.esAut2, nota: 'Solo la Aut. 2 vigente, en cualquier área donde pueda capturar. El Aut. 1 y RH no autorizan lo suyo' },
   { grupo: 'Tiempo extra', tipo: 'accion', id: 'firmarNivel1', nombre: 'Autorizar o devolver, nivel 1', quien: (a) => a.areasAut1.length > 0, nota: 'Solo lo de su área; no lo que él mismo creó' },
   { grupo: 'Tiempo extra', tipo: 'accion', id: 'firmarNivel2', nombre: 'Autorizar o devolver, nivel 2', quien: nivel2, nota: 'RH firma «como RH»; no lo que él mismo creó' },
   { grupo: 'Tiempo extra', tipo: 'boton', id: 'confirmarRH', nombre: 'Confirmar y generar transporte / Devolver (nivel 3)', quien: por('recibir') },
@@ -265,17 +266,18 @@ export function bloquesDeInicio(perfil) {
       bloques: ['Requieren atención (por autorizar, por enviar al proveedor, devueltas)', 'Esta semana: solicitudes por día', 'Accesos rápidos a las pantallas de RH'],
     };
   }
-  const solicita = a.areasSolicitante.length > 0 || a.areasAut1.length > 0;
+  const solicita = a.areasSolicitante.length > 0 || a.areasAut1.length > 0 || a.esAut2;
+  const tieneArea = a.areasSolicitante.length > 0 || a.areasAut1.length > 0;
   const autoriza = a.areasAut1.length > 0 || a.esAut2;
   const bloques = [];
   if (!a.tieneAcceso) bloques.push('Aviso «Aún no tienes acceso»: pide al área de Sistemas o, en su caso, a Recursos Humanos que te asignen un rol');
   if (autoriza) bloques.push('Aviso «Por autorizar» con enlace a la bandeja');
-  if (solicita) bloques.push('Mi área: empleados, borradores, en autorización, devueltas, autorizadas del mes y próximos tiempos extra');
+  if (tieneArea) bloques.push('Mi área: empleados, borradores, en autorización, devueltas, autorizadas del mes y próximos tiempos extra');
   if (a.areasAut1.length > 0) bloques.push('Últimas solicitudes de mi área');
   if (a.esAut2) bloques.push('Planta: por autorizar nivel 2, empleados de planta y solicitudes de la semana por área');
   return {
     tipo: 'Panel por rol',
-    accion: solicita ? 'Botón «Solicitar tiempo extra»' : a.esAut2 ? 'Botón «Por autorizar» (si hay pendientes)' : 'Ninguna',
+    accion: solicita ? 'Botón «Solicitar tiempo extra»' : 'Ninguna',
     bloques,
   };
 }

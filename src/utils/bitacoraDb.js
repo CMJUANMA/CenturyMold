@@ -4,7 +4,7 @@
  * y nunca el contenido de un archivo ni una contraseña. Si el registro falla no se bloquea la acción: solo se avisa en consola.
  * Solo RH, admin y la Aut. 2 (descargas) pueden escribir en la bitácora.
  */
-import { addDoc, collection, doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, where } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
 /** Acciones de descarga que se registran */
@@ -41,3 +41,12 @@ export const registrarUsuario = (accion, usuario, antes = null) => escribir(
  * @param {object} detalle datos del archivo: { archivo?, filas?, desde?, hasta?… } (sin contenido personal)
  */
 export const registrarDescarga = (accion, detalle = {}) => escribir(accion, 'descarga', null, detalle);
+
+/**
+ * Fecha del último "Respaldo completo (JSON)" registrado en la bitácora (la lee el admin en el Inicio para recordar el respaldo semanal).
+ * Devuelve la fecha (Timestamp), o null si nunca se ha hecho. Si falla la lectura lanza el error. Necesita el índice bitacora(accion, fecha desc).
+ */
+export async function leerUltimoRespaldo() {
+  const snap = await getDocs(query(collection(db, 'bitacora'), where('accion', '==', ACCIONES_DESCARGA.respaldoCompleto), orderBy('fecha', 'desc'), limit(1)));
+  return snap.empty ? null : (snap.docs[0].data().fecha ?? null);
+}

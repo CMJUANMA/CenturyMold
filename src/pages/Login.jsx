@@ -111,7 +111,7 @@ export default function Login() {
             {!error && mensajeSesion && <Aviso tono="aviso">{mensajeSesion}</Aviso>}
             {error && <Aviso tono="error">{error}</Aviso>}
 
-            <Campo etiqueta="Número de nómina" ayuda="Su número de empleado. Si no lo recuerda, pregúntelo a Recursos Humanos.">
+            <Campo etiqueta="Número de nómina" ayuda="Su número de empleado. Si no lo recuerda, pregúntelo en el área de Sistemas o, en su caso, en Recursos Humanos.">
               <Entrada
                 id="login-nomina"
                 type="text"

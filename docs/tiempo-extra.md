@@ -15,8 +15,9 @@ Solicitante del área ──captura──► pendiente_aut1 ──Aut. 1──�
 - Se autoriza o se devuelve la **solicitud completa**. Devolver exige un motivo.
 - **Aut. 1**: asignación `aut1` vigente de esa área. **Aut. 2**: asignación `aut2` vigente, o RH/admin (RH solo firma este nivel).
 - Si quien captura también es Aut. 1 vigente de esa área, entra **directo a `pendiente_aut2`** (también al reenviar).
-- Áreas con `participaTE: false` (Administrativo): solo capturan RH o una Aut. 2, y la solicitud va **directo a `pendiente_aut2`**.
-- **Nadie autoriza ni devuelve lo que creó él mismo.** Si la creó una Aut. 2, la firma otra Aut. 2 o RH.
+- Áreas con `participaTE: false` (Administrativo): solo capturan RH o una Aut. 2. Lo de RH va **directo a `pendiente_aut2`** (lo firma una Aut. 2 u otra persona de RH).
+- **Una Aut. 2 vigente autoriza lo que ella misma captura**: al enviar (de cualquier área donde pueda capturar) la solicitud queda **`autorizada`** en el mismo paso, con su firma `aut2` (`comoRH: false`, comentario «Capturada y autorizada por Aut. 2»), una sola entrada `enviada_autorizada` (nivel 2) en el historial y sin firma de nivel 1; pasa directo a *Por enviar al proveedor*. Si la reenvía una devuelta, igual.
+- **Nadie más autoriza ni devuelve lo que creó él mismo.** El Aut. 1 no autoriza lo suyo (va a nivel 2); lo de RH sin ser Aut. 2 lo firma una Aut. 2 u otra persona de RH.
 - Solo se incluyen empleados cuya `areaId` en el padrón sea la del área de la solicitud (lo exigen las reglas).
 
 ## Dos tipos de rol
@@ -77,9 +78,9 @@ roles ve la unión de lo que le toca a cada uno. Lógica pura en `src/utils/nave
 |---|---|---|
 | Solicitante | Inicio · Solicitar tiempo extra · Mis solicitudes | botón grande "Solicitar tiempo extra"; empleados de mi área; borrador / en autorización / devueltas (resaltadas) / autorizadas del mes; próximos autorizados |
 | Aut. 1 | lo del solicitante + Por autorizar (contador) + Mi área | además "Por autorizar (N)" y "Últimas solicitudes de mi área" |
-| Aut. 2 | Inicio · Por autorizar · Todas las solicitudes · Organigrama · Asignar roles | por autorizar nivel 2, solicitudes de la semana por área, empleados de planta |
+| Aut. 2 | Inicio · Solicitar tiempo extra · Mis solicitudes · Por autorizar · Todas las solicitudes · Organigrama · Asignar roles | por autorizar nivel 2, solicitudes de la semana por área, empleados de planta |
 | RH / admin | Inicio · Tiempo extra (Solicitar, Mis solicitudes, Por autorizar, Por enviar al proveedor, Todas las solicitudes) · Transporte (Solicitudes de transporte, Rutas y puntos de reunión) · Personal y estructura (Padrón, Estructura, Usuarios y accesos, Organigrama) · Herramientas (solo admin) | **Requieren atención** (resaltado si >0): por enviar al proveedor, fechas vencidas sin confirmar, por autorizar nivel 1, por autorizar nivel 2 (con la más antigua) y devueltas. **Esta semana**: horas autorizadas (semana y mes), empleados con tiempo extra y con transporte en 7 días. Accesos rápidos y tabla de los próximos 7 días |
-| Sin ningún rol | Inicio | «Pide acceso a Recursos Humanos» |
+| Sin ningún rol | Inicio | «Pide acceso al área de Sistemas o, en su caso, a Recursos Humanos» |
 
 - El saludo usa el nombre de pila ("Buenas tardes, Oscar") con el formateador de nombres del organigrama; si no puede separar con seguridad, saluda sin nombre.
 - El solicitante pide transporte **solo dentro del tiempo extra** (elige la ruta de cada empleado): la "Nueva solicitud" de transporte suelta la crean solo RH y admin.

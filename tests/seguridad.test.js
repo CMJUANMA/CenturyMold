@@ -2,8 +2,9 @@
 import { execSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PASSWORD_MIN, errorPasswordNueva } from '../src/utils/passwordPolitica.js';
+import { MSG_BORRADOR_GUARDADO, guardarBorradorAntesDeCerrar, mensajeCierreInactividad, registrarGuardador } from '../src/utils/guardadoAutomatico.js';
 import { AVISO_INACTIVIDAD_MS, LIMITE_INACTIVIDAD_MS, estadoInactividad, ultimaActividad } from '../src/utils/inactividad.js';
 
 const archivos = (dir, ext = /\.(js|jsx)$/) => readdirSync(dir).flatMap(n => {
@@ -35,15 +36,16 @@ describe('política de contraseñas', () => {
 
 describe('cierre por inactividad', () => {
   const t0 = 1_000_000_000_000;
-  it('15 minutos de límite y 1 minuto de aviso', () => {
-    expect(LIMITE_INACTIVIDAD_MS).toBe(15 * 60 * 1000);
+  it('30 minutos de límite y 1 minuto de aviso', () => {
+    expect(LIMITE_INACTIVIDAD_MS).toBe(30 * 60 * 1000);
     expect(AVISO_INACTIVIDAD_MS).toBe(60 * 1000);
   });
   it('activa → aviso → vencida', () => {
     expect(estadoInactividad(t0 + 5 * 60_000, t0)).toMatchObject({ estado: 'activa' });
-    expect(estadoInactividad(t0 + 14 * 60_000 + 1, t0)).toMatchObject({ estado: 'aviso' });
-    expect(estadoInactividad(t0 + 14 * 60_000 + 30_000, t0).restanteMs).toBe(30_000);
-    expect(estadoInactividad(t0 + 15 * 60_000, t0)).toEqual({ estado: 'vencida', restanteMs: 0 });
+    expect(estadoInactividad(t0 + 20 * 60_000, t0)).toMatchObject({ estado: 'activa' }); // a los 20 min (pasado el límite anterior de 15) sigue activa
+    expect(estadoInactividad(t0 + 29 * 60_000 + 1, t0)).toMatchObject({ estado: 'aviso' });
+    expect(estadoInactividad(t0 + 29 * 60_000 + 30_000, t0).restanteMs).toBe(30_000);
+    expect(estadoInactividad(t0 + 30 * 60_000, t0)).toEqual({ estado: 'vencida', restanteMs: 0 });
     expect(estadoInactividad(t0 + 3 * 3600_000, t0).estado).toBe('vencida');
   });
   it('cuenta la actividad más reciente entre pestañas y no se confunde con valores raros', () => {
@@ -55,6 +57,40 @@ describe('cierre por inactividad', () => {
   it('se monta en las rutas protegidas y AuthContext sabe cerrar por inactividad', () => {
     expect(leer('src/components/RutaProtegida.jsx')).toContain('CierrePorInactividad');
     expect(leer('src/context/AuthContext.jsx')).toContain('cerrarPorInactividad');
+  });
+});
+
+describe('guardar el borrador antes de cerrar por inactividad', () => {
+  it('el mensaje exacto y el aviso en el login solo cuando sí se guardó un borrador', () => {
+    expect(MSG_BORRADOR_GUARDADO).toBe('Guardamos tu borrador antes de cerrar la sesión');
+    expect(mensajeCierreInactividad('Tu sesión se cerró.', true)).toBe('Tu sesión se cerró. Guardamos tu borrador antes de cerrar la sesión.');
+    expect(mensajeCierreInactividad('Tu sesión se cerró.', false)).toBe('Tu sesión se cerró.');
+  });
+  it('sin formulario abierto no guarda nada; con uno, lo llama y avisa que guardó', async () => {
+    expect(await guardarBorradorAntesDeCerrar()).toBe(false);
+    let llamadas = 0;
+    const quitar = registrarGuardador(async () => { llamadas++; return true; });
+    expect(await guardarBorradorAntesDeCerrar()).toBe(true);
+    expect(llamadas).toBe(1);
+    quitar();
+    expect(await guardarBorradorAntesDeCerrar()).toBe(false);
+  });
+  it('si no había cambios que guardar responde que no; si falla, el cierre sigue (nunca lanza)', async () => {
+    const q1 = registrarGuardador(async () => false);
+    expect(await guardarBorradorAntesDeCerrar()).toBe(false);
+    q1();
+    const espia = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const q2 = registrarGuardador(async () => { throw new Error('sin red'); });
+    expect(await guardarBorradorAntesDeCerrar()).toBe(false);
+    q2();
+    espia.mockRestore();
+  });
+  it('el formulario se registra, el cierre guarda antes de salir y AuthContext arma el mensaje', () => {
+    expect(leer('src/pages/te/EditorTE.jsx')).toContain('registrarGuardador');
+    const cierre = leer('src/components/CierrePorInactividad.jsx');
+    expect(cierre.indexOf('guardarBorradorAntesDeCerrar()')).toBeGreaterThan(-1);
+    expect(cierre.indexOf('guardarBorradorAntesDeCerrar()')).toBeLessThan(cierre.indexOf('await cerrarPorInactividad({ borradorGuardado })'));
+    expect(leer('src/context/AuthContext.jsx')).toContain('mensajeCierreInactividad');
   });
 });
 

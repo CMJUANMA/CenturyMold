@@ -323,6 +323,112 @@ describe('autorizar y devolver (cada acción en su transacción)', () => {
   });
 });
 
+describe('Aut. 2 captura y envía lo suyo: queda autorizada con su firma de nivel 2', () => {
+  const COMENTARIO = 'Capturada y autorizada por Aut. 2';
+  const ADM = (id, extra = {}) => ({ ...base(id, { usuario: USUARIOS.aut2, area: { id: 'administrativo', nombre: 'Administrativo' } }), ...extra });
+  const listaAdm = () => empleados(2, 900);
+  const sembrarAdm = () => env.withSecurityRulesDisabled(async (ctx) => {
+    const d = ctx.firestore();
+    await setDoc(doc(d, 'areas', 'administrativo'), { nombre: 'Administrativo', participaTE: false, activa: true, orden: 9 });
+    for (let i = 0; i < 3; i++) await setDoc(doc(d, 'empleados', String(900 + i)), { nombre: `ADMIN ${900 + i}`, nomina: String(900 + i), areaId: 'administrativo', puesto: 'ANALISTA', turnoNomina: 'A' });
+  });
+  const borrador = async (m, id, usuario) => {
+    const lista = listaAdm();
+    await m.guardarBorrador({ ...ADM(id, { usuario }), empleados: lista, sucios: new Set(lista.map(e => e.nomina)) });
+    return lista;
+  };
+  const enviar = (m, id, lista, usuario, estatus) => m.enviarSolicitud({ id, devuelta: false, usuario, estatus, fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Entrega urgente de pedido', empleados: lista });
+  beforeEach(sembrarAdm);
+
+  it('en Administrativo: queda autorizada al enviarla, con aut2 (nombre, fecha y comentario), su folio y una sola entrada clara en el historial', async () => {
+    const { db, m } = await comoUsuario('aut2');
+    const lista = await borrador(m, 'BR-AAAAAAAAAA', USUARIOS.aut2);
+    expect(await enviar(m, 'BR-AAAAAAAAAA', lista, USUARIOS.aut2, 'autorizada')).toBe(`TE-${ANIO}-0013`);
+    const t = (await getDoc(doc(db, 'tiempoExtra', 'BR-AAAAAAAAAA'))).data();
+    expect(t.estatus).toBe('autorizada');
+    expect(t.aut1).toBeUndefined();
+    expect(t.aut2).toMatchObject({ nomina: N.aut2, nombre: USUARIOS.aut2.nombre, comentario: COMENTARIO, comoRH: false });
+    expect(t.aut2.fecha).toBeTruthy();
+    const h = await m.leerHistorialTE('BR-AAAAAAAAAA');
+    expect(h.map(x => x.accion)).toEqual(['enviada_autorizada']);
+    expect(h[0]).toMatchObject({ nivel: 2, comentario: COMENTARIO });
+  });
+  it('en un área donde es solicitante también queda autorizada (cualquier área donde pueda capturar)', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'asignaciones', `${N.aut2}_solicitante_produccion`), asig(N.aut2, 'solicitante', 'produccion')); });
+    const { db, m } = await comoUsuario('aut2');
+    const lista = empleados(2);
+    await m.guardarBorrador({ ...base('BR-BBBBBBBBBB', { usuario: USUARIOS.aut2 }), empleados: lista, sucios: new Set(lista.map(e => e.nomina)) });
+    await enviar(m, 'BR-BBBBBBBBBB', lista, USUARIOS.aut2, 'autorizada');
+    expect((await getDoc(doc(db, 'tiempoExtra', 'BR-BBBBBBBBBB'))).data().estatus).toBe('autorizada');
+  });
+  it('el Aut. 2 no deja la suya en pendiente_aut2 ni en pendiente_aut1', async () => {
+    const { m } = await comoUsuario('aut2');
+    const lista = await borrador(m, 'BR-AAAAAAAAAA', USUARIOS.aut2);
+    await expect(enviar(m, 'BR-AAAAAAAAAA', lista, USUARIOS.aut2, 'pendiente_aut2')).rejects.toThrow();
+    await expect(enviar(m, 'BR-AAAAAAAAAA', lista, USUARIOS.aut2, 'pendiente_aut1')).rejects.toThrow();
+  });
+  it('la firma debe ser suya: otra nómina u otro nombre no pasan', async () => {
+    const { m } = await comoUsuario('aut2');
+    const lista = await borrador(m, 'BR-AAAAAAAAAA', USUARIOS.aut2);
+    await expect(enviar(m, 'BR-AAAAAAAAAA', lista, { ...USUARIOS.aut2, nomina: '99999' }, 'autorizada')).rejects.toThrow();
+    await expect(enviar(m, 'BR-AAAAAAAAAA', lista, { ...USUARIOS.aut2, nombre: 'OTRA PERSONA' }, 'autorizada')).rejects.toThrow();
+  });
+  it('el Aut. 1 no autoriza lo suyo: sin ser Aut. 2 no puede enviar como autorizada (va al nivel 2)', async () => {
+    const { m } = await comoUsuario('aut1P');
+    const lista = empleados(2);
+    await m.guardarBorrador({ ...base('BR-CCCCCCCCCC', { usuario: USUARIOS.aut1P }), empleados: lista, sucios: new Set(lista.map(e => e.nomina)) });
+    await expect(enviar(m, 'BR-CCCCCCCCCC', lista, USUARIOS.aut1P, 'autorizada')).rejects.toThrow();
+    await enviar(m, 'BR-CCCCCCCCCC', lista, USUARIOS.aut1P, 'pendiente_aut2');
+  });
+  it('un solicitante tampoco puede enviar como autorizada', async () => {
+    const { m } = await comoUsuario('solP');
+    const lista = empleados(2);
+    await guardarNuevo(m, 'BR-AAAAAAAAAA', lista);
+    await expect(enviar(m, 'BR-AAAAAAAAAA', lista, USUARIOS.solP, 'autorizada')).rejects.toThrow();
+  });
+  it('RH (sin ser Aut. 2) captura en Administrativo: queda en pendiente_aut2; no la firma él mismo y sí un Aut. 2', async () => {
+    const rh = await comoUsuario('rh');
+    const lista = await borrador(rh.m, 'BR-AAAAAAAAAA', USUARIOS.rh);
+    await expect(enviar(rh.m, 'BR-AAAAAAAAAA', lista, USUARIOS.rh, 'autorizada')).rejects.toThrow();
+    await enviar(rh.m, 'BR-AAAAAAAAAA', lista, USUARIOS.rh, 'pendiente_aut2');
+    expect((await getDoc(doc(rh.db, 'tiempoExtra', 'BR-AAAAAAAAAA'))).data().estatus).toBe('pendiente_aut2');
+    await expect(rh.m.autorizarSolicitud({ id: 'BR-AAAAAAAAAA', usuario: USUARIOS.rh, nivel: 2, comoRH: true })).rejects.toThrow();
+    const a2 = await comoUsuario('aut2');
+    await a2.m.autorizarSolicitud({ id: 'BR-AAAAAAAAAA', usuario: USUARIOS.aut2, nivel: 2, comoRH: false });
+    expect((await getDoc(doc(a2.db, 'tiempoExtra', 'BR-AAAAAAAAAA'))).data()).toMatchObject({ estatus: 'autorizada', aut2: { comoRH: false } });
+  });
+  it('otra persona de RH distinta sí puede firmar lo de RH', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'usuarios', 'rh2'), { nombre: 'OTRA RH', rol: 'rh', nomina: '90002', activo: true }); });
+    const rh = await comoUsuario('rh');
+    const lista = await borrador(rh.m, 'BR-AAAAAAAAAA', USUARIOS.rh);
+    await enviar(rh.m, 'BR-AAAAAAAAAA', lista, USUARIOS.rh, 'pendiente_aut2');
+    const rh2 = await comoUsuario('rh2');
+    await rh2.m.autorizarSolicitud({ id: 'BR-AAAAAAAAAA', usuario: { uid: 'rh2', nomina: '90002', nombre: 'OTRA RH' }, nivel: 2, comoRH: true });
+    expect((await getDoc(doc(rh2.db, 'tiempoExtra', 'BR-AAAAAAAAAA'))).data().aut2).toMatchObject({ nomina: '90002', comoRH: true });
+  });
+  it('una devuelta que reenvía un Aut. 2 también queda autorizada: conserva su folio y quita la firma de nivel 1', async () => {
+    const lista = listaAdm();
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const d = ctx.firestore();
+      await setDoc(doc(d, 'tiempoExtra', 'TE-2026-0900'), {
+        areaId: 'administrativo', areaNombre: 'Administrativo', creadoPor: 'aut2', creadoPorNomina: N.aut2, creadoPorNombre: USUARIOS.aut2.nombre,
+        fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Entrega urgente de pedido', estatus: 'devuelta', folio: 'TE-2026-0900',
+        aut1: { nomina: '1', nombre: 'X', fecha: Timestamp.now() }, resumen: {}, fechaCreacion: Timestamp.now(), fechaActualizacion: Timestamp.now(),
+        devolucion: { nivel: 3, nomina: '90001', nombre: 'RH', motivo: 'Corrige los horarios', fecha: Timestamp.now() },
+      });
+      for (const e of lista) await setDoc(doc(d, 'tiempoExtra', 'TE-2026-0900', 'empleados', e.nomina), { nombre: e.nombre, puesto: 'ANALISTA', turnoNomina: 'A', horaEntrada: e.horaEntrada, horaSalida: e.horaSalida, horas: 9, requiereAlimentos: false, requiereTransporte: false });
+    });
+    const { db, m } = await comoUsuario('aut2');
+    const folio = await m.enviarSolicitud({ id: 'TE-2026-0900', devuelta: true, usuario: USUARIOS.aut2, estatus: 'autorizada', fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Corregí los horarios', empleados: lista });
+    expect(folio).toBe('TE-2026-0900');
+    const t = (await getDoc(doc(db, 'tiempoExtra', 'TE-2026-0900'))).data();
+    expect(t.estatus).toBe('autorizada');
+    expect(t.aut1).toBeUndefined();
+    expect(t.aut2).toMatchObject({ nomina: N.aut2, comentario: COMENTARIO, comoRH: false });
+    expect((await m.leerHistorialTE('TE-2026-0900')).map(h => h.accion)).toEqual(['enviada_autorizada']);
+  });
+});
+
 describe('motivo "Otro" (¿Cuál?) en las reglas', () => {
   const lista = empleados(2);
   const otro = (texto) => ({ motivo: 'Otro', extras: { motivoOtro: texto } });

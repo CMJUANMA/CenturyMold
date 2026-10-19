@@ -7,6 +7,14 @@
         { "fieldPath": "estatus", "order": "ASCENDING" },
         { "fieldPath": "fechaTE", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "bitacora",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "accion", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

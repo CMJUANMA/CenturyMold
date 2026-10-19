@@ -53,8 +53,9 @@ export const formatoDeAsignaciones = (asignaciones) => crearFormateadorNombres((
 const aviso = (tono, titulo, texto) => ({ tono, titulo, texto });
 const nombresDe = (dest, opciones) => dest.map(a => lineaDestinatario(a, { formato: formatoDeAsignaciones(dest), ...opciones }));
 
-/** Después de ENVIAR (o reenviar) una solicitud: va a Aut. 1 o, si salta el nivel 1, a Aut. 2 */
+/** Después de ENVIAR (o reenviar) una solicitud: va a Aut. 1 o, si salta el nivel 1, a Aut. 2; si la envió un Aut. 2 ya queda autorizada y RH la tiene */
 export function avisoEnvio({ folio, estatus, reenviada = false, destinatarios, opciones }) {
+  if (estatus === 'autorizada') return aviso('exito', AVISOS.titulos.autorizada, AVISOS.listaEnRH());
   const nivel = nivelPendiente(estatus) ?? 1;
   return aviso('info', reenviada ? AVISOS.titulos.reenviada : AVISOS.titulos.enviada, AVISOS.paraAvisar({
     folio, destino: AVISOS.destinoNivel[nivel], lista: AVISOS.unir(nombresDe(destinatarios, opciones)), accion: reenviada ? 'reenvió' : 'envió',

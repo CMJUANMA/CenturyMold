@@ -13,8 +13,9 @@ service cloud.firestore {
 
     // Rol del SISTEMA (usuarios/{uid}.rol): solo admin, rh o usuario. Los permisos operativos (Aut. 2, Aut. 1, solicitante)
     // son asignaciones por área con vigencia (colección asignaciones); el puesto no da permisos.
-    function esAdmin()        { return activo() && rol() == 'admin'; }
-    function esRH()           { return activo() && rol() in ['rh', 'admin']; }
+    // (esAdmin y esRH leen el perfil una sola vez: el tope de 1000 expresiones por petición es justo y activo() + rol() lo leían dos.)
+    function esAdmin()        { let p = perfil(); return exists(perfilPath()) && p.get('activo', true) != false && p.get('rol', '') == 'admin'; }
+    function esRH()           { let p = perfil(); return exists(perfilPath()) && p.get('activo', true) != false && p.get('rol', '') in ['rh', 'admin']; }
     function miNomina()       { return perfil().get('nomina', ''); }
     function miNombre()       { return perfil().get('nombre', ''); }
     // Texto con tope de largo (nada de documentos enormes ni de otro tipo de dato)
@@ -32,8 +33,9 @@ service cloud.firestore {
     }
     // (Una nómina vacía no existe: las asignaciones exigen nomina no vacía.) El tope de 1000 expresiones por petición es justo: se evita repetir cálculos.
     function asignacionVigente(rol, area) {
-      let p = asigPath(rol, area);
-      return activo() && area is string && exists(p) && asigVigente(get(p).data);
+      let p = perfil();
+      let ap = /databases/$(database)/documents/asignaciones/$(p.get('nomina', '') + '_' + rol + '_' + area);
+      return exists(perfilPath()) && p.get('activo', true) != false && area is string && exists(ap) && asigVigente(get(ap).data);
     }
     function esAut2() { return asignacionVigente('aut2', 'planta'); }
     function esAut1De(areaId)        { return asignacionVigente('aut1', areaId); }
@@ -250,22 +252,40 @@ service cloud.firestore {
 
     // Quién captura en un área: un solicitante o el Aut. 1 vigente de esa área (el Aut. 1 captura y su solicitud se salta
     // su propio nivel); en un área que no participa en TE (Administrativo) solo RH o un Aut. 2
+    // Solicitante o Aut. 1 vigente de esa área, leyendo el perfil una sola vez (equivale a esSolicitanteDe(a) || esAut1De(a))
+    function solicitanteOAut1De(areaId) {
+      let p = perfil();
+      let n = p.get('nomina', '');
+      let s = /databases/$(database)/documents/asignaciones/$(n + '_solicitante_' + areaId);
+      let a = /databases/$(database)/documents/asignaciones/$(n + '_aut1_' + areaId);
+      return exists(perfilPath()) && p.get('activo', true) != false && areaId is string
+        && ((exists(s) && asigVigente(get(s).data)) || (exists(a) && asigVigente(get(a).data)));
+    }
     function puedeCapturarTE(areaId) {
       return areaActiva(areaId) && (get(areaPath(areaId)).data.get('participaTE', false) == true
-        ? (esSolicitanteDe(areaId) || esAut1De(areaId)) : (esRH() || esAut2()));
+        ? solicitanteOAut1De(areaId) : (esRH() || esAut2()));
     }
     // Folio asignado al enviar: TE-AAAA-NNNN, con el número que deja el contador del año en el mismo lote/transacción
     // (el contador debe subir exactamente 1; así los borradores no gastan folios y no hay folios repetidos)
     function folioDelContador(folio) {
-      return folio.matches('TE-[0-9]{4}-[0-9]{4,}')
-        && folio.split('-')[1] == string(request.time.year())
-        && getAfter(/databases/$(database)/documents/contadores/$('te-' + string(request.time.year()))).data.ultimo == int(folio.split('-')[2])
-        && (exists(/databases/$(database)/documents/contadores/$('te-' + string(request.time.year())))
-            ? get(/databases/$(database)/documents/contadores/$('te-' + string(request.time.year()))).data.ultimo : 0) + 1 == int(folio.split('-')[2]);
+      let anio = string(request.time.year());
+      let p = /databases/$(database)/documents/contadores/$('te-' + anio);
+      let partes = folio.split('-');
+      return folio.matches('TE-[0-9]{4}-[0-9]{4,}') && partes[1] == anio
+        && getAfter(p).data.ultimo == int(partes[2])
+        && (exists(p) ? get(p).data.ultimo : 0) + 1 == int(partes[2]);
     }
-    // Al capturar o reenviar, el Aut. 1 de esa área se salta su propio nivel; en un área que no participa se va directo a Aut. 2
+    // Al capturar o reenviar: un Aut. 2 vigente autoriza lo que él mismo captura (es el nivel más alto: queda 'autorizada', con su firma, ver
+    // las reglas de abajo); el Aut. 1 de esa área se salta su propio nivel (no autoriza lo suyo); en un área que no participa se va directo
+    // a Aut. 2 (la firma otro Aut. 2 u otra persona de RH distinta). Quien es Aut. 2 nunca queda en pendiente_aut2 con su propia solicitud.
     function estatusInicial(areaId) {
-      return (get(areaPath(areaId)).data.get('participaTE', false) != true || esAut1De(areaId)) ? 'pendiente_aut2' : 'pendiente_aut1';
+      return esAut2() ? 'autorizada'
+        : (get(areaPath(areaId)).data.get('participaTE', false) != true || esAut1De(areaId)) ? 'pendiente_aut2' : 'pendiente_aut1';
+    }
+    // Una Aut. 2 vigente captura donde puede capturar (equivale a esAut2() && puedeCapturarTE(area), sin repetir esRH/esAut2)
+    function puedeCapturarComoAut2(areaId) {
+      return esAut2() && areaActiva(areaId)
+        && (get(areaPath(areaId)).data.get('participaTE', false) != true || solicitanteOAut1De(areaId));
     }
 
     // t = datos de una solicitud de tiempo extra. Un borrador solo lo ve su creador
@@ -366,7 +386,7 @@ service cloud.firestore {
         return sid is string
           && get(/databases/$(database)/documents/tiempoExtra/$(sid)).data.estatus == 'borrador'
           && get(/databases/$(database)/documents/tiempoExtra/$(sid)).data.creadoPor == request.auth.uid
-          && getAfter(/databases/$(database)/documents/tiempoExtra/$(sid)).data.estatus in ['pendiente_aut1', 'pendiente_aut2']
+          && getAfter(/databases/$(database)/documents/tiempoExtra/$(sid)).data.estatus in ['pendiente_aut1', 'pendiente_aut2', 'autorizada']
           && getAfter(/databases/$(database)/documents/tiempoExtra/$(sid)).data.folio.split('-')[1] == id.split('-')[1]
           && int(getAfter(/databases/$(database)/documents/tiempoExtra/$(sid)).data.folio.split('-')[2]) == request.resource.data.ultimo;
       }
@@ -387,9 +407,16 @@ service cloud.firestore {
       function tipoValido() { return despues().get('tipo', 'turno_extra') in ['turno_extra', 'extension']; }
       // Cada ruta adicional cuesta: con más de una ruta hay que justificarlo (15+ caracteres) para poder enviar
       function rutasJustificadas() {
-        return despues().get('rutasDistintas', 0) is number
-          && (despues().get('rutasDistintas', 0) <= 1
-              || (despues().get('justificacionRutas', '') is string && despues().get('justificacionRutas', '').trim().size() >= 15));
+        let d = despues();
+        return d.get('rutasDistintas', 0) is number
+          && (d.get('rutasDistintas', 0) <= 1 || (d.get('justificacionRutas', '') is string && d.get('justificacionRutas', '').trim().size() >= 15));
+      }
+
+      // Firma de nivel 2 de una Aut. 2 que captura y envía su propia solicitud: es suya, sin "comoRH", y con el comentario fijo
+      // (va dentro de este match porque usa despues(), que solo existe aquí)
+      function firmaAut2Propia() {
+        let f = despues().aut2;
+        return firmaValida(f, false) && f.get('comentario', '') == 'Capturada y autorizada por Aut. 2';
       }
 
       // Contenido de la solicitud: tipos y topes (la fecha, el comentario, el resumen y las rutas los calcula la app, pero un cliente
@@ -413,14 +440,14 @@ service cloud.firestore {
 
       // Motivo "Otro": motivoOtro (¿Cuál?) solo existe con ese motivo, es texto de hasta 60 caracteres y, al enviar, de al menos 3
       function motivoOtroValido() {
-        return despues().motivo == 'Otro'
-          ? (!despues().keys().hasAny(['motivoOtro'])
-              || (despues().motivoOtro is string && despues().motivoOtro.trim().size() <= 60 && despues().motivoOtro.size() <= 60))
-          : !despues().keys().hasAny(['motivoOtro']);
+        let d = despues();
+        return d.motivo == 'Otro'
+          ? (!d.keys().hasAny(['motivoOtro']) || (d.motivoOtro is string && d.motivoOtro.trim().size() <= 60 && d.motivoOtro.size() <= 60))
+          : !d.keys().hasAny(['motivoOtro']);
       }
       function motivoOtroCompleto() {
-        return despues().motivo != 'Otro'
-          || (despues().get('motivoOtro', '') is string && despues().get('motivoOtro', '').trim().size() >= 3);
+        let d = despues();
+        return d.motivo != 'Otro' || (d.get('motivoOtro', '') is string && d.get('motivoOtro', '').trim().size() >= 3);
       }
 
       // Toda solicitud nace como BORRADOR: id propio (BR-…), sin folio y sin firmas, a nombre de quien la crea. Solo un solicitante
@@ -459,7 +486,8 @@ service cloud.firestore {
         && antes().creadoPor != uid()
         && esAut1De(antes().areaId) && devolucionValida(despues().devolucion, 1);
 
-      // Aut. 2 vigente o RH autorizan: pendiente_aut2 → autorizada (si la creó un Aut. 2, la firma otro Aut. 2 o RH)
+      // Aut. 2 vigente o RH autorizan: pendiente_aut2 → autorizada. Nadie firma lo que creó (lo de RH que no es Aut. 2 lo firma un Aut. 2 u otra
+      // persona de RH; lo de un Aut. 2 no pasa por aquí: se autoriza al enviarse, ver "Aut. 2 captura y envía")
       allow update: if antes().estatus == 'pendiente_aut2' && despues().estatus == 'autorizada'
         && despues().fechaActualizacion == request.time
         && soloCambia(['estatus', 'aut2', 'fechaActualizacion'])
@@ -542,6 +570,28 @@ service cloud.firestore {
         && despues().estatus == estatusInicial(antes().areaId)
         && folioDelContador(despues().folio);
 
+      // Aut. 2 captura y envía lo suyo: borrador → autorizada en el mismo paso, con su firma de nivel 2 ("Capturada y autorizada por Aut. 2"),
+      // el folio del contador en el mismo lote y sin firma de nivel 1. Solo en un área donde pueda capturar.
+      allow update: if antes().estatus == 'borrador' && despues().estatus == 'autorizada'
+        && despues().fechaActualizacion == request.time
+        && !despues().keys().hasAny(['aut1'])
+        && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'folio', 'aut2', 'fechaActualizacion'])
+        && tipoValido() && rutasJustificadas() && motivoOtroValido() && motivoOtroCompleto() && contenidoValido()
+        && antes().creadoPor == uid()
+        && puedeCapturarComoAut2(antes().areaId)
+        && firmaAut2Propia()
+        && folioDelContador(despues().folio);
+
+      // ...y si la devuelta la reenvía un Aut. 2, también queda autorizada (conserva su folio; la firma de nivel 1 anterior se quita)
+      allow update: if antes().estatus == 'devuelta' && despues().estatus == 'autorizada'
+        && despues().fechaActualizacion == request.time
+        && !despues().keys().hasAny(['aut1'])
+        && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'aut1', 'aut2', 'fechaActualizacion'])
+        && tipoValido() && rutasJustificadas() && motivoOtroValido() && motivoOtroCompleto() && contenidoValido()
+        && antes().creadoPor == uid()
+        && puedeCapturarComoAut2(antes().areaId)
+        && firmaAut2Propia();
+
       // ...y la devuelta se reenvía: vuelve a empezar (sin firmas) y conserva su folio
       allow update: if antes().estatus == 'devuelta' && despues().estatus in ['pendiente_aut1', 'pendiente_aut2']
         && despues().fechaActualizacion == request.time
@@ -589,7 +639,7 @@ service cloud.firestore {
             (!exists(padrePath()) && padreDespues().estatus == 'borrador')
             // corrección o armado: padre devuelta o borrador; puede reenviarse/enviarse en el mismo lote
             || (padreAntes().estatus in ['devuelta', 'borrador']
-                && padreDespues().estatus in [padreAntes().estatus, 'pendiente_aut1', 'pendiente_aut2'])
+                && padreDespues().estatus in [padreAntes().estatus, 'pendiente_aut1', 'pendiente_aut2', 'autorizada'])
           );
         }
         // En una extensión de turno el empleado ya está en la planta: no lleva transporte de llegada
@@ -623,6 +673,8 @@ service cloud.firestore {
               && hDespues().estatus in ['pendiente_aut1', 'pendiente_aut2'])
             || (h().accion == 'enviada' && hAntes().estatus == 'borrador' && hAntes().creadoPor == uid()
               && hDespues().estatus in ['pendiente_aut1', 'pendiente_aut2'])
+            || (h().accion == 'enviada_autorizada' && h().nivel == 2 && esAut2() && hAntes().creadoPor == uid()
+              && hAntes().estatus in ['borrador', 'devuelta'] && hDespues().estatus == 'autorizada')
             || (h().accion == 'autorizada_1' && esAut1De(hAntes().areaId)
               && hAntes().estatus == 'pendiente_aut1' && hDespues().estatus == 'pendiente_aut2')
             || (h().accion == 'autorizada_2' && puedeFirmarAut2()

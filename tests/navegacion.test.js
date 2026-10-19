@@ -22,8 +22,8 @@ describe('menú por rol', () => {
     expect(items.map(i => i.label)).toEqual(['Inicio', 'Solicitar tiempo extra', 'Mis solicitudes', 'Por autorizar', 'Mi área']);
     expect(items.find(i => i.id === 'autorizar')).toMatchObject({ path: '/tiempo-extra/autorizar', contador: 'autorizar' });
   });
-  it('Aut. 2: Inicio · Por autorizar · Consulta · Organigrama (y Asignar roles); sin captura propia', () => {
-    expect(ids({ esAut2: true })).toEqual(['inicio', 'autorizar', 'consulta', 'organigrama', 'asignar']);
+  it('Aut. 2: Inicio · Solicitar · Mis solicitudes (captura lo suyo) · Por autorizar · Consulta · Organigrama · Asignar roles', () => {
+    expect(ids({ esAut2: true })).toEqual(['inicio', 'solicitar', 'mis', 'autorizar', 'consulta', 'organigrama', 'asignar']);
   });
   it('varios roles: la unión, sin repetir', () => {
     const r = ids({ esAut2: true, areasAut1: ['moldes'], areasSolicitante: ['moldes', 'mantenimiento'] });
@@ -110,8 +110,8 @@ describe('menú de admin y RH: ven todo su menú', () => {
 });
 
 describe('menú nuevo por rol y rutas', () => {
-  it('Aut. 2: Inicio · Por autorizar · Todas las solicitudes · Organigrama · Asignar roles', () => {
-    expect(itemsMenuPorRol({ ...base, esAut2: true }).map(i => i.label)).toEqual(['Inicio', 'Por autorizar', 'Todas las solicitudes', 'Organigrama', 'Asignar roles']);
+  it('Aut. 2: Inicio · Solicitar · Mis solicitudes · Por autorizar · Todas las solicitudes · Organigrama · Asignar roles', () => {
+    expect(itemsMenuPorRol({ ...base, esAut2: true }).map(i => i.label)).toEqual(['Inicio', 'Solicitar tiempo extra', 'Mis solicitudes', 'Por autorizar', 'Todas las solicitudes', 'Organigrama', 'Asignar roles']);
   });
   it('Aut. 1: Inicio · Solicitar · Mis solicitudes · Por autorizar · Mi área; solicitante: Inicio · Solicitar · Mis solicitudes', () => {
     expect(itemsMenuPorRol({ ...base, areasAut1: ['moldes'] }).map(i => i.label)).toEqual(['Inicio', 'Solicitar tiempo extra', 'Mis solicitudes', 'Por autorizar', 'Mi área']);

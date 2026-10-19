@@ -1,5 +1,5 @@
 /**
- * CierrePorInactividad.jsx — Cierra la sesión tras 15 minutos sin actividad (utils/inactividad.js), con un aviso de 1 minuto para seguir.
+ * CierrePorInactividad.jsx — Cierra la sesión tras 30 minutos sin actividad (utils/inactividad.js), con un aviso de 1 minuto para seguir.
  * No pinta nada mientras hay actividad. Se monta dentro de las rutas protegidas. Si el navegador estuvo cerrado más del límite, al volver
  * la sesión se cierra (la última actividad se guarda en localStorage: solo la hora).
  */
@@ -8,6 +8,7 @@ import { Clock } from 'lucide-react';
 import Modal from './Modal';
 import Boton from './ui/Boton';
 import { useAuth } from '../hooks/useAuth';
+import { guardarBorradorAntesDeCerrar } from '../utils/guardadoAutomatico';
 import { CLAVE_ULTIMA_ACTIVIDAD, estadoInactividad, ultimaActividad } from '../utils/inactividad';
 
 const REVISION_MS = 5_000;
@@ -22,6 +23,7 @@ export default function CierrePorInactividad() {
   const propia = useRef(0); // se fija al montar (marcar)
   const guardada = useRef(0);
   const aviso = useRef(false);
+  const cerrando = useRef(false);
   const [restante, setRestante] = useState(null); // segundos; solo durante el aviso
   const enAviso = restante != null;
 
@@ -31,12 +33,20 @@ export default function CierrePorInactividad() {
     if (t - guardada.current > GUARDAR_CADA_MS) { guardada.current = t; guardar(t); }
   }, []);
 
+  /** Antes de salir se guarda el borrador de tiempo extra con cambios sin guardar (si lo hay); el login avisa que se guardó */
+  const cerrarGuardando = useCallback(async () => {
+    if (cerrando.current) return;
+    cerrando.current = true;
+    const borradorGuardado = await guardarBorradorAntesDeCerrar();
+    await cerrarPorInactividad({ borradorGuardado });
+  }, [cerrarPorInactividad]);
+
   const revisar = useCallback(() => {
     const { estado, restanteMs } = estadoInactividad(Date.now(), ultimaActividad(propia.current, leer()));
-    if (estado === 'vencida') { aviso.current = false; setRestante(null); cerrarPorInactividad(); return; }
+    if (estado === 'vencida') { aviso.current = false; setRestante(null); cerrarGuardando(); return; }
     aviso.current = estado === 'aviso';
     setRestante(estado === 'aviso' ? Math.ceil(restanteMs / 1000) : null);
-  }, [cerrarPorInactividad]);
+  }, [cerrarGuardando]);
 
   useEffect(() => {
     // Al abrir: si la última actividad guardada ya venció (navegador cerrado mucho tiempo) se cierra; si no, empieza el conteo

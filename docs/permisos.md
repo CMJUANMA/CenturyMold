@@ -21,13 +21,14 @@ La tabla se **genera** desde `src/utils/permisos.js` (`npm run docs:permisos`); 
 | Pantalla: Mi cuenta (datos, ayudas, letra, tema, contraseña) _(Se entra por el pie del menú)_ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Botón: Cambiar su propia contraseña y sus preferencias | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
 | **Tiempo extra** |||||||
-| Pantalla: Solicitar tiempo extra | ✔ | ✔ | — | ✔ | ✔ | — |
-| Pantalla: Mis solicitudes | ✔ | ✔ | — | ✔ | ✔ | — |
+| Pantalla: Solicitar tiempo extra | ✔ | ✔ | ✔ | ✔ | ✔ | — |
+| Pantalla: Mis solicitudes | ✔ | ✔ | ✔ | ✔ | ✔ | — |
 | Pantalla: Por autorizar | ✔ | ✔ | ✔ | ✔ | — | — |
 | Pantalla: Todas las solicitudes (solo lectura; RH además cancela) | ✔ | ✔ | ✔ | — | — | — |
 | Pantalla: Por enviar al proveedor | ✔ | ✔ | — | — | — | — |
 | Acción: Capturar y enviar tiempo extra de un área que participa _(Solo en sus áreas. RH no captura en áreas que participan)_ | — | — | — | ✔ | ✔ | — |
-| Acción: Capturar tiempo extra de un área que no participa (Administrativo) _(Las reglas también lo permiten a un Aut. 2 sin RH, pero la pantalla no le da acceso: ver docs/permisos.md › Pendiente)_ | ✔ | ✔ | — | — | — | — |
+| Acción: Capturar tiempo extra de un área que no participa (Administrativo) _(RH la deja en nivel 2 (la firma un Aut. 2 u otra persona de RH); la Aut. 2 la deja autorizada al enviarla)_ | ✔ | ✔ | ✔ | — | — | — |
+| Acción: Lo que captura y envía queda autorizado al enviarlo (firma de nivel 2 «Capturada y autorizada por Aut. 2») _(Solo la Aut. 2 vigente, en cualquier área donde pueda capturar. El Aut. 1 y RH no autorizan lo suyo)_ | — | — | ✔ | — | — | — |
 | Acción: Autorizar o devolver, nivel 1 _(Solo lo de su área; no lo que él mismo creó)_ | — | — | — | ✔ | — | — |
 | Acción: Autorizar o devolver, nivel 2 _(RH firma «como RH»; no lo que él mismo creó)_ | ✔ | ✔ | ✔ | — | — | — |
 | Botón: Confirmar y generar transporte / Devolver (nivel 3) | ✔ | ✔ | — | — | — | — |
@@ -70,8 +71,15 @@ La tabla se **genera** desde `src/utils/permisos.js` (`npm run docs:permisos`); 
 - `firestore.rules` es la barrera real; sus pruebas están en `tests/firestore.rules*.test.js`.
 - Admin: *Herramientas › Vista previa por rol* dibuja el menú, el Inicio y las pantallas de cualquier combinación, sin cambiar su sesión ni leer datos.
 
+## Quién autoriza lo que captura
+
+- **Aut. 2 vigente:** autoriza lo que él mismo captura. Al enviar (de cualquier área donde pueda capturar, incluida Administrativo) la solicitud queda **autorizada** en el mismo paso, con su firma de nivel 2
+  (nombre, fecha y el comentario «Capturada y autorizada por Aut. 2»); el historial dice «Capturada y autorizada por Aut. 2 (nivel 2)» y pasa directo a *Por enviar al proveedor*. La pantalla avisa antes de enviar:
+  «Como eres Autorización 2, al enviarla quedará autorizada».
+- **Aut. 1:** no autoriza lo suyo; su solicitud se salta el nivel 1 y va al nivel 2.
+- **RH sin ser Aut. 2:** su captura (solo áreas que no participan) va a *pendiente_aut2* y la firma un Aut. 2 u otra persona de RH distinta (nadie firma lo que creó).
+- Un Aut. 2 sin ser solicitante ni Aut. 1 de un área solo captura en áreas que no participan (Administrativo); en las demás áreas necesita su asignación de solicitante o Aut. 1.
+
 ## Pendiente de decisión
 
-- **Aut. 2 capturando en áreas que no participan (Administrativo).** `firestore.rules` y `docs/tiempo-extra.md` lo permiten («RH o un Aut. 2»), pero ni el menú ni la ruta *Solicitar tiempo extra* le dan acceso a un Aut. 2 sin RH.
-  Hoy solo captura ahí RH. Si debe poder, hay que sumar `esAut2` a la capacidad `solicitar` y a su menú/Inicio (cambio pequeño, con sus pruebas).
 - Los botones de borrar solicitudes y tiempos extra (`delete` solo admin en las reglas) no existen en la pantalla.

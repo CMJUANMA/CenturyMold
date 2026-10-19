@@ -116,6 +116,8 @@ export const ACCIONES_TE = {
   CANCELADA: 'cancelada',
   RECIBIDA_RH: 'recibida_rh',
   ENVIADA: 'enviada',
+  /** Un Aut. 2 captura y envía su propia solicitud: queda autorizada en el mismo paso (firma de nivel 2 propia) */
+  ENVIADA_AUTORIZADA: 'enviada_autorizada',
 };
 
 export const ACCIONES_TE_LABELS = {
@@ -127,4 +129,5 @@ export const ACCIONES_TE_LABELS = {
   [ACCIONES_TE.CANCELADA]: 'Cancelada',
   [ACCIONES_TE.RECIBIDA_RH]: 'Confirmada por RH',
   [ACCIONES_TE.ENVIADA]: 'Enviada a autorización',
+  [ACCIONES_TE.ENVIADA_AUTORIZADA]: 'Capturada y autorizada por Aut. 2 (nivel 2)',
 };

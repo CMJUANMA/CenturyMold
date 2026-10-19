@@ -394,3 +394,68 @@ describe('respaldo completo: el admin lee todo lo que respalda; nadie más', () 
     }
   });
 });
+
+describe('Aut. 2 autoriza lo que ella misma captura (y nadie más lo hace con lo suyo)', () => {
+  const COMENTARIO = 'Capturada y autorizada por Aut. 2';
+  const crearAdm = async (uid) => {
+    await setDoc(doc(dbDe(uid), 'tiempoExtra', BR), { ...borrador(uid), areaId: 'administrativo', areaNombre: 'Administrativo' });
+  };
+  const enviarComo = (uid, { estatus = 'autorizada', aut2, extra = {}, historialExtra = {} } = {}) => {
+    const db = dbDe(uid);
+    const b = writeBatch(db);
+    b.update(doc(db, 'tiempoExtra', BR), {
+      estatus, folio: `TE-${ANIO}-0013`, fechaActualizacion: ts(),
+      ...(aut2 ? { aut2 } : {}), ...extra,
+    });
+    b.update(doc(db, 'contadores', `te-${ANIO}`), { ultimo: 13, solicitudId: BR });
+    b.set(doc(collection(db, 'tiempoExtra', BR, 'historial')), {
+      accion: 'enviada_autorizada', nivel: 2, porUid: uid, porNomina: N[uid], porNombre: NOMBRE(uid), comentario: COMENTARIO, fecha: ts(), ...historialExtra,
+    });
+    return b.commit();
+  };
+  const firmaAut2 = (uid, extra = {}) => ({ nomina: N[uid], nombre: NOMBRE(uid), fecha: ts(), comentario: COMENTARIO, comoRH: false, ...extra });
+
+  it('la Aut. 2 envía su solicitud de Administrativo: queda autorizada con su firma', async () => {
+    await crearAdm('aut2');
+    await assertSucceeds(enviarComo('aut2', { aut2: firmaAut2('aut2') }));
+  });
+  it('la firma debe ser exacta: otro comentario, comoRH, otro nombre, otra nómina, campos de más o una firma de nivel 1 colgada', async () => {
+    for (const mala of [
+      firmaAut2('aut2', { comentario: 'Autorizada' }), firmaAut2('aut2', { comoRH: true }), firmaAut2('aut2', { nombre: 'MALDONADO SALVADOR' }),
+      firmaAut2('aut2', { nomina: N.rh }), firmaAut2('aut2', { rol: 'admin' }), firmaAut2('aut2', { fecha: Timestamp.fromDate(new Date('2020-01-01')) }),
+    ]) {
+      await env.clearFirestore(); await sembrar();
+      await crearAdm('aut2');
+      await assertFails(enviarComo('aut2', { aut2: mala }));
+    }
+    await assertFails(enviarComo('aut2', { aut2: firmaAut2('aut2'), extra: { aut1: { nomina: N.aut1P, nombre: NOMBRE('aut1P'), fecha: ts() } } }));
+    await assertFails(enviarComo('aut2', { aut2: firmaAut2('aut2'), historialExtra: { nivel: 1 } }));
+    await assertFails(enviarComo('aut2', { aut2: firmaAut2('aut2'), historialExtra: { porNombre: 'Otro' } }));
+  });
+  it('quien no es Aut. 2 no puede enviar como autorizada: ni RH, ni el Aut. 1, ni el solicitante', async () => {
+    await crearAdm('rh');
+    await assertFails(enviarComo('rh', { aut2: firmaAut2('rh') }));
+    await assertFails(enviarComo('rh', { aut2: firmaAut2('rh', { comoRH: true }) }));
+    await assertSucceeds(enviarComo('rh', { estatus: 'pendiente_aut2', historialExtra: { accion: 'enviada', nivel: 0, comentario: '' } })); // RH: nivel 2, lo firma otra persona
+    await env.clearFirestore(); await sembrar();
+    await setDoc(doc(dbDe('aut1P'), 'tiempoExtra', BR), borrador('aut1P'));
+    await assertFails(enviarComo('aut1P', { aut2: firmaAut2('aut1P') }));
+    await env.clearFirestore(); await sembrar();
+    await crear('solP');
+    await assertFails(enviarComo('solP', { aut2: firmaAut2('solP') }));
+  });
+  it('la Aut. 2 no deja la suya en un nivel inferior (pendiente_aut1 / pendiente_aut2) ni firma la de otro con este atajo', async () => {
+    await crearAdm('aut2');
+    await assertFails(enviarComo('aut2', { estatus: 'pendiente_aut2' }));
+    await assertFails(enviarComo('aut2', { estatus: 'pendiente_aut1' }));
+    // la solicitud de otra persona no se autoriza al "enviarla": no es su borrador
+    await env.clearFirestore(); await sembrar();
+    const db = dbDe('aut2');
+    await assertFails(updateDoc(doc(db, 'tiempoExtra', 'TE-B1'), { estatus: 'autorizada', aut2: firmaAut2('aut2'), fechaActualizacion: ts() }));
+  });
+  it('en un área que participa necesita su asignación de solicitante o Aut. 1; sin ella no captura ni autoriza', async () => {
+    await assertFails(setDoc(doc(dbDe('aut2'), 'tiempoExtra', BR), borrador('aut2'))); // produccion: no es suya
+    await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'tiempoExtra', BR), { ...borrador('aut2'), fechaCreacion: Timestamp.now(), fechaActualizacion: Timestamp.now() }); });
+    await assertFails(enviarComo('aut2', { aut2: firmaAut2('aut2') }));
+  });
+});

@@ -58,7 +58,8 @@ export default function InicioRol() {
   const esAut1 = areasAut1.length > 0;
   const misAreas = useMemo(() => [...new Set([...areasSolicitante, ...areasAut1])], [areasSolicitante, areasAut1]);
   const tieneRol = esSolicitante || esAut1 || esAut2;
-  const puedeSolicitar = esSolicitante || esAut1;
+  const puedeSolicitar = esSolicitante || esAut1 || esAut2; // la Aut. 2 también captura (lo suyo queda autorizado al enviarse)
+  const tieneArea = esSolicitante || esAut1;
   const puedeAutorizar = esAut1 || esAut2;
 
   const [ahora] = useState(() => new Date());
@@ -100,7 +101,7 @@ export default function InicioRol() {
         </Aviso>
       )}
 
-      {puedeSolicitar && (
+      {tieneArea && (
         <section aria-label="Mi área" className="space-y-4">
           <h2 className="text-lg font-semibold text-[var(--text-main)]">
             {misAreas.length === 1 ? `Mi área · ${nombreArea(misAreas[0])}` : `Mis áreas · ${misAreas.map(nombreArea).join(', ')}`}

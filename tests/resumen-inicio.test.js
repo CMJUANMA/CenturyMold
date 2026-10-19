@@ -1,7 +1,7 @@
 // Números del Inicio por rol. Datos ficticios; con listas vacías todo es 0.
 import { describe, expect, it } from 'vitest';
 import {
-  contarMisSolicitudes, contarPorEstatus, estadoTransporte, indicadoresRH, inicioDeSemana, proximos7Dias, proximosAutorizados, semanaPorArea, ultimasDelArea,
+  DIAS_RESPALDO_SEMANAL, contarMisSolicitudes, contarPorEstatus, estadoTransporte, indicadoresRH, inicioDeSemana, proximos7Dias, proximosAutorizados, respaldoVencido, semanaPorArea, textoUltimoRespaldo, ultimasDelArea,
 } from '../src/utils/resumenInicio.js';
 
 const AHORA = new Date(2026, 9, 14, 10); // miércoles 14/oct/2026
@@ -122,5 +122,29 @@ describe('indicadores del Inicio de RH y admin', () => {
     ];
     expect(proximos7Dias(planta, AHORA).map(p => p.folio)).toEqual(['Y', 'Z']);
     expect(proximos7Dias(planta, AHORA)[0]).toMatchObject({ empleados: 3, horas: 6, transporte: 2, estatus: 'procesada' });
+  });
+});
+
+describe('recordatorio del respaldo semanal (solo admin, en Requieren atención)', () => {
+  const dias = (n) => new Date(AHORA.getTime() - n * 86400000);
+  it('con más de 7 días pide el respaldo; con 7 o menos, no', () => {
+    expect(DIAS_RESPALDO_SEMANAL).toBe(7);
+    expect(respaldoVencido(dias(8), AHORA)).toBe(true);
+    expect(respaldoVencido(dias(7), AHORA)).toBe(false);
+    expect(respaldoVencido(dias(1), AHORA)).toBe(false);
+    expect(respaldoVencido(AHORA, AHORA)).toBe(false);
+  });
+  it('si nunca se ha hecho, también lo pide; si no se pudo leer, no molesta', () => {
+    expect(respaldoVencido(null, AHORA)).toBe(true);
+    expect(respaldoVencido(undefined, AHORA)).toBe(false);
+  });
+  it('acepta fechas de Firestore (Timestamp) y milisegundos', () => {
+    expect(respaldoVencido({ toDate: () => dias(9) }, AHORA)).toBe(true);
+    expect(respaldoVencido(dias(2).getTime(), AHORA)).toBe(false);
+  });
+  it('dice hace cuánto fue el último', () => {
+    expect(textoUltimoRespaldo(dias(9), AHORA)).toBe('El último respaldo completo fue hace 9 días.');
+    expect(textoUltimoRespaldo(dias(1), AHORA)).toBe('El último respaldo completo fue hace 1 día.');
+    expect(textoUltimoRespaldo(null, AHORA)).toBe('Aún no hay un respaldo completo registrado.');
   });
 });

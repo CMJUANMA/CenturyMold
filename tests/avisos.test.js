@@ -106,6 +106,11 @@ describe('2. Al autorizar', () => {
     expect(a.texto).toMatch(/^Autorizaste TE-2026-0012 y pasó a Autorización 2\. Para que se revise a la brevedad, recuerda avisarle a: Sergio Rojas Pina/);
     expect(a.texto).toContain('Carlos Cano Mejia');
   });
+  it('un Aut. 2 envía lo suyo: queda autorizada y el recordatorio dice que RH ya la tiene', () => {
+    const a = avisoEnvio({ folio: 'TE-2026-0020', estatus: 'autorizada', destinatarios: [] });
+    expect(a).toMatchObject({ tono: 'exito', titulo: 'Solicitud autorizada', texto: "Listo. Recursos Humanos ya la tiene en 'Por enviar al proveedor'." });
+    expect(avisoEnvio({ folio: 'TE-2026-0020', estatus: 'autorizada', reenviada: true, destinatarios: [] }).texto).toBe(AVISOS.listaEnRH());
+  });
   it('el Aut. 2 autoriza: ya está con Recursos Humanos, sin nombres', () => {
     expect(avisoAutorizacion({ nivel: 2, folio: 'TE-2026-0012', destinatarios: [] }).texto).toBe(AVISOS.listaEnRH());
     expect(AVISOS.listaEnRH()).toBe('Listo. Recursos Humanos ya la tiene en \'Por enviar al proveedor\'.');

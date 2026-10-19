@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   HORAS_ENTRADA_TE, HORAS_SALIDA_TE, LOTE_EMPLEADOS, PESTANAS_TE, aplicarA, calcularHoras, docAEmpleado, empleadoADoc, empleadoDesdePadron,
-  datosTE, estatusAlEnviar, folioDe, motivoTexto, nivelEnTexto, nuevoIdBorrador, problemasDeEnvio, resumenTE, transporteCompleto, trozos,
+  COMENTARIO_AUT2_PROPIA, datosTE, estatusAlEnviar, folioDe, motivoTexto, nivelEnTexto, nuevoIdBorrador, problemasDeEnvio, resumenTE, transporteCompleto, trozos,
   MIN_MOTIVO_DEVOLUCION, MSG_YA_RESPONDIDA, esPropia, fechaVencida, filtrarSolicitudes, firmaTexto, haceTiempo, masAntiguasPrimero, totalesDe,
 } from '../src/utils/tiempoExtra.js';
 
@@ -148,6 +148,12 @@ describe('estatus y pestañas', () => {
     expect(estatusAlEnviar({ esAut1DeLaArea: false, areaParticipa: true })).toBe('pendiente_aut1');
     expect(estatusAlEnviar({ esAut1DeLaArea: true, areaParticipa: true })).toBe('pendiente_aut2');
     expect(estatusAlEnviar({ esAut1DeLaArea: false, areaParticipa: false })).toBe('pendiente_aut2');
+    // El Aut. 2 autoriza lo que captura (cualquier área, incluida la que no participa); el Aut. 1 y RH no
+    expect(estatusAlEnviar({ esAut1DeLaArea: false, areaParticipa: true, esAut2: true })).toBe('autorizada');
+    expect(estatusAlEnviar({ esAut1DeLaArea: true, areaParticipa: true, esAut2: true })).toBe('autorizada');
+    expect(estatusAlEnviar({ esAut1DeLaArea: false, areaParticipa: false, esAut2: true })).toBe('autorizada');
+    expect(estatusAlEnviar({ esAut1DeLaArea: true, areaParticipa: true, esAut2: false })).toBe('pendiente_aut2');
+    expect(COMENTARIO_AUT2_PROPIA).toBe('Capturada y autorizada por Aut. 2');
   });
   it('nivel en texto y pestañas de Mis solicitudes', () => {
     expect(nivelEnTexto('pendiente_aut1')).toBe('Autorización 1');

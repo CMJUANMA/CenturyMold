@@ -125,6 +125,29 @@ export function indicadoresRH(planta, ahora = new Date()) {
   };
 }
 
+/** Cada cuántos días se recuerda al admin descargar el "Respaldo completo (JSON)" (mientras no haya respaldos programados) */
+export const DIAS_RESPALDO_SEMANAL = 7;
+
+/**
+ * ¿Hay que recordar el respaldo? `ultimo`: fecha del último "Respaldo completo (JSON)" de la bitácora (Date, Timestamp o ms), null si nunca se hizo
+ * y undefined si no se pudo leer (entonces no se molesta). Es verdad si ya pasaron MÁS de 7 días.
+ */
+export function respaldoVencido(ultimo, ahora = new Date(), dias = DIAS_RESPALDO_SEMANAL) {
+  if (ultimo === undefined) return false;
+  if (ultimo === null) return true;
+  const t = aFecha(ultimo)?.getTime();
+  if (!t) return true;
+  return ahora.getTime() - t > dias * 86400000;
+}
+
+/** "Último respaldo: hace 9 días" / "Aún no hay un respaldo registrado" */
+export function textoUltimoRespaldo(ultimo, ahora = new Date()) {
+  const t = ultimo == null ? 0 : (aFecha(ultimo)?.getTime() ?? 0);
+  if (!t) return 'Aún no hay un respaldo completo registrado.';
+  const d = Math.floor(Math.max(0, ahora.getTime() - t) / 86400000);
+  return `El último respaldo completo fue ${d === 0 ? 'hoy' : `hace ${d} ${d === 1 ? 'día' : 'días'}`}.`;
+}
+
 /** Tiempos extra autorizados (o confirmados) de hoy a 7 días, el más próximo primero */
 export function proximos7Dias(planta, ahora = new Date(), max = 10) {
   const hoy = iso(ahora);

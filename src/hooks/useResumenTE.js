@@ -20,7 +20,7 @@ export function useResumenTE() {
   const uid = useAuth().usuario?.uid ?? null;
   const { esRH, esAut2, areasAut1, areasSolicitante, cargando: cargandoAcc } = useAccesos();
   const claveAreas = [...areasAut1].sort().join(',');
-  const pidePropias = esRH || areasSolicitante.length > 0 || areasAut1.length > 0;
+  const pidePropias = esRH || esAut2 || areasSolicitante.length > 0 || areasAut1.length > 0;
   const pidePlanta = esRH || esAut2;
   const clave = `${uid}|${pidePropias}|${pidePlanta}|${claveAreas}`;
   const [estado, setEstado] = useState({ clave: null, fuentes: {}, error: null });

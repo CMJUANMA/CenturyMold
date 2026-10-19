@@ -28,7 +28,7 @@ export function useAvisarTE() {
   return {
     /** Después de enviar o reenviar: a Aut. 1, o a Aut. 2 si salta el nivel 1 */
     envio: useCallback(async ({ folio, estatus, areaId, reenviada }) => {
-      const destinatarios = await quien(nivelPendiente(estatus) ?? 1, areaId);
+      const destinatarios = estatus === 'autorizada' ? [] : await quien(nivelPendiente(estatus) ?? 1, areaId);
       mostrar(avisoEnvio({ folio, estatus, reenviada, destinatarios, opciones: opciones() }));
     }, [quien, mostrar, opciones]),
     /** Después de autorizar una solicitud */

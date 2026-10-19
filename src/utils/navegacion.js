@@ -16,7 +16,7 @@ export function itemsMenuPorRol({ esAut2, areasAut1, areasSolicitante, transport
   const esAut1 = areasAut1.length > 0;
   const esSolicitante = areasSolicitante.length > 0;
   const items = [{ id: 'inicio', path: RUTAS.inicio, label: 'Inicio', icono: 'Home', end: true }];
-  if (esSolicitante || esAut1) {
+  if (esSolicitante || esAut1 || esAut2) {
     items.push({ id: 'solicitar', path: RUTAS.teNueva, label: 'Solicitar tiempo extra', icono: 'FilePlus' });
     items.push({ id: 'mis', path: RUTAS.teMisSolicitudes, label: 'Mis solicitudes', icono: 'ClipboardList' });
   }

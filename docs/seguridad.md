@@ -21,7 +21,7 @@ Estado: ✅ corregido y probado · ⏳ pendiente (Blaze o decisión) · ℹ️ i
 | S-04 | **Medio** | Solicitudes de tiempo extra sin tipos ni topes: documentos enormes, `resumen` con cifras absurdas, empleados con campos de cualquier tipo | ✅ |
 | S-05 | **Medio** | RH podía cambiar la nómina de un usuario (y heredar los roles de otra persona); dos usuarios pueden compartir nómina | ✅ cambio de nómina · ⏳ duplicados |
 | S-06 | **Medio** | Sin encabezados de seguridad (CSP, anti‑clickjacking, HSTS, etc.) | ✅ |
-| S-07 | **Medio** | Sin cierre de sesión por inactividad (equipos compartidos) | ✅ 15 min |
+| S-07 | **Medio** | Sin cierre de sesión por inactividad (equipos compartidos) | ✅ 30 min, guarda el borrador |
 | S-08 | **Medio** | Inyección de fórmulas en los Excel que se descargan | ✅ |
 | S-09 | **Medio** | Altas, cambios de rol y desactivaciones de usuarios y las descargas de Excel no quedaban en la bitácora | ✅ |
 | S-10 | **Medio** | La bitácora y el historial los escribe el navegador: un RH malicioso puede inventar renglones a su nombre | ⏳ Blaze |
@@ -87,8 +87,8 @@ Estado: ✅ corregido y probado · ⏳ pendiente (Blaze o decisión) · ℹ️ i
 - Si algún día se usa App Check o se agrega otro servicio, hay que ampliar la CSP (ver S-11).
 
 ### S-07 · Medio · Inactividad  ✅
-Cierre de sesión tras **15 minutos** sin teclado, mouse o toque, con aviso de 1 minuto («¿Sigues ahí?»). Cuenta entre pestañas (la hora de la última actividad se guarda en `localStorage`) y, si el navegador estuvo cerrado más de 15 minutos,
-al volver pide iniciar sesión. Se cambia en `src/utils/inactividad.js` (`LIMITE_INACTIVIDAD_MS`). 15 minutos es un compromiso para equipos de planta que se comparten; si capturan formularios muy largos sin tocar nada, subirlo a 20–30.
+Cierre de sesión tras **30 minutos** sin teclado, mouse o toque, con aviso de 1 minuto («¿Sigues ahí?»). Si la persona está en el formulario de tiempo extra con cambios sin guardar, **el borrador se guarda solo antes de cerrar** y el login avisa «Guardamos tu borrador antes de cerrar la sesión». Cuenta entre pestañas (la hora de la última actividad se guarda en `localStorage`) y, si el navegador estuvo cerrado más de 30 minutos,
+al volver pide iniciar sesión. Se cambia en `src/utils/inactividad.js` (`LIMITE_INACTIVIDAD_MS`). 30 minutos es el valor acordado para equipos de planta que se comparten; se baja si hace falta.
 
 ### S-08 · Medio · Inyección de fórmulas en Excel  ✅
 Nombres, puestos, motivos y comentarios los capturan usuarios y llegan a los Excel (padrón, resumen de horas extra, consulta, formato del proveedor, accesos, reportes de importación). Un texto que empieza con `=`, `+`, `-` o `@` puede ejecutarse al editar la celda o abrir como CSV
@@ -147,7 +147,7 @@ Datos del padrón: nómina, nombre, puesto, área, turno, departamento, nivel, *
 Minimización: `depto`, `descDepto`, `nivel` y `fechaAlta` los trae el reporte de nómina pero la app casi no los usa; se podrían dejar de guardar. Recomendación: decidir después del piloto cuáles se quedan.
 
 ### S-23 · Info · tope de 1000 expresiones
-Firestore evalúa como máximo 1000 expresiones por petición. Las reglas de tiempo extra están cerca (la ruta más pesada, «Aut. 1 envía su solicitud», deja un margen de unas 60–120). Ya se compactó lo posible; **al agregar reglas nuevas a esas transiciones hay que volver a correr `npm run test:rules`**, que cubre cada transición.
+Firestore evalúa como máximo 1000 expresiones por petición. Las reglas de tiempo extra están cerca (la ruta más pesada, «Aut. 1 envía su solicitud», deja un margen de unas 70–95 expresiones; la Aut. 2 que se autoriza lo suyo, unas 120–140). Ya se compactó lo posible; **al agregar reglas nuevas a esas transiciones hay que volver a correr `npm run test:rules`**, que cubre cada transición.
 
 ### S-24 · Info · Secretos
 - Búsqueda en **todo el historial** (39 commits, un autor): no hay claves de servicio, tokens, llaves privadas ni contraseñas reales; `.env` está en `.gitignore` y nunca se versionó; no hay `.pem`, `serviceAccount*` ni `credentials.json`.
@@ -214,6 +214,8 @@ Los nombres pueden variar un poco según la versión de la consola (en inglés).
 
 ## Pendientes (Blaze o decisión), costo y recomendación
 
+El plan detallado para Blaze (funciones, pasos en consola, costos y orden) está en **`docs/blaze.md`**. Blaze no se activa hasta terminar el piloto; el Inicio del admin recuerda el respaldo semanal («Descarga el respaldo semanal» si el último «Respaldo completo (JSON)» tiene más de 7 días).
+
 El plan **Blaze** es de pago por uso con las mismas cuotas gratuitas del plan Spark (Firestore, Authentication y Hosting siguen gratis hasta sus topes) y pide una tarjeta. Para esta planta (decenas o pocos cientos de usuarios) las funciones y las copias
 cuestan **centavos a unos pocos dólares al mes** (estimación; confírmala en la calculadora de precios de Firebase y pon una **alerta de presupuesto** de, por ejemplo, 5 USD).
 
@@ -228,8 +230,7 @@ cuestan **centavos a unos pocos dólares al mes** (estimación; confírmala en l
 | P-7 | **Activar App Check** (pasos arriba) | Decisión tuya + reCAPTCHA (gratis) | 0 | Media: hazlo después de la primera semana, con la gráfica de verificadas al ~100 %. |
 | P-8 | **Cambiar `exceljs`** por otra librería o por CSV | Decisión | trabajo | Baja (S-16): después del piloto. |
 | P-9 | **Minimizar datos del padrón** (`depto`, `descDepto`, `nivel`, `fechaAlta`) | Decisión | trabajo | Baja (S-22). |
-| P-10 | Tiempo de inactividad (hoy 15 min) y persistencia de la sesión | Decisión | 0 | Ajustar según lo que vean en planta. |
-| P-11 | Que un Aut. 2 sin RH pueda capturar en Administrativo (ver `docs/permisos.md`) | Decisión | 0 | A tu criterio. |
+| P-10 | Tiempo de inactividad (hoy 30 min) y persistencia de la sesión | Decisión | 0 | Ajustar según lo que vean en planta. |
 
 ## Cómo repetir la auditoría
 

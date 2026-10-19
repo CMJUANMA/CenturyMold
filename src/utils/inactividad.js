@@ -3,8 +3,8 @@
  * La última actividad se guarda también entre pestañas, para que una pestaña olvidada no cierre la sesión de quien trabaja en otra.
  */
 
-/** 15 minutos sin tocar el teclado, el mouse o la pantalla; 1 minuto antes se avisa y se puede seguir */
-export const LIMITE_INACTIVIDAD_MS = 15 * 60 * 1000;
+/** 30 minutos sin tocar el teclado, el mouse o la pantalla; 1 minuto antes se avisa y se puede seguir */
+export const LIMITE_INACTIVIDAD_MS = 30 * 60 * 1000;
 export const AVISO_INACTIVIDAD_MS = 60 * 1000;
 export const CLAVE_ULTIMA_ACTIVIDAD = 'cm_ultima_actividad';
 

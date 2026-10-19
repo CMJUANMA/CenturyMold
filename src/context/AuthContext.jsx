@@ -23,6 +23,7 @@ import {
 import { doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { AuthContext } from './authStore';
+import { mensajeCierreInactividad } from '../utils/guardadoAutomatico';
 
 const MSG_DESACTIVADO = 'Tu usuario fue desactivado. Contacta al área de Sistemas o, en su caso, a Recursos Humanos.';
 const MSG_INACTIVIDAD = 'Tu sesión se cerró por inactividad. Vuelve a iniciar sesión.';
@@ -134,9 +135,9 @@ export function AuthProvider({ children }) {
   }, []);
 
   // ── Cierre por inactividad (equipos compartidos): igual que cerrar sesión, con el aviso en el login
-  const cerrarPorInactividad = useCallback(async () => {
+  const cerrarPorInactividad = useCallback(async ({ borradorGuardado = false } = {}) => {
     ultimoPassword.current = '';
-    setMensajeSesion(MSG_INACTIVIDAD);
+    setMensajeSesion(mensajeCierreInactividad(MSG_INACTIVIDAD, borradorGuardado));
     await signOut(auth);
   }, []);
 

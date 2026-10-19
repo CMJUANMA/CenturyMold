@@ -3,7 +3,9 @@
  *
  * Todo nace como BORRADOR (solo lo ve su creador): "Guardar borrador" escribe la solicitud y los empleados en lotes de 10 con barra
  * de progreso y se puede salir y continuar. "Enviar a autorización" valida, pide confirmación con el resumen, asigna el FOLIO (contador en
- * transacción) y pasa a pendiente_aut1, o a pendiente_aut2 si quien captura es Aut. 1 vigente de esa área.
+ * transacción) y pasa a pendiente_aut1, o a pendiente_aut2 si quien captura es Aut. 1 vigente de esa área. Si quien captura es Aut. 2 vigente, queda
+ * autorizada al enviarla (firma de nivel 2 propia) y pasa directo a "Por enviar al proveedor".
+ * Si la sesión se cierra por inactividad con cambios sin guardar, el borrador se guarda solo antes de salir (utils/guardadoAutomatico.js).
  *
  * Tipo: "Turno extra / día extra" (el empleado viene a la planta) o "Extensión de turno" (ya está en la planta: el tiempo extra empieza al
  * terminar su turno normal y solo lleva transporte de salida). Rutas: se cuentan las rutas distintas; con más de una se exige justificarlo.
@@ -32,6 +34,7 @@ import Insignia from '../../components/ui/Insignia';
 import { Tarjeta } from '../../components/ui/Tarjeta';
 import { esActivo, rutaVigente } from '../../utils/activo';
 import { ymd } from '../../utils/fechas';
+import { registrarGuardador } from '../../utils/guardadoAutomatico';
 import {
   HORAS_ENTRADA_TE, HORAS_SALIDA_TE, MIN_COMENTARIO_TE, MIN_JUSTIFICACION_RUTAS, MAX_MOTIVO_OTRO, MOTIVO_OTRO, MOTIVOS_TE, TIPOS_TE, TIPOS_TE_INFO, aplicarA, conTransporte, datosTE,
   empleadoDesdePadron, estatusAlEnviar, finDeTurno, normalizarTipo, nuevoIdBorrador, problemasDeEnvio, quienDevolvio, resumenRutas, resumenTE, textoRutas,
@@ -92,6 +95,12 @@ export default function EditorTE() {
   const areaActual = areaId || (areasCaptura.length === 1 ? areasCaptura[0].id : '');
   const area = areas.find(a => a.id === areaActual);
   const esAut1DeLaArea = accesos.areasAut1.includes(areaActual);
+  // Un Aut. 2 vigente autoriza lo que captura (es el nivel más alto): su solicitud queda autorizada al enviarla
+  const esAut2 = !!accesos.esAut2;
+
+  // Cambios sin guardar de la cabecera (fecha, motivo, comentario…): los empleados se siguen aparte (sucios/eliminados)
+  const firmaCabecera = [areaActual, fechaTE, tipo, motivo, motivoOtro, comentario, justificacionRutas].join('\u0001');
+  const firmaGuardada = useRef(null);
 
   // Abrir un borrador o una devuelta existente
   useEffect(() => {
@@ -109,6 +118,7 @@ export default function EditorTE() {
       setTipo(normalizarTipo(t.tipo)); setJustificacionRutas(t.justificacionRutas ?? '');
       setEmpleados(t.empleados);
       enServidor.current = new Set(t.empleados.map(e => e.nomina));
+      firmaGuardada.current = [t.areaId, t.fechaTE ?? '', normalizarTipo(t.tipo), t.motivo ?? '', t.motivoOtro ?? '', t.comentario ?? '', t.justificacionRutas ?? ''].join('\u0001');
       setCargandoDoc(false);
     }).catch(err => { if (vigente) { toast.error('No se pudo abrir la solicitud: ' + err.message); navigate('/tiempo-extra/mis-solicitudes', { replace: true }); } });
     return () => { vigente = false; };
@@ -230,10 +240,26 @@ export default function EditorTE() {
       onProgreso: (hechos, total) => setTrabajo({ texto, hechos, total }),
     });
     enServidor.current = new Set(empleados.map(e => e.nomina));
+    firmaGuardada.current = firmaCabecera;
     setSucios(new Set()); setEliminados(new Set());
     setServidor(s => ({ ...(s ?? {}), existe: true, estatus: s?.estatus ?? 'borrador', folio: s?.folio ?? null }));
     await recordarRutas();
   };
+
+  // Cierre por inactividad: si hay cambios sin guardar, se guarda el borrador antes de cerrar la sesión (hace falta área y fecha: sin ellas
+  // las reglas no admiten el borrador). La función registrada siempre usa lo último que ve la persona.
+  const guardarAuto = async () => {
+    const cabeceraCambiada = firmaGuardada.current === null
+      ? [fechaTE, motivo, motivoOtro, comentario, justificacionRutas].some(v => String(v).trim())
+      : firmaCabecera !== firmaGuardada.current;
+    const hayCambios = sucios.size > 0 || eliminados.size > 0 || cabeceraCambiada || (!existe && empleados.length > 0);
+    if (ocupado || cargandoDoc || !hayCambios || !areaActual || !fechaTE) return false;
+    await guardar('Guardando borrador');
+    return true;
+  };
+  const guardarAutoRef = useRef(guardarAuto);
+  useEffect(() => { guardarAutoRef.current = guardarAuto; });
+  useEffect(() => registrarGuardador(() => guardarAutoRef.current()), []);
 
   const guardarBorradorClick = async () => {
     if (!areaActual) { toast.warning('Elige el área.'); return; }
@@ -249,13 +275,14 @@ export default function EditorTE() {
   const enviarClick = async () => {
     setIntentoEnvio(true);
     if (errores.length) { toast.error(`Faltan ${errores.length} cosas por corregir antes de enviar.`); document.getElementById('problemas-te')?.scrollIntoView({ behavior: 'smooth' }); return; }
-    const estatus = estatusAlEnviar({ esAut1DeLaArea, areaParticipa: area?.participaTE !== false });
-    const destino = estatus === 'pendiente_aut2' ? 'Autorización 2' : 'Autorización 1';
+    const estatus = estatusAlEnviar({ esAut1DeLaArea, areaParticipa: area?.participaTE !== false, esAut2 });
+    const destino = estatus === 'autorizada' ? 'Por enviar al proveedor' : estatus === 'pendiente_aut2' ? 'Autorización 2' : 'Autorización 1';
     const ok = await confirmar({
       titulo: esDevuelta ? 'Reenviar a autorización' : 'Enviar a autorización',
       mensaje: `${resumen.totalEmpleados} empleados · ${resumen.totalHoras} h en total · ${resumen.totalTransporte} con transporte · ${resumen.totalAlimentos} con alimentos`
         + `${infoRutas.rutasDistintas ? ` · ${infoRutas.rutasDistintas} ${infoRutas.rutasDistintas === 1 ? 'ruta' : 'rutas'}` : ''}. `
-        + `Va a ${destino}. ${esDevuelta ? 'Vuelve a empezar su autorización.' : 'Se le asignará su folio.'} El transporte se solicitará automáticamente a RH al quedar autorizada.`,
+        + `Va a ${destino}. ${esDevuelta ? 'Vuelve a empezar su autorización.' : 'Se le asignará su folio.'} El transporte se solicitará automáticamente a RH al quedar autorizada.`
+        + (esAut2 ? ' Como eres Autorización 2, al enviarla quedará autorizada.' : ''),
       textoConfirmar: esDevuelta ? 'Reenviar' : 'Enviar',
     });
     if (!ok) return;
@@ -298,7 +325,7 @@ export default function EditorTE() {
       <EncabezadoPagina
         antetitulo="Tiempo extra"
         titulo={esDevuelta ? `Corregir ${servidor.folio ?? 'solicitud devuelta'}` : existe ? 'Continuar borrador' : 'Solicitar tiempo extra'}
-        descripcion={<>Área: <b className="font-medium text-[var(--text-main)]">{nombreArea || '—'}</b>{esAut1DeLaArea ? ' · Al enviarla pasa directo a Autorización 2 (eres su Aut. 1).' : ''}</>}
+        descripcion={<>Área: <b className="font-medium text-[var(--text-main)]">{nombreArea || '—'}</b>{esAut2 ? ' · Como eres Autorización 2, al enviarla quedará autorizada.' : esAut1DeLaArea ? ' · Al enviarla pasa directo a Autorización 2 (eres su Aut. 1).' : ''}</>}
         ayuda={<AyudaPantalla id="solicitar" />}
       />
 

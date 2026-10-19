@@ -248,8 +248,15 @@ export function aplicarA(empleados, seleccion, cambios) {
   });
 }
 
-/** Estatus con el que se envía: Aut. 1 vigente de esa área (o área sin participaTE) va directo a nivel 2 */
-export const estatusAlEnviar = ({ esAut1DeLaArea, areaParticipa }) => (!areaParticipa || esAut1DeLaArea ? 'pendiente_aut2' : 'pendiente_aut1');
+/**
+ * Estatus con el que se envía: un Aut. 2 vigente autoriza lo que él mismo captura (es el nivel más alto) y queda 'autorizada' con su firma de
+ * nivel 2; el Aut. 1 vigente de esa área (o un área sin participaTE) va directo a nivel 2 (el Aut. 1 no autoriza lo suyo); el resto, a nivel 1.
+ */
+export const estatusAlEnviar = ({ esAut1DeLaArea, areaParticipa, esAut2 = false }) =>
+  (esAut2 ? 'autorizada' : !areaParticipa || esAut1DeLaArea ? 'pendiente_aut2' : 'pendiente_aut1');
+
+/** Comentario de la firma de nivel 2 cuando un Aut. 2 captura y envía su propia solicitud (las reglas lo exigen tal cual) */
+export const COMENTARIO_AUT2_PROPIA = 'Capturada y autorizada por Aut. 2';
 
 /** Nivel en el que va una solicitud, en texto */
 export function nivelEnTexto(estatus) {
