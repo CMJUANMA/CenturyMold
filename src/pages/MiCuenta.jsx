@@ -41,9 +41,9 @@ function Clave(props) {
   );
 }
 
-function Seccion({ titulo, descripcion, accion, className = '', children }) {
+function Seccion({ titulo, descripcion, accion, children }) {
   return (
-    <section className={`rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5 ${className}`}>
+    <section className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-[var(--text-main)]">{titulo}</h2>
@@ -127,62 +127,58 @@ export default function MiCuenta() {
   const fila = 'grid grid-cols-1 gap-1 py-3 sm:grid-cols-3';
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-2xl space-y-8">
       <EncabezadoPagina titulo="Mi cuenta" descripcion="Tus datos, cómo ver el sistema y tu contraseña." />
 
-      {/* Una columna en celular y laptop chica (con el ancho de antes); desde 1280 px, dos: datos y seguridad a la izquierda, cómo ver el sistema a la derecha */}
-      <div className="grid max-w-2xl gap-8 xl:max-w-none xl:grid-cols-2 xl:items-start">
+      {/* ── Datos de la cuenta ───────────────────────────────────────────── */}
+      <Seccion titulo={usuario.nombre} descripcion={ROL_LABELS[usuario.rol] ?? usuario.rol}>
+        <dl className="mt-4 divide-y divide-[var(--border-subtle)] border-t border-[var(--border-subtle)] text-sm">
+          <div className={fila}>
+            <dt className="text-[var(--text-secondary)]">Número de nómina</dt>
+            <dd className="font-mono text-[var(--text-main)] sm:col-span-2">{usuario.nomina ?? 'Sin asignar'}</dd>
+          </div>
+          <div className={fila}>
+            <dt className="text-[var(--text-secondary)]">Rol</dt>
+            <dd className="text-[var(--text-main)] sm:col-span-2">{ROL_LABELS[usuario.rol] ?? usuario.rol}</dd>
+          </div>
+          <div className={fila}>
+            <dt className="text-[var(--text-secondary)]">Estado de la cuenta</dt>
+            <dd className="sm:col-span-2"><Insignia tono="exito">Activa</Insignia></dd>
+          </div>
+        </dl>
+      </Seccion>
 
-        {/* ── Datos de la cuenta ───────────────────────────────────────────── */}
-        <Seccion titulo={usuario.nombre} descripcion={ROL_LABELS[usuario.rol] ?? usuario.rol} className="xl:col-start-1">
-          <dl className="mt-4 divide-y divide-[var(--border-subtle)] border-t border-[var(--border-subtle)] text-sm">
-            <div className={fila}>
-              <dt className="text-[var(--text-secondary)]">Número de nómina</dt>
-              <dd className="font-mono text-[var(--text-main)] sm:col-span-2">{usuario.nomina ?? 'Sin asignar'}</dd>
+      {/* ── Cómo ver el sistema: ayudas, letra y tema ───────────────────── */}
+      <PreferenciasPanel />
+
+      {/* ── Seguridad y cambio de contraseña ─────────────────────────────── */}
+      <Seccion titulo="Seguridad de acceso" descripcion="Cambia tu contraseña de vez en cuando para proteger tu cuenta."
+        accion={!mostrarFormulario && (
+          <Boton id="btn-abrir-cambio-password" onClick={() => { setMensajeExito(''); setErrorGeneral(''); setMostrarFormulario(true); }}>Cambiar mi contraseña</Boton>
+        )}>
+        {mensajeExito && !mostrarFormulario && <Aviso tono="exito" className="mt-4">{mensajeExito}</Aviso>}
+
+        {mostrarFormulario && (
+          <form onSubmit={handleCambiarPassword} noValidate className="mt-5 space-y-4">
+            {errorGeneral && <Aviso tono="error">{errorGeneral}</Aviso>}
+
+            <Campo etiqueta="Contraseña actual" error={erroresCampos.actual}>
+              <Clave id="pass-actual" autoComplete="current-password" required value={passActual} onChange={(e) => setPassActual(e.target.value)} />
+            </Campo>
+            <Campo etiqueta="Nueva contraseña" ayuda={AYUDA_PASSWORD} error={erroresCampos.nueva}>
+              <Clave id="pass-nueva" autoComplete="new-password" required value={passNueva} onChange={(e) => setPassNueva(e.target.value)} />
+            </Campo>
+            <Campo etiqueta="Confirmar nueva contraseña" error={erroresCampos.confirm}>
+              <Clave id="pass-confirmar" autoComplete="new-password" required value={passConfirm} onChange={(e) => setPassConfirm(e.target.value)} />
+            </Campo>
+
+            <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+              <Boton id="btn-cancelar-password" onClick={() => { setMostrarFormulario(false); resetFormulario(); }}>Cancelar</Boton>
+              <Boton type="submit" id="btn-guardar-password" variante="primario" estado={enviando ? 'cargando' : undefined}>{enviando ? 'Guardando…' : 'Guardar nueva contraseña'}</Boton>
             </div>
-            <div className={fila}>
-              <dt className="text-[var(--text-secondary)]">Rol</dt>
-              <dd className="text-[var(--text-main)] sm:col-span-2">{ROL_LABELS[usuario.rol] ?? usuario.rol}</dd>
-            </div>
-            <div className={fila}>
-              <dt className="text-[var(--text-secondary)]">Estado de la cuenta</dt>
-              <dd className="sm:col-span-2"><Insignia tono="exito">Activa</Insignia></dd>
-            </div>
-          </dl>
-        </Seccion>
-
-        {/* ── Cómo ver el sistema: ayudas, letra y tema ───────────────────── */}
-        <div className="xl:col-start-2 xl:row-span-2 xl:row-start-1"><PreferenciasPanel /></div>
-
-        {/* ── Seguridad y cambio de contraseña ─────────────────────────────── */}
-        <Seccion titulo="Seguridad de acceso" descripcion="Cambia tu contraseña de vez en cuando para proteger tu cuenta." className="xl:col-start-1"
-          accion={!mostrarFormulario && (
-            <Boton id="btn-abrir-cambio-password" onClick={() => { setMensajeExito(''); setErrorGeneral(''); setMostrarFormulario(true); }}>Cambiar mi contraseña</Boton>
-          )}>
-          {mensajeExito && !mostrarFormulario && <Aviso tono="exito" className="mt-4">{mensajeExito}</Aviso>}
-
-          {mostrarFormulario && (
-            <form onSubmit={handleCambiarPassword} noValidate className="mt-5 space-y-4">
-              {errorGeneral && <Aviso tono="error">{errorGeneral}</Aviso>}
-
-              <Campo etiqueta="Contraseña actual" error={erroresCampos.actual}>
-                <Clave id="pass-actual" autoComplete="current-password" required value={passActual} onChange={(e) => setPassActual(e.target.value)} />
-              </Campo>
-              <Campo etiqueta="Nueva contraseña" ayuda={AYUDA_PASSWORD} error={erroresCampos.nueva}>
-                <Clave id="pass-nueva" autoComplete="new-password" required value={passNueva} onChange={(e) => setPassNueva(e.target.value)} />
-              </Campo>
-              <Campo etiqueta="Confirmar nueva contraseña" error={erroresCampos.confirm}>
-                <Clave id="pass-confirmar" autoComplete="new-password" required value={passConfirm} onChange={(e) => setPassConfirm(e.target.value)} />
-              </Campo>
-
-              <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
-                <Boton id="btn-cancelar-password" onClick={() => { setMostrarFormulario(false); resetFormulario(); }}>Cancelar</Boton>
-                <Boton type="submit" id="btn-guardar-password" variante="primario" estado={enviando ? 'cargando' : undefined}>{enviando ? 'Guardando…' : 'Guardar nueva contraseña'}</Boton>
-              </div>
-            </form>
-          )}
-        </Seccion>
-      </div>
+          </form>
+        )}
+      </Seccion>
     </div>
   );
 }
