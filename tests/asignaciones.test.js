@@ -112,6 +112,20 @@ describe('organigrama', () => {
     expect(org.aut2.map(t => t.nomina)).toEqual(['11']);
     expect(org.columnas.map(c => c.area.id)).toEqual(['produccion', 'moldes']);
   });
+  it('varios Aut. 2 vigentes salen todos, ordenados por nivel del puesto y luego por nombre', () => {
+    const emps = new Map([
+      ['11', { nombre: 'MALDONADO SALVADOR', puesto: 'GERENTE', puestoId: 'gerente' }],
+      ['12', { nombre: 'ESPINOSA MARCO', puesto: 'DIRECTOR', puestoId: 'director' }],
+      ['13', { nombre: 'ARIAS BEATRIZ', puesto: 'GERENTE', puestoId: 'gerente' }],
+      ['14', { nombre: 'ZAMORA PEDRO', puesto: 'ANALISTA', puestoId: 'analista' }],
+    ]);
+    const puestos = [{ id: 'director', nivelJerarquico: 1 }, { id: 'gerente', nivelJerarquico: 2 }, { id: 'analista' }];
+    const varios = construirOrganigrama({
+      asignaciones: [asig('11', 'aut2', null), asig('12', 'aut2', null), asig('13', 'aut2', null), asig('14', 'aut2', null), asig('15', 'aut2', null, { activo: false })],
+      areas, empleados: emps, puestos, ahora: HOY,
+    });
+    expect(varios.aut2.map(t => t.nombre)).toEqual(['ESPINOSA MARCO', 'ARIAS BEATRIZ', 'MALDONADO SALVADOR', 'ZAMORA PEDRO']);
+  });
   it('cada tarjeta trae nombre, puesto y nómina del padrón', () => {
     const jefe = org.columnas[0].aut1[0];
     expect(jefe).toMatchObject({ nombre: 'JEFE PRODUCCION', puesto: 'PRODUCTION SUPERINTENDENT', nomina: '50610', rol: 'aut1', sinUsuario: false });

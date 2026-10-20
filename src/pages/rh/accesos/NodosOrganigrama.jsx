@@ -1,7 +1,7 @@
 /**
  * NodosOrganigrama.jsx — Piezas visuales del organigrama: la jerarquía se ve por posición, tamaño y líneas, no solo por color.
  * Fondos neutros (superficie del tema) con un acento por nivel: borde de color e ícono.
- *   Aut. 2: uno debajo de otro, el de puesto más alto (nivelJerarquico menor) con la tarjeta más grande · Aut. 1: la más grande del área ·
+ *   Aut. 2: uno al lado del otro, todos con la misma tarjeta (sin jerarquía entre ellos) · Aut. 1: la más grande del área ·
  *   Solicitante: fila compacta. Las personas de un nivel superior al de quien mira se dibujan bloqueadas (sin clic).
  */
 import { BadgeCheck, Clock, Plus } from 'lucide-react';
@@ -50,7 +50,7 @@ const claseEstado = ({ resaltado, atenuado, resaltarSin, t }) => [
 ].join(' ');
 
 /**
- * Tarjeta de Aut. 2 o de Aut. 1. `tamano`: 'grande' (la del puesto más alto) o 'normal'.
+ * Tarjeta de Aut. 2 o de Aut. 1. `tamano`: 'grande' o 'normal'.
  * `bloqueada` (la persona es de un nivel superior al de quien mira): sin clic ni panel, solo nombre, puesto y el nivel.
  */
 export function TarjetaPersona({ t, formato, grande = false, tamano = grande ? 'grande' : 'normal', estado, onAbrir, bloqueada = false }) {

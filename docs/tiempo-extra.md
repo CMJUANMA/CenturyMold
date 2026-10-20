@@ -65,7 +65,7 @@ asignadoPor { uid, nombre }, fechaAsignacion (serverTimestamp)
   sugiere primero a los empleados de esa área (por `areaId`), ordenados por puesto. Si la persona no tiene usuario:
   **Sin usuario** y, para RH/admin, **Crear usuario**.
 - **Organigrama** (todos; solo lectura salvo para quien asigna): generado **solo** con asignaciones vigentes, con la forma
-  de la hoja *Niveles de autorización*: Aut. 2 arriba, una columna por área con participaTE con su Aut. 1 (amarillo) y sus
+  de la hoja *Niveles de autorización*: todos los Aut. 2 vigentes arriba, al mismo nivel y uno al lado del otro (orden: nivel del puesto y luego nombre; sin jerarquía entre ellos), una columna por área con participaTE con su Aut. 1 (amarillo) y sus
   solicitantes (rosa). Quien asigna ve *+ Aut. 1* / *+ Solicitante* por columna y puede revocar desde la tarjeta. Un área sin
   Aut. 1 vigente muestra "Sin Autorización 1: las solicitudes de esta área no podrán avanzar".
 

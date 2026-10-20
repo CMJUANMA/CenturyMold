@@ -1,13 +1,14 @@
 /**
  * TabOrganigrama.jsx — Organigrama de autorización, generado SOLO con las asignaciones vigentes.
- * Árbol de arriba a abajo: Nivel 2 · Planta (Aut. 2 lado a lado) → una rama por área con participaTE → su Aut. 1 (la tarjeta
+ * Árbol de arriba a abajo: Nivel 2 · Planta (todos los Aut. 2 vigentes en una fila, al mismo nivel) → una rama por área con participaTE → su Aut. 1 (la tarjeta
  * más grande) → lista compacta de solicitantes. La jerarquía se ve por posición, tamaño y líneas; los colores son solo un acento.
  * Escritorio: árbol completo con riel de niveles; pantallas medianas: scroll horizontal; celular: lista vertical plegable.
  * Clic en una persona abre su panel lateral; quien puede asignar ve los botones "+" y, en el panel, Revocar y Extender.
  * Privacidad: las personas de un nivel SUPERIOR al de quien mira no se abren (solo nombre, puesto y nivel); las de su nivel o inferiores
  * abren un panel básico, y el completo (quién asignó, cuándo, motivo, historial) es de RH, admin y, hacia abajo, de la Aut. 2.
  * Orden: dentro de cada nivel, por nivelJerarquico del puesto (1 = el más alto; sin nivel, al final) y, si empatan, por nombre.
- * Aut. 2: uno debajo de otro; el de puesto más alto, arriba y con la tarjeta un poco más grande.
+ * Aut. 2: uno al lado del otro, todos con la misma tarjeta grande: no hay jerarquía entre ellos (el orden, de izquierda a derecha, es solo por
+ * nivel del puesto y luego por nombre). Los Aut. 1 cuelgan de todos ellos por igual.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { BadgeCheck, ChevronDown, Search, ShieldCheck, User } from 'lucide-react';
@@ -93,11 +94,13 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, puestos
       {org.aut2.length === 0 ? (
         <p className="px-4 py-2 text-center text-xs text-[var(--text-secondary)]">Nadie tiene Autorización 2 vigente (solo RH puede firmar este nivel).</p>
       ) : (
-        <div className="mx-auto flex w-80 max-w-full flex-col gap-3">
-          {org.aut2.map((t, i) => (
-            <TarjetaPersona key={t.id} t={t} formato={formato} tamano={i === 0 ? 'grande' : 'normal'} estado={estadoDe(t)} onAbrir={abrir} bloqueada={bloqueada(t)} />
+        <ul className="flex flex-wrap items-start justify-center gap-3">
+          {org.aut2.map(t => (
+            <li key={t.id} className="w-72 max-w-full">
+              <TarjetaPersona t={t} formato={formato} tamano="grande" estado={estadoDe(t)} onAbrir={abrir} bloqueada={bloqueada(t)} />
+            </li>
           ))}
-        </div>
+        </ul>
       )}
       {puedeAsignarAut2 && <div className="mt-2 flex justify-center"><BotonAgregar onClick={() => asignar(ROL_OP.AUT2)}>Aut. 2</BotonAgregar></div>}
     </section>
