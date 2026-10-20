@@ -27,7 +27,6 @@ export const LOTE_EMPLEADOS = 10;
 /** Bloques de horario de las rutas (24 h) */
 export const HORAS_ENTRADA_TE = ['7:00', '16:00', '19:00', '0:00'];
 export const HORAS_SALIDA_TE = ['16:00', '19:00', '0:00', '7:00'];
-export const TURNOS_NOMINA = ['A', 'B', 'C'];
 
 const minutos = (hora) => {
   const m = /^(\d{1,2}):(\d{2})$/.exec(String(hora ?? '').trim());
@@ -67,9 +66,6 @@ export function salidasPosteriores(inicio) {
   return i < 0 ? [] : SECUENCIA_BLOQUES.slice(i + 1).filter(h => calcularHoras(inicio, h) > 0);
 }
 
-/** Hora en que termina el turno normal de un empleado según la configuración de turnos de nómina ({ A: { entrada, salida }, … }); '' si falta */
-export const finDeTurno = (turnoNomina, turnos = {}) => turnos[String(turnoNomina ?? '').trim().toUpperCase()]?.salida || '';
-
 export const etiquetaBloque = (e) => (e?.horaEntrada && e?.horaSalida ? `${e.horaEntrada} → ${e.horaSalida}` : 'Sin horario');
 
 /** Id de un borrador nuevo (BR- + 12 caracteres): lo piden las reglas; el folio se asigna hasta enviarlo */
@@ -98,14 +94,14 @@ export const conTransporte = (e) => ({ ...e, transporte: llevaTransporte(e) });
 /**
  * Empleado del editor a partir de un registro del padrón. Si el padrón trae ruta completa y vigente, pide confirmarla.
  * Turno extra: transporte de llegada y de salida marcados. Extensión: solo salida, y la hora en que empieza (fin de su turno normal)
- * sale de la configuración de turnos (si falta, se pide a mano).
+ * se elige a mano (el empleado ya no tiene turno fijo en el padrón).
  */
-export function empleadoDesdePadron(emp, ruta, { tipo = TIPOS_TE.TURNO_EXTRA, turnos = {} } = {}) {
+export function empleadoDesdePadron(emp, ruta, { tipo = TIPOS_TE.TURNO_EXTRA } = {}) {
   const completa = !!(ruta?.rutaId && ruta?.comunidadId && ruta?.puntoReunionId);
   const extension = tipo === TIPOS_TE.EXTENSION;
   return {
-    nomina: String(emp.nomina), nombre: emp.nombre ?? '', puesto: emp.puesto ?? '', turnoNomina: emp.turnoNomina ?? '',
-    horaEntrada: extension ? finDeTurno(emp.turnoNomina, turnos) : '', horaSalida: '', alimentos: false,
+    nomina: String(emp.nomina), nombre: emp.nombre ?? '', puesto: emp.puesto ?? '',
+    horaEntrada: '', horaSalida: '', alimentos: false,
     transporteLlegada: !extension, transporteSalida: true, transporte: true,
     rutaId: ruta?.rutaId ?? '', comunidadId: ruta?.comunidadId ?? '', puntoReunionId: ruta?.puntoReunionId ?? '',
     necesitaConfirmar: completa, confirmada: false,
@@ -118,7 +114,7 @@ export function empleadoADoc(e) {
   const transporteSalida = !!(e.transporteSalida ?? e.transporte);
   const transporte = transporteLlegada || transporteSalida;
   return {
-    nombre: e.nombre, puesto: e.puesto ?? '', turnoNomina: e.turnoNomina ?? '', horaEntrada: e.horaEntrada ?? '', horaSalida: e.horaSalida ?? '',
+    nombre: e.nombre, puesto: e.puesto ?? '', horaEntrada: e.horaEntrada ?? '', horaSalida: e.horaSalida ?? '',
     horas: calcularHoras(e.horaEntrada, e.horaSalida), requiereAlimentos: !!e.alimentos, requiereTransporte: transporte,
     transporteLlegada: transporte && transporteLlegada, transporteSalida: transporte && transporteSalida,
     rutaId: transporte ? (e.rutaId ?? '') : '', comunidadId: transporte ? (e.comunidadId ?? '') : '', puntoReunionId: transporte ? (e.puntoReunionId ?? '') : '',
@@ -132,7 +128,7 @@ export function docAEmpleado(nomina, d) {
   const transporteLlegada = d.transporteLlegada ?? antiguo;
   const transporteSalida = d.transporteSalida ?? antiguo;
   return {
-    nomina: String(nomina), nombre: d.nombre ?? '', puesto: d.puesto ?? '', turnoNomina: d.turnoNomina ?? '',
+    nomina: String(nomina), nombre: d.nombre ?? '', puesto: d.puesto ?? '',
     horaEntrada: d.horaEntrada ?? '', horaSalida: d.horaSalida ?? '', alimentos: !!d.requiereAlimentos,
     transporteLlegada, transporteSalida, transporte: transporteLlegada || transporteSalida,
     rutaId: d.rutaId ?? '', comunidadId: d.comunidadId ?? '', puntoReunionId: d.puntoReunionId ?? '', necesitaConfirmar: false, confirmada: true,

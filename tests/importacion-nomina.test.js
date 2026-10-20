@@ -42,7 +42,7 @@ describe('lectura del reporte de nómina', () => {
     expect(filas.every(f => f.formato === 'nomina')).toBe(true);
     const corta = filas.find(f => f.datos.NOMINA === '11');
     expect(corta.datos.NOMBRE).toBe('MALDONADO SALVADOR');
-    expect(corta.extra).toEqual({ depto: '317', descDepto: 'CALIDAD', turnoNomina: 'A', nivel: 'G1', fechaAlta: '2010-03-15' });
+    expect(corta.extra).toEqual({ depto: '317', descDepto: 'CALIDAD', nivel: 'G1', fechaAlta: '2010-03-15' });
     const limpia = filas.find(f => f.datos.NOMINA === '7219');
     expect(limpia.datos.PUESTO).toBe('PRODUCTION OPERATOR');
     expect(limpia.extra.fechaAlta).toBe('2020-01-06');
@@ -111,7 +111,7 @@ describe('comparación del reporte de nómina (área sale del puesto)', () => {
     expect(it.accion).toBe('crear');
     expect(it.datos).toMatchObject({
       nomina: '50001', puesto: 'QUALITY INSPECTOR', puestoId: 'quality-inspector', areaId: 'calidad', areaExcepcion: null,
-      depto: '316', descDepto: 'MOLDEO', turnoNomina: 'C', nivel: 'G2', fechaAlta: '2021-03-15',
+      depto: '316', descDepto: 'MOLDEO', nivel: 'G2', fechaAlta: '2021-03-15',
       rutaId: '', comunidadId: '', puntoReunionId: '',
     });
     expect(it.datos.areaTE).toBeUndefined();

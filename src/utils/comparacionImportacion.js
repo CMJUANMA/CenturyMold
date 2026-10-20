@@ -75,7 +75,7 @@ function resumirPlan(items, bajas, filas, activosPorEntidad) {
  *
  * El área sale SOLO del puesto (o de la excepción del empleado); el departamento es informativo.
  * La importación nunca toca una excepción existente: solo cambia si RH la modificó en `excepciones`.
- * Una celda vacía del archivo NO sobrescribe un dato que el empleado ya tiene (puesto, depto, turno, nivel, alta...).
+ * Una celda vacía del archivo NO sobrescribe un dato que el empleado ya tiene (puesto, depto, nivel, alta...).
  * Las filas con puesto sin resolver u omitido no entran al plan (y nunca se proponen como baja).
  */
 export function compararEmpleados(filas, empleados, {
@@ -151,7 +151,6 @@ export function compararEmpleados(filas, empleados, {
       const campos = [
         ['depto', 'DEPTO', fila.extra.depto],
         ['descDepto', 'DESC DEPTO', fila.extra.descDepto],
-        ['turnoNomina', 'TURNO', fila.extra.turnoNomina],
         ['nivel', 'NIVEL', fila.extra.nivel],
         ['fechaAlta', 'ALTA', fila.extra.fechaAlta],
       ];

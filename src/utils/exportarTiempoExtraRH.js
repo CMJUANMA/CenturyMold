@@ -9,7 +9,7 @@ import { comparar, compararHoras } from './orden.js';
 import { ESTATUS_DESCARGA, INCLUIR_DESCARGA, TEXTO_SENTIDO, calcularHoras, esExtension, etiquetaBloque, firmaTexto, motivoTexto, sentidoDe, textoRuta } from './tiempoExtra.js';
 
 export const ENCABEZADOS_DETALLE_RH = [
-  'Folio', 'Fecha', 'Área', 'Tipo', 'Motivo', 'Nómina', 'Nombre', 'Puesto', 'Turno de nómina', 'Entrada', 'Salida', 'Horas', 'Alimentos', 'Transporte', 'Sentido del transporte', 'Ruta',
+  'Folio', 'Fecha', 'Área', 'Tipo', 'Motivo', 'Nómina', 'Nombre', 'Puesto', 'Entrada', 'Salida', 'Horas', 'Alimentos', 'Transporte', 'Sentido del transporte', 'Ruta',
   'Solicitante', 'Autorización 1', 'Autorización 2', 'Fecha de autorización',
 ];
 export const ENCABEZADOS_HORAS = ['Nómina', 'Nombre', 'Área', 'Puesto', 'Días con tiempo extra', 'Horas totales'];
@@ -46,7 +46,7 @@ export function filasDetalle(solicitudes, { nombresArea, catalogos, nombre = (x)
   for (const t of [...solicitudes].sort(porFechaYFolio)) {
     for (const e of [...(t.empleados ?? [])].sort((a, b) => comparar(a.nombre, b.nombre) || comparar(a.nomina, b.nomina))) {
       filas.push([
-        t.folio ?? '', fmtYMD(t.fechaTE), nombresArea.get(t.areaId) ?? t.areaNombre ?? t.areaId, esExtension(t) ? 'Extensión de turno' : 'Turno extra', motivoTexto(t), String(e.nomina), nombre(e.nombre), e.puesto ?? '', e.turnoNomina ?? '',
+        t.folio ?? '', fmtYMD(t.fechaTE), nombresArea.get(t.areaId) ?? t.areaNombre ?? t.areaId, esExtension(t) ? 'Extensión de turno' : 'Turno extra', motivoTexto(t), String(e.nomina), nombre(e.nombre), e.puesto ?? '',
         e.horaEntrada ?? '', e.horaSalida ?? '', calcularHoras(e.horaEntrada, e.horaSalida), e.alimentos ? 'Sí' : 'No', e.transporte ? 'Sí' : 'No',
         e.transporte ? TEXTO_SENTIDO[sentidoDe(e) || 'ambos'] : '', e.transporte ? textoRuta({ ...e, transporteLlegada: true, transporteSalida: true }, catalogos) : '', nombre(t.creadoPorNombre ?? ''), firmaTexto(t.aut1, nombre), firmaTexto(t.aut2, nombre), fmtFechaHora(t.aut2?.fecha),
       ]);

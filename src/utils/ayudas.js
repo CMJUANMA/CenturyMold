@@ -37,7 +37,6 @@ export const AYUDAS = {
     // Selector de empleados
     'selector.buscar': 'Escribe el nombre o la nómina del empleado.',
     'selector.ruta': 'Muestra solo a los empleados que viajan en esa ruta. Sirve para juntar gente de la misma ruta y evitar rutas de más.',
-    'selector.turno': 'El turno normal de trabajo del empleado (A, B o C).',
     // Por autorizar
     'autorizar.filtros': 'Filtra la lista por área o por fecha del tiempo extra.',
     'autorizar.lista': 'Las solicitudes más antiguas salen primero. Las que tú mismo hiciste no las puedes autorizar.',
@@ -154,8 +153,8 @@ export const AYUDAS = {
       titulo: 'Turnos de nómina',
       pasos: [
         'Captura el horario normal de los turnos A, B y C: a qué hora entran y a qué hora salen.',
-        'Esto sirve para las extensiones de turno: el tiempo extra empieza cuando termina el turno normal del empleado.',
-        'Mientras un turno esté vacío, quien captura una extensión tendrá que escribir la hora de fin de turno a mano.',
+        'Es solo de referencia: ya no se asigna un turno fijo a cada persona.',
+        'En una extensión de turno, quien captura elige a mano la hora en que termina el turno de cada empleado.',
       ],
     },
   },

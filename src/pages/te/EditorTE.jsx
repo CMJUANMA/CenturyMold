@@ -20,7 +20,6 @@ import { useCatalogos } from '../../hooks/useCatalogos';
 import { useConfirmar } from '../../hooks/useConfirmar';
 import { useToast } from '../../hooks/useToast';
 import { useAvisarTE } from '../../hooks/useAvisarTE';
-import { useTurnosNomina } from '../../hooks/useTurnosNomina';
 import Ayuda from '../../components/Ayuda';
 import AyudaPantalla from '../../components/AyudaPantalla';
 import Aviso from '../../components/ui/Aviso';
@@ -37,7 +36,7 @@ import { ymd } from '../../utils/fechas';
 import { registrarGuardador } from '../../utils/guardadoAutomatico';
 import {
   HORAS_ENTRADA_TE, HORAS_SALIDA_TE, MIN_COMENTARIO_TE, MIN_JUSTIFICACION_RUTAS, MAX_MOTIVO_OTRO, MOTIVO_OTRO, MOTIVOS_TE, TIPOS_TE, TIPOS_TE_INFO, aplicarA, conTransporte, datosTE,
-  empleadoDesdePadron, estatusAlEnviar, finDeTurno, normalizarTipo, nuevoIdBorrador, problemasDeEnvio, quienDevolvio, resumenRutas, resumenTE, textoRutas,
+  empleadoDesdePadron, estatusAlEnviar, normalizarTipo, nuevoIdBorrador, problemasDeEnvio, quienDevolvio, resumenRutas, resumenTE, salidasPosteriores, textoRutas,
 } from '../../utils/tiempoExtra';
 import { MAX_PASAJEROS } from '../../utils/solicitudes';
 import {
@@ -53,7 +52,6 @@ export default function EditorTE() {
   const accesos = useAccesos();
   const { areas, cargando: cargandoAreas } = useAreas();
   const { rutas, comunidades, puntos, empleados: padron, cargando: cargandoCat, parchearEmpleados } = useCatalogos();
-  const { turnos, cargando: cargandoTurnos } = useTurnosNomina();
   const confirmar = useConfirmar();
   const toast = useToast();
   const avisar = useAvisarTE();
@@ -157,7 +155,7 @@ export default function EditorTE() {
     const nuevos = lista.filter(e => !yaAgregados.has(String(e.nomina))).slice(0, Math.max(0, MAX_PASAJEROS - empleados.length));
     if (nuevos.length < lista.length) toast.warning(`Se agregaron ${nuevos.length}: máximo ${MAX_PASAJEROS} empleados por solicitud.`);
     const catalogos = { rutas, comunidades, puntos };
-    const filas = nuevos.map(e => empleadoDesdePadron(e, rutaVigente(e, catalogos), { tipo, turnos }));
+    const filas = nuevos.map(e => empleadoDesdePadron(e, rutaVigente(e, catalogos), { tipo }));
     setEmpleados(prev => [...prev, ...filas]);
     setSucios(prev => new Set([...prev, ...filas.map(f => f.nomina)]));
     setEliminados(prev => { const s = new Set(prev); filas.forEach(f => s.delete(f.nomina)); return s; });
@@ -185,8 +183,10 @@ export default function EditorTE() {
   };
   const aplicarHorario = () => {
     if (extension) {
-      if (!bulk.salida) { toast.warning('Elige hasta qué hora se quedan para aplicar.'); return; }
-      aplicarMasivo({ horaSalida: bulk.salida });
+      if (!bulk.entrada && !bulk.salida) { toast.warning('Elige cuándo termina su turno o hasta qué hora se quedan para aplicar.'); return; }
+      if (bulk.entrada && bulk.salida && !salidasPosteriores(bulk.entrada).includes(bulk.salida)) { toast.warning('Se quedan hasta una hora posterior al fin de su turno.'); return; }
+      // Cambiar el fin de turno borra la hora hasta la que se quedan (sus opciones dependen de él)
+      aplicarMasivo({ ...(bulk.entrada ? { horaEntrada: bulk.entrada, horaSalida: '' } : {}), ...(bulk.salida ? { horaSalida: bulk.salida } : {}) });
       return;
     }
     if (!bulk.entrada || !bulk.salida) { toast.warning('Elige la entrada y la salida para aplicar.'); return; }
@@ -209,7 +209,7 @@ export default function EditorTE() {
       });
       if (!ok) return;
       setEmpleados(prev => prev.map(e => conTransporte({
-        ...e, horaEntrada: nuevo === TIPOS_TE.EXTENSION ? finDeTurno(e.turnoNomina, turnos) : '', horaSalida: '',
+        ...e, horaEntrada: '', horaSalida: '',
         transporteLlegada: nuevo !== TIPOS_TE.EXTENSION, transporteSalida: true,
       })));
       setSucios(prev => new Set([...prev, ...empleados.map(e => e.nomina)]));
@@ -313,7 +313,7 @@ export default function EditorTE() {
     catch (err) { toast.error('No se pudo cancelar: ' + err.message); }
   };
 
-  if (accesos.cargando || cargandoAreas || cargandoCat || cargandoDoc || cargandoTurnos) return <EsqueletoPagina />;
+  if (accesos.cargando || cargandoAreas || cargandoCat || cargandoDoc) return <EsqueletoPagina />;
   if (areasCaptura.length === 0 && !idParam) {
     return <EstadoVacio titulo="No tienes un área asignada" texto="Para solicitar tiempo extra necesitas un área asignada. Pide al área de Sistemas o, en su caso, a Recursos Humanos que te la asignen." accion={{ texto: 'Volver al inicio', to: '/' }} />;
   }
@@ -409,11 +409,9 @@ export default function EditorTE() {
           {empleados.length > 0 && (
             <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface-secondary)] p-4" role="group" aria-label="Aplicar a todos o a los seleccionados">
               <span className="w-full text-xs font-medium text-[var(--text-secondary)]">Aplicar a {seleccion.size ? `los ${seleccion.size} seleccionados` : 'todos'}:</span>
-              {!extension && (
-                <Selector aria-label="Entrada para aplicar" value={bulk.entrada} onChange={e => setBulk(b => ({ ...b, entrada: e.target.value }))} className="!w-auto">
-                  <option value="">Entrada…</option>{HORAS_ENTRADA_TE.map(h => <option key={h} value={h}>{h}</option>)}
-                </Selector>
-              )}
+              <Selector aria-label={extension ? 'Fin de turno para aplicar' : 'Entrada para aplicar'} value={bulk.entrada} onChange={e => setBulk(b => ({ ...b, entrada: e.target.value }))} className="!w-auto">
+                <option value="">{extension ? 'Termina su turno…' : 'Entrada…'}</option>{(extension ? HORAS_SALIDA_TE : HORAS_ENTRADA_TE).map(h => <option key={h} value={h}>{h}</option>)}
+              </Selector>
               <Selector aria-label={extension ? 'Hora hasta la que se quedan, para aplicar' : 'Salida para aplicar'} value={bulk.salida} onChange={e => setBulk(b => ({ ...b, salida: e.target.value }))} className="!w-auto">
                 <option value="">{extension ? 'Se quedan hasta…' : 'Salida…'}</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{h}</option>)}
               </Selector>
@@ -451,7 +449,7 @@ export default function EditorTE() {
                 <Ayuda clave="solicitar.transporte" className="!mt-0" />
               </div>
               {empleados.map((e, i) => (
-                <FilaEmpleadoTE key={e.nomina} tour={i === 0 ? 'solicitar-empleado-fila' : undefined} e={e} tipo={tipo} finFijo={!!finDeTurno(e.turnoNomina, turnos)} rutas={rutas} comunidades={comunidades} puntos={puntos} seleccionado={seleccion.has(e.nomina)}
+                <FilaEmpleadoTE key={e.nomina} tour={i === 0 ? 'solicitar-empleado-fila' : undefined} e={e} tipo={tipo} rutas={rutas} comunidades={comunidades} puntos={puntos} seleccionado={seleccion.has(e.nomina)}
                   aviso={avisoDe(e.nomina)} error={errorDe(e.nomina)} onSeleccionar={alternarSeleccion} onCambio={cambiar} onQuitar={quitar} />
               ))}
               <Ayuda clave="solicitar.ruta" />

@@ -98,13 +98,13 @@ describe('celdas vacías no sobrescriben lo que ya existe', () => {
   const existente = {
     id: '7219', nomina: '7219', nombre: 'PEREZ JUAN', puesto: 'PRODUCTION OPERATOR', puestoId: 'production-operator',
     areaId: 'produccion', areaExcepcion: null, areaExcepcionMotivo: '', rutaId: 'r1', comunidadId: 'c1', puntoReunionId: 'p1',
-    depto: '316', descDepto: 'MOLDEO', turnoNomina: 'B', nivel: 'G2', fechaAlta: '2020-01-06', activo: true,
+    depto: '316', descDepto: 'MOLDEO', nivel: 'G2', fechaAlta: '2020-01-06', activo: true,
   };
   const planCon = async (fila) => compararEmpleados(
     await leerEmpleados(await libro([{ nombre: 'Hoja', filas: nomina([fila]) }]), new Map()), [existente], { catalogo, areas },
   );
 
-  it('depto, descDepto, turno, nivel, alta y puesto vacíos: sin cambios (no "con cambios")', async () => {
+  it('depto, descDepto, nivel, alta y puesto vacíos: sin cambios (no "con cambios")', async () => {
     const plan = await planCon([7219, 'PEREZ JUAN', '', '', '', '', '', null]);
     const it = plan.items[0];
     expect(it.accion).toBe('sinCambios');
@@ -117,8 +117,8 @@ describe('celdas vacías no sobrescriben lo que ya existe', () => {
     const plan = await planCon([7219, 'PEREZ JUAN', '316', 'MOLDEO', 'C', '', 'G3', null]);
     const it = plan.items[0];
     expect(it.accion).toBe('actualizar');
-    expect(it.datos).toEqual({ turnoNomina: 'C', nivel: 'G3' });
-    expect(it.cambios.map(c => c.campo)).toEqual(['TURNO', 'NIVEL']);
+    expect(it.datos).toEqual({ nivel: 'G3' });
+    expect(it.cambios.map(c => c.campo)).toEqual(['NIVEL']);
   });
 
   it('puesto vacío en un empleado nuevo se omite como error', async () => {

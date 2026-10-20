@@ -3,8 +3,8 @@
  * alimentos · transporte); en celular se vuelve una tarjeta con controles de 44 px.
  *
  * Turno extra: entrada y salida en los bloques de horario; transporte de Llegada y de Salida, las dos marcadas por defecto.
- * Extensión de turno (el empleado ya está en la planta): el tiempo extra empieza cuando termina su turno normal (según su turno de nómina;
- * si RH aún no lo configura, se elige a mano) y se elige hasta qué hora se queda; solo lleva transporte de Salida.
+ * Extensión de turno (el empleado ya está en la planta): el tiempo extra empieza cuando termina su turno normal (se elige a mano) y se
+ * elige hasta qué hora se queda; solo lleva transporte de Salida.
  * Con transporte pide ruta → comunidad → punto en cascada, precargados del padrón con confirmación (igual que el formulario de rutas);
  * al guardar se recuerdan en el padrón.
  */
@@ -20,7 +20,7 @@ const SEL = 'md:!min-h-9 !py-1.5';
 const etiqueta = 'mb-1 block text-xs font-medium text-[var(--text-muted)] lg:hidden';
 export const COLUMNAS_FILA = 'lg:grid lg:grid-cols-[2rem_minmax(0,2.2fr)_7rem_7rem_4rem_6rem_8rem_2.5rem] lg:items-center lg:gap-3';
 
-export default function FilaEmpleadoTE({ tour, e, tipo = TIPOS_TE.TURNO_EXTRA, finFijo = false, rutas, comunidades, puntos, seleccionado, aviso, error, onSeleccionar, onCambio, onQuitar }) {
+export default function FilaEmpleadoTE({ tour, e, tipo = TIPOS_TE.TURNO_EXTRA, rutas, comunidades, puntos, seleccionado, aviso, error, onSeleccionar, onCambio, onQuitar }) {
   const extension = tipo === TIPOS_TE.EXTENSION;
   const horas = calcularHoras(e.horaEntrada, e.horaSalida);
   const pedirConfirmar = e.transporte && e.necesitaConfirmar && !e.confirmada;
@@ -36,7 +36,7 @@ export default function FilaEmpleadoTE({ tour, e, tipo = TIPOS_TE.TURNO_EXTRA, f
         <div className="min-w-0 pl-9 pr-10 lg:pl-0 lg:pr-0">
           <p className="truncate text-sm font-medium text-[var(--text-main)]">{e.nombre}</p>
           <p className="truncate text-xs text-[var(--text-secondary)]">
-            <span className="font-mono">{e.nomina}</span>{e.puesto ? ` · ${e.puesto}` : ''}{e.turnoNomina ? ` · Turno ${e.turnoNomina}` : ''}
+            <span className="font-mono">{e.nomina}</span>{e.puesto ? ` · ${e.puesto}` : ''}
           </p>
           {aviso && <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-[var(--status-warning-text)]"><AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{aviso}</p>}
         </div>
@@ -45,13 +45,9 @@ export default function FilaEmpleadoTE({ tour, e, tipo = TIPOS_TE.TURNO_EXTRA, f
             {extension ? (
               <>
                 <label className={etiqueta} htmlFor={`ent-${e.nomina}`}>Termina su turno</label>
-                {finFijo ? (
-                  <p id={`ent-${e.nomina}`} className="py-2 text-sm font-medium text-[var(--text-main)]"><span className="sr-only">Su turno termina a las {e.horaEntrada} ({e.nombre}). </span><span aria-hidden="true">{e.horaEntrada || '—'}</span></p>
-                ) : (
-                  <Selector id={`ent-${e.nomina}`} className={SEL} value={e.horaEntrada} onChange={ev => cambiar({ horaEntrada: ev.target.value, horaSalida: '' })} aria-label={`Fin de turno de ${e.nombre}`}>
-                    <option value="">Fin de turno…</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{h}</option>)}
-                  </Selector>
-                )}
+                <Selector id={`ent-${e.nomina}`} className={SEL} value={e.horaEntrada} onChange={ev => cambiar({ horaEntrada: ev.target.value, horaSalida: '' })} aria-label={`Fin de turno de ${e.nombre}`}>
+                  <option value="">Fin de turno…</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{h}</option>)}
+                </Selector>
               </>
             ) : (
               <>

@@ -49,7 +49,7 @@ describe('ids, folios y lotes', () => {
 describe('empleado ↔ documento', () => {
   it('el documento solo trae campos permitidos y las horas calculadas', () => {
     const d = empleadoADoc(emp('1', { alimentos: true }));
-    expect(Object.keys(d).sort()).toEqual(['comunidadId', 'horaEntrada', 'horaSalida', 'horas', 'nombre', 'puesto', 'puntoReunionId', 'requiereAlimentos', 'requiereTransporte', 'rutaId', 'transporteLlegada', 'transporteSalida', 'turnoNomina'].sort());
+    expect(Object.keys(d).sort()).toEqual(['comunidadId', 'horaEntrada', 'horaSalida', 'horas', 'nombre', 'puesto', 'puntoReunionId', 'requiereAlimentos', 'requiereTransporte', 'rutaId', 'transporteLlegada', 'transporteSalida'].sort());
     expect(d).toMatchObject({ horas: 8, requiereAlimentos: true, requiereTransporte: true, rutaId: 'r1' });
   });
   it('sin transporte no guarda ruta', () => {
@@ -57,7 +57,8 @@ describe('empleado ↔ documento', () => {
   });
   it('del padrón: transporte marcado por defecto; ruta completa pide confirmar', () => {
     const e = empleadoDesdePadron({ nomina: 5, nombre: 'ANA', puesto: 'OP', turnoNomina: 'B' }, { rutaId: 'r1', comunidadId: 'c1', puntoReunionId: 'p1' });
-    expect(e).toMatchObject({ nomina: '5', transporte: true, necesitaConfirmar: true, confirmada: false, turnoNomina: 'B' });
+    expect(e).toMatchObject({ nomina: '5', transporte: true, necesitaConfirmar: true, confirmada: false });
+    expect(e.turnoNomina).toBeUndefined();
     expect(empleadoDesdePadron({ nomina: 6, nombre: 'LUIS' }, {}).necesitaConfirmar).toBe(false);
   });
   it('al reabrir un borrador, lo guardado ya está confirmado', () => {

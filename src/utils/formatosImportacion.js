@@ -498,6 +498,7 @@ async function leerHojaDatos(buffer, nombreHoja, headers) {
 
 // ── Reporte de nómina ─────────────────────────────────────────────────────
 /** Encabezados del reporte de nómina (por ellos se detecta el formato) */
+/** La columna `turno` viene en el reporte, pero ya no se lee: no se guarda un turno fijo por persona */
 export const ENCABEZADOS_NOMINA = ['numero_i', 'nombre', 'depto', 'desc_depto', 'turno', 'puesto', 'nivel_g', 'alta_g'];
 const NUCLEO_NOMINA = ['numero_i', 'nombre', 'depto', 'puesto'];
 const normEnc = (v) => String(v ?? '').trim().toLowerCase();
@@ -542,7 +543,6 @@ function filasReporteNomina({ ws, filaEnc, cols }) {
     const extra = {
       depto: txt('depto'),
       descDepto: txt('desc_depto'),
-      turnoNomina: txt('turno'),
       nivel: txt('nivel_g'),
       fechaAlta: cols.has('alta_g') ? fechaCelda(row.getCell(cols.get('alta_g'))) : '',
     };
@@ -577,7 +577,7 @@ export async function leerDirectorio(buffer) {
 /**
  * Lee el padrón desde el formato propio (hoja "Empleados") o desde el reporte de nómina
  * (se detecta por sus encabezados: numero_i, nombre, depto, puesto...). Cada fila lleva `formato`
- * ('propio' | 'nomina'); las del reporte traen además `extra` { depto, descDepto, turnoNomina, nivel, fechaAlta }.
+ * ('propio' | 'nomina'); las del reporte traen además `extra` { depto, descDepto, nivel, fechaAlta }.
  *
  * Hoja del reporte de nómina: si solo una hoja trae los encabezados se usa sola; si hay varias, hay que
  * indicar `hoja` (si no, devuelve `meta.requiereHoja` y ninguna fila). `usarPrimera` toma la primera candidata.

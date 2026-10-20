@@ -1,6 +1,6 @@
 /**
  * SelectorEmpleadosTE.jsx — "Agregar empleados": todos los empleados activos del área, con buscador, filtros por puesto, por
- * turno de nómina (A/B/C) y por ruta (la del padrón; sirve para juntar gente de la misma ruta y no usar rutas de más), una columna
+ * ruta (la del padrón; sirve para juntar gente de la misma ruta y no usar rutas de más), una columna
  * Ruta y casillas para elegir varios a la vez (así se agregan 30 o más de un golpe).
  * Props: empleados (los del área), yaAgregados (Set de nóminas), rutas (catálogo), onAgregar(lista), onClose
  */
@@ -12,14 +12,12 @@ import Boton from '../../components/ui/Boton';
 import { Entrada, Selector } from '../../components/ui/Campo';
 import { CASILLA } from '../../components/ui/estilos';
 import Insignia from '../../components/ui/Insignia';
-import { TURNOS_NOMINA } from '../../utils/tiempoExtra';
 
 const sinAcentos = (t) => String(t ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 export default function SelectorEmpleadosTE({ empleados, yaAgregados, rutas = [], onAgregar, onClose }) {
   const [busqueda, setBusqueda] = useState('');
   const [puesto, setPuesto] = useState('');
-  const [turno, setTurno] = useState('');
   const [ruta, setRuta] = useState(''); // '' = todas · 'sin' = sin ruta en el padrón · id de ruta
   const [marcados, setMarcados] = useState(() => new Set());
 
@@ -34,11 +32,11 @@ export default function SelectorEmpleadosTE({ empleados, yaAgregados, rutas = []
   const visibles = useMemo(() => {
     const q = sinAcentos(busqueda).trim();
     return empleados
-      .filter(e => (!puesto || e.puesto === puesto) && (!turno || String(e.turnoNomina ?? '').toUpperCase() === turno)
+      .filter(e => (!puesto || e.puesto === puesto)
         && (!ruta || (ruta === 'sin' ? !e.rutaId : e.rutaId === ruta))
         && (!q || String(e.nomina).startsWith(q) || sinAcentos(e.nombre).includes(q)))
       .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
-  }, [empleados, busqueda, puesto, turno, ruta]);
+  }, [empleados, busqueda, puesto, ruta]);
   const disponibles = visibles.filter(e => !yaAgregados.has(String(e.nomina)));
   const todosMarcados = disponibles.length > 0 && disponibles.every(e => marcados.has(String(e.nomina)));
 
@@ -53,7 +51,7 @@ export default function SelectorEmpleadosTE({ empleados, yaAgregados, rutas = []
   return (
     <Modal isOpen onClose={onClose} title="Agregar empleados" maxWidth="max-w-3xl">
       <div className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="relative sm:col-span-2 lg:col-span-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" aria-hidden="true" />
             <Entrada type="search" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Nombre o nómina" aria-label="Buscar empleado" autoFocus className="pl-9" />
@@ -61,10 +59,6 @@ export default function SelectorEmpleadosTE({ empleados, yaAgregados, rutas = []
           <Selector aria-label="Filtrar por puesto" value={puesto} onChange={e => setPuesto(e.target.value)}>
             <option value="">Todos los puestos</option>
             {puestos.map(p => <option key={p} value={p}>{p}</option>)}
-          </Selector>
-          <Selector aria-label="Filtrar por turno de nómina" value={turno} onChange={e => setTurno(e.target.value)}>
-            <option value="">Todos los turnos</option>
-            {TURNOS_NOMINA.map(t => <option key={t} value={t}>Turno {t}</option>)}
           </Selector>
           <Selector aria-label="Filtrar por ruta" value={ruta} onChange={e => setRuta(e.target.value)}>
             <option value="">Todas las rutas</option>
@@ -92,7 +86,6 @@ export default function SelectorEmpleadosTE({ empleados, yaAgregados, rutas = []
                     <span className="min-w-0 flex-1 truncate text-[var(--text-main)]">{e.nombre}</span>
                     <span className="hidden max-w-[10rem] truncate text-xs text-[var(--text-muted)] sm:block">{e.puesto}</span>
                     <span className="hidden max-w-[8rem] truncate text-xs text-[var(--text-secondary)] sm:block" title="Ruta guardada en el padrón">{nombreRuta(e.rutaId) || 'Sin ruta'}</span>
-                    {e.turnoNomina && <Insignia>{e.turnoNomina}</Insignia>}
                     {ya && <Insignia tono="exito">Ya agregado</Insignia>}
                   </label>
                 </li>

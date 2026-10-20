@@ -48,7 +48,7 @@ const NOMINA_COLS_INFO = [
   { campo: 'numero_i', destino: 'Nómina (texto)' },
   { campo: 'nombre', destino: 'Nombre' },
   { campo: 'depto / desc_depto', destino: 'Departamento y su descripción (solo informativos)' },
-  { campo: 'turno', destino: 'Turno de nómina (A/B/C)' },
+  { campo: 'turno', destino: 'Se ignora (ya no se guarda un turno por persona)' },
   { campo: 'puesto', destino: 'Puesto: se compara contra el catálogo y de él sale el área' },
   { campo: 'nivel_g / alta_g', destino: 'Nivel y fecha de alta' },
 ];
@@ -595,7 +595,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                 </table>
               </div>
               {!esDir && (
-                <Aviso>Una celda vacía nunca borra un dato que el empleado ya tiene (puesto, turno, departamento, nivel, fecha de alta, ruta, comunidad y punto): solo se actualiza lo que el archivo trae.</Aviso>
+                <Aviso>Una celda vacía nunca borra un dato que el empleado ya tiene (puesto, departamento, nivel, fecha de alta, ruta, comunidad y punto): solo se actualiza lo que el archivo trae.</Aviso>
               )}
               {!esDir && (
                 <div className="space-y-2 rounded-lg border border-[var(--border-color)] p-3 text-xs">

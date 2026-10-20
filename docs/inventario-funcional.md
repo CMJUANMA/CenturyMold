@@ -165,7 +165,7 @@ Usuario sin rol: solo **Inicio** (con el aviso "Todavía no tienes funciones asi
 | A32 | Estructura › Áreas | Nueva/editar/baja · participa en TE · **Crear estructura inicial** | CRUD de áreas; arranque único | – | Se queda; "Crear estructura inicial" **se oculta** una vez creada |
 | A33 | Estructura › Puestos | Nuevo, editar, cambiar de área, alias, baja, **Nivel**, **Asignar puestos y áreas** | CRUD de puestos | "Asignar puestos y áreas" es el mismo componente que usa la importación | Se queda |
 | A34 | Estructura › Excepciones y pendientes | Revisa excepciones de área y puestos sin área | Diagnóstico | – | Se queda |
-| A35 | Estructura › Turnos | Captura turnos A/B/C | Alimenta "Extensión de turno" | – | Se queda |
+| A35 | Estructura › Turnos | Captura turnos A/B/C | Solo referencia (la extensión pide la hora de fin de turno a mano) | – | Se queda |
 | A36 | Usuarios y accesos › Usuarios | Nuevo usuario · **Crear usuarios en lote** (Excel de accesos) · editar | Cuentas | "Crear usuario" también se ofrece desde Asignar rol | Se queda (el atajo es útil) |
 | A37 | Usuarios y accesos › Asignaciones | **Asignar rol** · Extender · Revocar · Historial · **Actualizar nombres y puestos** · **Carga inicial** | Roles operativos | "Asignar" también con los "+" del organigrama; Revocar/Extender también en el panel de la persona | Se queda; "Carga inicial" **se oculta** después de usarla |
 | A38 | Usuarios y accesos › Organigrama | "+" por nivel, búsqueda, resaltar sin usuario, panel de persona | Árbol de autorización | A37 | Se queda |

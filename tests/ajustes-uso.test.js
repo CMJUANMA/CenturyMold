@@ -6,7 +6,7 @@ import ExcelJS from 'exceljs';
 import { ESTATUS_TE, ESTATUS_TE_MAP, etiquetaEstatusTE } from '../src/utils/constantes.js';
 import {
   INCLUIR_DESCARGA, MIN_JUSTIFICACION_RUTAS, PERIODOS_DESCARGA, estatusDeIncluir, SIN_SALIDA, TIPOS_TE, YA_EN_PLANTA, aplicarA, calcularHoras, datosTE, docAEmpleado, empleadoADoc, empleadoDesdePadron,
-  finDeTurno, llevaTransporte, pasajerosDeTE, problemasDeEnvio, rangoDePeriodo, resumenRutas, resumenTE, salidasPosteriores, sentidoDe, textoRuta, textoRutas,
+  llevaTransporte, pasajerosDeTE, problemasDeEnvio, rangoDePeriodo, resumenRutas, resumenTE, salidasPosteriores, sentidoDe, textoRuta, textoRutas,
   turnoPorFin,
 } from '../src/utils/tiempoExtra.js';
 import { construirLibroProveedor } from '../src/utils/libroProveedor.js';
@@ -151,8 +151,6 @@ describe('rutas distintas (control de costo)', () => {
 // ── 4. Extensión de turno ─────────────────────────────────────────────────
 
 describe('extensión de turno', () => {
-  const turnos = { A: { entrada: '7:00', salida: '16:00' }, B: { entrada: '16:00', salida: '0:00' }, C: { entrada: '', salida: '' } };
-
   it('los bloques de salida posteriores al fin de su turno', () => {
     expect(salidasPosteriores('16:00')).toEqual(['19:00', '0:00', '7:00']);
     expect(salidasPosteriores('19:00')).toEqual(['0:00', '7:00']);
@@ -166,18 +164,10 @@ describe('extensión de turno', () => {
     expect(calcularHoras('16:00', '0:00')).toBe(8);
     expect(calcularHoras('0:00', '7:00')).toBe(7);
   });
-  it('el fin de turno sale de la configuración de turnos; vacío si falta', () => {
-    expect(finDeTurno('A', turnos)).toBe('16:00');
-    expect(finDeTurno('b', turnos)).toBe('0:00');
-    expect(finDeTurno('C', turnos)).toBe('');
-    expect(finDeTurno('A', {})).toBe('');
-    expect(finDeTurno('', turnos)).toBe('');
-  });
-  it('al agregar: extensión empieza al terminar su turno y solo con transporte de salida; turno extra, llegada y salida', () => {
-    const ext = empleadoDesdePadron({ nomina: 1, nombre: 'ANA', turnoNomina: 'A' }, {}, { tipo: TIPOS_TE.EXTENSION, turnos });
-    expect(ext).toMatchObject({ horaEntrada: '16:00', horaSalida: '', transporteLlegada: false, transporteSalida: true, transporte: true });
-    const sinConfig = empleadoDesdePadron({ nomina: 2, nombre: 'LUIS', turnoNomina: 'C' }, {}, { tipo: TIPOS_TE.EXTENSION, turnos });
-    expect(sinConfig.horaEntrada).toBe(''); // se pide a mano
+  it('al agregar: la extensión pide a mano la hora de fin de turno y solo lleva transporte de salida; turno extra, llegada y salida', () => {
+    const ext = empleadoDesdePadron({ nomina: 1, nombre: 'ANA', turnoNomina: 'A' }, {}, { tipo: TIPOS_TE.EXTENSION });
+    expect(ext).toMatchObject({ horaEntrada: '', horaSalida: '', transporteLlegada: false, transporteSalida: true, transporte: true });
+    expect(ext.turnoNomina).toBeUndefined(); // el turno de nómina por persona ya no se captura
     const normal = empleadoDesdePadron({ nomina: 3, nombre: 'PEDRO', turnoNomina: 'A' }, {});
     expect(normal).toMatchObject({ horaEntrada: '', transporteLlegada: true, transporteSalida: true, transporte: true });
   });

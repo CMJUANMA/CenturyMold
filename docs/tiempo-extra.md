@@ -140,7 +140,7 @@ escriben en **lotes de 10**. Por eso TODA solicitud nace como **borrador**:
    (ni sus empleados ni su historial los leen Aut. 1, Aut. 2, RH ni admin). Un borrador no gasta folios.
 2. **Armar**: "Guardar borrador" escribe la solicitud y los empleados nuevos o modificados en lotes de 10 con barra de progreso (`guardarBorrador`); se puede salir y continuar.
    Las reglas validan cada empleado: está en el padrón con la misma `areaId` y trae solo los campos del modelo
-   (`nombre, puesto, turnoNomina, horaEntrada, horaSalida, horas, requiereAlimentos, requiereTransporte, rutaId, comunidadId, puntoReunionId`).
+   (`nombre, puesto, horaEntrada, horaSalida, horas, requiereAlimentos, requiereTransporte, rutaId, comunidadId, puntoReunionId`).
 3. **Enviar a autorización** (`enviarSolicitud`): en **una transacción** toma el siguiente número del contador `contadores/te-AAAA`, pone el folio
    `TE-AAAA-NNNN`, el estatus (`pendiente_aut1`, o `pendiente_aut2` si es el Aut. 1 de esa área o el área no participa), el resumen calculado y la entrada
    `enviada` del historial. Las reglas exigen que el folio sea exactamente el número que deja el contador (que sube 1) y del año en curso.
@@ -153,7 +153,7 @@ Campos de la solicitud: `areaId, areaNombre, creadoPor(+Nomina/Nombre), fechaTE,
 `comentario` (obligatorio al enviar, 10+ caracteres), `estatus, resumen, folio` (desde que se envía), `devolucion`, `motivoCancelacion`.
 
 Editor: elige el área (fija si solo tiene una), fecha (hoy o futura), motivo y comentario; "Agregar empleados" abre el selector de **todos los activos del área**
-(buscador, filtros por puesto y turno A/B/C, casillas para agregar 30 o más de golpe). Cada empleado: entrada (7:00, 16:00, 19:00, 0:00), salida (16:00, 19:00, 0:00, 7:00),
+(buscador, filtros por puesto y ruta, casillas para agregar 30 o más de golpe). Cada empleado: entrada (7:00, 16:00, 19:00, 0:00), salida (16:00, 19:00, 0:00, 7:00),
 horas calculadas (cruza medianoche), alimentos y transporte (marcado por defecto, con ruta → comunidad → punto precargados del padrón con confirmación; lo confirmado se
 guarda en el padrón de empleados de su área). Barra "aplicar a todos / a los seleccionados" y resumen fijo (empleados, horas, transporte, alimentos y empleados por horario).
 Validaciones: sin repetidos, entrada ≠ salida, transporte completo, máximo `MAX_PASAJEROS` (150); **aviso sin bloquear** si el empleado ya tiene otro tiempo extra no cancelado
@@ -207,7 +207,7 @@ Consultas: las del Aut. 1, la Aut. 2 y RH sobre `tiempoExtra` deben **excluir bo
 - **Descargar resumen de horas extra** (Por enviar al proveedor y Consulta, solo RH; mismo panel `BotonDescargaResumenTE`/`DescargaTE`, `exportarTiempoExtraRH.js`): periodo (Hoy · Ayer · Esta semana ·
   Semana anterior · Este mes · Personalizado), área, "Incluir" (todas las autorizadas, por defecto, o solo las confirmadas por RH), vista previa (solicitudes, empleados, horas, alimentos; sin datos no descarga)
   y una línea por hoja. Archivo `TiempoExtra_AAAA-MM-DD_a_AAAA-MM-DD.xlsx`. Autorizadas y confirmadas de un rango de fechas y un área, con el estilo del formato del proveedor. Hojas: Detalle (una fila por empleado, con
-  turno de nómina, horas, ruta, solicitante, Aut. 1, Aut. 2 y fecha de autorización), Horas por empleado (días con TE y horas totales, para nómina), Alimentos (conteo por fecha y horario, para el comedor) y Resumen (empleados y horas por área y fecha).
+  horas, ruta, solicitante, Aut. 1, Aut. 2 y fecha de autorización), Horas por empleado (días con TE y horas totales, para nómina), Alimentos (conteo por fecha y horario, para el comedor) y Resumen (empleados y horas por área y fecha).
   La consulta usa el índice compuesto `estatus + fechaTE` de `firestore.indexes.json`.
 - El solicitante ve `procesada` como "Confirmada por RH · transporte solicitado" (o "· sin transporte"), y lo autorizado con transporte como "Por enviar al proveedor". Menú de RH: "Por enviar al proveedor" con contador; la tarjeta del portal y del resumen lleva a esa pantalla.
 
@@ -220,14 +220,14 @@ Consultas: las del Aut. 1, la Aut. 2 y RH sobre `tiempoExtra` deben **excluir bo
 - **Rutas distintas** (control de costo): se cuentan las rutas distintas de los empleados que llevan transporte (llegada o salida) y se muestran en vivo ("Esta solicitud usa 3 rutas: LA LIRA (2), …"). Con más de una,
   la justificación (`justificacionRutas`, 15+ caracteres) es obligatoria para enviar (también en las reglas). Se guardan `rutasDistintas`, `desgloseRutas` [{ rutaId, nombre, empleados, llegada, salida }] y `justificacionRutas`.
   Insignia ámbar "N rutas" en bandejas, consulta, recepción y Mis solicitudes; el detalle muestra la justificación y el desglose. El selector de empleados tiene columna y filtro de Ruta (la del padrón).
-- **Tipo de tiempo extra** (`tipo`): `turno_extra` (el empleado viene a la planta) o `extension` (ya está en la planta). Una **extensión**: empieza al terminar su turno normal (`horaEntrada` = fin de su turno; sale de *Estructura > Turnos* según su
-  turno de nómina o, si RH aún no lo captura, se elige a mano), se elige hasta qué hora se queda (los bloques de salida posteriores: 16:00 → 19:00, 0:00, 7:00), las horas cuentan desde ese fin de turno (16:00 → 19:00 = 3 h) y puede
+- **Tipo de tiempo extra** (`tipo`): `turno_extra` (el empleado viene a la planta) o `extension` (ya está en la planta). Una **extensión**: empieza al terminar su turno normal (`horaEntrada` = fin de su turno, que quien captura elige a mano; ya no hay turno fijo por empleado. Antes salía de *Estructura > Turnos* según su
+  turno de nómina), se elige hasta qué hora se queda (los bloques de salida posteriores: 16:00 → 19:00, 0:00, 7:00), las horas cuentan desde ese fin de turno (16:00 → 19:00 = 3 h) y puede
   capturarse para el mismo día. Insignia "Extensión de turno".
 - **Transporte por sentido**: cada empleado tiene `transporteLlegada` y `transporteSalida` (`requiereTransporte` = alguno de los dos). Turno extra: los dos marcados por defecto; extensión: solo salida (la llegada, apagada y deshabilitada: "Ya se
   encuentra en la planta"; las reglas rechazan `transporteLlegada: true` en una extensión). Los documentos anteriores valen para los dos sentidos.
 - **Excel del proveedor, extensión**: el pasajero con solo salida va en la hoja de su turno normal (el turno que termina a la hora de su fin de turno: 16:00 → Turno 1, 0:00 y 19:00 → Turno 2, 7:00 → Turno 3), con ENTRADA = "YA EN PLANTA" y
   SALIDA = su hora extendida ("7:00PM"). Un turno extra con solo llegada lleva SALIDA = "NO REQUIERE". El pasajero guarda `sentido` (ambos | llegada | salida).
-- **Turnos de nómina** (`turnosNomina/{A|B|C}`: entrada y salida en los bloques 7:00, 16:00, 19:00 y 0:00): RH los captura en *Estructura > Turnos*; empiezan vacíos. Los lee cualquier usuario activo; los escribe RH/admin.
+- **Turnos de nómina** (solo de referencia, ya no alimentan la captura; `turnosNomina/{A|B|C}`: entrada y salida en los bloques 7:00, 16:00, 19:00 y 0:00): RH los captura en *Estructura > Turnos*; empiezan vacíos. Los lee cualquier usuario activo; los escribe RH/admin.
 - **Mi cuenta** (`/mi-cuenta`, todos; junta lo que eran Perfil y Configuración): datos, contraseña, ayudas sí/no, tamaño de letra (Normal/Grande) y tema (Claro/Oscuro/Automático), guardados en `usuarios/{uid}.preferencias` (las reglas dejan a cada usuario cambiar solo ese campo de su propio documento).
   Con las ayudas activas: texto corto bajo los campos, "?" junto a los títulos (explicación de 3 o 4 pasos) y recorrido guiado la primera vez en *Solicitar tiempo extra* y *Por autorizar* (`preferencias.recorridosVistos`; se puede repetir desde el "?").
   **Todos los textos de ayuda están en `src/utils/ayudas.js`.**
@@ -259,7 +259,7 @@ fechaCreacion, fechaActualizacion   ← serverTimestamp()
 
 ### `tiempoExtra/{id}/empleados/{nómina}`
 
-`nombre, puesto, turnoNomina, horaInicio, horaFin, horas, requiereTransporte, ruta/comunidad/punto` (los mismos campos
+`nombre, puesto, horaInicio, horaFin, horas, requiereTransporte, ruta/comunidad/punto` (los mismos campos
 que los pasajeros de rutas) `, requiereAlimentos`.
 
 ### `tiempoExtra/{id}/historial/{autoId}` — solo se crea
