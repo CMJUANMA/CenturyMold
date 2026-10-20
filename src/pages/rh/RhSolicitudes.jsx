@@ -25,6 +25,7 @@ import { toDate, fmtFecha, fmtFechaHora, ymd, sumarDias, rangoSemana } from '../
 import { resumenPasajeros, textoConteo } from '../../utils/solicitudes';
 import { leerTelefonos } from '../../utils/contactosDb';
 import { formatoTelefono } from '../../utils/telefono';
+import { formatoHora12 } from '../../utils/horas';
 import { useCatalogos } from '../../hooks/useCatalogos';
 import { useAreas } from '../../hooks/useAreas';
 import { useConfirmar } from '../../hooks/useConfirmar';
@@ -398,8 +399,8 @@ export default function RhSolicitudes() {
                           <Td>{p.puesto}</Td>
                           <Td mono>{p.nomina}</Td>
                           <Td>{p.nombre}</Td>
-                          <Td mono>{p.horaEntrada}</Td>
-                          <Td mono>{p.horaSalida}</Td>
+                          <Td mono>{formatoHora12(p.horaEntrada)}</Td>
+                          <Td mono>{formatoHora12(p.horaSalida)}</Td>
                           <Td>{p.alimentos ? 'Sí' : 'No'}</Td>
                           <Td>{nameR}</Td>
                           <Td>{nameC}</Td>

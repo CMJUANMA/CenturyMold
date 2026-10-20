@@ -104,7 +104,7 @@ export default function GuiaEstilo() {
         <div className="divide-y divide-[var(--border-subtle)] rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
           {TIPOS.map(([nombre, clase, dato]) => (
             <div key={nombre} className="flex flex-col gap-1 px-5 py-4 sm:flex-row sm:items-baseline sm:justify-between">
-              <p className={`${clase} text-[var(--text-main)]`}>{nombre}: TE-2026-0012 · 7:00 a 16:00</p>
+              <p className={`${clase} text-[var(--text-main)]`}>{nombre}: TE-2026-0012 · 7:00 a. m. a 4:00 p. m.</p>
               <p className="shrink-0 text-xs text-[var(--text-muted)]">{dato}</p>
             </div>
           ))}

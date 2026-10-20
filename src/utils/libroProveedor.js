@@ -6,12 +6,14 @@
  * Columnas: AREA · PUESTO · NÓMINA · NOMBRE · ENTRADA · SALIDA · ALIMENTOS · RUTA · COMUNIDAD O COLONIA · PUNTO DE REUNION · TELÉFONO
  *   TELÉFONO: el del empleado en el padrón (`telefonoDe(nómina)`, para que el transporte pueda llamar); vacío si no tiene.
  *   AREA: área del pasajero (pasajero.areaId del padrón); en solicitudes anteriores sin área, la de la solicitud; si no hay, vacía.
+ * ENTRADA y SALIDA salen en 24 horas con dos dígitos ("07:00", "16:00"); se cambia con FORMATO_HORA_PROVEEDOR (horas.js).
  * Tiempo extra: sus pasajeros ya traen el turno que corresponde a su hora de ENTRADA (pasajero.turno), así que caen en la hoja de ese
  * turno; su bloque dice "Solicitante: [solicitante original] · Tiempo extra TE-AAAA-NNNN" (no el nombre de RH).
  */
 import { solicitanteDeTransporte } from './tiempoExtra.js';
 import { aFechaIso, comparar, texto } from './orden.js';
 import { formatoTelefono } from './telefono.js';
+import { horaParaProveedor } from './horas.js';
 
 export const ENCABEZADOS_PROVEEDOR = ['AREA', 'PUESTO', 'NÓMINA', 'NOMBRE', 'ENTRADA', 'SALIDA', 'ALIMENTOS', 'RUTA', 'COMUNIDAD O COLONIA', 'PUNTO DE REUNION', 'TELÉFONO'];
 const COLUMNAS = ENCABEZADOS_PROVEEDOR.length;
@@ -254,7 +256,7 @@ export function construirLibroProveedor({ ExcelJS, solicitudes, catalogos, emple
         const rPas = ws.getRow(currentRow);
         // Todo como texto: una nómina numérica o un campo vacío no cambian el tipo de la celda
         const rData = [
-          texto(p.area), texto(p.puesto), texto(p.nomina), texto(p.nombre), texto(p.horaEntrada), texto(p.horaSalida),
+          texto(p.area), texto(p.puesto), texto(p.nomina), texto(p.nombre), horaParaProveedor(texto(p.horaEntrada)), horaParaProveedor(texto(p.horaSalida)),
           tieneAli ? 'SI' : 'NO', nombreRuta(p.rutaId), nombreCom(p.comunidadId), nombrePunto(p.puntoReunionId), formatoTelefono(telefonoDe(p.nomina)),
         ];
 

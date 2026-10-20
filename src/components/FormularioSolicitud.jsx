@@ -29,6 +29,7 @@ import {
   MAX_PASAJEROS, MSG_MAX_PASAJEROS, HORAS_ENTRADA, HORAS_SALIDA, TURNOS,
   fechaMinima, pasajeroVacio, validarSolicitud,
 } from '../utils/solicitudes';
+import { formatoHora12 } from '../utils/horas';
 import Boton from './ui/Boton';
 import { CASILLA, CONTROL, CONTROL_OK } from './ui/estilos';
 
@@ -227,7 +228,7 @@ export default function FormularioSolicitud({
                     <select required disabled={!p.empleadoSeleccionado} value={p.horaEntrada}
                       onChange={e => updatePas(index, { horaEntrada: e.target.value })} className={inputCls}>
                       <option value="">—</option>
-                      {HORAS_ENTRADA.map(h => <option key={h} value={h}>{h}</option>)}
+                      {HORAS_ENTRADA.map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
                     </select>
                   </div>
                   <div>
@@ -235,7 +236,7 @@ export default function FormularioSolicitud({
                     <select required disabled={!p.empleadoSeleccionado} value={p.horaSalida}
                       onChange={e => updatePas(index, { horaSalida: e.target.value })} className={inputCls}>
                       <option value="">—</option>
-                      {HORAS_SALIDA.map(h => <option key={h} value={h}>{h}</option>)}
+                      {HORAS_SALIDA.map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
                     </select>
                   </div>
                   <div className="flex items-end pb-0.5">

@@ -14,6 +14,7 @@ import { Selector } from '../../../components/ui/Campo';
 import { EsqueletoTabla } from '../../../components/ui/Esqueleto';
 import { Fila, Tabla, Td, Th } from '../../../components/ui/Tabla';
 import { HORAS_ENTRADA_TE, HORAS_SALIDA_TE } from '../../../utils/tiempoExtra';
+import { formatoHora12 } from '../../../utils/horas';
 import { TURNOS_NOMINA_IDS, guardarTurnosNomina } from '../../../utils/turnosNominaDb';
 
 export default function TabTurnos() {
@@ -55,12 +56,12 @@ export default function TabTurnos() {
               <Td className="font-medium">Turno {t}</Td>
               <Td>
                 <Selector aria-label={`Entrada del turno ${t}`} value={form[t].entrada} onChange={e => cambiar(t, 'entrada', e.target.value)} className="max-w-[12rem]">
-                  <option value="">Sin configurar</option>{HORAS_ENTRADA_TE.map(h => <option key={h} value={h}>{h}</option>)}
+                  <option value="">Sin configurar</option>{HORAS_ENTRADA_TE.map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
                 </Selector>
               </Td>
               <Td>
                 <Selector aria-label={`Salida del turno ${t}`} value={form[t].salida} onChange={e => cambiar(t, 'salida', e.target.value)} className="max-w-[12rem]">
-                  <option value="">Sin configurar</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{h}</option>)}
+                  <option value="">Sin configurar</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
                 </Selector>
               </Td>
             </Fila>

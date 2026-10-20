@@ -125,7 +125,7 @@ describe('Excel del proveedor', () => {
     const encabezado = [...Array(ws.rowCount).keys()].map(i => ws.getRow(i + 1)).find(r => r.getCell(1).value === 'AREA');
     expect(valores(encabezado)).toEqual(ENCABEZADOS_PROVEEDOR);
     const pasajero = ws.getRow(Number(encabezado.number) + 1);
-    expect(valores(pasajero)).toEqual(['Moldes', 'OPERADOR', '1', 'EMPLEADO 1', '7:00AM', '4:00PM', 'SI', 'Norte', 'Pueblito', 'Plaza', '']);
+    expect(valores(pasajero)).toEqual(['Moldes', 'OPERADOR', '1', 'EMPLEADO 1', '07:00', '16:00', 'SI', 'Norte', 'Pueblito', 'Plaza', '']);
   });
 
   it('la columna TELÉFONO sale al final con el del padrón (con formato) y vacía si no tiene; el resto del formato no cambia', () => {
@@ -156,7 +156,7 @@ describe('Excel del proveedor', () => {
     expect(filas).toContainEqual(['TOTAL DEL TURNO']);
     expect(filas).toContainEqual(['Solicitantes: 1', 'Pasajeros: 2', 'Con alimentos: 1', 'Sin alimentos: 1']);
     const luis = [...Array(ws.rowCount).keys()].map(i => valores(ws.getRow(i + 1))).find(v => v[2] === '77');
-    expect(luis).toEqual(['Calidad', 'INSPECTOR', '77', 'LUIS', '7:00AM', '4:00PM', 'SI', 'Norte', 'Pueblito', 'Plaza', '']);
+    expect(luis).toEqual(['Calidad', 'INSPECTOR', '77', 'LUIS', '07:00', '16:00', 'SI', 'Norte', 'Pueblito', 'Plaza', '']);
   });
 
   it('una solicitud normal sin área deja AREA vacía; una de tiempo extra y una normal conviven en la misma hoja', () => {

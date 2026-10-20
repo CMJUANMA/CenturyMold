@@ -12,7 +12,8 @@ import Insignia from '../../components/ui/Insignia';
 import { Fila, Tabla, Td, Th } from '../../components/ui/Tabla';
 import { ACCIONES_TE_LABELS } from '../../utils/constantes';
 import { formatoFecha } from '../../utils/asignaciones';
-import { calcularHoras, esExtension, etiquetaBloque, firmaTexto, motivoTexto, quienDevolvio, resumenTE, textoRuta, textoRutas } from '../../utils/tiempoExtra';
+import { etiquetaBloque12, horasEnTexto12 } from '../../utils/horas';
+import { calcularHoras, esExtension, firmaTexto, motivoTexto, quienDevolvio, resumenTE, textoRuta, textoRutas } from '../../utils/tiempoExtra';
 import { leerTransporteDeTE } from '../../utils/tiempoExtraDb';
 import { quienCancelo } from '../../utils/cancelacion';
 
@@ -108,7 +109,7 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
         <Titulo>Empleados por horario</Titulo>
         <div className="flex flex-wrap gap-2">
           {bloques.length === 0 && <span className="text-[var(--text-muted)]">Sin empleados.</span>}
-          {bloques.map(([b, n]) => <Insignia key={b} sinIcono>{b}: {n} {n === 1 ? 'empleado' : 'empleados'}</Insignia>)}
+          {bloques.map(([b, n]) => <Insignia key={b} sinIcono>{horasEnTexto12(b)}: {n} {n === 1 ? 'empleado' : 'empleados'}</Insignia>)}
         </div>
       </section>
 
@@ -123,7 +124,7 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
               {empleados.map(e => (
                 <Fila key={e.nomina}>
                   <Td mono>{e.nomina}</Td><Td>{nombre(e.nombre)}</Td><Td className="text-[var(--text-secondary)]">{e.puesto}</Td>
-                  <Td className="whitespace-nowrap">{etiquetaBloque(e)}</Td><Td derecha mono>{calcularHoras(e.horaEntrada, e.horaSalida)}</Td>
+                  <Td className="whitespace-nowrap">{etiquetaBloque12(e)}</Td><Td derecha mono>{calcularHoras(e.horaEntrada, e.horaSalida)}</Td>
                   <Td>{e.alimentos ? 'Sí' : 'No'}</Td><Td>{textoRuta(e, catalogos ?? {})}</Td>
                 </Fila>
               ))}
@@ -136,7 +137,7 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
             <li key={e.nomina} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4">
               <p className="font-medium text-[var(--text-main)]">{nombre(e.nombre)}</p>
               <p className="text-xs text-[var(--text-secondary)]"><span className="font-mono">{e.nomina}</span> · {e.puesto}</p>
-              <p className="mt-1 text-[var(--text-main)]">{etiquetaBloque(e)} · <b className="font-medium">{calcularHoras(e.horaEntrada, e.horaSalida)} h</b>{e.alimentos ? ' · Alimentos' : ''}</p>
+              <p className="mt-1 text-[var(--text-main)]">{etiquetaBloque12(e)} · <b className="font-medium">{calcularHoras(e.horaEntrada, e.horaSalida)} h</b>{e.alimentos ? ' · Alimentos' : ''}</p>
               <p className="text-[var(--text-secondary)]">{textoRuta(e, catalogos ?? {})}</p>
             </li>
           ))}

@@ -41,6 +41,7 @@ import {
 import { MAX_PASAJEROS } from '../../utils/solicitudes';
 import { guardarTelefonosEnPadron, leerTelefonos } from '../../utils/contactosDb';
 import { estadoTelefono, soloDigitosTelefono } from '../../utils/telefono';
+import { formatoHora12, horasEnTexto12 } from '../../utils/horas';
 import {
   cancelarSolicitud, eliminarBorrador, enviarSolicitud, guardarBorrador, guardarRutasEnPadron, leerOcupados, leerSolicitudTE,
 } from '../../utils/tiempoExtraDb';
@@ -450,10 +451,10 @@ export default function EditorTE() {
             <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface-secondary)] p-4" role="group" aria-label="Aplicar a todos o a los seleccionados">
               <span className="w-full text-xs font-medium text-[var(--text-secondary)]">Aplicar a {seleccion.size ? `los ${seleccion.size} seleccionados` : 'todos'}:</span>
               <Selector aria-label={extension ? 'Fin de turno para aplicar' : 'Entrada para aplicar'} value={bulk.entrada} onChange={e => setBulk(b => ({ ...b, entrada: e.target.value }))} className="!w-auto">
-                <option value="">{extension ? 'Termina su turno…' : 'Entrada…'}</option>{(extension ? HORAS_SALIDA_TE : HORAS_ENTRADA_TE).map(h => <option key={h} value={h}>{h}</option>)}
+                <option value="">{extension ? 'Termina su turno…' : 'Entrada…'}</option>{(extension ? HORAS_SALIDA_TE : HORAS_ENTRADA_TE).map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
               </Selector>
               <Selector aria-label={extension ? 'Hora hasta la que se quedan, para aplicar' : 'Salida para aplicar'} value={bulk.salida} onChange={e => setBulk(b => ({ ...b, salida: e.target.value }))} className="!w-auto">
-                <option value="">{extension ? 'Se quedan hasta…' : 'Salida…'}</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{h}</option>)}
+                <option value="">{extension ? 'Se quedan hasta…' : 'Salida…'}</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
               </Selector>
               <Boton tamano="sm" onClick={aplicarHorario}>Aplicar horario</Boton>
               <Boton tamano="sm" onClick={() => aplicarMasivo({ alimentos: true })}>Con alimentos</Boton>
@@ -541,7 +542,7 @@ export default function EditorTE() {
             ))}
           </dl>
             <div className="flex flex-wrap gap-1.5" role="group" aria-label="Empleados por horario">
-              {Object.entries(resumen.porBloque).map(([b, n]) => <Insignia key={b} tono="neutro" sinIcono>{b}: {n}</Insignia>)}
+              {Object.entries(resumen.porBloque).map(([b, n]) => <Insignia key={b} tono="neutro" sinIcono>{horasEnTexto12(b)}: {n}</Insignia>)}
             </div>
           </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">

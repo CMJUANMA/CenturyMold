@@ -86,7 +86,7 @@ describe('Formato de rutas (proveedor) con datos mezclados', () => {
     const filas = [];
     for (const ws of wb.worksheets) ws.eachRow(row => { const v = row.values.slice(1); if (v.length >= 10 && /^\d|^$/.test(String(v[2] ?? '')) || v[4] !== undefined) filas.push(v); });
     const texto = JSON.stringify(wb.worksheets.map(w => w.getSheetValues()));
-    for (const esperado of ['MENDOZA ANSELMO', 'EXTENSIÓN SIN ENTRADA', 'YA EN PLANTA', 'SOLO LLEGADA', 'NO REQUIERE', 'ZAMORA LUIS', '12:00AM', '4:00PM']) expect(texto, esperado).toContain(esperado);
+    for (const esperado of ['MENDOZA ANSELMO', 'EXTENSIÓN SIN ENTRADA', 'YA EN PLANTA', 'SOLO LLEGADA', 'NO REQUIERE', 'ZAMORA LUIS', '00:00', '16:00']) expect(texto, esperado).toContain(esperado);
     let pasajeros = 0;
     for (const ws of wb.worksheets) ws.eachRow(row => { if (/^Pasajeros: \d+$/.test(String(row.getCell(1).value ?? ''))) pasajeros += Number(String(row.getCell(1).value).split(': ')[1]); });
     expect(pasajeros).toBe(6); // 5 de la solicitud A1 + 1 de B2
