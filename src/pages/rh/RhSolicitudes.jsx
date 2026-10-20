@@ -23,6 +23,8 @@ import Insignia from '../../components/ui/Insignia';
 import { Fila, Tabla, Td, Th } from '../../components/ui/Tabla';
 import { toDate, fmtFecha, fmtFechaHora, ymd, sumarDias, rangoSemana } from '../../utils/fechas';
 import { resumenPasajeros, textoConteo } from '../../utils/solicitudes';
+import { leerTelefonos } from '../../utils/contactosDb';
+import { formatoTelefono } from '../../utils/telefono';
 import { useCatalogos } from '../../hooks/useCatalogos';
 import { useAreas } from '../../hooks/useAreas';
 import { useConfirmar } from '../../hooks/useConfirmar';
@@ -141,8 +143,11 @@ export default function RhSolicitudes() {
       if (req !== detalleReq.current) return;
       const pasajeros = ps.docs.map(d => d.data());
       const resumen = resumenPasajeros(pasajeros); // también cubre las solicitudes viejas sin resumen
+      // Teléfono del padrón (empleadosContacto): solo RH lo lee; no se guarda en la solicitud
+      const telefonos = await leerTelefonos(pasajeros.map(p => String(p.nomina))).catch(() => new Map());
+      if (req !== detalleReq.current) return;
       setDetalle(prev => (prev && prev.id === sol.id ? {
-        ...prev, pasajeros, totalAlimentos: resumen.totalAlimentos,
+        ...prev, pasajeros, totalAlimentos: resumen.totalAlimentos, _telefonos: telefonos,
         _turnosStr: textoConteo(resumen.conteoTurnos), _puestosStr: textoConteo(resumen.conteoPuestos),
       } : prev));
     } catch (err) {
@@ -380,7 +385,7 @@ export default function RhSolicitudes() {
               {detalle.pasajeros === null ? <div className="p-4"><EsqueletoTabla filas={3} columnas={6} /></div> : (
                 <Tabla etiqueta="Pasajeros" className="rounded-none border-0">
                   <thead>
-                    <tr><Th>Área</Th><Th>Puesto</Th><Th>Nómina</Th><Th>Nombre</Th><Th>Entrada</Th><Th>Salida</Th><Th>Alimentos</Th><Th>Ruta</Th><Th>Comunidad o colonia</Th><Th>Punto de reunión</Th></tr>
+                    <tr><Th>Área</Th><Th>Puesto</Th><Th>Nómina</Th><Th>Nombre</Th><Th>Entrada</Th><Th>Salida</Th><Th>Alimentos</Th><Th>Ruta</Th><Th>Comunidad o colonia</Th><Th>Punto de reunión</Th><Th>Teléfono</Th></tr>
                   </thead>
                   <tbody>
                     {detalle.pasajeros.map(p => {
@@ -399,6 +404,7 @@ export default function RhSolicitudes() {
                           <Td>{nameR}</Td>
                           <Td>{nameC}</Td>
                           <Td>{nameP}</Td>
+                          <Td mono>{formatoTelefono(detalle._telefonos?.get(String(p.nomina)) ?? '') || '—'}</Td>
                         </Fila>
                       );
                     })}

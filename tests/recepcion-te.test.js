@@ -103,7 +103,7 @@ describe('Excel del proveedor', () => {
   const armar = (solicitudes) => construirLibroProveedor({ ExcelJS, solicitudes, catalogos });
 
   it('el encabezado lleva AREA al inicio y el resto del formato aprobado', () => {
-    expect(ENCABEZADOS_PROVEEDOR).toEqual(['AREA', 'PUESTO', 'NÓMINA', 'NOMBRE', 'ENTRADA', 'SALIDA', 'ALIMENTOS', 'RUTA', 'COMUNIDAD O COLONIA', 'PUNTO DE REUNION']);
+    expect(ENCABEZADOS_PROVEEDOR).toEqual(['AREA', 'PUESTO', 'NÓMINA', 'NOMBRE', 'ENTRADA', 'SALIDA', 'ALIMENTOS', 'RUTA', 'COMUNIDAD O COLONIA', 'PUNTO DE REUNION', 'TELÉFONO']);
   });
 
   it('cada pasajero de tiempo extra cae en la hoja del turno de su hora de entrada', () => {
@@ -125,7 +125,18 @@ describe('Excel del proveedor', () => {
     const encabezado = [...Array(ws.rowCount).keys()].map(i => ws.getRow(i + 1)).find(r => r.getCell(1).value === 'AREA');
     expect(valores(encabezado)).toEqual(ENCABEZADOS_PROVEEDOR);
     const pasajero = ws.getRow(Number(encabezado.number) + 1);
-    expect(valores(pasajero)).toEqual(['Moldes', 'OPERADOR', '1', 'EMPLEADO 1', '7:00AM', '4:00PM', 'SI', 'Norte', 'Pueblito', 'Plaza']);
+    expect(valores(pasajero)).toEqual(['Moldes', 'OPERADOR', '1', 'EMPLEADO 1', '7:00AM', '4:00PM', 'SI', 'Norte', 'Pueblito', 'Plaza', '']);
+  });
+
+  it('la columna TELÉFONO sale al final con el del padrón (con formato) y vacía si no tiene; el resto del formato no cambia', () => {
+    const telefonos = { 1: '4421234567' };
+    const ws = construirLibroProveedor({ ExcelJS, solicitudes: [solTE], catalogos, telefonoDe: (n) => telefonos[n] ?? '' }).getWorksheet('Turno 1');
+    const encabezado = [...Array(ws.rowCount).keys()].map(i => ws.getRow(i + 1)).find(r => r.getCell(1).value === 'AREA');
+    expect(encabezado.getCell(11).value).toBe('TELÉFONO');
+    expect(valores(ws.getRow(Number(encabezado.number) + 1))[10]).toBe('442 123 4567');
+    expect(ws.getCell('A1').value).toBe('Formato de Solicitud de Rutas');
+    const sinTel = construirLibroProveedor({ ExcelJS, solicitudes: [solTE], catalogos }).getWorksheet('Turno 1');
+    expect(valores(sinTel.getRow(Number(encabezado.number) + 1))[10]).toBe('');
   });
 
   it('dos tiempos extra del mismo solicitante salen en bloques separados, cada uno con su folio', () => {
@@ -145,7 +156,7 @@ describe('Excel del proveedor', () => {
     expect(filas).toContainEqual(['TOTAL DEL TURNO']);
     expect(filas).toContainEqual(['Solicitantes: 1', 'Pasajeros: 2', 'Con alimentos: 1', 'Sin alimentos: 1']);
     const luis = [...Array(ws.rowCount).keys()].map(i => valores(ws.getRow(i + 1))).find(v => v[2] === '77');
-    expect(luis).toEqual(['Calidad', 'INSPECTOR', '77', 'LUIS', '7:00AM', '4:00PM', 'SI', 'Norte', 'Pueblito', 'Plaza']);
+    expect(luis).toEqual(['Calidad', 'INSPECTOR', '77', 'LUIS', '7:00AM', '4:00PM', 'SI', 'Norte', 'Pueblito', 'Plaza', '']);
   });
 
   it('una solicitud normal sin área deja AREA vacía; una de tiempo extra y una normal conviven en la misma hoja', () => {
@@ -219,8 +230,8 @@ describe('Excel de tiempo extra para RH', () => {
   it('Detalle: una fila por empleado con horas, ruta, solicitante, quién firmó y la fecha de autorización', () => {
     const wb = construirLibroTiempoExtra({ ExcelJS, solicitudes: sols, nombresArea, catalogos, filtros: { areaId: 'moldes' } });
     const d = wb.getWorksheet('Detalle');
-    expect(valores(d.getRow(5))).toEqual(['TE-2026-0001', '20/10/2026', 'Moldes', 'Turno extra', '', '1', 'EMPLEADO 1', 'OPERADOR', 'A', '7:00', '16:00', 9, 'Sí', 'Sí', 'llegada y salida', 'Norte · Pueblito · Plaza', 'OSCAR PEREZ', 'ANSELMO', 'ADMIN (RH)', '15/10/2026 14:30']);
-    expect(valores(d.getRow(7))).toEqual(['TE-2026-0002', '21/10/2026', 'Moldes', 'Turno extra', '', '1', 'EMPLEADO 1', 'OPERADOR', 'A', '16:00', '0:00', 8, 'Sí', 'No', '', '', 'OSCAR PEREZ', '', '', '']);
+    expect(valores(d.getRow(5))).toEqual(['TE-2026-0001', '20/10/2026', 'Moldes', 'Turno extra', '', '1', 'EMPLEADO 1', 'OPERADOR', '7:00', '16:00', 9, 'Sí', 'Sí', 'llegada y salida', 'Norte · Pueblito · Plaza', 'OSCAR PEREZ', 'ANSELMO', 'ADMIN (RH)', '15/10/2026 14:30']);
+    expect(valores(d.getRow(7))).toEqual(['TE-2026-0002', '21/10/2026', 'Moldes', 'Turno extra', '', '1', 'EMPLEADO 1', 'OPERADOR', '16:00', '0:00', 8, 'Sí', 'No', '', '', 'OSCAR PEREZ', '', '', '']);
     expect(d.rowCount).toBe(7); // título, subtítulo, vacía, encabezado y 3 empleados
   });
 

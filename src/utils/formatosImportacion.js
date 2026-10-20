@@ -12,6 +12,7 @@ import { motivoArchivoNoValido, motivoLibroDemasiadoGrande } from './excelSeguro
 import { limpiarTexto, normalizarPuesto } from './puestos.js';
 import { esActivo } from './activo.js';
 import { slugify } from './comparacionImportacion.js';
+import { estadoTelefono, soloDigitosTelefono } from './telefono.js';
 
 // ── Esquemas ──────────────────────────────────────────────────────────────
 export const HOJA_DIR = 'Directorio';
@@ -32,7 +33,11 @@ const COLUMNAS_EMP = [
   { h: 'PUESTO',       ancho: 32, desc: 'Un puesto del catalogo (o su alias). Los demas se resuelven en la vista previa.',                      ej: 'PRODUCTION OPERATOR' },
   { h: 'CLAVE PARADA', ancho: 16, formato: 'texto', opcional: true,
     desc: 'Clave del punto de reunion (columna CLAVE del directorio). Si se deja vacia, la ruta se pedira al solicitar transporte.', ej: 'SN01' },
+  { h: 'TELÉFONO',     ancho: 16, formato: 'texto', opcional: true,
+    desc: 'Telefono del empleado, 10 digitos (para que el transporte pueda llamar). Si se deja vacio, no se borra el que ya tenga.', ej: '4421234567' },
 ];
+/** Columnas del formato de empleados que pueden faltar en archivos anteriores (las últimas) */
+const EMP_OPCIONALES_FINALES = 1;
 
 export const DIR_HEADERS = COLUMNAS_DIR.map(c => c.h);
 export const EMP_HEADERS = COLUMNAS_EMP.map(c => c.h);
@@ -43,9 +48,9 @@ const EJEMPLO_DIR = [
   ['RUTA SUR',   'COLONIA VISTA HERMOSA', 'PLAZA COMERCIAL',     'SU01'],
 ];
 const EJEMPLO_EMP = [
-  [12345, 'GARCIA LOPEZ JUAN',      'PRODUCTION OPERATOR', 'SN01'],
-  [67890, 'MARTINEZ RUIZ ANA',      'SUPERVISORA DE CALIDAD', 'SU01'],
-  [11111, 'RODRIGUEZ PEREZ CARLOS', 'ALMACENISTA',            ''],
+  [12345, 'GARCIA LOPEZ JUAN',      'PRODUCTION OPERATOR', 'SN01', '4421234567'],
+  [67890, 'MARTINEZ RUIZ ANA',      'SUPERVISORA DE CALIDAD', 'SU01', '4427654321'],
+  [11111, 'RODRIGUEZ PEREZ CARLOS', 'ALMACENISTA',            '', ''],
 ];
 
 const FILAS_PREFORMATEADAS = 500;
@@ -302,10 +307,11 @@ export function construirFormatoEmpleados(puestosExistentes = []) {
     reglas: [
       `Capture los datos en la hoja "${HOJA_EMP}" a partir de la fila 2.`,
       'No modifique, mueva ni renombre los encabezados de la fila 1. No agregue ni elimine columnas.',
-      'NOMINA, NOMBRE y PUESTO son obligatorios. CLAVE PARADA es opcional.',
+      'NOMINA, NOMBRE y PUESTO son obligatorios. CLAVE PARADA y TELÉFONO son opcionales.',
       'NOMINA debe contener solo digitos y no repetirse en el archivo.',
       'PUESTO: use un puesto del catalogo (o un alias ya confirmado). Los que no se reconozcan se resuelven en la vista previa antes de confirmar.',
       'CLAVE PARADA debe existir en el directorio de transporte. Si se deja vacia, la ruta se pedira al solicitar transporte.',
+      'TELÉFONO: 10 digitos (se aceptan espacios y guiones). Si se deja vacio, no se borra el telefono que el empleado ya tenga.',
       'Si la nomina ya existe en el sistema, el empleado se actualiza; no se crean duplicados.',
       `La hoja "${HOJA_EJEMPLO}" es solo de referencia y esta hoja de instrucciones nunca se importan.`,
       'Guarde el archivo en formato .xlsx antes de importarlo.',
@@ -466,7 +472,11 @@ async function cargarLibro(buffer) {
   return wb;
 }
 
-function filasDeHoja(wb, nombreHoja, headers) {
+/** Sin acentos ni mayúsculas, para comparar encabezados (TELÉFONO = TELEFONO) */
+const sinAcentos = (v) => norm(v).normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+/** `opcionalesFinales`: las últimas N columnas pueden no estar en el archivo (archivos anteriores); si están, su encabezado debe coincidir */
+function filasDeHoja(wb, nombreHoja, headers, opcionalesFinales = 0) {
   const ws = wb.getWorksheet(nombreHoja);
   if (!ws) throw new Error(`No se encontro la hoja "${nombreHoja}".`);
   const total = ws.rowCount;
@@ -479,7 +489,8 @@ function filasDeHoja(wb, nombreHoja, headers) {
   }
   const enc = raw[0].map(h => norm(h));
   headers.forEach((h, i) => {
-    if (enc[i] !== h) {
+    if (i >= headers.length - opcionalesFinales && enc[i] === '') return;
+    if (sinAcentos(enc[i]) !== sinAcentos(h)) {
       throw new Error(`Encabezado incorrecto en col ${String.fromCharCode(65 + i)}: esperado "${h}", encontrado "${enc[i] || '(vacio)'}"`);
     }
   });
@@ -607,14 +618,15 @@ export async function leerEmpleadosArchivo(buffer, puntosReunionMap, { hoja, usa
   const formato = meta.formato;
   const crudas = reporte
     ? filasReporteNomina(reporte)
-    : filasDeHoja(wb, HOJA_EMP, EMP_HEADERS).map(({ filaExcel, valores }) => ({
+    : filasDeHoja(wb, HOJA_EMP, EMP_HEADERS, EMP_OPCIONALES_FINALES).map(({ filaExcel, valores }) => ({
       filaExcel, nomina: norm(valores[0]), nombre: norm(valores[1]),
-      puesto: normalizarPuesto(valores[2]), claveParada: norm(valores[3]), extra: null, puestoCrudo: valores[2],
+      puesto: normalizarPuesto(valores[2]), claveParada: norm(valores[3]), telefonoCrudo: valores[4], extra: null, puestoCrudo: valores[2],
     }));
 
   const nominasSeen = new Map();
-  const filasTmp = crudas.map(({ filaExcel, nomina, nombre, puesto, claveParada, extra, puestoCrudo }) => {
-    const datos = { NOMINA: nomina, NOMBRE: nombre, PUESTO: puesto, 'CLAVE PARADA': claveParada };
+  const filasTmp = crudas.map(({ filaExcel, nomina, nombre, puesto, claveParada, telefonoCrudo, extra, puestoCrudo }) => {
+    const telefono = soloDigitosTelefono(telefonoCrudo);
+    const datos = { NOMINA: nomina, NOMBRE: nombre, PUESTO: puesto, 'CLAVE PARADA': claveParada, TELEFONO: estadoTelefono(telefono) === 'valido' ? telefono : '' };
     const errores = []; const advertencias = [];
     if (!nomina) errores.push('NOMINA obligatoria');
     else if (!/^\d+$/.test(nomina)) errores.push(`NOMINA "${nomina}" no es numerica`);
@@ -623,6 +635,8 @@ export async function leerEmpleadosArchivo(buffer, puntosReunionMap, { hoja, usa
     if (!nombre) errores.push('NOMBRE obligatorio');
     // Puesto vacío: a un empleado existente se le conserva el puesto (lo decide la comparación); a uno nuevo se le omite
     if (!puesto) advertencias.push('PUESTO vacio: se conserva el puesto actual del empleado');
+    // Un teléfono que no tiene 10 dígitos no se importa (el empleado conserva el que ya tenga); lo demás de la fila sí
+    if (estadoTelefono(telefono) === 'incompleto') advertencias.push(`TELEFONO "${String(telefonoCrudo).trim()}" no tiene 10 digitos; se conserva el actual`);
     let paradaInfo = null;
     if (claveParada) {
       if (!puntosReunionMap || puntosReunionMap.size === 0) advertencias.push(`CLAVE PARADA "${claveParada}": directorio vacio`);

@@ -39,6 +39,8 @@ import {
   empleadoDesdePadron, estatusAlEnviar, normalizarTipo, nuevoIdBorrador, problemasDeEnvio, quienDevolvio, resumenRutas, resumenTE, salidasPosteriores, textoRutas,
 } from '../../utils/tiempoExtra';
 import { MAX_PASAJEROS } from '../../utils/solicitudes';
+import { guardarTelefonosEnPadron, leerTelefonos } from '../../utils/contactosDb';
+import { estadoTelefono, soloDigitosTelefono } from '../../utils/telefono';
 import {
   cancelarSolicitud, eliminarBorrador, enviarSolicitud, guardarBorrador, guardarRutasEnPadron, leerOcupados, leerSolicitudTE,
 } from '../../utils/tiempoExtraDb';
@@ -78,6 +80,8 @@ export default function EditorTE() {
   const [intentoEnvio, setIntentoEnvio] = useState(false);
   const [trabajo, setTrabajo] = useState(null); // { texto, hechos, total }
   const [bulk, setBulk] = useState({ entrada: '', salida: '' });
+  const [tels, setTels] = useState({}); // nómina → { padron, actual }: teléfono del padrón y el que se está capturando (solo de quienes llevan transporte)
+  const telsPedidos = useRef(new Set());
 
   const existe = !!servidor?.existe;
   const esDevuelta = servidor?.estatus === 'devuelta';
@@ -92,6 +96,8 @@ export default function EditorTE() {
   }, [areas, accesos.areasSolicitante, accesos.areasAut1, accesos.esRH, accesos.esAut2]);
   const areaActual = areaId || (areasCaptura.length === 1 ? areasCaptura[0].id : '');
   const area = areas.find(a => a.id === areaActual);
+  // El teléfono del empleado lo ven y lo capturan RH y el solicitante de esa área; Aut. 1 y Aut. 2 no (las reglas lo niegan)
+  const puedeTelefono = !!accesos.esRH || accesos.areasSolicitante.includes(areaActual);
   const esAut1DeLaArea = accesos.areasAut1.includes(areaActual);
   // Un Aut. 2 vigente autoriza lo que captura (es el nivel más alto): su solicitud queda autorizada al enviarla
   const esAut2 = !!accesos.esAut2;
@@ -121,6 +127,22 @@ export default function EditorTE() {
     }).catch(err => { if (vigente) { toast.error('No se pudo abrir la solicitud: ' + err.message); navigate('/tiempo-extra/mis-solicitudes', { replace: true }); } });
     return () => { vigente = false; };
   }, [idParam, usuario?.uid, navigate, toast]);
+
+  // Teléfonos del padrón de quienes llevan transporte (una lectura por empleado, la primera vez que aparecen)
+  useEffect(() => {
+    if (!puedeTelefono) return;
+    const faltan = empleados.filter(e => e.transporte && !telsPedidos.current.has(e.nomina)).map(e => e.nomina);
+    if (!faltan.length) return;
+    faltan.forEach(n => telsPedidos.current.add(n));
+    leerTelefonos(faltan).then(mapa => setTels(prev => {
+      const sig = { ...prev };
+      for (const [n, t] of mapa) sig[n] = prev[n] ? { ...prev[n], padron: t } : { padron: t, actual: t };
+      return sig;
+    }));
+  }, [empleados, puedeTelefono]);
+  const cambiarTelefono = (nomina, valor) => setTels(prev => ({ ...prev, [nomina]: { padron: prev[nomina]?.padron ?? '', actual: valor } }));
+  const telefonoDe = (nomina) => tels[nomina]?.actual ?? '';
+  const sinTelefono = puedeTelefono ? empleados.filter(e => e.transporte && estadoTelefono(telefonoDe(e.nomina)) !== 'valido').length : 0;
 
   // Aviso (sin bloquear) de quien ya tiene otro tiempo extra ese día
   useEffect(() => {
@@ -233,6 +255,22 @@ export default function EditorTE() {
     try { await guardarRutasEnPadron(cambios); parchearEmpleados(cambios); }
     catch (err) { console.error('Rutas al padrón:', err); toast.warning('La solicitud se guardó, pero no se pudieron recordar las rutas en el padrón.'); }
   };
+  /** Teléfonos capturados o corregidos → padrón (solo los de 10 dígitos que cambiaron; un fallo avisa pero no detiene el guardado) */
+  const recordarTelefonos = async () => {
+    if (!puedeTelefono) return;
+    const cambios = {};
+    for (const e of empleados) {
+      const t = tels[e.nomina];
+      if (!e.transporte || !t) continue;
+      const nuevo = soloDigitosTelefono(t.actual);
+      if (estadoTelefono(nuevo) === 'valido' && nuevo !== t.padron) cambios[e.nomina] = nuevo;
+    }
+    if (!Object.keys(cambios).length) return;
+    try {
+      await guardarTelefonosEnPadron(cambios);
+      setTels(prev => { const sig = { ...prev }; for (const [n, t] of Object.entries(cambios)) sig[n] = { padron: t, actual: t }; return sig; });
+    } catch (err) { console.error('Teléfonos al padrón:', err); toast.warning('La solicitud se guardó, pero no se pudieron recordar los teléfonos en el padrón.'); }
+  };
   const guardar = async (texto = 'Guardando borrador') => {
     const meta = areas.find(a => a.id === areaActual);
     await guardarBorrador({
@@ -244,6 +282,7 @@ export default function EditorTE() {
     setSucios(new Set()); setEliminados(new Set());
     setServidor(s => ({ ...(s ?? {}), existe: true, estatus: s?.estatus ?? 'borrador', folio: s?.folio ?? null }));
     await recordarRutas();
+    await recordarTelefonos();
   };
 
   // Cierre por inactividad: si hay cambios sin guardar, se guarda el borrador antes de cerrar la sesión (hace falta área y fecha: sin ellas
@@ -282,6 +321,7 @@ export default function EditorTE() {
       mensaje: `${resumen.totalEmpleados} empleados · ${resumen.totalHoras} h en total · ${resumen.totalTransporte} con transporte · ${resumen.totalAlimentos} con alimentos`
         + `${infoRutas.rutasDistintas ? ` · ${infoRutas.rutasDistintas} ${infoRutas.rutasDistintas === 1 ? 'ruta' : 'rutas'}` : ''}. `
         + `Va a ${destino}. ${esDevuelta ? 'Vuelve a empezar su autorización.' : 'Se le asignará su folio.'} El transporte se solicitará automáticamente a RH al quedar autorizada.`
+        + (sinTelefono ? ` ${sinTelefono} con transporte ${sinTelefono === 1 ? 'no tiene' : 'no tienen'} teléfono: el transporte no podrá llamarles.` : '')
         + (esAut2 ? ' Como eres Autorización 2, al enviarla quedará autorizada.' : ''),
       textoConfirmar: esDevuelta ? 'Reenviar' : 'Enviar',
     });
@@ -450,6 +490,7 @@ export default function EditorTE() {
               </div>
               {empleados.map((e, i) => (
                 <FilaEmpleadoTE key={e.nomina} tour={i === 0 ? 'solicitar-empleado-fila' : undefined} e={e} tipo={tipo} rutas={rutas} comunidades={comunidades} puntos={puntos} seleccionado={seleccion.has(e.nomina)}
+                  telefono={telefonoDe(e.nomina)} puedeTelefono={puedeTelefono} onTelefono={cambiarTelefono}
                   aviso={avisoDe(e.nomina)} error={errorDe(e.nomina)} onSeleccionar={alternarSeleccion} onCambio={cambiar} onQuitar={quitar} />
               ))}
               <Ayuda clave="solicitar.ruta" />

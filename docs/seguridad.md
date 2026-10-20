@@ -39,6 +39,7 @@ Estado: ✅ corregido y probado · ⏳ pendiente (Blaze o decisión) · ℹ️ i
 | S-22 | Bajo | Minimización de datos personales (fecha de alta, departamento, nivel) | ⏳ decisión |
 | S-23 | Info | Margen de las reglas: tope de 1000 expresiones por petición | ℹ️ ver nota |
 | S-24 | Info | Secretos: ninguno en el repo ni en el historial; la configuración web de Firebase es pública | ℹ️ |
+| S-25 | Info | Teléfono del empleado (dato personal nuevo, para que el transporte pueda llamar) | ✅ colección aparte con reglas propias |
 
 ---
 
@@ -143,7 +144,7 @@ Las reglas del transporte suelto (apagado) permitían al dueño escribir un hist
 Un cliente modificado puede declarar `totalTransporte: 0` con empleados que sí lo piden, o horas distintas. Ahora los valores están acotados y tienen el tipo correcto, y **RH lo contrasta al confirmar** (la app aborta si el resumen no coincide con los empleados). Cálculo en servidor: Blaze.
 
 ### S-22 · Bajo · Datos personales  ⏳ decisión
-Datos del padrón: nómina, nombre, puesto, área, turno, departamento, nivel, **fecha de alta**, ruta/comunidad/punto de reunión. No hay salario, CURP, RFC, teléfono, domicilio ni datos médicos. Quién los ve: RH y admin (todos), la Aut. 2 (todos), Aut. 1 y solicitante (solo su área). Quién los descarga: RH y admin (padrón completo; ahora queda en la bitácora).
+Datos del padrón: nómina, nombre, puesto, área, departamento, nivel, **fecha de alta**, ruta/comunidad/punto de reunión (el turno de nómina por persona ya no se captura: los registros anteriores conservan el campo `turnoNomina`, sin uso). No hay salario, CURP, RFC, domicilio ni datos médicos; el teléfono va aparte (S-25). Quién los ve: RH y admin (todos), la Aut. 2 (todos), Aut. 1 y solicitante (solo su área). Quién los descarga: RH y admin (padrón completo; ahora queda en la bitácora).
 Minimización: `depto`, `descDepto`, `nivel` y `fechaAlta` los trae el reporte de nómina pero la app casi no los usa; se podrían dejar de guardar. Recomendación: decidir después del piloto cuáles se quedan.
 
 ### S-23 · Info · tope de 1000 expresiones
@@ -156,6 +157,21 @@ Firestore evalúa como máximo 1000 expresiones por petición. Las reglas de tie
 - No pude comprobar si el repositorio de GitHub es privado; **verifícalo** (Settings › General › Danger zone). Aunque fuera público no expone secretos, pero sí tu estructura.
 
 ---
+
+### S-25 · Info · Teléfono del empleado  ✅
+El transporte necesita poder llamar a quien lleva, así que el empleado tiene un `telefono` (10 dígitos, opcional). **No está en `empleados/{nómina}`** porque el padrón lo leen también Aut. 1 y Aut. 2 (y Firestore no oculta campos): vive en `empleadosContacto/{nómina}` = `{ telefono }`.
+
+| Quién | Lee | Escribe |
+|---|---|---|
+| RH y admin | todos (uno por uno y la colección) | sí, y borrar |
+| Solicitante vigente del área del empleado | solo `get` de empleados de su área | sí, de su área (la captura de tiempo extra lo guarda al guardar/enviar) |
+| Aut. 1, Aut. 2, cualquier otro | **no** | **no** |
+
+- El área se toma de `empleados/{nómina}.areaId` al momento de la petición: si la persona cambia de área, el teléfono pasa con ella. Por eso el solicitante lo lee con `get` y no con consultas (una regla no puede probar el área de cada documento de una lista).
+- Forma: solo la clave `telefono`, texto vacío o exactamente 10 dígitos. Pruebas: `tests/firestore.rules.contacto.test.js`.
+- **No se copia** a las solicitudes de tiempo extra (las leen Aut. 1 y Aut. 2) ni a los pasajeros de la solicitud de transporte: el detalle de RH y el Excel del proveedor lo leen del padrón al momento (columna `TELÉFONO`, al final; el resto del formato no cambia). Si quien descarga no puede leerlo, la columna sale vacía.
+- El Aut. 1 que captura tiempo extra no ve ni captura teléfonos (la pantalla oculta el campo); RH puede completarlos en Personal o con la importación.
+- Entra en el respaldo completo (`empleadosContacto`, solo admin) y en la importación de Excel (columna `TELÉFONO`; una celda vacía no borra el que existe). El respaldo del padrón (Excel) no lleva teléfonos.
 
 ## Revisión por tema (lo que se comprobó)
 

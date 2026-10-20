@@ -66,12 +66,13 @@ function resumirPlan(items, bajas, filas, activosPorEntidad) {
 /**
  * @param filas       resultado de leerEmpleados
  * @param empleados   documentos existentes [{ id, ...data }]
- * @param opciones    { modo, catalogo, areas, decisiones, excepciones, puestoArea }
+ * @param opciones    { modo, catalogo, areas, decisiones, excepciones, puestoArea, telefonos }
  *   catalogo:    puestos [{ id, nombre, areaId, alias }]; areas: [{ id, nombre }]
  *   decisiones:  Map clave de puesto → decisión de RH (ver resolucionPuestos.js)
  *   excepciones: Map nómina → { areaId, motivo } (excepción individual fijada en la importación)
  *                o null (quitar la excepción vigente)
  *   puestoArea:  Map puestoId → areaId nueva (cambio del área del puesto en el catálogo, "Todo el puesto")
+ *   telefonos:   Map nómina → teléfono actual (empleadosContacto). Un TELEFONO vacío en el archivo no borra el que ya hay
  *
  * El área sale SOLO del puesto (o de la excepción del empleado); el departamento es informativo.
  * La importación nunca toca una excepción existente: solo cambia si RH la modificó en `excepciones`.
@@ -79,7 +80,7 @@ function resumirPlan(items, bajas, filas, activosPorEntidad) {
  * Las filas con puesto sin resolver u omitido no entran al plan (y nunca se proponen como baja).
  */
 export function compararEmpleados(filas, empleados, {
-  modo = MODOS.AGREGAR, catalogo = [], areas = [], decisiones = new Map(), excepciones = new Map(), puestoArea = new Map(),
+  modo = MODOS.AGREGAR, catalogo = [], areas = [], decisiones = new Map(), excepciones = new Map(), puestoArea = new Map(), telefonos = new Map(),
 } = {}) {
   // Se identifica por el campo nómina (o el ID si falta); se escribe sobre el documento real
   const nominaDe = (e) => String(e.nomina ?? e.id).trim();
@@ -162,6 +163,13 @@ export function compararEmpleados(filas, empleados, {
         }
       }
     }
+    // Teléfono (va a empleadosContacto, no al empleado): solo si el archivo trae uno válido y distinto al actual
+    const telefonoNuevo = fila.datos.TELEFONO || '';
+    let telefono = null;
+    if (telefonoNuevo && telefonoNuevo !== (telefonos.get(nomina) ?? '')) {
+      if (ex) cambios.push({ campo: 'TELÉFONO', antes: telefonos.get(nomina) || VACIO, despues: telefonoNuevo });
+      telefono = telefonoNuevo;
+    }
     if (areaId) porArea[areaId] = (porArea[areaId] ?? 0) + 1;
     else sinArea.push({ nomina, nombre, puesto: res.nombre });
 
@@ -187,7 +195,7 @@ export function compararEmpleados(filas, empleados, {
       : res.estado === 'alias' ? { antes: fila.datos.PUESTO, despues: res.nombre, tipo: 'confirmada' } : null;
     items.push({
       key: `empleados/${id}`, coleccion: 'empleados', id, clave: nomina, entidad: 'Empleado',
-      nombre, detalle: res.nombre, filaExcel: fila.filaExcel, accion, cambios, datos,
+      nombre, detalle: res.nombre, filaExcel: fila.filaExcel, accion, cambios, datos, telefono,
       areaId, areaNombre: nombreArea(areaId), puestoNuevo: res.estado === 'nuevo', puestoCorreccion: correccion,
       // Para el paso "Confirmar áreas"
       puestoId: res.puestoId, puestoClave: clavePuesto(fila.datos.PUESTO), puestoNombre: res.nombre, puestoEstado: res.estado,

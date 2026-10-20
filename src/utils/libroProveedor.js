@@ -3,15 +3,17 @@
  * una hoja por fecha de servicio y turno, bloques por solicitante con subtotales y TOTAL DEL TURNO.
  * Sin dependencias del navegador ni de Firebase (se prueba en Node); exportarSolicitudes.js lo descarga.
  *
- * Columnas: AREA · PUESTO · NÓMINA · NOMBRE · ENTRADA · SALIDA · ALIMENTOS · RUTA · COMUNIDAD O COLONIA · PUNTO DE REUNION
+ * Columnas: AREA · PUESTO · NÓMINA · NOMBRE · ENTRADA · SALIDA · ALIMENTOS · RUTA · COMUNIDAD O COLONIA · PUNTO DE REUNION · TELÉFONO
+ *   TELÉFONO: el del empleado en el padrón (`telefonoDe(nómina)`, para que el transporte pueda llamar); vacío si no tiene.
  *   AREA: área del pasajero (pasajero.areaId del padrón); en solicitudes anteriores sin área, la de la solicitud; si no hay, vacía.
  * Tiempo extra: sus pasajeros ya traen el turno que corresponde a su hora de ENTRADA (pasajero.turno), así que caen en la hoja de ese
  * turno; su bloque dice "Solicitante: [solicitante original] · Tiempo extra TE-AAAA-NNNN" (no el nombre de RH).
  */
 import { solicitanteDeTransporte } from './tiempoExtra.js';
 import { aFechaIso, comparar, texto } from './orden.js';
+import { formatoTelefono } from './telefono.js';
 
-export const ENCABEZADOS_PROVEEDOR = ['AREA', 'PUESTO', 'NÓMINA', 'NOMBRE', 'ENTRADA', 'SALIDA', 'ALIMENTOS', 'RUTA', 'COMUNIDAD O COLONIA', 'PUNTO DE REUNION'];
+export const ENCABEZADOS_PROVEEDOR = ['AREA', 'PUESTO', 'NÓMINA', 'NOMBRE', 'ENTRADA', 'SALIDA', 'ALIMENTOS', 'RUTA', 'COMUNIDAD O COLONIA', 'PUNTO DE REUNION', 'TELÉFONO'];
 const COLUMNAS = ENCABEZADOS_PROVEEDOR.length;
 
 const NOMBRE_TURNO = { 1: 'Turno 1', 2: 'Turno 2', 3: 'Turno 3', TE: 'Tiempo extra' };
@@ -65,9 +67,10 @@ export function agruparHojas(solicitudes, { puestoDe = () => '', areaDe = () => 
  * @param {Array}  p.solicitudes        solicitudes con su arreglo `pasajeros`
  * @param {{rutas: Array, comunidades: Array, puntos: Array, areas?: Array}} p.catalogos  para resolver nombres
  * @param {(nomina: string) => object} [p.empleadoDe]  padrón, para completar el puesto de pasajeros que no lo traen
+ * @param {(nomina: string) => string} [p.telefonoDe]  teléfono del empleado (10 dígitos) o ''
  * @returns el libro, o null si no hay pasajeros
  */
-export function construirLibroProveedor({ ExcelJS, solicitudes, catalogos, empleadoDe = () => ({}) }) {
+export function construirLibroProveedor({ ExcelJS, solicitudes, catalogos, empleadoDe = () => ({}), telefonoDe = () => '' }) {
   const nombreDe = (lista, id) => texto((lista ?? []).find(x => x.id === id)?.nombre);
   const nombreRuta = id => nombreDe(catalogos.rutas, id);
   const nombreCom = id => nombreDe(catalogos.comunidades, id);
@@ -252,7 +255,7 @@ export function construirLibroProveedor({ ExcelJS, solicitudes, catalogos, emple
         // Todo como texto: una nómina numérica o un campo vacío no cambian el tipo de la celda
         const rData = [
           texto(p.area), texto(p.puesto), texto(p.nomina), texto(p.nombre), texto(p.horaEntrada), texto(p.horaSalida),
-          tieneAli ? 'SI' : 'NO', nombreRuta(p.rutaId), nombreCom(p.comunidadId), nombrePunto(p.puntoReunionId),
+          tieneAli ? 'SI' : 'NO', nombreRuta(p.rutaId), nombreCom(p.comunidadId), nombrePunto(p.puntoReunionId), formatoTelefono(telefonoDe(p.nomina)),
         ];
 
         rData.forEach((val, i) => {
@@ -262,7 +265,7 @@ export function construirLibroProveedor({ ExcelJS, solicitudes, catalogos, emple
           cell.alignment = { vertical: 'middle' };
           cell.border = bordeFino('FF9CA3AF');
           if (filaColorToggle) cell.fill = relleno('FFF3F4F6');
-          if ([2, 4, 5, 6].includes(i)) cell.alignment = { vertical: 'middle', horizontal: 'center' };
+          if ([2, 4, 5, 6, 10].includes(i)) cell.alignment = { vertical: 'middle', horizontal: 'center' };
           if (i === 6 && tieneAli) cell.fill = relleno('FFDCFCE7');
         });
 

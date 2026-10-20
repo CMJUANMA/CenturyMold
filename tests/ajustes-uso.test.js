@@ -239,7 +239,7 @@ describe('extensión de turno', () => {
       const wb = construirLibroProveedor({ ExcelJS, solicitudes: [sol], catalogos });
       expect(wb.worksheets.map(w => w.name).sort()).toEqual(['Turno 1', 'Turno 3']);
       const fila = (hoja, nomina) => { let f; wb.getWorksheet(hoja).eachRow(r => { if (String(r.getCell(3).value) === nomina) f = r.values.slice(1); }); return f; };
-      expect(fila('Turno 1', '1')).toEqual(['Moldes', 'X', '1', 'Empleado 1', 'YA EN PLANTA', '7:00PM', 'NO', 'Norte', 'Pueblito', 'Plaza']);
+      expect(fila('Turno 1', '1')).toEqual(['Moldes', 'X', '1', 'Empleado 1', 'YA EN PLANTA', '7:00PM', 'NO', 'Norte', 'Pueblito', 'Plaza', '']);
       expect(fila('Turno 3', '2').slice(4, 6)).toEqual(['YA EN PLANTA', '4:00PM']);
     });
   });

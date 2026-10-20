@@ -22,6 +22,8 @@ import { ACCIONES_DESCARGA, registrarDescarga } from '../../utils/bitacoraDb';
 import { areaEfectiva } from '../../utils/estructura';
 import { ejecutarEnLotes, leerColeccion, opBitacora } from '../../utils/estructuraDb';
 import { esActivo, opcionesVigentes } from '../../utils/activo';
+import { leerTodosLosTelefonos, opTelefono } from '../../utils/contactosDb';
+import { estadoTelefono, soloDigitosTelefono } from '../../utils/telefono';
 
 // Importación masiva (arrastra exceljs): se descarga solo al abrir el modal
 const ModalImportacion = lazy(() => import('./ModalImportacion'));
@@ -31,7 +33,7 @@ const etiqueta = (x) => (esActivo(x) ? x.nombre : `${x.nombre} (inactivo)`);
 
 const formVacio = {
   nomina: '', nombre: '', puesto: '', puestoId: '', rutaId: '', comunidadId: '', puntoReunionId: '', activo: true,
-  areaExcepcion: '', areaExcepcionMotivo: '',
+  areaExcepcion: '', areaExcepcionMotivo: '', telefono: '',
 };
 const AYUDA_RUTA = 'Si no la asigna, se pedirá al solicitar transporte';
 
@@ -45,6 +47,7 @@ export default function RhEmpleados() {
   const [puntos, setPuntos] = useState([]);
   const [areas, setAreas] = useState([]);
   const [puestos, setPuestos] = useState([]);
+  const [telefonos, setTelefonos] = useState(() => new Map()); // nómina → teléfono (empleadosContacto; solo RH lo lee)
   const [filtroEstado, setFiltroEstado] = useState('todos');
   const [cargando, setCargando] = useState(true);
   const [rev, setRev] = useState(0); // fuerza recarga (tras importar)
@@ -64,8 +67,10 @@ export default function RhEmpleados() {
   useEffect(() => {
     let vigente = true;
     const nombres = ['empleados', 'rutas', 'comunidades', 'puntosReunion', 'areas', 'puestos'];
-    Promise.all(nombres.map(n => leerColeccion(n, toast))).then(([emp, rut, com, pts, are, pue]) => {
+    Promise.all([...nombres.map(n => leerColeccion(n, toast)), leerTodosLosTelefonos().catch(err => { console.error('Teléfonos:', err.code, err); toast.error(`No se pudieron leer los teléfonos (${err.code ?? err.message}).`, 8000); return new Map(); })])
+      .then(([emp, rut, com, pts, are, pue, tels]) => {
       if (!vigente) return;
+      setTelefonos(tels);
       setEmpleados(emp.datos.map(d => ({ ...d, nomina: String(d.nomina ?? d.id) })));
       setRutas(rut.datos); setComunidades(com.datos); setPuntos(pts.datos); setAreas(are.datos); setPuestos(pue.datos);
       setCargando(false);
@@ -108,7 +113,7 @@ export default function RhEmpleados() {
   const abrirEditar = (emp) => {
     setForm({
       ...formVacio, ...emp, puestoId: emp.puestoId ?? '',
-      areaExcepcion: emp.areaExcepcion ?? '', areaExcepcionMotivo: emp.areaExcepcionMotivo ?? '',
+      areaExcepcion: emp.areaExcepcion ?? '', areaExcepcionMotivo: emp.areaExcepcionMotivo ?? '', telefono: telefonos.get(emp.nomina) ?? '',
     });
     setFormError('');
     setModal({ modo: 'editar', original: emp });
@@ -130,6 +135,8 @@ export default function RhEmpleados() {
     // Un empleado sin puestoId (aún sin asignar) puede guardarse sin elegir puesto; uno nuevo, no
     if (!form.puestoId && (modal.modo === 'crear' || original.puestoId)) { setFormError('Elige el puesto del catálogo.'); return; }
     if (form.areaExcepcion && !form.areaExcepcionMotivo.trim()) { setFormError('La excepción de área necesita un motivo.'); return; }
+    if (estadoTelefono(form.telefono) === 'incompleto') { setFormError('El teléfono debe tener 10 dígitos (o déjalo vacío).'); return; }
+    const telefono = soloDigitosTelefono(form.telefono);
     setGuardando(true); setFormError('');
     try {
       const ref = doc(db, 'empleados', nomina);
@@ -172,7 +179,10 @@ export default function RhEmpleados() {
           despues: { areaExcepcion: excepcion, motivo, areaId: data.areaId },
         }, usuario));
       }
+      // Teléfono (colección aparte: solo RH, admin y el solicitante del área lo ven). Solo se escribe si cambió
+      if (telefono !== (telefonos.get(nomina) ?? '')) ops.push(opTelefono(nomina, telefono));
       await ejecutarEnLotes(ops);
+      setTelefonos(prev => new Map(prev).set(nomina, telefono));
       setEmpleados(prev => (modal.modo === 'crear' ? [...prev, data] : prev.map(emp => emp.nomina === nomina ? { ...emp, ...data } : emp)));
       recargarCompartidos();
       toast.success(modal.modo === 'crear' ? 'Empleado creado.' : 'Empleado actualizado.');
@@ -298,6 +308,10 @@ export default function RhEmpleados() {
               <Entrada required value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="Nombre completo" />
             </Campo>
           </div>
+
+          <Campo etiqueta="Teléfono (opcional)" ayuda="10 dígitos. Es para que el transporte pueda llamar; solo lo ven RH y quien solicita en su área.">
+            <Entrada type="tel" inputMode="tel" autoComplete="off" value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} placeholder="Ej. 442 123 4567" />
+          </Campo>
 
           {/* Puesto del catálogo (de él sale el área) */}
           <Campo etiqueta="Puesto" obligatorio

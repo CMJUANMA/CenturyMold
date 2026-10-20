@@ -198,6 +198,23 @@ service cloud.firestore {
       allow delete: if esRH();
     }
 
+    // ---------- Teléfono de los empleados ----------
+    // empleadosContacto/{nómina} = { telefono: '' | 10 dígitos }. Va aparte del padrón (que leen también Aut. 1 y Aut. 2) para que el teléfono
+    // lo vean solo RH, admin y el solicitante vigente del área donde está el empleado en el padrón (el área sale de empleados/{nómina}, así que
+    // si la persona cambia de área, el teléfono pasa con ella). Se lee con get (nunca list, salvo RH): una regla no puede probar el área de cada
+    // documento de una consulta. Aut. 1 y Aut. 2 no lo necesitan: no lo leen ni lo escriben. Las solicitudes de tiempo extra no lo guardan.
+    match /empleadosContacto/{nomina} {
+      function areaDelEmpleado() { return get(/databases/$(database)/documents/empleados/$(nomina)).data.get('areaId', null); }
+      function formaContacto() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['telefono']) && d.get('telefono', null) is string && (d.telefono == '' || d.telefono.matches('[0-9]{10}'));
+      }
+      allow get: if esRH() || (activo() && esSolicitanteDe(areaDelEmpleado()));
+      allow list: if esRH();
+      allow create, update: if formaContacto() && (esRH() || (activo() && esSolicitanteDe(areaDelEmpleado())));
+      allow delete: if esRH();
+    }
+
     // ---------- Solicitudes ----------
     match /solicitudes/{solId} {
       function esDueno() { return resource.data.creadoPor == request.auth.uid; }

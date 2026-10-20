@@ -6,7 +6,7 @@
 
 /** Colecciones que se respaldan, en el orden en que se leen. `sub`: subcolecciones de cada documento (solo tiempoExtra) */
 export const COLECCIONES_RESPALDO = [
-  'usuarios', 'asignaciones', 'areas', 'puestos', 'empleados', 'rutas', 'comunidades', 'puntosReunion', 'turnosNomina', 'contadores', 'bitacora',
+  'usuarios', 'asignaciones', 'areas', 'puestos', 'empleados', 'empleadosContacto', 'rutas', 'comunidades', 'puntosReunion', 'turnosNomina', 'contadores', 'bitacora',
   'tiempoExtra', 'solicitudes',
 ];
 export const SUBCOLECCIONES_RESPALDO = { tiempoExtra: ['empleados', 'historial'], solicitudes: ['pasajeros'] };

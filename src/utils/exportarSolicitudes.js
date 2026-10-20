@@ -6,6 +6,7 @@ import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { construirLibroProveedor } from './libroProveedor';
 import { bufferSeguro } from './excelSeguro.js';
+import { leerTelefonos } from './contactosDb';
 
 /**
  * @param {Array}  solicitudesExport  solicitudes con su arreglo `pasajeros`
@@ -29,8 +30,14 @@ export async function exportarSolicitudes(solicitudesExport, catalogos, toast, f
     } catch (e) { console.error("Error al obtener empleados", e); }
   }
 
+  // Teléfonos del padrón (solo los puede leer RH; si no se pueden leer, la columna sale vacía)
+  let telefonos = new Map();
+  try { telefonos = await leerTelefonos(solicitudesExport.flatMap(sol => (sol.pasajeros || []).map(p => String(p.nomina)))); }
+  catch (e) { console.error('Teléfonos para el Excel', e); }
+
   const workbook = construirLibroProveedor({
     ExcelJS, solicitudes: solicitudesExport, catalogos, empleadoDe: (nomina) => empList.find(e => String(e.nomina) === String(nomina)) || {},
+    telefonoDe: (nomina) => telefonos.get(String(nomina)) ?? '',
   });
   // Si no hay nada que bajar se avisa con un error (la pantalla lo muestra); antes solo salía un aviso y el panel se cerraba como si se hubiera descargado
   if (!workbook) throw new Error('No hay pasajeros válidos para exportar.');

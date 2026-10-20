@@ -6,13 +6,15 @@
  * Extensión de turno (el empleado ya está en la planta): el tiempo extra empieza cuando termina su turno normal (se elige a mano) y se
  * elige hasta qué hora se queda; solo lleva transporte de Salida.
  * Con transporte pide ruta → comunidad → punto en cascada, precargados del padrón con confirmación (igual que el formulario de rutas);
- * al guardar se recuerdan en el padrón.
+ * al guardar se recuerdan en el padrón. El teléfono (para que el transporte pueda llamar) se muestra desde el padrón, se puede capturar o
+ * corregir, y también se guarda en el padrón; solo lo ven RH y quien solicita en esa área (`puedeTelefono`). Falta de teléfono: aviso suave.
  */
 import { AlertCircle, CheckCircle2, MapPin, Trash2 } from 'lucide-react';
 import Boton from '../../components/ui/Boton';
-import { Selector } from '../../components/ui/Campo';
+import { Entrada, Selector } from '../../components/ui/Campo';
 import { CASILLA } from '../../components/ui/estilos';
 import { opcionesVigentes } from '../../utils/activo';
+import { estadoTelefono } from '../../utils/telefono';
 import { HORAS_ENTRADA_TE, HORAS_SALIDA_TE, TIPOS_TE, calcularHoras, salidasPosteriores } from '../../utils/tiempoExtra';
 
 // Selectores de la fila: 44 px en celular y 36 px en escritorio, donde la fila es compacta
@@ -20,12 +22,13 @@ const SEL = 'md:!min-h-9 !py-1.5';
 const etiqueta = 'mb-1 block text-xs font-medium text-[var(--text-muted)] lg:hidden';
 export const COLUMNAS_FILA = 'lg:grid lg:grid-cols-[2rem_minmax(0,2.2fr)_7rem_7rem_4rem_6rem_8rem_2.5rem] lg:items-center lg:gap-3';
 
-export default function FilaEmpleadoTE({ tour, e, tipo = TIPOS_TE.TURNO_EXTRA, rutas, comunidades, puntos, seleccionado, aviso, error, onSeleccionar, onCambio, onQuitar }) {
+export default function FilaEmpleadoTE({ tour, e, tipo = TIPOS_TE.TURNO_EXTRA, rutas, comunidades, puntos, seleccionado, aviso, error, telefono = '', puedeTelefono = false, onTelefono, onSeleccionar, onCambio, onQuitar }) {
   const extension = tipo === TIPOS_TE.EXTENSION;
   const horas = calcularHoras(e.horaEntrada, e.horaSalida);
   const pedirConfirmar = e.transporte && e.necesitaConfirmar && !e.confirmada;
   const cambiar = (parche) => onCambio(e.nomina, parche);
   const posteriores = extension ? salidasPosteriores(e.horaEntrada) : [];
+  const estadoTel = estadoTelefono(telefono);
 
   return (
     <div data-tour={tour} className={`relative rounded-lg border bg-[var(--bg-surface)] p-4 lg:p-3 ${error ? 'border-[var(--status-error-text)]' : 'border-[var(--border-color)]'}`}>
@@ -104,6 +107,16 @@ export default function FilaEmpleadoTE({ tour, e, tipo = TIPOS_TE.TURNO_EXTRA, r
               <option value="">Punto de reunión…</option>{opcionesVigentes(puntos.filter(p => p.comunidadId === e.comunidadId), e.puntoReunionId).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
             </Selector>
           </div>
+          {puedeTelefono && (
+            <div className="max-w-xs">
+              <label htmlFor={`tel-${e.nomina}`} className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">Teléfono (para que el transporte pueda llamar)</label>
+              <Entrada id={`tel-${e.nomina}`} type="tel" inputMode="tel" autoComplete="off" className={SEL} value={telefono} placeholder="10 dígitos" invalido={estadoTel === 'incompleto'}
+                onChange={ev => onTelefono(e.nomina, ev.target.value)} aria-label={`Teléfono de ${e.nombre}`} aria-describedby={estadoTel === 'valido' ? undefined : `tel-aviso-${e.nomina}`} />
+              {estadoTel === 'vacio' && <p id={`tel-aviso-${e.nomina}`} className="mt-1 text-xs text-[var(--status-warning-text)]">Sin teléfono: el transporte no podrá llamarle. Puedes enviar la solicitud así.</p>}
+              {estadoTel === 'incompleto' && <p id={`tel-aviso-${e.nomina}`} className="mt-1 text-xs text-[var(--status-warning-text)]">El teléfono debe tener 10 dígitos; mientras no, no se guardará. Puedes enviar la solicitud así.</p>}
+              {estadoTel === 'valido' && <p className="mt-1 text-xs text-[var(--text-muted)]">Se guarda en el padrón al guardar o enviar.</p>}
+            </div>
+          )}
           {pedirConfirmar && (
             <div className="flex flex-col justify-between gap-3 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-3 text-[var(--status-warning-text)] sm:flex-row sm:items-center">
               <span className="flex items-center gap-2 text-sm font-medium"><AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />Ya tiene ruta en el padrón. ¿Es correcta?</span>

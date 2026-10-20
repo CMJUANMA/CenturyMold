@@ -19,6 +19,7 @@ import ConfirmarAreas from './ConfirmarAreas';
 import { btnPrimary, btnSecondary, inputCls } from './estructura/ui';
 import { bufferSeguro, motivoArchivoNoValido } from '../../utils/excelSeguro';
 import Modal from '../../components/Modal';
+import { opTelefono } from '../../utils/contactosDb';
 import {
   ejecutarEnLotes, leerColeccion, opBitacora, opsCambioAreaPuesto, opsDeResolucion,
 } from '../../utils/estructuraDb';
@@ -43,6 +44,7 @@ const EMP_COLS_INFO = [
   { letra: 'B', nombre: 'NOMBRE',       obligatorio: true,  ejemplo: 'GARCIA LOPEZ JUAN' },
   { letra: 'C', nombre: 'PUESTO',       obligatorio: true,  ejemplo: 'PRODUCTION OPERATOR' },
   { letra: 'D', nombre: 'CLAVE PARADA', obligatorio: false, ejemplo: 'SN01' },
+  { letra: 'E', nombre: 'TELÉFONO',     obligatorio: false, ejemplo: '4421234567' },
 ];
 const NOMINA_COLS_INFO = [
   { campo: 'numero_i', destino: 'Nómina (texto)' },
@@ -127,6 +129,8 @@ async function aplicarPlan(plan, idsBaja, usuario, modo) {
       });
     }
     ops.push(b => b.set(doc(db, it.coleccion, it.id), data, { merge: true }));
+    // Teléfono del empleado (colección aparte, solo RH la lee): únicamente si el archivo trajo uno válido
+    if (it.telefono) ops.push(opTelefono(it.id, it.telefono));
   }
 
   ops.push(...await opsDatosEnAsignaciones(plan.items));
@@ -307,13 +311,13 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
   // Cada colección se lee por separado: si una falla se dice cuál y con qué código.
   useEffect(() => {
     let cancelado = false;
-    const nombres = ['empleados', 'rutas', 'comunidades', 'puntosReunion', 'areas', 'puestos'];
+    const nombres = ['empleados', 'rutas', 'comunidades', 'puntosReunion', 'areas', 'puestos', 'empleadosContacto'];
     Promise.all(nombres.map(n => leerColeccion(n, toast))).then((resultados) => {
       if (cancelado) return;
       const fallidas = resultados.map((r, i) => (r.error ? `${nombres[i]} (${r.error})` : null)).filter(Boolean);
       if (fallidas.length) setErrorBase(`No se pudo leer la base para comparar: ${fallidas.join(', ')}. No se puede importar hasta resolverlo.`);
-      const [emp, rut, com, pts, are, pue] = resultados.map(r => r.datos);
-      setBase({ empleados: emp, rutas: rut, comunidades: com, puntos: pts, areas: are, puestos: pue, completa: fallidas.length === 0 });
+      const [emp, rut, com, pts, are, pue, tel] = resultados.map(r => r.datos);
+      setBase({ empleados: emp, rutas: rut, comunidades: com, puntos: pts, areas: are, puestos: pue, telefonos: new Map(tel.map(t => [t.id, String(t.telefono ?? '')])), completa: fallidas.length === 0 });
     });
     return () => { cancelado = true; };
   }, [toast]);
@@ -326,7 +330,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
     if (!base || filas.length === 0) return null;
     return esDir
       ? compararDirectorio(filas, base, { modo })
-      : compararEmpleados(filas, base.empleados, { modo, catalogo, areas: base.areas, decisiones, excepciones, puestoArea });
+      : compararEmpleados(filas, base.empleados, { modo, catalogo, areas: base.areas, decisiones, excepciones, puestoArea, telefonos: base.telefonos });
   }, [base, filas, modo, esDir, catalogo, decisiones, excepciones, puestoArea]);
 
   // Paso "Confirmar áreas": grupos por área y su confirmación vigente
@@ -595,7 +599,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
                 </table>
               </div>
               {!esDir && (
-                <Aviso>Una celda vacía nunca borra un dato que el empleado ya tiene (puesto, departamento, nivel, fecha de alta, ruta, comunidad y punto): solo se actualiza lo que el archivo trae.</Aviso>
+                <Aviso>Una celda vacía nunca borra un dato que el empleado ya tiene (puesto, departamento, nivel, fecha de alta, ruta, comunidad, punto y teléfono): solo se actualiza lo que el archivo trae.</Aviso>
               )}
               {!esDir && (
                 <div className="space-y-2 rounded-lg border border-[var(--border-color)] p-3 text-xs">
