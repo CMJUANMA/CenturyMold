@@ -44,7 +44,7 @@ export default function TabTurnos() {
         <AyudaPantalla id="turnos" />
       </div>
       <p className="text-sm text-[var(--text-secondary)]">
-        Las extensiones de turno empiezan cuando termina el turno normal del empleado. Mientras un turno esté vacío, quien captura la extensión tendrá que escribir a mano la hora en que termina el turno de cada empleado.
+        Solo de referencia: los empleados ya no tienen un turno fijo, así que en una extensión de turno quien captura elige a mano la hora en que termina el turno de cada empleado.
       </p>
       <Tabla etiqueta="Horario normal de cada turno">
         <thead>
