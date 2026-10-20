@@ -84,10 +84,14 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, puestos
   const abrir = (t) => { if (!bloqueada(t)) setAbierta(t.nomina); };
   const asignar = (rol, areaId) => onAsignar(areaId ? { rol, areaId } : { rol });
   const columnas = Math.max(org.columnas.length, 1);
+  // Ancho que necesita la fila de Aut. 2 (tarjetas de 288 px, separación y relleno), repartido entre las columnas de área
+  const anchoMinColumna = Math.max(200, Math.ceil((Math.max(org.aut2.length, 1) * 300 + 30) / columnas));
 
   const puedeAsignarAut2 = asignables.includes(ROL_OP.AUT2);
-  const nodoPlanta = (
-    <section aria-label="Nivel 2 · Planta" className="mx-auto w-fit max-w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-3">
+  // Una sola pieza para todas las vistas (RH, admin, Aut. 2, Aut. 1, solicitante): los Aut. 2 siempre van en una fila, sin jerarquía entre ellos.
+  // En el árbol (`ancho`) la fila mide lo que necesite aunque haya una sola columna de área (la vista del Aut. 1); en celular se acomoda al ancho.
+  const nodoPlanta = (ancho) => (
+    <section aria-label="Nivel 2 · Planta" className={`${ancho ? 'w-max shrink-0' : 'mx-auto w-fit max-w-full'} rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-3`}>
       <h3 className="mb-2 flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-[var(--text-secondary)]">
         <ShieldCheck className="h-3.5 w-3.5" style={{ color: NIVELES.aut2.acento }} />Nivel 2 · Planta
       </h3>
@@ -144,10 +148,11 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, puestos
       {/* Escritorio y pantallas medianas: árbol con riel de niveles; en medianas se desplaza con suavidad conservando las líneas */}
       <div className="hidden overflow-x-auto scroll-smooth pb-3 md:block" tabIndex={0} aria-label="Árbol del organigrama">
         {/* El ancho sigue la cantidad de áreas: cada columna mide a lo sumo 320 px y todo el árbol (riel incluido) se centra */}
-        <div className="mx-auto grid" style={{ gridTemplateColumns: `6.5rem repeat(${columnas}, minmax(200px, 320px))`, justifyContent: 'center', minWidth: `calc(6.5rem + ${columnas * 200}px)` }}>
+        {/* Las columnas de área suman al menos lo que ocupa la fila de Aut. 2 (con una sola área, la del Aut. 1, la columna crece y sus tarjetas se quedan en 320 px) */}
+        <div className="mx-auto grid" style={{ gridTemplateColumns: `6.5rem repeat(${columnas}, minmax(${anchoMinColumna}px, ${Math.max(320, anchoMinColumna)}px))`, justifyContent: 'center', minWidth: `calc(6.5rem + ${columnas * anchoMinColumna}px)` }}>
           <Riel rol="aut2" texto="Nivel 2" />
           <div style={{ gridColumn: `2 / span ${columnas}` }}>
-            {nodoPlanta}
+            <div className="flex justify-center">{nodoPlanta(true)}</div>
             <div className="mx-auto h-5 w-px" style={linea} />
           </div>
 
@@ -161,7 +166,7 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, puestos
 
           <Riel rol="aut1" texto="Nivel 1" />
           {org.columnas.map(col => (
-            <div key={col.area.id} className="px-2">{cabeceraArea(col)}{bloqueAut1(col, true)}</div>
+            <div key={col.area.id} className="mx-auto w-full max-w-[320px] px-2">{cabeceraArea(col)}{bloqueAut1(col, true)}</div>
           ))}
 
           <div />
@@ -169,7 +174,7 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, puestos
 
           <Riel rol="solicitante" texto="Solicitantes" />
           {org.columnas.map(col => (
-            <div key={col.area.id} className="px-2"><div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-1.5">{listaSolicitantes(col)}</div></div>
+            <div key={col.area.id} className="mx-auto w-full max-w-[320px] px-2"><div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-1.5">{listaSolicitantes(col)}</div></div>
           ))}
         </div>
         {org.columnas.length === 0 && <p className="text-xs text-[var(--text-muted)]">No hay áreas que participen en tiempo extra. Márcalas en Estructura.</p>}
@@ -177,7 +182,7 @@ export default function TabOrganigrama({ asignaciones, areas, empleados, puestos
 
       {/* Celular: lista vertical, Aut. 2 arriba y cada área como bloque plegable */}
       <div className="space-y-3 md:hidden">
-        {nodoPlanta}
+        {nodoPlanta(false)}
         {org.columnas.map(col => (
           <details key={col.area.id} open className="group rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5">
