@@ -109,6 +109,8 @@ firebase deploy --only firestore  # reglas + índices
 firebase deploy --only firestore:rules   # solo reglas
 ```
 
+La app se publica en **https://centurymold-qro.web.app** (target de hosting `portal`). El sitio anterior, `solicitud-rutas.web.app` (target `anterior`), solo redirige con 301 al nuevo conservando la ruta. Publicación: `npm run build` y `firebase deploy --only hosting` (o `hosting:portal` / `hosting:anterior`).
+
 El proyecto por defecto está en `.firebaserc`. Despliega las reglas **antes** de publicar una versión de la
 app que dependa de ellas. Si una consulta nueva necesita un índice compuesto, Firestore muestra un enlace en el
 error de la consola del navegador; agrégalo a `firestore.indexes.json` y vuelve a desplegar.

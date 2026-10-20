@@ -1,5 +1,17 @@
 {
   "projects": {
     "default": "solicitud-rutas"
+  },
+  "targets": {
+    "solicitud-rutas": {
+      "hosting": {
+        "portal": [
+          "centurymold-qro"
+        ],
+        "anterior": [
+          "solicitud-rutas"
+        ]
+      }
+    }
   }
 }
