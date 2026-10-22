@@ -14,16 +14,19 @@ const rutasDelMenu = (perfil) => menuDePerfil(perfil).filter(i => !i.section).ma
 
 // Lo que cada columna debe ver, escrito A MANO (no sale de la matriz): si alguien cambia un permiso, esta prueba lo avisa.
 const ESPERADO = {
-  admin: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'transporteCatalogos',
+  admin: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'formatoRutasPagina', 'transporteCatalogos',
     'padron', 'estructura', 'accesos', 'accesosUsuarios', 'accesosAsignaciones', 'organigrama', 'herramientas', 'vistaPrevia', 'respaldoCompleto', 'guiaEstilo',
-    'capturarSinTE', 'firmarNivel2', 'confirmarRH', 'cancelarRH', 'formatoRutas', 'exportarConsulta', 'editarPadron', 'editarEstructura', 'estructuraInicial',
-    'nuevoUsuario', 'editarUsuario', 'darRolRH', 'darRolAdmin', 'restablecerPassword', 'asignarAut1', 'asignarAut2', 'historialPersona', 'cargaAsignaciones', 'cambiarPassword'],
-  rh: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'transporteCatalogos',
+    'capturarSinTE', 'firmarNivel2', 'confirmarRH', 'devolverRH', 'cancelarRH', 'formatoRutas', 'exportarConsulta', 'descargarPadron', 'editarPadron', 'editarEstructura', 'estructuraInicial',
+    'nuevoUsuario', 'editarUsuario', 'darRolRH', 'darRolNomina', 'darRolAdmin', 'restablecerPassword', 'asignarAut1', 'asignarAut2', 'historialPersona', 'cargaAsignaciones', 'cambiarPassword'],
+  rh: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'formatoRutasPagina', 'transporteCatalogos',
     'padron', 'estructura', 'accesos', 'accesosUsuarios', 'accesosAsignaciones', 'organigrama',
-    'capturarSinTE', 'firmarNivel2', 'confirmarRH', 'cancelarRH', 'formatoRutas', 'exportarConsulta', 'editarPadron', 'editarEstructura',
-    'nuevoUsuario', 'editarUsuario', 'darRolRH', 'restablecerPassword', 'asignarAut1', 'historialPersona', 'cambiarPassword'],
+    'capturarSinTE', 'firmarNivel2', 'confirmarRH', 'devolverRH', 'cancelarRH', 'formatoRutas', 'exportarConsulta', 'descargarPadron', 'editarPadron', 'editarEstructura',
+    'nuevoUsuario', 'editarUsuario', 'darRolRH', 'darRolNomina', 'restablecerPassword', 'asignarAut1', 'historialPersona', 'cambiarPassword'],
+  // Nóminas: ve (toda la planta, transporte, personal en solo lectura) y confirma lo que va al proveedor; no autoriza, edita ni administra
+  nomina: ['inicio', 'miCuenta', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'formatoRutasPagina', 'padron', 'estructura',
+    'confirmarRH', 'formatoRutas', 'exportarConsulta', 'descargarPadron', 'cambiarPassword'],
   aut2: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'accesos', 'accesosUsuarios', 'accesosAsignaciones', 'organigrama',
-    'capturarSinTE', 'autorizarLoPropio', 'firmarNivel2', 'exportarConsulta', 'nuevoUsuario', 'editarUsuario', 'darRolRH', 'restablecerPassword', 'asignarAut1',
+    'capturarSinTE', 'autorizarLoPropio', 'firmarNivel2', 'exportarConsulta', 'nuevoUsuario', 'editarUsuario', 'darRolRH', 'darRolNomina', 'restablecerPassword', 'asignarAut1',
     'historialPersona', 'cambiarPassword'],
   aut1: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'accesos', 'organigrama', 'capturarArea', 'firmarNivel1', 'cambiarPassword'],
   solicitante: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'capturarArea', 'cambiarPassword'],
@@ -48,6 +51,7 @@ describe('combinaciones: la unión de lo que le toca a cada rol', () => {
     'rh+aut2': ['rh', 'aut2'], 'admin+aut1': ['admin', 'aut1'], 'admin+aut2': ['admin', 'aut2'], 'rh+solicitante': ['rh', 'solicitante'],
     'aut2+aut1': ['aut2', 'aut1'], 'aut2+solicitante': ['aut2', 'solicitante'], 'aut1+solicitante': ['aut1', 'solicitante'],
     'aut2+aut1+solicitante': ['aut2', 'aut1', 'solicitante'], 'rh+aut2+aut1+solicitante': ['rh', 'aut2', 'aut1', 'solicitante'],
+    'nomina+solicitante': ['nomina', 'solicitante'], 'nomina+aut1': ['nomina', 'aut1'], 'nomina+aut2': ['nomina', 'aut2'],
   };
   for (const c of COMBINACIONES) {
     it(`${c.etiqueta}: ve la unión, ni más ni menos`, () => {
@@ -66,6 +70,47 @@ describe('combinaciones: la unión de lo que le toca a cada rol', () => {
   });
 });
 
+describe('Nóminas: ve la planta, confirma lo que va al proveedor y nada más', () => {
+  const f = filas(col('nomina').perfil);
+  it('NO puede crear, autorizar, devolver, editar ni cancelar tiempo extra', () => {
+    for (const no of ['teNueva', 'teMisSolicitudes', 'teAutorizar', 'capturarArea', 'capturarSinTE', 'autorizarLoPropio', 'firmarNivel1', 'firmarNivel2', 'devolverRH', 'cancelarRH']) {
+      expect(f, no).not.toContain(no);
+    }
+  });
+  it('NO administra usuarios, contraseñas, roles, asignaciones, catálogos ni estructura, ni ve la bitácora o Herramientas', () => {
+    for (const no of ['accesos', 'accesosUsuarios', 'accesosAsignaciones', 'organigrama', 'nuevoUsuario', 'editarUsuario', 'darRolRH', 'darRolNomina', 'darRolAdmin',
+      'restablecerPassword', 'asignarAut1', 'asignarAut2', 'historialPersona', 'cargaAsignaciones', 'editarPadron', 'editarEstructura', 'estructuraInicial',
+      'transporteCatalogos', 'herramientas', 'vistaPrevia', 'respaldoCompleto', 'guiaEstilo']) {
+      expect(f, no).not.toContain(no);
+    }
+  });
+  it('su menú es el suyo: Inicio · Tiempo extra · Por enviar al proveedor · Solicitudes de transporte · Formato de rutas · Personal · Estructura', () => {
+    expect(menuDePerfil(col('nomina').perfil).filter(i => !i.section).map(i => i.label)).toEqual([
+      'Inicio', 'Tiempo extra', 'Por enviar al proveedor', 'Solicitudes de transporte', 'Formato de rutas', 'Personal', 'Estructura',
+    ]);
+  });
+  it('si además es solicitante o Aut. 1 conserva esos permisos (y su menú los suma sin repetir pantallas)', () => {
+    const sol = filas(COMBINACIONES.find(c => c.id === 'nomina+solicitante').perfil);
+    expect(sol).toEqual(expect.arrayContaining(['teNueva', 'teMisSolicitudes', 'capturarArea', 'confirmarRH']));
+    expect(sol).not.toContain('teAutorizar');
+    const aut1 = filas(COMBINACIONES.find(c => c.id === 'nomina+aut1').perfil);
+    expect(aut1).toEqual(expect.arrayContaining(['teAutorizar', 'firmarNivel1', 'organigrama', 'confirmarRH']));
+    for (const c of COMBINACIONES.filter(x => x.id.startsWith('nomina'))) {
+      const rutas = rutasDelMenu(c.perfil);
+      expect(new Set(rutas).size, c.etiqueta).toBe(rutas.length);
+      expect(rutas.slice(0, 1), c.etiqueta).toEqual(['/']);
+    }
+  });
+  it('su Inicio es el de Nóminas', () => {
+    expect(bloquesDeInicio(col('nomina').perfil).tipo).toBe('Panel de Nóminas');
+  });
+  it('RH, Aut. 2 y admin le dan el rol (nadie más); la bitácora completa no la ve', () => {
+    const dan = ['admin', 'rh', 'aut2'].every(id => filas(col(id).perfil).includes('darRolNomina'));
+    expect(dan).toBe(true);
+    for (const id of ['nomina', 'aut1', 'solicitante', 'sinRol']) expect(filas(col(id).perfil), id).not.toContain('darRolNomina');
+  });
+});
+
 describe('menú: cada ítem aparece si y solo si la matriz lo permite', () => {
   for (const c of TODOS) {
     it(`${c.etiqueta}`, () => {
@@ -74,7 +119,8 @@ describe('menú: cada ítem aparece si y solo si la matriz lo permite', () => {
       for (const f of MATRIZ.filter(x => x.tipo === 'pantalla')) {
         // La vista previa comparte URL con Herramientas: se revisa con la fila de Herramientas
         if (f.id === 'vistaPrevia') continue;
-        const enEseMenu = f.menu === 'ambos' || f.menu === (a.esRH ? 'rh' : 'otros');
+        const menuDeEste = a.esRH ? 'rh' : a.esNomina ? 'nomina' : 'otros';
+        const enEseMenu = f.menu === 'ambos' || (f.menu ?? '').split('+').includes(menuDeEste);
         expect(menu.includes(f.ruta), `${c.etiqueta} › ${f.id} (${f.ruta})`).toBe(enEseMenu && f.quien(a));
       }
     });
@@ -105,6 +151,7 @@ describe('rutas permitidas', () => {
     const ver = (id) => pestanasAccesos(accesosDePerfil(col(id).perfil));
     expect(ver('admin')).toEqual(['usuarios', 'asignaciones', 'organigrama']);
     expect(ver('rh')).toEqual(['usuarios', 'asignaciones', 'organigrama']);
+    expect(ver('nomina')).toEqual([]);
     expect(ver('aut2')).toEqual(['usuarios', 'asignaciones', 'organigrama']);
     expect(ver('aut1')).toEqual(['organigrama']);
     expect(ver('solicitante')).toEqual([]);
@@ -138,7 +185,7 @@ describe('App.jsx arma sus rutas desde la matriz', () => {
   });
   it('las rutas del tiempo extra, transporte, personal y herramientas están todas protegidas', () => {
     const registradas = RUTAS_PROTEGIDAS.map(r => r.ruta);
-    for (const k of ['teNueva', 'teEditar', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'transporteCatalogos',
+    for (const k of ['teNueva', 'teEditar', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'formatoRutas', 'transporteCatalogos',
       'padron', 'estructura', 'accesos', 'herramientas', 'guiaEstilo', 'miCuenta']) expect(registradas).toContain(RUTAS[k]);
     expect(registradas).toContain(`${RUTAS.accesos}/:tab`);
     expect(rutaAccesos('usuarios').startsWith(RUTAS.accesos)).toBe(true);
@@ -186,5 +233,10 @@ describe('perfiles', () => {
     expect(accesosDePerfil(perfilDe({ rol: 'rh' })).esRH).toBe(true);
     expect(accesosDePerfil(perfilDe({ rol: 'rh' })).esAdmin).toBe(false);
     expect(accesosDePerfil(perfilDe({ rol: 'admin' })).esRH).toBe(true);
+  });
+  it('Nóminas no es RH ni admin, pero sí tiene acceso al sistema', () => {
+    const a = accesosDePerfil(perfilDe({ rol: 'nomina' }));
+    expect([a.esNomina, a.esRH, a.esAdmin, a.tieneAcceso]).toEqual([true, false, false, true]);
+    for (const otro of ['rh', 'admin', 'usuario']) expect(accesosDePerfil(perfilDe({ rol: otro })).esNomina).toBe(false);
   });
 });

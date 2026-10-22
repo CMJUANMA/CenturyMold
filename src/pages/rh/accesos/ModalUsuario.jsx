@@ -1,8 +1,8 @@
 /**
  * ModalUsuario.jsx — Alta y edición de un usuario del sistema (cuenta + perfil usuarios/{uid}).
- * El rol del sistema es solo admin, rh o usuario; los permisos operativos se dan en Asignaciones.
- * RH, Aut. 2 vigente y admin dan y quitan el rol rh (con confirmación y bitácora; nadie cambia el suyo); el rol admin solo lo da y quita un admin
- * (las reglas lo exigen). A un RH que no es admin solo se le cambia el rol.
+ * El rol del sistema es solo admin, rh, nomina o usuario; los permisos operativos se dan en Asignaciones.
+ * RH, Aut. 2 vigente y admin dan y quitan los roles rh y Nóminas (con confirmación y bitácora; nadie cambia el suyo ni se da Nóminas a sí mismo);
+ * el rol admin solo lo da y quita un admin (las reglas lo exigen). A un RH o a Nóminas que no es admin solo se le cambia el rol.
  *
  * Props:
  *   abierto, onClose
@@ -25,6 +25,7 @@ import BuscadorEmpleado from '../../../components/BuscadorEmpleado';
 import { ROLES, ROL_LABELS } from '../../../utils/constantes';
 import { esVigente, etiquetaAsignacion } from '../../../utils/asignaciones';
 import { sugiereRolRH } from '../../../utils/permisos';
+import { useAuth } from '../../../hooks/useAuth';
 import { useConfirmar } from '../../../hooks/useConfirmar';
 import { inputCls, btnPrimary, btnSecondary, btnIcon, labelCls } from './ui';
 
@@ -33,7 +34,7 @@ const formDe = (usuario, precarga) => ({
   nombre: usuario?.nombre ?? precarga?.nombre ?? '',
   password: '',
   // Un rol viejo (superintendente/autorizador) se corrige a "usuario" al guardar
-  rol: [ROLES.ADMIN, ROLES.RH].includes(usuario?.rol) ? usuario.rol : ROLES.USUARIO,
+  rol: [ROLES.ADMIN, ROLES.RH, ROLES.NOMINA].includes(usuario?.rol) ? usuario.rol : ROLES.USUARIO,
 });
 
 export default function ModalUsuario({ abierto, ...resto }) {
@@ -43,6 +44,7 @@ export default function ModalUsuario({ abierto, ...resto }) {
 
 function Contenido({ onClose, usuario = null, precarga = null, usuarios, empleados, esAdmin, onGuardado, asignaciones = [], nombresArea = new Map(), ahora }) {
   const edicion = !!usuario;
+  const { usuario: yo } = useAuth();
   const confirmar = useConfirmar();
   const [form, setForm] = useState(() => formDe(usuario, precarga));
   const [manual, setManual] = useState(false);
@@ -50,10 +52,12 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
   const [error, setError] = useState('');
   const [exito, setExito] = useState('');
 
-  // Admin: los tres. RH y Aut. 2: usuario o RH al editar; solo usuario al crear (las reglas lo exigen)
-  const opcionesRol = esAdmin ? [ROLES.USUARIO, ROLES.RH, ROLES.ADMIN] : edicion ? [ROLES.USUARIO, ROLES.RH] : [ROLES.USUARIO];
-  // A un RH, quien no es admin solo le cambia el rol: el nombre queda fijo
-  const soloRol = edicion && !esAdmin && usuario.rol === ROLES.RH;
+  // Admin: todos. RH y Aut. 2: usuario, RH o Nóminas al editar; solo usuario al crear (las reglas lo exigen). Nadie se da Nóminas a sí mismo.
+  const esYo = edicion && usuario.uid === yo?.uid;
+  const opcionesRol = (esAdmin ? [ROLES.USUARIO, ROLES.RH, ROLES.NOMINA, ROLES.ADMIN] : edicion ? [ROLES.USUARIO, ROLES.RH, ROLES.NOMINA] : [ROLES.USUARIO])
+    .filter(r => !(esYo && r === ROLES.NOMINA && usuario.rol !== ROLES.NOMINA));
+  // A un RH o a Nóminas, quien no es admin solo le cambia el rol: el nombre queda fijo
+  const soloRol = edicion && !esAdmin && [ROLES.RH, ROLES.NOMINA].includes(usuario.rol);
   const vigentes = edicion ? asignaciones.filter(a => String(a.nomina) === String(usuario.nomina) && esVigente(a, ahora)) : [];
   const avisarRH = edicion && sugiereRolRH({ rol: form.rol, nomina: usuario.nomina }, vigentes);
 
@@ -72,14 +76,29 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
       if (edicion) {
         const daRH = form.rol === ROLES.RH && usuario.rol !== ROLES.RH;
         const quitaRH = usuario.rol === ROLES.RH && form.rol !== ROLES.RH;
-        if ((daRH || quitaRH) && !await confirmar({
-          titulo: daRH ? 'Dar acceso de Recursos Humanos' : 'Quitar acceso de Recursos Humanos',
-          mensaje: daRH ? `¿Dar acceso de Recursos Humanos a ${usuario.nombre}? Podrá ver y administrar lo de RH.` : `¿Quitar el acceso de Recursos Humanos a ${usuario.nombre}?`,
-          textoConfirmar: daRH ? 'Dar acceso' : 'Quitar acceso', peligroso: quitaRH,
-        })) { setGuardando(false); return; }
+        const daNomina = form.rol === ROLES.NOMINA && usuario.rol !== ROLES.NOMINA;
+        const quitaNomina = usuario.rol === ROLES.NOMINA && form.rol !== ROLES.NOMINA;
+        if (daRH || quitaRH || daNomina || quitaNomina) {
+          const acepta = await confirmar(daNomina ? {
+            titulo: 'Dar acceso de Nóminas',
+            mensaje: `¿Dar acceso de Nóminas a ${usuario.nombre}? Podrá ver todo el tiempo extra de la planta, las solicitudes de transporte, el Formato de rutas y el personal (con teléfono), confirmar lo que va al proveedor y descargar los Excel. No podrá autorizar, devolver, editar ni cancelar nada, ni administrar usuarios.`,
+            textoConfirmar: 'Dar acceso',
+          } : quitaNomina ? {
+            titulo: 'Quitar acceso de Nóminas',
+            mensaje: `¿Quitar el acceso de Nóminas a ${usuario.nombre}? Dejará de ver el tiempo extra de toda la planta y de confirmar lo que va al proveedor.`,
+            textoConfirmar: 'Quitar acceso', peligroso: true,
+          } : {
+            titulo: daRH ? 'Dar acceso de Recursos Humanos' : 'Quitar acceso de Recursos Humanos',
+            mensaje: daRH ? `¿Dar acceso de Recursos Humanos a ${usuario.nombre}? Podrá ver y administrar lo de RH.` : `¿Quitar el acceso de Recursos Humanos a ${usuario.nombre}?`,
+            textoConfirmar: daRH ? 'Dar acceso' : 'Quitar acceso', peligroso: quitaRH,
+          });
+          if (!acepta) { setGuardando(false); return; }
+        }
         await updateDoc(doc(db, 'usuarios', usuario.uid), soloRol ? { rol: form.rol } : { nombre: form.nombre.trim(), rol: form.rol });
-        registrarUsuario(daRH ? ACCIONES_USUARIO.darRH : quitaRH ? ACCIONES_USUARIO.quitarRH : ACCIONES_USUARIO.editar,
-          { ...usuario, nombre: soloRol ? usuario.nombre : form.nombre.trim(), rol: form.rol }, { nombre: usuario.nombre, rol: usuario.rol });
+        const despues = { ...usuario, nombre: soloRol ? usuario.nombre : form.nombre.trim(), rol: form.rol };
+        const antes = { nombre: usuario.nombre, rol: usuario.rol };
+        const cambiosDeRol = [daRH && ACCIONES_USUARIO.darRH, quitaRH && ACCIONES_USUARIO.quitarRH, daNomina && ACCIONES_USUARIO.darNomina, quitaNomina && ACCIONES_USUARIO.quitarNomina].filter(Boolean);
+        for (const accion of cambiosDeRol.length ? cambiosDeRol : [ACCIONES_USUARIO.editar]) registrarUsuario(accion, despues, antes);
         onGuardado({ ...usuario, nombre: soloRol ? usuario.nombre : form.nombre.trim(), rol: form.rol }, { nuevo: false });
         setExito('Usuario actualizado correctamente.');
       } else {
@@ -177,8 +196,8 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
           </select>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
             {esAdmin
-              ? 'Tú das y quitas Recursos Humanos y Administrador.'
-              : 'Puedes dar o quitar Recursos Humanos. Administrador solo lo da y quita un administrador.'}
+              ? 'Tú das y quitas Recursos Humanos, Nóminas y Administrador.'
+              : 'Puedes dar o quitar Recursos Humanos y Nóminas (no el tuyo). Administrador solo lo da y quita un administrador.'}
             {' '}Aut. 1, Aut. 2 y solicitante se asignan en la pestaña Asignaciones.
           </p>
         </div>

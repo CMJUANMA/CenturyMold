@@ -17,7 +17,7 @@ import { btnIcon, btnPrimary, btnSecondary, chip, chipWarn, inputCls, labelCls, 
 
 const sinTildes = (t) => clavePuesto(t);
 
-export default function TabPuestos({ areas, puestos, empleados, usuario, toast, guardar, recargar }) {
+export default function TabPuestos({ areas, puestos, empleados, usuario, toast, guardar, recargar, soloLectura = false }) {
   const [filtroArea, setFiltroArea] = useState('todas');
   const [filtroEstado, setFiltroEstado] = useState('activos');
   const [busqueda, setBusqueda] = useState('');
@@ -118,6 +118,7 @@ export default function TabPuestos({ areas, puestos, empleados, usuario, toast, 
 
   // ── nivel jerárquico (1 = el puesto más alto; vacío = sin nivel) ──
   const guardarNivel = async (p, texto) => {
+    if (soloLectura) return;
     const t = String(texto).trim();
     const nivel = t === '' ? null : Number(t);
     if (nivel !== null && nivelJerarquicoValido(nivel) == null) return toast.error('El nivel debe ser un número entero de 1 en adelante.');
@@ -154,10 +155,12 @@ export default function TabPuestos({ areas, puestos, empleados, usuario, toast, 
           <option value="activos">Activos</option><option value="inactivos">Inactivos</option><option value="todos">Todos</option>
         </select>
         <span className="font-medium text-[var(--text-muted)]">{filtrados.length} puestos</span>
-        <button type="button" onClick={() => setAsignar(true)} className={btnSecondary} title="Simula y asigna puestoId y areaId a los empleados">
-          <ListChecks className="h-3.5 w-3.5" />Asignar puestos y áreas{sinPuesto > 0 && <span className={chipWarn}>{sinPuesto} sin asignar</span>}
-        </button>
-        <button type="button" onClick={() => abrir('nuevo')} className={btnPrimary}><Plus className="h-4 w-4" />Nuevo puesto</button>
+        {!soloLectura && (
+          <button type="button" onClick={() => setAsignar(true)} className={btnSecondary} title="Simula y asigna puestoId y areaId a los empleados">
+            <ListChecks className="h-3.5 w-3.5" />Asignar puestos y áreas{sinPuesto > 0 && <span className={chipWarn}>{sinPuesto} sin asignar</span>}
+          </button>
+        )}
+        {!soloLectura && <button type="button" onClick={() => abrir('nuevo')} className={btnPrimary}><Plus className="h-4 w-4" />Nuevo puesto</button>}
       </div>
 
       <div className={tablaWrap}>
@@ -174,7 +177,7 @@ export default function TabPuestos({ areas, puestos, empleados, usuario, toast, 
                 <span className="block text-xs font-normal normal-case tracking-normal text-[var(--text-muted)]">1 es el puesto más alto. Sirve para ordenar el organigrama</span>
               </th>
               <th className={thCls}>Alias</th>
-              <th className={`${thCls} text-right`}>Acciones</th>
+              {!soloLectura && <th className={`${thCls} text-right`}>Acciones</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border-subtle)]">
@@ -190,23 +193,25 @@ export default function TabPuestos({ areas, puestos, empleados, usuario, toast, 
                 <td className="px-4 py-2.5 text-right tabular-nums">{nEmpleados(p.id)}</td>
                 <td className="px-4 py-2.5">
                   <input type="number" min={1} step={1} inputMode="numeric" defaultValue={nivelJerarquicoValido(p.nivelJerarquico) ?? ''}
-                    key={`${p.id}-${p.nivelJerarquico ?? ''}`} aria-label={`Nivel de ${p.nombre}`} placeholder="—"
+                    key={`${p.id}-${p.nivelJerarquico ?? ''}`} aria-label={`Nivel de ${p.nombre}`} placeholder="—" readOnly={soloLectura}
                     onBlur={e => guardarNivel(p, e.target.value)} onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
                     className="w-16 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-2 py-1 text-xs tabular-nums outline-none focus:border-[var(--accent-text)]" />
                 </td>
                 <td className="px-4 py-2.5">
                   {(p.alias ?? []).length === 0 ? <span className="text-[var(--text-muted)]">—</span> : (
-                    <button type="button" onClick={() => abrir('alias', p)} className={`${chip} cursor-pointer hover:bg-[var(--bg-surface-hover)]`}>
-                      {p.alias.length} alias
-                    </button>
+                    soloLectura ? <span className={chip}>{p.alias.length} alias</span> : (
+                      <button type="button" onClick={() => abrir('alias', p)} className={`${chip} cursor-pointer hover:bg-[var(--bg-surface-hover)]`}>
+                        {p.alias.length} alias
+                      </button>
+                    )
                   )}
                 </td>
-                <td className="whitespace-nowrap px-4 py-2.5 text-right">
+                {!soloLectura && <td className="whitespace-nowrap px-4 py-2.5 text-right">
                   <button type="button" onClick={() => abrir('editar', p)} className={btnIcon} title="Editar nombre"><Pencil className="h-3.5 w-3.5" /></button>
                   <button type="button" onClick={() => abrir('area', p)} className={btnIcon} title="Cambiar de área"><ArrowRightLeft className="h-3.5 w-3.5" /></button>
                   <button type="button" onClick={() => abrir('alias', p)} className={btnIcon} title="Ver o quitar alias"><Tag className="h-3.5 w-3.5" /></button>
                   <button type="button" onClick={() => cambiarEstado(p)} className={btnIcon} title={p.activo === false ? 'Reactivar' : 'Dar de baja'}><Power className="h-3.5 w-3.5" /></button>
-                </td>
+                </td>}
               </tr>
             ))}
           </tbody>

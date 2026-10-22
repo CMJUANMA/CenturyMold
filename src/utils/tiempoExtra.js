@@ -302,10 +302,19 @@ export const esPropia = (t, uid) => t.creadoPor === uid;
 /** Texto de una firma: "Salvador Maldonado" o "Marco E. (RH)" cuando firmó por su rol RH */
 export const firmaTexto = (f, nombre = (x) => x) => (f ? `${nombre(f.nombre ?? f.nomina)}${f.comoRH ? ' (RH)' : ''}` : '');
 
-/** Filtros de la bandeja y de la consulta: área, estatus, rango de fecha del TE y texto del solicitante */
-export function filtrarSolicitudes(lista, { areaId = '', estatus = '', desde = '', hasta = '', solicitante = '' } = {}) {
+/**
+ * Turnos de las rutas ('1' | '2' | '3') que tiene un tiempo extra, según la hora de ENTRADA de cada bloque de su resumen
+ * (resumen.porBloque: { "7:00 → 16:00": 3, … }). Sin resumen o sin horarios devuelve [].
+ */
+export function turnosDeTE(t) {
+  const bloques = Object.keys(t?.resumen?.porBloque ?? {});
+  return [...new Set(bloques.map(b => turnoPorEntrada(String(b).split('→')[0].trim())).filter(Boolean))].sort();
+}
+
+/** Filtros de la bandeja y de la consulta: área, estatus, rango de fecha del TE, turno ('1' | '2' | '3') y texto del solicitante */
+export function filtrarSolicitudes(lista, { areaId = '', estatus = '', desde = '', hasta = '', solicitante = '', turno = '' } = {}) {
   const q = String(solicitante).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
-  return lista.filter(t => (!areaId || t.areaId === areaId) && (!estatus || t.estatus === estatus)
+  return lista.filter(t => (!areaId || t.areaId === areaId) && (!estatus || t.estatus === estatus) && (!turno || turnosDeTE(t).includes(turno))
     && (!desde || String(t.fechaTE ?? '') >= desde) && (!hasta || String(t.fechaTE ?? '') <= hasta)
     && (!q || `${t.creadoPorNombre ?? ''} ${t.creadoPorNomina ?? ''}`.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q)));
 }

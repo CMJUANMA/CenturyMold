@@ -25,6 +25,7 @@ const MisSolicitudesTE = lazy(() => import('./pages/te/MisSolicitudesTE'));
 const BandejaTE = lazy(() => import('./pages/te/BandejaTE'));
 const ConsultaTE = lazy(() => import('./pages/te/ConsultaTE'));
 const RecepcionTE = lazy(() => import('./pages/te/RecepcionTE'));
+const FormatoRutasPagina = lazy(() => import('./pages/te/FormatoRutasPagina'));
 const Herramientas = lazy(() => import('./pages/Herramientas'));
 const GuiaEstilo = lazy(() => import('./pages/GuiaEstilo'));
 import NuevaSolicitud from './pages/NuevaSolicitud';
@@ -55,6 +56,7 @@ const PANTALLAS = {
   teConsulta: <ConsultaTE />,
   teRecepcion: <RecepcionTE />,
   transporteSolicitudes: <RhSolicitudes />,
+  formatoRutas: <FormatoRutasPagina />,
   transporteCatalogos: <RhCatalogos />,
   padron: <RhEmpleados />,
   estructura: <Estructura />,

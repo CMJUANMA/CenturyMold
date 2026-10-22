@@ -21,7 +21,7 @@ import { useAreas } from '../hooks/useAreas';
 import { ROLES_RH } from '../utils/roles';
 import { FUNCIONES, RUTAS_TRANSPORTE_SUELTO } from '../funciones';
 import { RUTAS } from '../rutas';
-import { descripcionRoles, itemsMenuPorRol, itemsMenuRH } from '../utils/navegacion';
+import { descripcionRoles, itemsMenuNomina, itemsMenuPorRol, itemsMenuRH } from '../utils/navegacion';
 
 /** Contador discreto: gris; con pendientes, tono de aviso. Lleva texto para lectores de pantalla ("3 pendientes"). */
 function Contador({ n, aviso = true }) {
@@ -45,14 +45,17 @@ export default function Navbar() {
   const { pendientesRh, novedades: novedadesUser } = usePendientesRutas(usuario, accesos);
 
   const esRH = ROLES_RH.includes(usuario?.rol);
+  const esNomina = !esRH && !!accesos.esNomina;
   const { nombres: nombresArea } = useAreas();
-  const transporteAnterior = useTransporteAnterior(usuario?.uid, !esRH && FUNCIONES.transporteSuelto);
+  const transporteAnterior = useTransporteAnterior(usuario?.uid, !esRH && !esNomina && FUNCIONES.transporteSuelto);
   const porAutorizar = usePorAutorizar(usuario, accesos, true).total;
   const porRecibir = usePorRecibir(usuario, true);
   const descripcion = descripcionRoles(accesos, nombresArea);
 
   // RH/admin: por secciones (utils/navegacion.js); los demás: menú plano por rol
-  const lista = esRH ? itemsMenuRH({ esRH, esAdmin: accesos.esAdmin }) : itemsMenuPorRol({ ...accesos, transporteAnterior });
+  const lista = esRH ? itemsMenuRH({ esRH, esAdmin: accesos.esAdmin })
+    : esNomina ? itemsMenuNomina(accesos)
+      : itemsMenuPorRol({ ...accesos, transporteAnterior });
   const items = lista.map(it => ({ ...it, icon: ICONOS[it.icono] ?? IconoInicio }));
 
   useBloqueoScroll(menuAbierto); // con el cajón abierto en celular, la página de atrás no se mueve

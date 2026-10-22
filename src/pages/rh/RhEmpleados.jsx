@@ -18,12 +18,13 @@ import { EsqueletoTabla } from '../../components/ui/Esqueleto';
 import Insignia from '../../components/ui/Insignia';
 import { Fila, Tabla, Td, Th } from '../../components/ui/Tabla';
 import { useAuth } from '../../hooks/useAuth';
+import { useAccesos } from '../../hooks/useAccesos';
 import { ACCIONES_DESCARGA, registrarDescarga } from '../../utils/bitacoraDb';
 import { areaEfectiva } from '../../utils/estructura';
 import { ejecutarEnLotes, leerColeccion, opBitacora } from '../../utils/estructuraDb';
 import { esActivo, opcionesVigentes } from '../../utils/activo';
 import { leerTodosLosTelefonos, opTelefono } from '../../utils/contactosDb';
-import { estadoTelefono, soloDigitosTelefono } from '../../utils/telefono';
+import { estadoTelefono, formatoTelefono, soloDigitosTelefono } from '../../utils/telefono';
 
 // Importación masiva (arrastra exceljs): se descarga solo al abrir el modal
 const ModalImportacion = lazy(() => import('./ModalImportacion'));
@@ -40,6 +41,8 @@ const AYUDA_RUTA = 'Si no la asigna, se pedirá al solicitar transporte';
 export default function RhEmpleados() {
   const toast = useToast();
   const { usuario } = useAuth();
+  // Nóminas ve el padrón completo con el teléfono y lo exporta, pero no cambia nada (las reglas también lo impiden)
+  const soloLectura = !useAccesos().esRH;
   const recargarCompartidos = useRecargarCatalogos();
   const [empleados, setEmpleados] = useState([]);
   const [rutas, setRutas] = useState([]);
@@ -226,15 +229,15 @@ export default function RhEmpleados() {
   return (
     <div className="space-y-8">
       <EncabezadoPagina
-        antetitulo="Recursos Humanos"
-        titulo="Padrón de empleados"
-        descripcion="Las personas que pueden aparecer en una solicitud. El área de cada una sale de su puesto."
+        antetitulo={soloLectura ? 'Personal · solo lectura' : 'Recursos Humanos'}
+        titulo={soloLectura ? 'Personal' : 'Padrón de empleados'}
+        descripcion={soloLectura ? 'Las personas del padrón, con su ruta, su área y su teléfono. Solo consulta: los cambios los hace Recursos Humanos.' : 'Las personas que pueden aparecer en una solicitud. El área de cada una sale de su puesto.'}
         ayuda={<AyudaPantalla id="padron" />}
         accion={(
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
             <Boton id="btn-exportar-padron" icono={Download} estado={exportando ? 'cargando' : undefined} onClick={exportarPadron}>Exportar padrón (respaldo)</Boton>
-            <Boton id="btn-importar-empleados" icono={Upload} onClick={() => setImportando(true)}>Importar empleados</Boton>
-            <Boton variante="primario" icono={Plus} onClick={abrirCrear}>Nuevo empleado</Boton>
+            {!soloLectura && <Boton id="btn-importar-empleados" icono={Upload} onClick={() => setImportando(true)}>Importar empleados</Boton>}
+            {!soloLectura && <Boton variante="primario" icono={Plus} onClick={abrirCrear}>Nuevo empleado</Boton>}
           </div>
         )}
       />
@@ -264,7 +267,7 @@ export default function RhEmpleados() {
       ) : (
         <Tabla etiqueta="Padrón de empleados">
           <thead>
-            <tr><Th>Nómina</Th><Th>Nombre</Th><Th>Puesto</Th><Th>Ruta</Th><Th>Área</Th><Th>Estado</Th><Th derecha>Acciones</Th></tr>
+            <tr><Th>Nómina</Th><Th>Nombre</Th><Th>Puesto</Th><Th>Ruta</Th><Th>Área</Th>{soloLectura && <Th>Teléfono</Th>}<Th>Estado</Th>{!soloLectura && <Th derecha>Acciones</Th>}</tr>
           </thead>
           <tbody>
             {filtrados.map(emp => (
@@ -278,13 +281,14 @@ export default function RhEmpleados() {
                   {emp.areaExcepcion && <span className="ml-1.5" title={emp.areaExcepcionMotivo || 'Excepción de área'}><Insignia tono="aviso">Excepción</Insignia></span>}
                   {!emp.puestoId && <span className="ml-1.5" title="Aún sin puesto del catálogo"><Insignia>Sin asignar</Insignia></span>}
                 </Td>
+                {soloLectura && <Td mono className="whitespace-nowrap">{formatoTelefono(telefonos.get(emp.nomina)) || '—'}</Td>}
                 <Td>{emp.activo !== false ? <Insignia tono="exito">Activo</Insignia> : <Insignia icono={Power}>Inactivo</Insignia>}</Td>
-                <Td className="text-right">
+                {!soloLectura && <Td className="text-right">
                   <div className="inline-flex gap-1">
                     <Boton variante="fantasma" tamano="icono" onClick={() => abrirEditar(emp)} title="Editar" aria-label={`Editar ${emp.nombre}`}><Pencil className="h-4 w-4" aria-hidden="true" /></Boton>
                     <Boton variante="peligro" tamano="icono" onClick={() => setModalEliminar(emp)} title="Eliminar" aria-label={`Eliminar ${emp.nombre}`}><Trash2 className="h-4 w-4" aria-hidden="true" /></Boton>
                   </div>
-                </Td>
+                </Td>}
               </Fila>
             ))}
           </tbody>

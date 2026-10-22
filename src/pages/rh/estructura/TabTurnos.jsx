@@ -17,7 +17,7 @@ import { HORAS_ENTRADA_TE, HORAS_SALIDA_TE } from '../../../utils/tiempoExtra';
 import { formatoHora12 } from '../../../utils/horas';
 import { TURNOS_NOMINA_IDS, guardarTurnosNomina } from '../../../utils/turnosNominaDb';
 
-export default function TabTurnos() {
+export default function TabTurnos({ soloLectura = false }) {
   const { usuario } = useAuth();
   const toast = useToast();
   const { turnos, cargando, recargar } = useTurnosNomina();
@@ -55,12 +55,12 @@ export default function TabTurnos() {
             <Fila key={t}>
               <Td className="font-medium">Turno {t}</Td>
               <Td>
-                <Selector aria-label={`Entrada del turno ${t}`} value={form[t].entrada} onChange={e => cambiar(t, 'entrada', e.target.value)} className="max-w-[12rem]">
+                <Selector aria-label={`Entrada del turno ${t}`} value={form[t].entrada} onChange={e => cambiar(t, 'entrada', e.target.value)} disabled={soloLectura} className="max-w-[12rem]">
                   <option value="">Sin configurar</option>{HORAS_ENTRADA_TE.map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
                 </Selector>
               </Td>
               <Td>
-                <Selector aria-label={`Salida del turno ${t}`} value={form[t].salida} onChange={e => cambiar(t, 'salida', e.target.value)} className="max-w-[12rem]">
+                <Selector aria-label={`Salida del turno ${t}`} value={form[t].salida} onChange={e => cambiar(t, 'salida', e.target.value)} disabled={soloLectura} className="max-w-[12rem]">
                   <option value="">Sin configurar</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
                 </Selector>
               </Td>
@@ -69,9 +69,9 @@ export default function TabTurnos() {
         </tbody>
       </Tabla>
       {incompletos.length > 0 && <Aviso tono="aviso">Turno {incompletos.join(', ')}: captura la entrada y la salida, o deja las dos vacías.</Aviso>}
-      <div className="flex justify-end">
+      {!soloLectura && <div className="flex justify-end">
         <Boton variante="primario" icono={Save} estado={guardando ? 'cargando' : undefined} onClick={guardar} disabled={guardando || sinCambios || incompletos.length > 0}>Guardar turnos</Boton>
-      </div>
+      </div>}
     </section>
   );
 }

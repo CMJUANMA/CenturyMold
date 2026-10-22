@@ -6,7 +6,7 @@
  *   - docs/permisos.md (la tabla se genera con `npm run docs:permisos` y una prueba revisa que no se desfase).
  * También la usan las pruebas (menú y rutas por rol y por combinación) y la "Vista previa por rol" de Herramientas.
  *
- * Un PERFIL es { rol: 'admin'|'rh'|'usuario', esAut2, areasAut1, areasSolicitante }. Una persona con varios roles tiene la UNIÓN de lo
+ * Un PERFIL es { rol: 'admin'|'rh'|'nomina'|'usuario', esAut2, areasAut1, areasSolicitante }. Una persona con varios roles tiene la UNIÓN de lo
  * que le toca a cada uno (RH + Aut. 2 ve lo de RH y lo de Aut. 2). Cada permiso es una función de ese perfil, por eso la unión sale sola.
  *
  * Las reglas de Firestore (firestore.rules) son la barrera real; esto describe lo que la pantalla enseña y deja hacer, y las pruebas
@@ -14,7 +14,7 @@
  */
 import { RUTAS, rutaAccesos } from '../rutas.js';
 import { puedeAsignarAlgo } from './asignaciones.js';
-import { itemsMenuPorRol, itemsMenuRH, veOrganigrama } from './navegacion.js';
+import { itemsMenuNomina, itemsMenuPorRol, itemsMenuRH, veOrganigrama } from './navegacion.js';
 import { FUNCIONES } from '../funciones.js';
 
 /** Áreas de ejemplo para armar perfiles sin leer datos reales */
@@ -23,13 +23,15 @@ export const AREA_EJEMPLO = 'area-ejemplo';
 /** Perfil → la misma forma que devuelve useAccesos() (lo que usan los guardias y el menú) */
 export function accesosDePerfil({ rol = 'usuario', esAut2 = false, areasAut1 = [], areasSolicitante = [] } = {}) {
   const esRH = rol === 'rh' || rol === 'admin';
+  const esNomina = rol === 'nomina';
   return {
     esAdmin: rol === 'admin',
     esRH,
+    esNomina,
     esAut2: !!esAut2,
     areasAut1,
     areasSolicitante,
-    tieneAcceso: esRH || !!esAut2 || areasAut1.length > 0 || areasSolicitante.length > 0,
+    tieneAcceso: esRH || esNomina || !!esAut2 || areasAut1.length > 0 || areasSolicitante.length > 0,
   };
 }
 
@@ -51,10 +53,14 @@ export const CAPACIDADES = {
   solicitar: (a) => a.esRH || a.esAut2 || a.areasSolicitante.length > 0 || a.areasAut1.length > 0,
   /** Autorizar: Aut. 1, Aut. 2 y RH (RH solo firma el nivel 2) */
   autorizar: (a) => a.esRH || a.esAut2 || a.areasAut1.length > 0,
-  /** Ver todas las solicitudes de la planta */
-  consultar: (a) => a.esRH || a.esAut2,
-  /** Confirmar y mandar al proveedor */
-  recibir: (a) => a.esRH,
+  /** Ver todas las solicitudes de la planta (Nóminas: todo menos borradores, solo lectura) */
+  consultar: (a) => a.esRH || a.esAut2 || a.esNomina,
+  /** Confirmar y mandar al proveedor (RH, admin y Nóminas) */
+  recibir: (a) => a.esRH || a.esNomina,
+  /** Solicitudes de transporte y Formato de rutas: RH y admin completo; Nóminas solo ve y descarga */
+  verTransporte: (a) => a.esRH || a.esNomina,
+  /** Padrón y Estructura: RH y admin los administran; Nóminas los ve en solo lectura (con el teléfono, que manda al proveedor) */
+  verPersonal: (a) => a.esRH || a.esNomina,
   /** Organigrama: completo (Aut. 2, RH, admin) o de su área (Aut. 1) */
   organigrama: (a) => veOrganigrama(a),
   /** Pestaña Asignaciones: quien puede dar o quitar algún rol operativo */
@@ -106,10 +112,11 @@ export const RUTAS_PROTEGIDAS = [
   { id: 'teConsulta', ruta: RUTAS.teConsulta, puede: 'consultar' },
   { id: 'teRecepcion', ruta: RUTAS.teRecepcion, puede: 'recibir' },
 
-  { id: 'transporteSolicitudes', ruta: RUTAS.transporteSolicitudes, puede: 'rh' },
+  { id: 'transporteSolicitudes', ruta: RUTAS.transporteSolicitudes, puede: 'verTransporte' },
+  { id: 'formatoRutas', ruta: RUTAS.formatoRutas, puede: 'verTransporte' },
   { id: 'transporteCatalogos', ruta: RUTAS.transporteCatalogos, puede: 'rh' },
-  { id: 'padron', ruta: RUTAS.padron, puede: 'rh' },
-  { id: 'estructura', ruta: RUTAS.estructura, puede: 'rh' },
+  { id: 'padron', ruta: RUTAS.padron, puede: 'verPersonal' },
+  { id: 'estructura', ruta: RUTAS.estructura, puede: 'verPersonal' },
 
   { id: 'accesos', ruta: RUTAS.accesos, puede: 'accesos' },
   { id: 'accesosTab', ruta: `${RUTAS.accesos}/:tab`, puede: 'accesos' },
@@ -130,12 +137,12 @@ export const puedeEntrar = (ruta, accesos) => {
 
 // ── Menú ──────────────────────────────────────────────────────────────────────────────────────
 
-/** El menú que vería ese perfil (RH y admin, por secciones; los demás, plano), sin tocar nada real */
+/** El menú que vería ese perfil (RH, admin y Nóminas, por secciones; los demás, plano), sin tocar nada real */
 export function menuDePerfil(perfil, { funciones = FUNCIONES } = {}) {
   const a = accesosDePerfil(perfil);
-  return a.esRH
-    ? itemsMenuRH({ esRH: true, esAdmin: a.esAdmin, funciones })
-    : itemsMenuPorRol({ ...a, transporteAnterior: false, funciones });
+  if (a.esRH) return itemsMenuRH({ esRH: true, esAdmin: a.esAdmin, funciones });
+  if (a.esNomina) return itemsMenuNomina({ ...a, funciones });
+  return itemsMenuPorRol({ ...a, transporteAnterior: false, funciones });
 }
 
 // ── La matriz ─────────────────────────────────────────────────────────────────────────────────
@@ -144,6 +151,7 @@ export function menuDePerfil(perfil, { funciones = FUNCIONES } = {}) {
 export const COLUMNAS = [
   { id: 'admin', etiqueta: 'Admin', perfil: perfilDe({ rol: 'admin' }) },
   { id: 'rh', etiqueta: 'RH', perfil: perfilDe({ rol: 'rh' }) },
+  { id: 'nomina', etiqueta: 'Nóminas', perfil: perfilDe({ rol: 'nomina' }) },
   { id: 'aut2', etiqueta: 'Aut. 2', perfil: perfilDe({ aut2: true }) },
   { id: 'aut1', etiqueta: 'Aut. 1', perfil: perfilDe({ aut1: true }) },
   { id: 'solicitante', etiqueta: 'Solicitante', perfil: perfilDe({ solicitante: true }) },
@@ -156,6 +164,9 @@ export const COMBINACIONES = [
   { id: 'admin+aut1', etiqueta: 'Admin + Aut. 1', perfil: perfilDe({ rol: 'admin', aut1: true }) },
   { id: 'admin+aut2', etiqueta: 'Admin + Aut. 2', perfil: perfilDe({ rol: 'admin', aut2: true }) },
   { id: 'rh+solicitante', etiqueta: 'RH + Solicitante', perfil: perfilDe({ rol: 'rh', solicitante: true }) },
+  { id: 'nomina+solicitante', etiqueta: 'Nóminas + Solicitante', perfil: perfilDe({ rol: 'nomina', solicitante: true }) },
+  { id: 'nomina+aut1', etiqueta: 'Nóminas + Aut. 1', perfil: perfilDe({ rol: 'nomina', aut1: true }) },
+  { id: 'nomina+aut2', etiqueta: 'Nóminas + Aut. 2', perfil: perfilDe({ rol: 'nomina', aut2: true }) },
   { id: 'aut2+aut1', etiqueta: 'Aut. 2 + Aut. 1', perfil: perfilDe({ aut2: true, aut1: true }) },
   { id: 'aut2+solicitante', etiqueta: 'Aut. 2 + Solicitante', perfil: perfilDe({ aut2: true, solicitante: true }) },
   { id: 'aut1+solicitante', etiqueta: 'Aut. 1 + Solicitante', perfil: perfilDe({ aut1: true, solicitante: true }) },
@@ -167,11 +178,12 @@ const por = (capacidad) => (a) => CAPACIDADES[capacidad](a);
 const soloAdmin = (a) => a.esAdmin;
 const rh = (a) => a.esRH;
 const nivel2 = (a) => a.esRH || a.esAut2;
+const rhONomina = (a) => a.esRH || a.esNomina;
 
 /**
  * Filas de la matriz. `quien(accesos)` dice si ese perfil ve la pantalla o puede hacer la acción.
  *   tipo: 'pantalla' (tiene `ruta`) · 'accion' · 'boton'
- *   menu: en qué menú aparece su `ruta` como ítem: 'rh' (menú de RH/admin) · 'otros' (menú de los demás) · 'ambos' · null (no es ítem del menú)
+ *   menu: en qué menú aparece su `ruta` como ítem: 'rh' (menú de RH/admin) · 'nomina' (menú de Nóminas) · 'otros' (menú de los demás) · varios unidos con '+' ('rh+nomina') · 'ambos' (los tres) · null (no es ítem del menú)
  */
 export const MATRIZ = [
   // ── Pantallas
@@ -181,17 +193,18 @@ export const MATRIZ = [
   { grupo: 'Tiempo extra', tipo: 'pantalla', id: 'teNueva', nombre: 'Solicitar tiempo extra', ruta: RUTAS.teNueva, quien: por('solicitar'), menu: 'ambos' },
   { grupo: 'Tiempo extra', tipo: 'pantalla', id: 'teMisSolicitudes', nombre: 'Mis solicitudes', ruta: RUTAS.teMisSolicitudes, quien: por('solicitar'), menu: 'ambos' },
   { grupo: 'Tiempo extra', tipo: 'pantalla', id: 'teAutorizar', nombre: 'Por autorizar', ruta: RUTAS.teAutorizar, quien: por('autorizar'), menu: 'ambos' },
-  { grupo: 'Tiempo extra', tipo: 'pantalla', id: 'teConsulta', nombre: 'Todas las solicitudes (solo lectura; RH además cancela)', ruta: RUTAS.teConsulta, quien: por('consultar'), menu: 'ambos' },
-  { grupo: 'Tiempo extra', tipo: 'pantalla', id: 'teRecepcion', nombre: 'Por enviar al proveedor', ruta: RUTAS.teRecepcion, quien: por('recibir'), menu: 'rh' },
+  { grupo: 'Tiempo extra', tipo: 'pantalla', id: 'teConsulta', nombre: 'Todas las solicitudes (solo lectura; RH además cancela; para Nóminas es «Tiempo extra», con filtro de turno)', ruta: RUTAS.teConsulta, quien: por('consultar'), menu: 'ambos' },
+  { grupo: 'Tiempo extra', tipo: 'pantalla', id: 'teRecepcion', nombre: 'Por enviar al proveedor (Nóminas solo confirma; RH además devuelve y cancela)', ruta: RUTAS.teRecepcion, quien: por('recibir'), menu: 'rh+nomina' },
 
-  { grupo: 'Transporte', tipo: 'pantalla', id: 'transporteSolicitudes', nombre: 'Solicitudes de transporte', ruta: RUTAS.transporteSolicitudes, quien: por('rh'), menu: 'rh' },
+  { grupo: 'Transporte', tipo: 'pantalla', id: 'transporteSolicitudes', nombre: 'Solicitudes de transporte (Nóminas: solo ve y descarga)', ruta: RUTAS.transporteSolicitudes, quien: por('verTransporte'), menu: 'rh+nomina' },
+  { grupo: 'Transporte', tipo: 'pantalla', id: 'formatoRutasPagina', nombre: 'Formato de rutas (Excel para el proveedor)', ruta: RUTAS.formatoRutas, quien: por('verTransporte'), menu: 'nomina' },
   { grupo: 'Transporte', tipo: 'pantalla', id: 'transporteCatalogos', nombre: 'Rutas y puntos de reunión', ruta: RUTAS.transporteCatalogos, quien: por('rh'), menu: 'rh' },
 
-  { grupo: 'Personal y estructura', tipo: 'pantalla', id: 'padron', nombre: 'Padrón de empleados', ruta: RUTAS.padron, quien: por('rh'), menu: 'rh' },
-  { grupo: 'Personal y estructura', tipo: 'pantalla', id: 'estructura', nombre: 'Estructura (áreas, puestos, turnos)', ruta: RUTAS.estructura, quien: por('rh'), menu: 'rh' },
+  { grupo: 'Personal y estructura', tipo: 'pantalla', id: 'padron', nombre: 'Padrón de empleados (Nóminas: «Personal», solo lectura, con teléfono)', ruta: RUTAS.padron, quien: por('verPersonal'), menu: 'rh+nomina' },
+  { grupo: 'Personal y estructura', tipo: 'pantalla', id: 'estructura', nombre: 'Estructura (áreas, puestos, turnos; Nóminas: solo lectura)', ruta: RUTAS.estructura, quien: por('verPersonal'), menu: 'rh+nomina' },
   { grupo: 'Personal y estructura', tipo: 'pantalla', id: 'accesos', nombre: 'Usuarios y accesos (cada quien ve solo las pestañas que le tocan)', ruta: RUTAS.accesos, quien: por('accesos'), menu: 'rh', nota: 'En el menú de RH es un ítem; los demás entran por su pestaña' },
   { grupo: 'Personal y estructura', tipo: 'pantalla', id: 'accesosUsuarios', nombre: 'Usuarios y accesos › Usuarios', ruta: rutaAccesos('usuarios'), quien: por('usuarios'), menu: null },
-  { grupo: 'Personal y estructura', tipo: 'pantalla', id: 'accesosAsignaciones', nombre: 'Usuarios y accesos › Asignaciones («Asignar roles» en el menú de Aut. 2)', ruta: RUTAS.asignaciones, quien: por('asignar'), menu: 'otros' },
+  { grupo: 'Personal y estructura', tipo: 'pantalla', id: 'accesosAsignaciones', nombre: 'Usuarios y accesos › Asignaciones («Asignar roles» en el menú de Aut. 2)', ruta: RUTAS.asignaciones, quien: por('asignar'), menu: 'otros+nomina' },
   { grupo: 'Personal y estructura', tipo: 'pantalla', id: 'organigrama', nombre: 'Organigrama («Mi área» para Aut. 1: solo su área)', ruta: RUTAS.organigrama, quien: por('organigrama'), menu: 'ambos' },
 
   { grupo: 'Herramientas (admin)', tipo: 'pantalla', id: 'herramientas', nombre: 'Herramientas › Diagnóstico y limpieza', ruta: RUTAS.herramientas, quien: por('admin'), menu: 'rh' },
@@ -205,12 +218,14 @@ export const MATRIZ = [
   { grupo: 'Tiempo extra', tipo: 'accion', id: 'autorizarLoPropio', nombre: 'Lo que captura y envía queda autorizado al enviarlo (firma de nivel 2 «Capturada y autorizada por Aut. 2»)', quien: (a) => a.esAut2, nota: 'Solo la Aut. 2 vigente, en cualquier área donde pueda capturar. El Aut. 1 y RH no autorizan lo suyo' },
   { grupo: 'Tiempo extra', tipo: 'accion', id: 'firmarNivel1', nombre: 'Autorizar o devolver, nivel 1', quien: (a) => a.areasAut1.length > 0, nota: 'Solo lo de su área; no lo que él mismo creó' },
   { grupo: 'Tiempo extra', tipo: 'accion', id: 'firmarNivel2', nombre: 'Autorizar o devolver, nivel 2', quien: nivel2, nota: 'RH firma «como RH»; no lo que él mismo creó' },
-  { grupo: 'Tiempo extra', tipo: 'boton', id: 'confirmarRH', nombre: 'Confirmar y generar transporte / Devolver (nivel 3)', quien: por('recibir') },
+  { grupo: 'Tiempo extra', tipo: 'boton', id: 'confirmarRH', nombre: 'Confirmar y generar la solicitud de transporte (Por enviar al proveedor)', quien: por('recibir'), nota: 'Queda en la bitácora con el nombre de quien confirma' },
+  { grupo: 'Tiempo extra', tipo: 'boton', id: 'devolverRH', nombre: 'Devolver un tiempo extra autorizado (nivel 3)', quien: rh },
   { grupo: 'Tiempo extra', tipo: 'boton', id: 'cancelarRH', nombre: 'Cancelar un tiempo extra autorizado o confirmado', quien: rh },
-  { grupo: 'Tiempo extra', tipo: 'boton', id: 'formatoRutas', nombre: 'Descargar Formato de rutas y resumen de horas extra', quien: rh },
+  { grupo: 'Tiempo extra', tipo: 'boton', id: 'formatoRutas', nombre: 'Descargar Formato de rutas y resumen de horas extra', quien: rhONomina },
   { grupo: 'Tiempo extra', tipo: 'boton', id: 'exportarConsulta', nombre: 'Exportar «Todas las solicitudes» a Excel', quien: por('consultar') },
 
   // ── Acciones y botones: personal
+  { grupo: 'Personal y estructura', tipo: 'boton', id: 'descargarPadron', nombre: 'Padrón: exportar a Excel (respaldo)', quien: rhONomina },
   { grupo: 'Personal y estructura', tipo: 'accion', id: 'editarPadron', nombre: 'Padrón: alta, edición, baja, importación y respaldo', quien: rh },
   { grupo: 'Personal y estructura', tipo: 'accion', id: 'editarEstructura', nombre: 'Estructura y catálogos: crear y editar áreas, puestos, turnos, rutas y puntos', quien: rh },
   { grupo: 'Personal y estructura', tipo: 'boton', id: 'estructuraInicial', nombre: 'Estructura inicial y limpieza de estructura vieja', quien: soloAdmin },
@@ -219,6 +234,7 @@ export const MATRIZ = [
   { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'nuevoUsuario', nombre: 'Nuevo usuario / Crear usuarios en lote (rol «usuario»)', quien: nivel2 },
   { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'editarUsuario', nombre: 'Editar, activar o desactivar usuarios con rol «usuario»', quien: nivel2, nota: 'Nadie edita su propio usuario (salvo admin)' },
   { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'darRolRH', nombre: 'Dar o quitar el rol del sistema RH (con confirmación y bitácora)', quien: nivel2, nota: 'Nadie cambia su propio rol. A un RH solo se le cambia el rol (nombre y estado, solo el admin)' },
+  { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'darRolNomina', nombre: 'Dar o quitar el rol del sistema Nóminas (con confirmación y bitácora)', quien: nivel2, nota: 'Nadie se lo da a sí mismo. A quien ya es Nóminas solo se le cambia el rol' },
   { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'darRolAdmin', nombre: 'Dar o quitar el rol del sistema Administrador', quien: soloAdmin },
   { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'restablecerPassword', nombre: 'Restablecer contraseña (RH y Aut. 2: a usuarios con rol «usuario»; admin: a cualquiera menos a sí mismo)', quien: nivel2, nota: 'Contraseña temporal que se muestra una sola vez; nadie la restablece a sí mismo' },
   { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'asignarAut1', nombre: 'Asignar, extender o revocar Aut. 1 y Solicitante', quien: (a) => a.esAdmin || a.esRH || a.esAut2, nota: 'Nadie, salvo admin, se asigna a sí mismo. Solo en áreas que participan' },
@@ -265,6 +281,13 @@ export function bloquesDeInicio(perfil) {
       tipo: 'Indicadores de RH y admin',
       accion: 'Accesos rápidos',
       bloques: ['Requieren atención (por autorizar, por enviar al proveedor, devueltas)', 'Esta semana: solicitudes por día', 'Accesos rápidos a las pantallas de RH'],
+    };
+  }
+  if (a.esNomina) {
+    return {
+      tipo: 'Panel de Nóminas',
+      accion: 'Ninguna (Por enviar al proveedor, si hay algo pendiente)',
+      bloques: ['Tiempo extra autorizado de hoy y de esta semana: solicitudes, empleados y horas por área', 'Pendiente de enviar al proveedor', 'Accesos rápidos a sus pantallas'],
     };
   }
   const solicita = a.areasSolicitante.length > 0 || a.areasAut1.length > 0 || a.esAut2;

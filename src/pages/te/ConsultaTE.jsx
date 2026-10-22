@@ -1,8 +1,9 @@
 /**
- * ConsultaTE.jsx — /tiempo-extra/consulta (Aut. 2, RH y admin): todas las solicitudes menos borradores, en tiempo real.
- * Filtros (área, estatus, fechas del TE, solicitante), tarjetas (pendientes por nivel, autorizadas de la semana, horas y empleados
+ * ConsultaTE.jsx — /tiempo-extra/consulta (Aut. 2, RH, admin y Nóminas): todas las solicitudes menos borradores, en tiempo real.
+ * Nóminas la ve como «Tiempo extra»: solo lectura (detalle e historial) y todas las descargas, sin cancelar nada.
+ * Filtros (área, estatus, fechas del TE, turno, solicitante), tarjetas (pendientes por nivel, autorizadas de la semana, horas y empleados
  * autorizados del mes por área) y exportación a Excel (hoja Resumen y hoja Detalle con una fila por empleado).
- * RH además descarga el tiempo extra autorizado (nómina y comedor) y cancela lo autorizado o ya recibido; "?abrir=ID" abre una solicitud
+ * RH y Nóminas además descargan el tiempo extra autorizado (nómina y comedor); RH cancela lo autorizado o ya recibido; "?abrir=ID" abre una solicitud
  * (así llega el enlace desde la pantalla de transporte).
  */
 import { useEffect, useMemo, useState } from 'react';
@@ -46,11 +47,13 @@ export default function ConsultaTE() {
   const { areas, nombres } = useAreas();
   const { rutas, comunidades, puntos } = useCatalogos({ empleados: false });
   const toast = useToast();
-  const { esRH } = useAccesos();
+  const { esRH, esNomina } = useAccesos();
+  const descargaResumen = esRH || esNomina;
+  const soloNomina = esNomina && !esRH;
   const [params, setParams] = useSearchParams();
   const [ahora] = useState(() => new Date());
   const [filtros, setFiltros] = useState(() => ({
-    areaId: '', estatus: ESTATUS_TE_VISIBLES.includes(params.get('estatus')) ? params.get('estatus') : '', desde: '', hasta: '', solicitante: '',
+    areaId: '', estatus: ESTATUS_TE_VISIBLES.includes(params.get('estatus')) ? params.get('estatus') : '', desde: '', hasta: '', turno: '', solicitante: '',
   })); // ?estatus=... llega desde los indicadores del Inicio
   const [detalle, setDetalle] = useState(null);
   const [exportando, setExportando] = useState(null); // { hechos, total }
@@ -98,15 +101,15 @@ export default function ConsultaTE() {
   // Cancelar: RH y admin cualquier solicitud hasta procesada; la Aut. 2, lo de nivel 2 y lo autorizado (AccionCancelarTE decide por rol y estatus)
   const accionesDeRH = (t) => {
     const cancelar = <AccionCancelarTE t={t} onHecho={() => setDetalle(null)} />;
-    if (esRH && t.estatus === 'autorizada') {
+    if ((esRH || esNomina) && t.estatus === 'autorizada') {
       return (
         <div className="flex flex-wrap items-center gap-2">
           <Boton to={RUTAS.teRecepcion} variante="contorno">Está por confirmar: ir a «Por enviar al proveedor»</Boton>
-          {cancelar}
+          {!soloNomina && cancelar}
         </div>
       );
     }
-    return cancelar;
+    return soloNomina ? null : cancelar;
   };
 
   const exportar = async () => {
@@ -127,17 +130,17 @@ export default function ConsultaTE() {
 
   if (cargando) return <div className="space-y-8"><EsqueletoPagina bloques={0} /><EsqueletoIndicadores cantidad={3} className="grid gap-4 sm:grid-cols-3" /><EsqueletoTabla filas={5} columnas={7} /></div>;
   const hayFiltros = Object.values(filtros).some(Boolean);
-  const limpiar = () => setFiltros({ areaId: '', estatus: '', desde: '', hasta: '', solicitante: '' });
+  const limpiar = () => setFiltros({ areaId: '', estatus: '', desde: '', hasta: '', turno: '', solicitante: '' });
   return (
     <div className="space-y-8">
       <EncabezadoPagina
-        antetitulo="Tiempo extra"
-        titulo="Todas las solicitudes"
-        descripcion="Todas las solicitudes enviadas (los borradores solo los ve su creador)."
+        antetitulo={soloNomina ? 'Nóminas' : 'Tiempo extra'}
+        titulo={soloNomina ? 'Tiempo extra' : 'Todas las solicitudes'}
+        descripcion={soloNomina ? 'Todo el tiempo extra de la planta, en cualquier estatus (los borradores no se ven).' : 'Todas las solicitudes enviadas (los borradores solo los ve su creador).'}
         ayuda={<AyudaPantalla id="consulta" />}
         accion={(
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-            {esRH && (
+            {descargaResumen && (
               <div className="max-w-xs">
                 <BotonDescargaResumenTE id="btn-descargar-te-consulta" icono={FileSpreadsheet} areas={areas} nombresArea={nombres}
                   catalogos={{ rutas, comunidades, puntos }} nombre={(x) => formato.nombre(x)} />
@@ -173,7 +176,7 @@ export default function ConsultaTE() {
 
       <section aria-label="Solicitudes" className="space-y-4">
         <h2 className="text-lg font-semibold text-[var(--text-main)]">Solicitudes</h2>
-        <div className="grid gap-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 sm:grid-cols-2 lg:grid-cols-5 lg:items-end" role="group" aria-label="Filtros">
+        <div className="grid gap-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 sm:grid-cols-2 lg:grid-cols-6 lg:items-end" role="group" aria-label="Filtros">
           <Campo etiqueta="Área">
             <Selector value={filtros.areaId} onChange={e => setFiltros(f => ({ ...f, areaId: e.target.value }))}>
               <option value="">Todas</option>{areas.filter(a => a.participaTE !== undefined).map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
@@ -184,10 +187,15 @@ export default function ConsultaTE() {
               <option value="">Todos</option>{ESTATUS_TE_VISIBLES.map(s => <option key={s} value={s}>{ESTATUS_TE_MAP[s].label}</option>)}
             </Selector>
           </Campo>
+          <Campo etiqueta="Turno">
+            <Selector value={filtros.turno} onChange={e => setFiltros(f => ({ ...f, turno: e.target.value }))}>
+              <option value="">Todos</option><option value="1">Turno 1 (7:00 a 15:59)</option><option value="2">Turno 2 (16:00 a 23:59)</option><option value="3">Turno 3 (0:00 a 6:59)</option>
+            </Selector>
+          </Campo>
           <Campo etiqueta="Fecha del tiempo extra, desde"><Entrada type="date" value={filtros.desde} onChange={e => setFiltros(f => ({ ...f, desde: e.target.value }))} /></Campo>
           <Campo etiqueta="Hasta"><Entrada type="date" value={filtros.hasta} min={filtros.desde} onChange={e => setFiltros(f => ({ ...f, hasta: e.target.value }))} /></Campo>
           <Campo etiqueta="Solicitante"><Entrada type="search" value={filtros.solicitante} placeholder="Nombre o nómina" onChange={e => setFiltros(f => ({ ...f, solicitante: e.target.value }))} /></Campo>
-          {hayFiltros && <div className="sm:col-span-2 lg:col-span-5"><Boton variante="fantasma" onClick={limpiar}>Limpiar filtros</Boton></div>}
+          {hayFiltros && <div className="sm:col-span-2 lg:col-span-6"><Boton variante="fantasma" onClick={limpiar}>Limpiar filtros</Boton></div>}
         </div>
 
         {filtradas.length === 0 ? (

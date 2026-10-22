@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { FUNCIONES } from '../funciones';
-import { ESTATUS_SOLICITUD, ESTATUS_TE, ROLES_RH } from '../utils/constantes';
+import { ESTATUS_SOLICITUD, ESTATUS_TE, ROLES_ENVIAN_PROVEEDOR, ROLES_RH } from '../utils/constantes';
 
 /** Transporte: RH ve las solicitudes por revisar; cada solicitante, las novedades que no ha visto */
 export function usePendientesRutas(usuario, accesos, activo = true) {
@@ -74,10 +74,10 @@ export function usePorAutorizar(usuario, accesos, activo = true) {
   return { aut1, aut2, total: aut1 + aut2 };
 }
 
-/** Autorizadas pendientes de recibir por RH (solo RH y admin las leen): contador en vivo para el menú */
+/** Autorizadas pendientes de enviar al proveedor (las confirman RH, admin y Nóminas): contador en vivo para el menú */
 export function usePorRecibir(usuario, activo = true) {
   const uid = usuario?.uid;
-  const esRH = ROLES_RH.includes(usuario?.rol);
+  const esRH = ROLES_ENVIAN_PROVEEDOR.includes(usuario?.rol);
   const [n, setN] = useState(0);
 
   useEffect(() => {

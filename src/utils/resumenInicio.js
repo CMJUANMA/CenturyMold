@@ -125,6 +125,41 @@ export function indicadoresRH(planta, ahora = new Date()) {
   };
 }
 
+/**
+ * Inicio de Nóminas: tiempo extra AUTORIZADO (autorizada o procesada) de hoy y de la semana (lunes a domingo, por la fecha del tiempo extra),
+ * con solicitudes, empleados y horas totales por área, y lo que falta por enviar al proveedor. Las áreas salen ordenadas por nombre.
+ * @param {object[]} planta  solicitudes de toda la planta, sin borradores
+ * @param {Map<string,string>} nombres  nombre de cada área (id → nombre)
+ */
+export function resumenNomina(planta, nombres = new Map(), ahora = new Date()) {
+  const hoy = iso(ahora);
+  const lunes = iso(inicioDeSemana(ahora));
+  const domingo = sumarDiasIso(lunes, 6);
+  const fecha = (s) => String(s.fechaTE ?? '');
+  const autorizadas = planta.filter(s => AUTORIZADAS.includes(s.estatus));
+  const periodo = (desde, hasta) => {
+    const porArea = new Map();
+    for (const s of autorizadas) {
+      if (fecha(s) < desde || fecha(s) > hasta) continue;
+      const g = porArea.get(s.areaId) ?? { areaId: s.areaId, solicitudes: 0, empleados: 0, horas: 0 };
+      g.solicitudes += 1; g.empleados += s.resumen?.totalEmpleados ?? 0; g.horas += s.resumen?.totalHoras ?? 0;
+      porArea.set(s.areaId, g);
+    }
+    const filas = [...porArea.values()].map(g => ({ ...g, nombre: nombres.get(g.areaId) ?? g.areaId, horas: redondear(g.horas) }))
+      .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
+    return {
+      filas,
+      total: { solicitudes: filas.reduce((a, g) => a + g.solicitudes, 0), empleados: filas.reduce((a, g) => a + g.empleados, 0), horas: redondear(filas.reduce((a, g) => a + g.horas, 0)) },
+    };
+  };
+  const porEnviar = planta.filter(s => s.estatus === 'autorizada');
+  return {
+    hoy: periodo(hoy, hoy),
+    semana: periodo(lunes, domingo),
+    porEnviar: { total: porEnviar.length, vencidas: porEnviar.filter(s => fecha(s) < hoy).length, empleados: porEnviar.reduce((a, s) => a + (s.resumen?.totalEmpleados ?? 0), 0) },
+  };
+}
+
 /** Cada cuántos días se recuerda al admin descargar el "Respaldo completo (JSON)" (mientras no haya respaldos programados) */
 export const DIAS_RESPALDO_SEMANAL = 7;
 

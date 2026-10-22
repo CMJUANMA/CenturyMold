@@ -64,6 +64,40 @@ export const ITEMS_MENU_RH = [
 ];
 
 /**
+ * Menú de Nóminas (rol del sistema "nomina"): consulta de toda la planta, el paso de envío al proveedor, transporte y personal en solo lectura.
+ * Si además tiene asignaciones (solicitante, Aut. 1, Aut. 2) suma esos ítems (ver itemsMenuNomina).
+ */
+export const ITEMS_MENU_NOMINA = [
+  { path: RUTAS.inicio, label: 'Inicio', icono: 'Home', end: true },
+
+  { section: 'Tiempo extra' },
+  { path: RUTAS.teConsulta, label: 'Tiempo extra', icono: 'Layers' },
+  { path: RUTAS.teRecepcion, label: 'Por enviar al proveedor', icono: 'Inbox', contador: 'recepcion' },
+
+  { section: 'Transporte' },
+  { path: RUTAS.transporteSolicitudes, label: 'Solicitudes de transporte', icono: 'Bus' },
+  { path: RUTAS.formatoRutas, label: 'Formato de rutas', icono: 'FileDown' },
+
+  { section: 'Personal' },
+  { path: RUTAS.padron, label: 'Personal', icono: 'Users' },
+  { path: RUTAS.estructura, label: 'Estructura', icono: 'Network' },
+
+  // Aquí irá la sección «Reportes de nómina» (siguiente entrega): se agrega como { section: 'Reportes de nómina' } + sus ítems.
+];
+
+/**
+ * Menú de quien tiene el rol Nóminas: el suyo por secciones, y si además es solicitante, Aut. 1 o Aut. 2 conserva esos ítems
+ * (Solicitar, Mis solicitudes, Por autorizar, Organigrama / Mi área, Asignar roles) justo debajo de Inicio, sin repetir pantallas.
+ */
+export function itemsMenuNomina({ esAut2 = false, areasAut1 = [], areasSolicitante = [], funciones = FUNCIONES } = {}) {
+  const base = ITEMS_MENU_NOMINA.filter(it => !it.funcion || funcionActiva(it.funcion, funciones));
+  const propios = new Set(base.filter(it => it.path).map(it => it.path));
+  const extra = itemsMenuPorRol({ esAut2, areasAut1, areasSolicitante, transporteAnterior: false, funciones })
+    .filter(it => it.path !== RUTAS.inicio && !propios.has(it.path));
+  return [base[0], ...extra, ...base.slice(1)];
+}
+
+/**
  * Menú de RH/admin: los ítems visibles según rol y funciones encendidas; una sección solo aparece si le queda al menos un ítem.
  * @param {{ esRH: boolean, esAdmin?: boolean, funciones?: object }} p
  */
@@ -82,10 +116,11 @@ export function veOrganigrama({ esRH, esAut2, areasAut1 }) {
  * "Solicitante · Mantenimiento", "Autorización 1 · Mantenimiento", "Solicitante y Autorización 1 · Mantenimiento".
  * Con varias áreas se separan con " | ". RH y admin se describen por su rol del sistema.
  */
-export function descripcionRoles({ esRH, esAdmin, esAut2, areasAut1, areasSolicitante }, nombresArea = new Map()) {
+export function descripcionRoles({ esRH, esAdmin, esNomina, esAut2, areasAut1, areasSolicitante }, nombresArea = new Map()) {
   const partes = [];
   if (esAdmin) partes.push('Administrador');
   else if (esRH) partes.push('Recursos Humanos');
+  else if (esNomina) partes.push('Nóminas');
   if (esAut2) partes.push('Autorización 2');
   const areas = [...new Set([...areasSolicitante, ...areasAut1])];
   areas.sort((a, b) => String(nombresArea.get(a) ?? a).localeCompare(String(nombresArea.get(b) ?? b), 'es'));

@@ -40,7 +40,7 @@ function Tabla({ filas, extra }) {
   );
 }
 
-export default function TabPendientes({ areas, puestos, empleados, usuario, guardar }) {
+export default function TabPendientes({ areas, puestos, empleados, usuario, guardar, soloLectura = false }) {
   const [trabajando, setTrabajando] = useState(false);
   const areasPorId = useMemo(() => new Map(areas.map(a => [a.id, a])), [areas]);
   const puestosPorId = useMemo(() => new Map(puestos.map(p => [p.id, p])), [puestos]);
@@ -83,7 +83,7 @@ export default function TabPendientes({ areas, puestos, empleados, usuario, guar
             <span className="flex flex-wrap items-center gap-2">
               <span className={chip}>{nombreArea(puestosPorId.get(e.puestoId)?.areaId)} → {nombreArea(e.areaExcepcion)}</span>
               <span className="text-[var(--text-secondary)]">{e.areaExcepcionMotivo || '(sin motivo)'}</span>
-              <button type="button" className={btnSecondary} disabled={trabajando} onClick={() => quitarExcepcion(e)}>Quitar</button>
+              {!soloLectura && <button type="button" className={btnSecondary} disabled={trabajando} onClick={() => quitarExcepcion(e)}>Quitar</button>}
             </span>
           ),
         }} />
@@ -100,7 +100,7 @@ export default function TabPendientes({ areas, puestos, empleados, usuario, guar
       <Seccion titulo="Área desactualizada" hijos={desfasados.length} vacio="El área de todos coincide con la de su puesto (o su excepción).">
         <div className="flex items-center gap-3">
           <p className="text-xs text-[var(--text-secondary)]">Su areaId no coincide con el área efectiva (por ejemplo, tras un cambio de área interrumpido).</p>
-          <button type="button" className={btnSecondary} disabled={trabajando} onClick={sincronizar}>Sincronizar {desfasados.length}</button>
+          {!soloLectura && <button type="button" className={btnSecondary} disabled={trabajando} onClick={sincronizar}>Sincronizar {desfasados.length}</button>}
         </div>
         <Tabla filas={desfasados} extra={{ titulo: 'areaId → efectiva', celda: (e) => `${nombreArea(e.areaId)} → ${nombreArea(areaEfectiva(e, puestosPorId))}` }} />
       </Seccion>

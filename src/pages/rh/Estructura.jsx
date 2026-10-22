@@ -1,5 +1,5 @@
 /**
- * Estructura.jsx — ÁREAS → PUESTOS → EMPLEADOS (solo admin y RH). Pestañas: Áreas, Puestos, Excepciones y pendientes y Turnos
+ * Estructura.jsx — ÁREAS → PUESTOS → EMPLEADOS (admin y RH la administran; Nóminas la ve en solo lectura). Pestañas: Áreas, Puestos, Excepciones y pendientes y Turnos
  * (horario normal de los turnos de nómina A, B y C). Cada colección se lee por separado y, si falla, se dice cuál y con qué código.
  */
 import { useCallback, useEffect, useState } from 'react';
@@ -7,6 +7,7 @@ import Aviso from '../../components/ui/Aviso';
 import EncabezadoPagina from '../../components/ui/EncabezadoPagina';
 import { EsqueletoTabla } from '../../components/ui/Esqueleto';
 import Pestanas from '../../components/ui/Pestanas';
+import { useAccesos } from '../../hooks/useAccesos';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
 import { ejecutarEnLotes, leerColeccion } from '../../utils/estructuraDb';
@@ -24,6 +25,7 @@ const PESTANAS = [
 
 export default function Estructura() {
   const { usuario } = useAuth();
+  const soloLectura = !useAccesos().esRH;
   const toast = useToast();
   const [pestana, setPestana] = useState('areas');
   const [datos, setDatos] = useState({ areas: [], puestos: [], empleados: [] });
@@ -53,11 +55,11 @@ export default function Estructura() {
     }
   }, [toast, recargar]);
 
-  const props = { ...datos, usuario, toast, guardar, recargar };
+  const props = { ...datos, usuario, toast, guardar, recargar, soloLectura };
 
   return (
     <div className="space-y-8">
-      <EncabezadoPagina antetitulo="Recursos Humanos" titulo="Estructura" descripcion="Áreas → puestos → empleados: el área de cada empleado sale de su puesto." />
+      <EncabezadoPagina antetitulo={soloLectura ? 'Personal · solo lectura' : 'Recursos Humanos'} titulo="Estructura" descripcion={soloLectura ? 'Áreas → puestos → empleados. Solo consulta: los cambios los hace Recursos Humanos.' : 'Áreas → puestos → empleados: el área de cada empleado sale de su puesto.'} />
 
       {fallos.length > 0 && (
         <Aviso tono="error" titulo="No se pudo leer parte de la estructura">
@@ -74,7 +76,7 @@ export default function Estructura() {
           {pestana === 'areas' && <TabAreas {...props} />}
           {pestana === 'puestos' && <TabPuestos {...props} />}
           {pestana === 'pendientes' && <TabPendientes {...props} />}
-          {pestana === 'turnos' && <TabTurnos />}
+          {pestana === 'turnos' && <TabTurnos soloLectura={soloLectura} />}
         </>
       )}
     </div>

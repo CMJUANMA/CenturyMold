@@ -47,7 +47,7 @@ export function AccesosProvider({ children }) {
       error: listo ? estado.error : null,
       // Sin nómina no hay nada que esperar (p. ej. un admin sin padrón)
       cargando: !!uid && !!nomina && !listo,
-      tieneAcceso: accesos.esRH || accesos.esAut2 || accesos.areasAut1.length > 0 || accesos.areasSolicitante.length > 0,
+      tieneAcceso: accesos.esRH || accesos.esNomina || accesos.esAut2 || accesos.areasAut1.length > 0 || accesos.areasSolicitante.length > 0,
     };
   }, [estado, nomina, uid, rol, ahora]);
 

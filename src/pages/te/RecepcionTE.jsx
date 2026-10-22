@@ -1,12 +1,13 @@
 /**
- * RecepcionTE.jsx — "Por enviar al proveedor" (/tiempo-extra/recepcion; RH y admin; antes "Recepción"): lo autorizado que RH aún debe CONFIRMAR,
+ * RecepcionTE.jsx — "Por enviar al proveedor" (/tiempo-extra/recepcion; RH, admin y Nóminas; antes "Recepción"): lo autorizado que RH aún debe CONFIRMAR,
  * en tiempo real y agrupado por fecha del tiempo extra (la más próxima primero). "Confirmar y generar transporte" crea UNA solicitud de transporte
  * por tiempo extra con los empleados que pidieron transporte (cada pasajero con su horario); "Confirmar todas las de esta fecha" lo hace por
  * fecha, cada una en su transacción. Si nadie lleva transporte, el botón dice "Confirmar (sin transporte)".
- * Aquí no se editan empleados: si algo está mal, RH devuelve con motivo. También baja el resumen de horas extra (mismo panel que Consulta).
+ * Aquí no se editan empleados: si algo está mal, RH devuelve con motivo (Nóminas solo confirma: no devuelve ni cancela). También baja el resumen de horas extra (mismo panel que Consulta).
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, ChevronRight, Clock } from 'lucide-react';
+import { useAccesos } from '../../hooks/useAccesos';
 import { useAuth } from '../../hooks/useAuth';
 import { useAreas } from '../../hooks/useAreas';
 import { useCatalogos } from '../../hooks/useCatalogos';
@@ -58,6 +59,7 @@ function FlujoPasos() {
 
 export default function RecepcionTE() {
   const { usuario } = useAuth();
+  const { esRH } = useAccesos();
   const { porFecha, lista, cargando, error } = useRecepcion();
   const { areas, nombres } = useAreas();
   const { rutas, comunidades, puntos } = useCatalogos({ empleados: false });
@@ -119,7 +121,7 @@ export default function RecepcionTE() {
   return (
     <div className="space-y-8">
       <EncabezadoPagina
-        antetitulo="Tiempo extra · Recursos Humanos"
+        antetitulo={esRH ? 'Tiempo extra · Recursos Humanos' : 'Tiempo extra · Nóminas'}
         titulo={NOMBRE_POR_ENVIAR}
         descripcion={totalPendientes === 0 ? 'No hay tiempo extra autorizado por confirmar.' : `${totalPendientes} ${totalPendientes === 1 ? 'autorizada por confirmar' : 'autorizadas por confirmar'}, la fecha más próxima primero. Se actualiza sola.`}
         ayuda={<AyudaPantalla id="recepcion" />}
@@ -135,7 +137,7 @@ export default function RecepcionTE() {
 
       <section aria-label="Qué es esta pantalla" className="space-y-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5">
         <p className="text-sm text-[var(--text-main)]">
-          Estas solicitudes ya tienen las dos autorizaciones. Al confirmar, se crea su solicitud de transporte para que aparezca en el Formato de rutas del proveedor. Si algo está mal, puedes devolverla al solicitante.
+          Estas solicitudes ya tienen las dos autorizaciones. Al confirmar, se crea su solicitud de transporte para que aparezca en el Formato de rutas del proveedor. {esRH ? 'Si algo está mal, puedes devolverla al solicitante.' : 'Si algo no cuadra, avisa a Recursos Humanos: ellos pueden devolverla.'}
         </p>
         <FlujoPasos />
       </section>
@@ -209,8 +211,8 @@ export default function RecepcionTE() {
             <DetalleTE t={detalle.solicitud} historial={detalle.historial} area={nombreArea(detalle.solicitud.areaId)} catalogos={catalogos} formato={formato}
               acciones={(
                 <>
-                  <div className="w-full"><Ayuda clave="recepcion.recibir" className="!mt-0" /><Ayuda clave="recepcion.devolver" /></div>
-                  <AccionesRH t={detalle.solicitud} acciones={['cancelar', 'devolver', 'recibir']} onHecho={() => setDetalle(null)} onTrabajando={enDetalle}
+                  <div className="w-full"><Ayuda clave="recepcion.recibir" className="!mt-0" />{esRH && <Ayuda clave="recepcion.devolver" />}</div>
+                  <AccionesRH t={detalle.solicitud} acciones={esRH ? ['cancelar', 'devolver', 'recibir'] : ['recibir']} onHecho={() => setDetalle(null)} onTrabajando={enDetalle}
                     onConfirmada={(t, r) => setResultado({ ok: [{ folio: t.folio, fecha: t.fechaTE, pasajeros: r.pasajeros }], fallidas: [] })} />
                 </>
               )} />

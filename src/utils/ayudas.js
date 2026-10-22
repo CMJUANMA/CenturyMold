@@ -4,7 +4,7 @@
  *
  *   campos:     texto corto debajo de un campo (clave "pantalla.campo")
  *   pantallas:  explicación de 3 o 4 pasos que abre el "?" junto al título de cada pantalla
- *   recorridos: globos del recorrido guiado (primera vez en "Solicitar tiempo extra" y en "Por autorizar").
+ *   recorridos: globos del recorrido guiado (primera vez en "Solicitar tiempo extra", en "Por autorizar" y en el Inicio de Nóminas).
  *               selector: lo que se señala en pantalla (atributo data-tour); si no está en pantalla, el globo sale al centro.
  */
 
@@ -68,6 +68,24 @@ export const AYUDAS = {
         'Abajo están los accesos rápidos y los tiempos extra que vienen en la semana.',
       ],
     },
+    inicioNomina: {
+      titulo: 'Cómo leer tu Inicio de Nóminas',
+      pasos: [
+        'Arriba está lo que falta por enviar al proveedor: tiempo extra ya autorizado que todavía nadie confirma. Toca la tarjeta para ir a "Por enviar al proveedor".',
+        '"Autorizado hoy" suma las solicitudes, los empleados y las horas del tiempo extra de hoy, por área.',
+        '"Autorizado esta semana" hace lo mismo de lunes a domingo. Sirve para armar la nómina.',
+        'Para ver cada solicitud con su detalle, entra a "Tiempo extra" en el menú y usa los filtros de fecha, área, estatus y turno.',
+      ],
+    },
+    formatoRutas: {
+      titulo: 'Cómo bajar el Formato de rutas',
+      pasos: [
+        'Es el Excel que se manda al proveedor de transporte, solo con los empleados que llevan transporte.',
+        'Toca "Formato de rutas (proveedor)" y elige hoy, mañana, una fecha o un rango.',
+        'Antes de bajar el archivo te dice cuántas solicitudes de transporte encontró. Si no hay ninguna, no se baja un Excel vacío.',
+        'El teléfono de cada empleado aparece en el archivo; si falta alguno, avisa a Recursos Humanos.',
+      ],
+    },
     inicioRol: {
       titulo: 'Cómo leer tu Inicio',
       pasos: [
@@ -81,8 +99,8 @@ export const AYUDAS = {
       titulo: 'Cómo usar el padrón de empleados',
       pasos: [
         'Aquí está la lista de todos los empleados. Busca por número de nómina o por nombre.',
-        '"Nuevo empleado" da de alta a una persona; el lápiz cambia sus datos, su puesto y su ruta.',
-        '"Importar empleados" carga un Excel con muchas personas y, antes de guardar, te muestra qué cambiaría.',
+        '"Nuevo empleado" da de alta a una persona; el lápiz cambia sus datos, su puesto y su ruta. Nóminas solo consulta: ve también el teléfono, pero no cambia nada.',
+        '"Importar empleados" carga un Excel con muchas personas y, antes de guardar, te muestra qué cambiaría (solo Recursos Humanos).',
         '"Exportar padrón (respaldo)" baja una copia de todos, activos e inactivos.',
       ],
     },
@@ -135,7 +153,7 @@ export const AYUDAS = {
       titulo: 'Cómo confirmar lo que va al proveedor',
       pasos: [
         'Aquí están las solicitudes que ya tienen las dos autorizaciones y que RH todavía no confirma, agrupadas por fecha.',
-        'Toca "Revisar" para ver el detalle. Aquí no se cambian empleados: si algo está mal, usa "Devolver" con el motivo.',
+        'Toca "Revisar" para ver el detalle. Aquí no se cambian empleados: si algo está mal, Recursos Humanos puede usar "Devolver" con el motivo (Nóminas solo confirma).',
         'Toca "Confirmar y generar transporte": se crea la solicitud de transporte de quienes lo pidieron. Si nadie lleva transporte, el botón dice "Confirmar (sin transporte)". Para varias del mismo día, usa "Confirmar todas las de esta fecha".',
         'Cuando termines de confirmar, toca "Formato de rutas (proveedor)", arriba en esta misma pantalla, elige la fecha y baja el Excel para el proveedor.',
       ],
@@ -144,8 +162,8 @@ export const AYUDAS = {
       titulo: 'Todas las solicitudes',
       pasos: [
         'Aquí ves todas las solicitudes de tiempo extra enviadas, sin importar su estatus.',
-        'Usa los filtros de área, estatus, fechas y solicitante para encontrar lo que buscas.',
-        'Toca "Ver" para abrir el detalle de una solicitud.',
+        'Usa los filtros de área, estatus, fechas, turno y solicitante para encontrar lo que buscas.',
+        'Toca "Ver" para abrir el detalle de una solicitud, con su historial.',
         'Usa "Descargar resumen de horas extra" para nómina y comedor, o "Exportar consulta" para la lista que ves en pantalla.',
       ],
     },
@@ -168,6 +186,11 @@ export const AYUDAS = {
       { selector: '[data-tour="solicitar-empleados-vacio"]', titulo: 'Aquí aparecerán tus empleados', texto: 'Cuando agregues empleados, cada uno tendrá su horario, si necesita comida y si necesita transporte. Si lleva transporte, elige su ruta.' },
       { selector: '[data-tour="solicitar-resumen"]', titulo: 'Resumen', texto: 'Aquí ves el total de empleados, horas y rutas. Si usas más de una ruta, tendrás que explicar por qué.' },
       { selector: '[data-tour="solicitar-enviar"]', titulo: 'Enviar', texto: 'Cuando todo esté listo, envía la solicitud. También puedes guardarla como borrador y seguir después.' },
+    ],
+    inicioNomina: [
+      { selector: '[data-tour="inicioNomina-pendiente"]', titulo: 'Por enviar al proveedor', texto: 'Aquí ves cuánto tiempo extra ya autorizado falta por confirmar. Toca una tarjeta para ir a confirmarlo y generar la solicitud de transporte.' },
+      { selector: '[data-tour="inicioNomina-hoy"]', titulo: 'Autorizado hoy', texto: 'Solicitudes, empleados y horas totales del tiempo extra de hoy, por área.' },
+      { selector: '[data-tour="inicioNomina-semana"]', titulo: 'Autorizado de la semana', texto: 'Lo mismo de lunes a domingo. Para ver cada solicitud con su detalle, entra a Tiempo extra en el menú.' },
     ],
     autorizar: [
       { selector: '[data-tour="autorizar-filtros"]', titulo: 'Filtros', texto: 'Filtra la lista por área o por fechas si tienes muchas solicitudes.' },

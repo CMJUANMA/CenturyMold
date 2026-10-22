@@ -16,6 +16,10 @@ service cloud.firestore {
     // (esAdmin y esRH leen el perfil una sola vez: el tope de 1000 expresiones por petición es justo y activo() + rol() lo leían dos.)
     function esAdmin()        { let p = perfil(); return exists(perfilPath()) && p.get('activo', true) != false && p.get('rol', '') == 'admin'; }
     function esRH()           { let p = perfil(); return exists(perfilPath()) && p.get('activo', true) != false && p.get('rol', '') in ['rh', 'admin']; }
+    // Nóminas: rol del sistema "nomina". Ve toda la planta (tiempo extra sin borradores, transporte, padrón con teléfono, estructura) y solo
+    // ESCRIBE en el paso "Por enviar al proveedor" (confirmar un tiempo extra autorizado y la solicitud de transporte que genera) y en la bitácora
+    // (sus descargas y ese mismo paso). No crea, autoriza, devuelve, edita ni cancela nada más. Si además tiene asignaciones, esas se suman aparte.
+    function esNomina()       { let p = perfil(); return exists(perfilPath()) && p.get('activo', true) != false && p.get('rol', '') == 'nomina'; }
     function miNomina()       { return perfil().get('nomina', ''); }
     function miNombre()       { return perfil().get('nombre', ''); }
     // Texto con tope de largo (nada de documentos enormes ni de otro tipo de dato)
@@ -65,14 +69,14 @@ service cloud.firestore {
         let d = request.resource.data;
         return textoHasta(d.get('nomina', ''), 20) && d.get('nomina', '') != '' && textoHasta(d.get('nombre', ''), 120) && d.get('activo', true) is bool;
       }
-      // Gestores (RH, Aut. 2): nunca a sí mismos ni a un admin. Pueden dar o quitar el rol rh (usuario <-> rh); 'admin' solo lo da y quita un admin.
-      // A quien ya es rh solo le cambian el rol (nombre y activo no). La nómina NO cambia: las asignaciones van por nómina y moverla heredaría
+      // Gestores (RH, Aut. 2): nunca a sí mismos ni a un admin. Pueden dar o quitar el rol rh y el rol nomina (usuario <-> rh <-> nomina); 'admin' solo lo da y quita un admin.
+      // A quien ya es rh o nomina solo le cambian el rol (nombre y activo no). La nómina NO cambia: las asignaciones van por nómina y moverla heredaría
       // los roles de otra persona. (Un rol anterior sin migrar puede conservarse.)
-      allow update: if esAdmin()
+      allow update: if (esAdmin() && !(request.auth.uid == uid && request.resource.data.get('rol', '') == 'nomina'))
         || (gestorUsuarios() && request.auth.uid != uid && resource.data.get('rol', '') != 'admin'
             && request.resource.data.get('rol', '') != 'admin'
-            && (request.resource.data.get('rol', '') in ['usuario', 'rh'] || request.resource.data.get('rol', '') == resource.data.get('rol', ''))
-            && (resource.data.get('rol', '') != 'rh' || soloCambia(['rol']))
+            && (request.resource.data.get('rol', '') in ['usuario', 'rh', 'nomina'] || request.resource.data.get('rol', '') == resource.data.get('rol', ''))
+            && (!(resource.data.get('rol', '') in ['rh', 'nomina']) || soloCambia(['rol']))
             && soloCambia(['nombre', 'rol', 'activo']) && perfilValido())
         // Primer acceso: el propio usuario solo puede bajar debeCambiarPassword de true a false (nunca al revés)
         || (activo() && request.auth.uid == uid
@@ -158,12 +162,14 @@ service cloud.firestore {
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['fechaCreacion', 'creadoPor']);
       allow delete: if false;
     }
-    // Bitácora: solo se crea. La leen y la crean admin y RH; la Aut. 2 solo lo de asignaciones (ella también asigna).
+    // Bitácora: solo se crea. La leen y la crean admin y RH; la Aut. 2 solo lo de asignaciones (ella también asigna). Nóminas solo la ESCRIBE
+    // (sus descargas y el paso de enviar al proveedor); no la lee.
     // El Aut. 1 y el solicitante NO la leen: ahí queda quién asignó a quién y cuándo. Nadie la edita ni la borra.
     match /bitacora/{id} {
       allow read: if esRH() || (esAut2() && resource.data.get('entidad', '') == 'asignacion');
       // Quien la crea queda con su uid Y su nombre reales (no se puede firmar a nombre de otra persona). La Aut. 2 también registra sus descargas.
-      allow create: if (esRH() || (esAut2() && (request.resource.data.entidad in ['asignacion', 'descarga'] || request.resource.data.entidad.matches('usuarios/.*'))))
+      allow create: if (esRH() || (esAut2() && (request.resource.data.entidad in ['asignacion', 'descarga'] || request.resource.data.entidad.matches('usuarios/.*')))
+                        || (esNomina() && (request.resource.data.entidad == 'descarga' || (request.resource.data.entidad == 'tiempoExtra' && request.resource.data.accion == 'recibir'))))
         && request.resource.data.keys().hasOnly(['accion', 'entidad', 'antes', 'despues', 'porUid', 'porNombre', 'fecha'])
         && textoHasta(request.resource.data.accion, 60) && textoHasta(request.resource.data.entidad, 120)
         && request.resource.data.porUid == request.auth.uid
@@ -187,7 +193,7 @@ service cloud.firestore {
       // el área de cada documento de una consulta abierta (con 'in', si alguna área no es suya se rechaza toda).
       // La lista blanca de abajo para quien no es RH solo incluye ruta/comunidad/punto, y solo de empleados
       // del área donde es solicitante vigente (la pantalla solo manda esos cambios al padrón)
-      allow read: if esRH() || esAut2()
+      allow read: if esRH() || esAut2() || esNomina()
         || (activo() && (esSolicitanteDe(resource.data.get('areaId', null)) || esAut1De(resource.data.get('areaId', null))));
       allow create: if esRH();
       allow update: if esRH()
@@ -209,8 +215,8 @@ service cloud.firestore {
         let d = request.resource.data;
         return d.keys().hasOnly(['telefono']) && d.get('telefono', null) is string && (d.telefono == '' || d.telefono.matches('[0-9]{10}'));
       }
-      allow get: if esRH() || (activo() && esSolicitanteDe(areaDelEmpleado()));
-      allow list: if esRH();
+      allow get: if esRH() || esNomina() || (activo() && esSolicitanteDe(areaDelEmpleado()));
+      allow list: if esRH() || esNomina();
       allow create, update: if formaContacto() && (esRH() || (activo() && esSolicitanteDe(areaDelEmpleado())));
       allow delete: if esRH();
     }
@@ -226,7 +232,7 @@ service cloud.firestore {
 
       // Cada quien lee las suyas aunque su rol de solicitante ya haya vencido. La solicitud de transporte que RH genera al recibir un
       // tiempo extra la lee quien puede leer ese tiempo extra (su solicitante y su Aut. 1 ven el estatus del transporte)
-      allow read: if esRH() || (activo() && esDueno())
+      allow read: if esRH() || esNomina() || (activo() && esDueno())
         || (activo() && resource.data.get('origen', '') == 'tiempo_extra'
             && puedeLeerTE(get(/databases/$(database)/documents/tiempoExtra/$(resource.data.tiempoExtraId)).data));
       // Las solicitudes de transporte sueltas las crean solo RH y admin (los solicitantes piden transporte dentro del
@@ -248,10 +254,10 @@ service cloud.firestore {
           && d.areaId == get(te).data.areaId
           && d.folioTE == get(te).data.get('folio', '');
       }
-      allow create: if esRH()
-        && request.resource.data.creadoPor == request.auth.uid
-        && ((request.resource.data.get('origen', null) == null && request.resource.data.estatus == 'pendiente')
-            || transporteDeTE());
+      // Nóminas solo crea la solicitud de transporte que nace al confirmar un tiempo extra (nunca una suelta)
+      allow create: if request.resource.data.creadoPor == request.auth.uid
+        && ((esRH() && ((request.resource.data.get('origen', null) == null && request.resource.data.estatus == 'pendiente') || transporteDeTE()))
+            || (esNomina() && transporteDeTE()));
       allow update: if esRH()
         // Dueño: cancelar o editar (una aprobada vuelve a pendiente). Lista blanca de campos:
         // lo que escribe EditarSolicitud (fechaServicio, solicitanteNombre, el resumen de pasajeros:
@@ -273,7 +279,10 @@ service cloud.firestore {
         // getAfter: en el batch de creación la solicitud padre aún no existe en el estado "antes"
         function padreDespues() { return getAfter(/databases/$(database)/documents/solicitudes/$(solId)).data; }
 
-        allow read: if esRH() || (activo() && padreAntes().creadoPor == request.auth.uid);
+        allow read: if esRH() || esNomina() || (activo() && padreAntes().creadoPor == request.auth.uid);
+        // Nóminas escribe pasajeros solo en el lote que crea la solicitud de transporte de un tiempo extra (el padre aún no existe)
+        allow create: if esNomina() && !exists(/databases/$(database)/documents/solicitudes/$(solId))
+          && padreDespues().get('origen', '') == 'tiempo_extra' && padreDespues().creadoPor == request.auth.uid;
         allow write: if esRH()
           || (activo()
               && padreDespues().creadoPor == request.auth.uid
@@ -331,7 +340,7 @@ service cloud.firestore {
     // t = datos de una solicitud de tiempo extra. Un borrador solo lo ve su creador
     function puedeLeerTE(t) {
       return activo() && (t.creadoPor == request.auth.uid
-        || (t.estatus != 'borrador' && (esAut1De(t.areaId) || esAut2() || esRH())));
+        || (t.estatus != 'borrador' && (esAut1De(t.areaId) || esAut2() || esRH() || esNomina())));
     }
     // Firma o devolución bien formada: {nomina, nombre, fecha, ...} de quien la hace
     // comoRH: true si firma el nivel 2 por su rol RH/admin (sin ser Aut. 2); así se sabe si firmó la Aut. 2 o alguien de RH
@@ -559,7 +568,7 @@ service cloud.firestore {
         && (despues().get('solicitudTransporteId', null) != null
             ? transporteGenerado(despues().solicitudTransporteId)
             : antes().resumen.get('totalTransporte', 0) == 0)
-        && esRH();
+        && (esRH() || esNomina());
 
       // RH devuelve en la recepción (con motivo de 10+ caracteres, nivel 3): autorizada → devuelta
       allow update: if antes().estatus == 'autorizada' && despues().estatus == 'devuelta'
@@ -740,7 +749,7 @@ service cloud.firestore {
                   || (hAntes().estatus == 'pendiente_aut1' && esAut1De(hAntes().areaId))
                   || (hAntes().estatus in ['pendiente_aut2', 'autorizada'] && esAut2())
                   || (hAntes().estatus in ['pendiente_aut1', 'pendiente_aut2', 'devuelta', 'autorizada', 'procesada'] && esRH())))
-            || (h().accion == 'recibida_rh' && esRH()
+            || (h().accion == 'recibida_rh' && (esRH() || esNomina())
               && hAntes().estatus == 'autorizada' && hDespues().estatus == 'procesada')
           );
         allow update, delete: if false;

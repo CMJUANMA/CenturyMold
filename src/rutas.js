@@ -21,6 +21,7 @@ export const RUTAS = {
   // Transporte
   transporteSolicitudes: '/transporte/solicitudes',
   transporteCatalogos: '/transporte/catalogos',
+  formatoRutas: '/transporte/formato-rutas',
 
   // Personal y estructura
   padron: '/personal/padron',

@@ -59,7 +59,7 @@ export default function VistaPreviaRol() {
           </Campo>
           <Campo etiqueta="Rol del sistema" ayuda="Da acceso a las pantallas de administración y RH.">
             <Selector value={form.rol} onChange={cambiar('rol')}>
-              {['usuario', 'rh', 'admin'].map(r => <option key={r} value={r}>{ROL_LABELS[r]}</option>)}
+              {['usuario', 'rh', 'nomina', 'admin'].map(r => <option key={r} value={r}>{ROL_LABELS[r]}</option>)}
             </Selector>
           </Campo>
         </div>

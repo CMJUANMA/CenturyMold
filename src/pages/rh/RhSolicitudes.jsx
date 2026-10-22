@@ -9,6 +9,7 @@ import {
 import { db } from '../../firebase';
 import { useToast } from '../../hooks/useToast';
 import { useAuth } from '../../hooks/useAuth';
+import { useAccesos } from '../../hooks/useAccesos';
 import { Link, useNavigate } from 'react-router-dom';
 import { CheckCircle2, XCircle, Eye, Undo2, Edit, AlertTriangle, Timer } from 'lucide-react';
 import Modal from '../../components/Modal';
@@ -74,6 +75,9 @@ function ordenarSols(sols) {
 
 export default function RhSolicitudes() {
   const { usuario } = useAuth();
+  // Aprobar, rechazar, editar y revertir son de RH; Nóminas solo consulta y descarga (las reglas también lo impiden)
+  const { esRH } = useAccesos();
+  const revisionActiva = REVISION_ACTIVA && esRH;
   const navigate = useNavigate();
   const toast = useToast();
   const confirmar = useConfirmar();
@@ -258,7 +262,7 @@ export default function RhSolicitudes() {
               <option value={ESTATUS_SOLICITUD.CANCELADA}>Canceladas</option>
             </Selector>
           </Campo>
-          {REVISION_ACTIVA && (
+          {revisionActiva && (
             <Campo etiqueta="Origen">
               <Selector value={filtroOrigen} onChange={e => setFiltroOrigen(e.target.value)}>
                 <option value="">Todas</option>
@@ -275,7 +279,7 @@ export default function RhSolicitudes() {
             ['Esta semana', () => { const r = rangoSemana(ymd(), 0); aplicarRango(r.desde, r.hasta); }],
             ['Próxima semana', () => { const r = rangoSemana(ymd(), 1); aplicarRango(r.desde, r.hasta); }],
           ].map(([texto, fn]) => <Boton key={texto} tamano="sm" onClick={fn}>{texto}</Boton>)}
-          {REVISION_ACTIVA && (
+          {revisionActiva && (
             <Boton tamano="sm" variante={modo === 'pendientes' ? 'secundario' : 'contorno'} aria-pressed={modo === 'pendientes'} onClick={verPendientes}
               title="Todas las pendientes, sin importar la fecha de servicio">Todas las pendientes</Boton>
           )}
@@ -323,14 +327,14 @@ export default function RhSolicitudes() {
                 <Td className="text-right">
                   <div className="inline-flex gap-1">
                     <Boton variante="fantasma" tamano="icono" onClick={() => abrirDetalle(sol)} title="Ver detalle" aria-label={`Ver detalle de ${folioVisible(sol)}`}><Eye className="h-4 w-4" aria-hidden="true" /></Boton>
-                    {REVISION_ACTIVA && sol.origen !== 'tiempo_extra' && <Boton variante="fantasma" tamano="icono" onClick={() => navigate(rutaEditarTransporte(sol.id))} title="Editar (RH)" aria-label="Editar"><Edit className="h-4 w-4" aria-hidden="true" /></Boton>}
-                    {REVISION_ACTIVA && sol.estatus === ESTATUS_SOLICITUD.PENDIENTE && (
+                    {revisionActiva && sol.origen !== 'tiempo_extra' && <Boton variante="fantasma" tamano="icono" onClick={() => navigate(rutaEditarTransporte(sol.id))} title="Editar (RH)" aria-label="Editar"><Edit className="h-4 w-4" aria-hidden="true" /></Boton>}
+                    {revisionActiva && sol.estatus === ESTATUS_SOLICITUD.PENDIENTE && (
                       <>
                         <Boton variante="peligro" tamano="icono" onClick={() => setModalRechazar(sol)} title="Rechazar" aria-label="Rechazar"><XCircle className="h-4 w-4" aria-hidden="true" /></Boton>
                         <Boton tamano="icono" onClick={() => setModalAprobar(sol)} title="Aprobar" aria-label="Aprobar"><CheckCircle2 className="h-4 w-4" aria-hidden="true" /></Boton>
                       </>
                     )}
-                    {REVISION_ACTIVA && [ESTATUS_SOLICITUD.APROBADA, ESTATUS_SOLICITUD.RECHAZADA, ESTATUS_SOLICITUD.ENVIADA_PROVEEDOR].includes(sol.estatus) && (
+                    {revisionActiva && [ESTATUS_SOLICITUD.APROBADA, ESTATUS_SOLICITUD.RECHAZADA, ESTATUS_SOLICITUD.ENVIADA_PROVEEDOR].includes(sol.estatus) && (
                       <Boton tamano="icono" onClick={() => confirmRevert(sol)} title="Revertir a pendiente" aria-label="Revertir a pendiente"><Undo2 className="h-4 w-4" aria-hidden="true" /></Boton>
                     )}
                   </div>

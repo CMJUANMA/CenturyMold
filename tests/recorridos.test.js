@@ -19,7 +19,7 @@ const nombreDelSelector = (sel) => sel.match(/^\[data-tour="([\w-]+)"\]$/)?.[1];
 describe('los pasos de cada recorrido apuntan a algo que existe', () => {
   const ids = Object.keys(AYUDAS.recorridos);
   it('hay recorridos y cada uno tiene su pantalla (con el "?" que lo abre)', () => {
-    expect(ids.sort()).toEqual(['autorizar', 'solicitar']);
+    expect(ids.sort()).toEqual(['autorizar', 'inicioNomina', 'solicitar']);
     for (const id of ids) expect(pantallaDe(id).length, `pantalla de «${id}»`).toBeGreaterThan(0);
   });
   for (const id of Object.keys(AYUDAS.recorridos)) {

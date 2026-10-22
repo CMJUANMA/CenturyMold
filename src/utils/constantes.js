@@ -4,20 +4,25 @@
  */
 
 // ── Roles del sistema (usuarios/{uid}.rol) ───────────────────────────────
-// Solo admin, rh o usuario. Los permisos operativos (Aut. 2, Aut. 1, solicitante) NO van aquí:
+// Solo admin, rh, nomina o usuario. Los permisos operativos (Aut. 2, Aut. 1, solicitante) NO van aquí:
 // son asignaciones por área, con vigencia (utils/asignaciones.js).
 export const ROLES = {
   RH: 'rh',
   ADMIN: 'admin',
+  NOMINA: 'nomina',
   USUARIO: 'usuario',
 };
 
 /** Roles con acceso al panel de RH */
 export const ROLES_RH = [ROLES.RH, ROLES.ADMIN];
 
+/** Roles que confirman lo autorizado y lo mandan al proveedor ("Por enviar al proveedor"): RH, admin y Nóminas */
+export const ROLES_ENVIAN_PROVEEDOR = [...ROLES_RH, ROLES.NOMINA];
+
 export const ROL_LABELS = {
   [ROLES.ADMIN]: 'Administrador del sistema',
   [ROLES.RH]: 'Recursos Humanos',
+  [ROLES.NOMINA]: 'Nóminas',
   [ROLES.USUARIO]: 'Usuario',
 };
 

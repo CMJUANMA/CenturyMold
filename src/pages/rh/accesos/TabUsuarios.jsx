@@ -32,9 +32,9 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
   const [restablecer, setRestablecer] = useState(null);
   const [modal, setModal] = useState(precarga ? { usuario: null, precarga } : null);
 
-  // Quien no es admin (RH, Aut. 2) no se toca a sí mismo ni toca a un admin (las reglas lo rechazan); a un RH solo le cambia el rol
+  // Quien no es admin (RH, Aut. 2) no se toca a sí mismo ni toca a un admin (las reglas lo rechazan); a un RH o Nóminas solo le cambia el rol
   const puedeEditar = (u) => esAdmin || (u.uid !== yo?.uid && u.rol !== ROLES.ADMIN);
-  const puedeActivar = (u) => esAdmin || (u.uid !== yo?.uid && u.rol !== ROLES.ADMIN && u.rol !== ROLES.RH);
+  const puedeActivar = (u) => esAdmin || (u.uid !== yo?.uid && ![ROLES.ADMIN, ROLES.RH, ROLES.NOMINA].includes(u.rol));
   // Restablecer contraseña: el admin a cualquiera menos a sí mismo; RH y Aut. 2 solo a quien tiene rol «usuario» (las reglas lo exigen)
   const puedeRestablecer = (u) => u.uid !== yo?.uid && (esAdmin || u.rol === ROLES.USUARIO);
 
@@ -96,7 +96,7 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
         </div>
         <select aria-label="Filtrar por rol" value={filtroRol} onChange={e => setFiltroRol(e.target.value)} className={selectCls}>
           <option value="">Todos los roles</option>
-          {[ROLES.USUARIO, ROLES.RH, ROLES.ADMIN].map(r => <option key={r} value={r}>{ROL_LABELS[r]}</option>)}
+          {[ROLES.USUARIO, ROLES.RH, ROLES.NOMINA, ROLES.ADMIN].map(r => <option key={r} value={r}>{ROL_LABELS[r]}</option>)}
         </select>
         <select aria-label="Filtrar por estado" value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} className={selectCls}>
           <option value="">Todos los estados</option>

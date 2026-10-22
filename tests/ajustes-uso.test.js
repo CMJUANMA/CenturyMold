@@ -292,7 +292,7 @@ describe('textos de ayuda', () => {
   it('cada pantalla con "?" tiene 3 o 4 pasos y existe en el código', () => {
     const ids = [...codigo.matchAll(/<AyudaPantalla\s+id="([^"]+)"/g)].map(m => m[1]);
     // 'organigrama' sale dos veces en el código (Usuarios y accesos y "Mi área"): es la misma pantalla
-    expect([...new Set(ids)].sort()).toEqual(['asignaciones', 'autorizar', 'consulta', 'inicio', 'inicioRol', 'misSolicitudes', 'organigrama', 'padron', 'recepcion', 'solicitar', 'turnos']);
+    expect([...new Set(ids)].sort()).toEqual(['asignaciones', 'autorizar', 'consulta', 'formatoRutas', 'inicio', 'inicioNomina', 'inicioRol', 'misSolicitudes', 'organigrama', 'padron', 'recepcion', 'solicitar', 'turnos']);
     for (const id of new Set(ids)) {
       const a = ayudaDePantalla(id);
       expect(a, id).toBeTruthy();

@@ -2,7 +2,7 @@
  * useResumenTE.js — Solicitudes de tiempo extra que este usuario puede ver, en vivo, para su Inicio.
  *   propias: las que creó (solicitante / Aut. 1 / RH)
  *   delArea: las de sus áreas, sin borradores (Aut. 1; una consulta por área)
- *   planta:  las de toda la planta, sin borradores (Aut. 2, RH y admin)
+ *   planta:  las de toda la planta, sin borradores (Aut. 2, RH, admin y Nóminas)
  * Las consultas llevan estatus in [sin borrador] porque las reglas no dejan leer borradores ajenos.
  * Mientras no haya solicitudes, todo es 0 y no hay error.
  */
@@ -18,10 +18,10 @@ const VACIO = [];
 
 export function useResumenTE() {
   const uid = useAuth().usuario?.uid ?? null;
-  const { esRH, esAut2, areasAut1, areasSolicitante, cargando: cargandoAcc } = useAccesos();
+  const { esRH, esNomina, esAut2, areasAut1, areasSolicitante, cargando: cargandoAcc } = useAccesos();
   const claveAreas = [...areasAut1].sort().join(',');
   const pidePropias = esRH || esAut2 || areasSolicitante.length > 0 || areasAut1.length > 0;
-  const pidePlanta = esRH || esAut2;
+  const pidePlanta = esRH || esNomina || esAut2;
   const clave = `${uid}|${pidePropias}|${pidePlanta}|${claveAreas}`;
   const [estado, setEstado] = useState({ clave: null, fuentes: {}, error: null });
 

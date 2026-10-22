@@ -95,7 +95,9 @@ describe('guardar el borrador antes de cerrar por inactividad', () => {
 });
 
 describe('encabezados de seguridad del hosting (firebase.json)', () => {
-  const cfg = JSON.parse(leer('firebase.json'));
+  const cfgCompleta = JSON.parse(leer('firebase.json'));
+  // El hosting es una lista de sitios (portal nuevo y sitio anterior): se revisa el del portal
+  const cfg = { ...cfgCompleta, hosting: Array.isArray(cfgCompleta.hosting) ? cfgCompleta.hosting.find(h => h.target === 'portal') : cfgCompleta.hosting };
   const todos = Object.fromEntries(cfg.hosting.headers.find(h => h.source === '**').headers.map(h => [h.key.toLowerCase(), h.value]));
   const csp = Object.fromEntries((todos['content-security-policy'] ?? '').split(';').map(d => d.trim()).filter(Boolean).map(d => [d.split(' ')[0], d.split(' ').slice(1)]));
 

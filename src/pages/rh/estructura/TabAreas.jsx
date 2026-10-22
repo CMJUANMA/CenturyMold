@@ -15,7 +15,7 @@ import { btnIcon, btnPrimary, btnSecondary, chip, chipWarn, inputCls, labelCls, 
 
 const vacio = { nombre: '', participaTE: true, orden: 1 };
 
-export default function TabAreas({ areas, puestos, empleados, usuario, toast, guardar, recargar }) {
+export default function TabAreas({ areas, puestos, empleados, usuario, toast, guardar, recargar, soloLectura = false }) {
   const [modal, setModal] = useState(null); // { modo: 'crear' | 'editar', area? }
   const [form, setForm] = useState(vacio);
   const [error, setError] = useState('');
@@ -84,10 +84,12 @@ export default function TabAreas({ areas, puestos, empleados, usuario, toast, gu
         <p className="text-xs text-[var(--text-secondary)]">
           Cada puesto pertenece a un área y de ahí sale el área de sus empleados. Una baja es lógica y solo se puede si el área no tiene puestos activos.
         </p>
-        <div className="flex gap-2">
-          <button type="button" onClick={() => setInicial(true)} className={btnSecondary}><Sparkles className="h-3.5 w-3.5" />Crear estructura inicial</button>
-          <button type="button" onClick={abrirCrear} className={btnPrimary}><Plus className="h-4 w-4" />Nueva área</button>
-        </div>
+        {!soloLectura && (
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setInicial(true)} className={btnSecondary}><Sparkles className="h-3.5 w-3.5" />Crear estructura inicial</button>
+            <button type="button" onClick={abrirCrear} className={btnPrimary}><Plus className="h-4 w-4" />Nueva área</button>
+          </div>
+        )}
       </div>
 
       <div className={tablaWrap}>
@@ -96,13 +98,13 @@ export default function TabAreas({ areas, puestos, empleados, usuario, toast, gu
             <tr>
               <th className={thCls}>Área</th><th className={thCls}>Participa en TE</th>
               <th className={`${thCls} text-right`}>Puestos</th><th className={`${thCls} text-right`}>Empleados</th>
-              <th className={thCls}>Estado</th><th className={`${thCls} text-right`}>Acciones</th>
+              <th className={thCls}>Estado</th>{!soloLectura && <th className={`${thCls} text-right`}>Acciones</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border-subtle)]">
             {ordenadas.length === 0 && (
               <tr><td colSpan={6} className="px-4 py-8 text-center text-[var(--text-muted)]">
-                Aún no hay áreas. Use «Crear estructura inicial» para cargar las áreas y el catálogo de puestos.
+                {soloLectura ? 'Aún no hay áreas.' : 'Aún no hay áreas. Use «Crear estructura inicial» para cargar las áreas y el catálogo de puestos.'}
               </td></tr>
             )}
             {ordenadas.map(a => (
@@ -115,10 +117,10 @@ export default function TabAreas({ areas, puestos, empleados, usuario, toast, gu
                 <td className="px-4 py-2.5 text-right tabular-nums">{nPuestos(a.id)}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums">{nEmpleados(a.id)}</td>
                 <td className="px-4 py-2.5">{a.activa === false ? <span className="text-[var(--text-muted)]">Inactiva</span> : 'Activa'}</td>
-                <td className="px-4 py-2.5 text-right">
+                {!soloLectura && <td className="px-4 py-2.5 text-right">
                   <button type="button" onClick={() => abrirEditar(a)} className={btnIcon} title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
                   <button type="button" onClick={() => cambiarEstado(a)} className={btnIcon} title={a.activa === false ? 'Reactivar' : 'Dar de baja'}><Power className="h-3.5 w-3.5" /></button>
-                </td>
+                </td>}
               </tr>
             ))}
           </tbody>

@@ -105,6 +105,7 @@ export function calcularAccesos(asignaciones, usuario, ahora = new Date()) {
   return {
     esAdmin: rol === 'admin',
     esRH: rol === 'rh' || rol === 'admin',
+    esNomina: rol === 'nomina',
     esAut2: vigentes.some(a => a.rol === ROL_OP.AUT2),
     areasAut1: areas(ROL_OP.AUT1),
     areasSolicitante: areas(ROL_OP.SOLICITANTE),
