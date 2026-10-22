@@ -35,8 +35,8 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
   // Quien no es admin (RH, Aut. 2) no se toca a sí mismo ni toca a un admin (las reglas lo rechazan); a un RH o Nóminas solo le cambia el rol
   const puedeEditar = (u) => esAdmin || (u.uid !== yo?.uid && u.rol !== ROLES.ADMIN);
   const puedeActivar = (u) => esAdmin || (u.uid !== yo?.uid && ![ROLES.ADMIN, ROLES.RH, ROLES.NOMINA].includes(u.rol));
-  // Restablecer contraseña: el admin a cualquiera menos a sí mismo; RH y Aut. 2 solo a quien tiene rol «usuario» (las reglas lo exigen)
-  const puedeRestablecer = (u) => u.uid !== yo?.uid && (esAdmin || u.rol === ROLES.USUARIO);
+  // Restablecer contraseña: el admin a cualquiera menos a sí mismo; RH y Aut. 2 a quien tiene rol «usuario» o «Nóminas», nunca a un RH ni a un admin (las reglas lo exigen)
+  const puedeRestablecer = (u) => u.uid !== yo?.uid && (esAdmin || [ROLES.USUARIO, ROLES.NOMINA].includes(u.rol));
 
   const toggleActivo = async (u) => {
     const desactivar = u.activo !== false;

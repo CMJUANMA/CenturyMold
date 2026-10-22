@@ -45,7 +45,7 @@ export function mensajeErrorRestablecer(err, nomina, version) {
     return `No se pudo mover el perfil (${err.message}) y tampoco se pudo borrar la cuenta nueva (${correoDeAcceso(nomina, version)}). Avisa al área de Sistemas: hay que borrarla en Firebase Console > Authentication.`;
   }
   if (err?.code === 'app/sin-perfil') return 'Este usuario ya no existe: actualiza la pantalla.';
-  if (err?.code === 'permission-denied') return 'No tienes permiso para restablecer esta contraseña. Solo un administrador puede hacerlo con usuarios de RH o administradores.';
+  if (err?.code === 'permission-denied') return 'No tienes permiso para restablecer esta contraseña. Solo un administrador puede hacerlo con usuarios de RH o administradores (RH y Aut. 2 lo hacen con usuarios y con Nóminas).';
   if (err?.code === 'auth/network-request-failed') return 'Sin conexión. Revisa tu red e inténtalo de nuevo (no se cambió nada).';
   return `No se pudo restablecer la contraseña: ${err?.message ?? err}`;
 }

@@ -17,14 +17,16 @@ const ESPERADO = {
   admin: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'formatoRutasPagina', 'transporteCatalogos',
     'padron', 'estructura', 'accesos', 'accesosUsuarios', 'accesosAsignaciones', 'organigrama', 'herramientas', 'vistaPrevia', 'respaldoCompleto', 'guiaEstilo',
     'capturarSinTE', 'firmarNivel2', 'confirmarRH', 'devolverRH', 'cancelarRH', 'formatoRutas', 'exportarConsulta', 'descargarPadron', 'editarPadron', 'editarEstructura', 'estructuraInicial',
+    'reportesNomina', 'ajustarNomina', 'reabrirNomina', 'descargarFormatoNomina',
     'nuevoUsuario', 'editarUsuario', 'darRolRH', 'darRolNomina', 'darRolAdmin', 'restablecerPassword', 'asignarAut1', 'asignarAut2', 'historialPersona', 'cargaAsignaciones', 'cambiarPassword'],
   rh: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'formatoRutasPagina', 'transporteCatalogos',
     'padron', 'estructura', 'accesos', 'accesosUsuarios', 'accesosAsignaciones', 'organigrama',
     'capturarSinTE', 'firmarNivel2', 'confirmarRH', 'devolverRH', 'cancelarRH', 'formatoRutas', 'exportarConsulta', 'descargarPadron', 'editarPadron', 'editarEstructura',
+    'reportesNomina', 'ajustarNomina', 'reabrirNomina', 'descargarFormatoNomina',
     'nuevoUsuario', 'editarUsuario', 'darRolRH', 'darRolNomina', 'restablecerPassword', 'asignarAut1', 'historialPersona', 'cambiarPassword'],
   // Nóminas: ve (toda la planta, transporte, personal en solo lectura) y confirma lo que va al proveedor; no autoriza, edita ni administra
   nomina: ['inicio', 'miCuenta', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'formatoRutasPagina', 'padron', 'estructura',
-    'confirmarRH', 'formatoRutas', 'exportarConsulta', 'descargarPadron', 'cambiarPassword'],
+    'confirmarRH', 'formatoRutas', 'exportarConsulta', 'descargarPadron', 'reportesNomina', 'ajustarNomina', 'descargarFormatoNomina', 'cambiarPassword'],
   aut2: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'accesos', 'accesosUsuarios', 'accesosAsignaciones', 'organigrama',
     'capturarSinTE', 'autorizarLoPropio', 'firmarNivel2', 'exportarConsulta', 'nuevoUsuario', 'editarUsuario', 'darRolRH', 'darRolNomina', 'restablecerPassword', 'asignarAut1',
     'historialPersona', 'cambiarPassword'],
@@ -86,7 +88,7 @@ describe('Nóminas: ve la planta, confirma lo que va al proveedor y nada más', 
   });
   it('su menú es el suyo: Inicio · Tiempo extra · Por enviar al proveedor · Solicitudes de transporte · Formato de rutas · Personal · Estructura', () => {
     expect(menuDePerfil(col('nomina').perfil).filter(i => !i.section).map(i => i.label)).toEqual([
-      'Inicio', 'Tiempo extra', 'Por enviar al proveedor', 'Solicitudes de transporte', 'Formato de rutas', 'Personal', 'Estructura',
+      'Inicio', 'Tiempo extra', 'Por enviar al proveedor', 'Solicitudes de transporte', 'Formato de rutas', 'Personal', 'Estructura', 'Formato de tiempo extra',
     ]);
   });
   it('si además es solicitante o Aut. 1 conserva esos permisos (y su menú los suma sin repetir pantallas)', () => {
@@ -108,6 +110,19 @@ describe('Nóminas: ve la planta, confirma lo que va al proveedor y nada más', 
     const dan = ['admin', 'rh', 'aut2'].every(id => filas(col(id).perfil).includes('darRolNomina'));
     expect(dan).toBe(true);
     for (const id of ['nomina', 'aut1', 'solicitante', 'sinRol']) expect(filas(col(id).perfil), id).not.toContain('darRolNomina');
+  });
+});
+
+describe('Reportes de nómina: solo Nóminas, RH y admin', () => {
+  it('Nóminas, RH y admin ven la pantalla y ajustan; solo RH y admin reabren un área firmada; nadie más entra', () => {
+    for (const id of ['admin', 'rh', 'nomina']) {
+      expect(filas(col(id).perfil), id).toEqual(expect.arrayContaining(['reportesNomina', 'ajustarNomina', 'descargarFormatoNomina']));
+    }
+    expect(filas(col('nomina').perfil)).not.toContain('reabrirNomina');
+    for (const id of ['admin', 'rh']) expect(filas(col(id).perfil)).toContain('reabrirNomina');
+    for (const id of ['aut2', 'aut1', 'solicitante', 'sinRol']) {
+      for (const no of ['reportesNomina', 'ajustarNomina', 'reabrirNomina', 'descargarFormatoNomina']) expect(filas(col(id).perfil), `${id}: ${no}`).not.toContain(no);
+    }
   });
 });
 

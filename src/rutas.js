@@ -23,6 +23,9 @@ export const RUTAS = {
   transporteCatalogos: '/transporte/catalogos',
   formatoRutas: '/transporte/formato-rutas',
 
+  // Reportes de nómina (Nóminas, RH y admin)
+  nominaReportes: '/nomina/reportes',
+
   // Personal y estructura
   padron: '/personal/padron',
   estructura: '/personal/estructura',

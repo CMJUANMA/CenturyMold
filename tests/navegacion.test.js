@@ -76,9 +76,10 @@ describe('menú de admin y RH: ven todo su menú', () => {
     '/',
     '/tiempo-extra/nueva', '/tiempo-extra/mis-solicitudes', '/tiempo-extra/autorizar', '/tiempo-extra/recepcion', '/tiempo-extra/consulta',
     '/transporte/solicitudes', '/transporte/catalogos',
+    '/nomina/reportes',
     '/personal/padron', '/personal/estructura', '/personal/accesos', '/personal/accesos/organigrama',
   ];
-  const SECCIONES = ['Tiempo extra', 'Transporte', 'Personal y estructura'];
+  const SECCIONES = ['Tiempo extra', 'Transporte', 'Reportes de nómina', 'Personal y estructura'];
   const menuDe = (rol) => {
     const a = calcularAccesos([], { rol });
     return itemsMenuRH({ esRH: a.esRH, esAdmin: a.esAdmin });
@@ -96,7 +97,7 @@ describe('menú de admin y RH: ven todo su menú', () => {
   it('los nombres son los acordados', () => {
     expect(menuDe('rh').filter(i => !i.section).map(i => i.label)).toEqual([
       'Inicio', 'Solicitar tiempo extra', 'Mis solicitudes', 'Por autorizar', 'Por enviar al proveedor', 'Todas las solicitudes',
-      'Solicitudes de transporte', 'Rutas y puntos de reunión', 'Padrón de empleados', 'Estructura', 'Usuarios y accesos', 'Organigrama',
+      'Solicitudes de transporte', 'Rutas y puntos de reunión', 'Formato de tiempo extra', 'Padrón de empleados', 'Estructura', 'Usuarios y accesos', 'Organigrama',
     ]);
   });
   it('ya no hay dos "Resumen" ni etiquetas repetidas', () => {
@@ -142,7 +143,7 @@ describe('Herramientas y Mi cuenta', () => {
   it('"Herramientas" (Diagnóstico y limpieza) solo para admin; RH no la ve', () => {
     const admin = itemsMenuRH({ esRH: true, esAdmin: true });
     const rh = itemsMenuRH({ esRH: true, esAdmin: false });
-    expect(admin.filter(i => i.section).map(i => i.section)).toEqual(['Tiempo extra', 'Transporte', 'Personal y estructura', 'Herramientas']);
+    expect(admin.filter(i => i.section).map(i => i.section)).toEqual(['Tiempo extra', 'Transporte', 'Reportes de nómina', 'Personal y estructura', 'Herramientas']);
     expect(admin.map(i => i.path)).toContain(RUTAS.herramientas);
     expect(rh.map(i => i.path)).not.toContain(RUTAS.herramientas);
     expect(rh.filter(i => i.section).map(i => i.section)).not.toContain('Herramientas');

@@ -6,7 +6,7 @@ Dos capas que **se suman** (unión):
 - **Roles operativos** (Aut. 2, Aut. 1, Solicitante): capturar y autorizar. Se dan en *Usuarios y accesos › Asignaciones*, por nómina, con vigencia.
 
 Una cuenta con rol del sistema `usuario` y una asignación de Aut. 2 solo ve lo de Aut. 2: **no ve nada de RH**. Si esa persona también es de RH, hay que cambiarle el rol del sistema a RH
-(Usuarios › editar). RH, Aut. 2 vigente y admin pueden dar o quitar el rol RH y el rol Nóminas, con confirmación y registro en la bitácora; nadie cambia su propio rol ni se da Nóminas a sí mismo (tampoco el admin); Administrador solo lo da y lo quita un admin. A un RH o a Nóminas que no es admin solo se le cambia el rol (no su nombre ni su estado). *RH + Aut. 2* ve lo de ambos; *admin + Aut. 1* ve el menú de admin y además firma el nivel 1 de su área.
+(Usuarios › editar). RH, Aut. 2 vigente y admin pueden dar o quitar el rol RH y el rol Nóminas, con confirmación y registro en la bitácora; nadie cambia su propio rol ni se da Nóminas a sí mismo (tampoco el admin); Administrador solo lo da y lo quita un admin. A un RH o a Nóminas que no es admin solo se le cambia el rol (no su nombre ni su estado). **Restablecer contraseña:** el admin a cualquiera menos a sí mismo; RH y Aut. 2 vigente a usuarios con rol `usuario` **y a Nóminas**, nunca a un RH ni a un admin. *RH + Aut. 2* ve lo de ambos; *admin + Aut. 1* ve el menú de admin y además firma el nivel 1 de su área.
 
 ## Nóminas (rol del sistema `nomina`, p. ej. Alma Granados)
 
@@ -16,8 +16,18 @@ Para quien hace la nómina y manda las solicitudes de transporte al proveedor cu
 - **Hace:** el paso *Por enviar al proveedor* (confirmar un tiempo extra autorizado y generar su solicitud de transporte) y descarga todos los Excel que ya existen (resumen de horas extra, consulta, Formato de rutas, padrón). Todo queda en la bitácora con su nombre.
 - **No puede:** crear, autorizar, devolver, editar ni cancelar tiempo extra; administrar usuarios, contraseñas, roles, asignaciones, catálogos ni estructura; ver la bitácora completa ni Herramientas.
 - **Con una asignación** (p. ej. solicitante de un área) conserva además esos permisos: su menú los suma debajo de Inicio.
-- **Reglas de Firestore:** lectura de la planta; la única escritura sobre tiempo extra es *autorizada → procesada* con exactamente los campos `estatus, recibidaPor, fechaRecepcion, solicitudTransporteId, fechaActualizacion`, la solicitud de transporte de ese tiempo extra (con sus pasajeros) creada en la misma operación, su renglón de historial y de bitácora. En la bitácora solo escribe sus descargas y ese paso. Pruebas: `tests/firestore.rules.nomina.test.js`.
-- **Pendiente (siguiente entrega):** la sección *Reportes de nómina* del menú; el lugar ya está reservado en `ITEMS_MENU_NOMINA`.
+- **Reglas de Firestore:** lectura de la planta; la única escritura sobre tiempo extra es *autorizada → procesada* con exactamente los campos `estatus, recibidaPor, fechaRecepcion, solicitudTransporteId, fechaActualizacion`, la solicitud de transporte de ese tiempo extra (con sus pasajeros) creada en la misma operación, su renglón de historial y de bitácora. **Bitácora:** solo escribe los tipos que corresponden a sus acciones reales, siempre con su propio uid y nombre: las descargas (`descargar_padron`, `descargar_resumen_te`, `descargar_consulta_te`, `descargar_formato_rutas`, `descargar_formato_te_nomina`), `recibir` (confirmar el envío al proveedor) y, sobre `ajustesNomina/…`, `ajustar_nomina`, `deshacer_ajustes_nomina` y `firmar_nomina`. No puede escribir el respaldo completo ni ningún otro tipo. Pruebas: `tests/firestore.rules.nomina.test.js` y `tests/firestore.rules.ajustes-nomina.test.js`.
+
+### Reportes de nómina (Nóminas, RH y admin)
+
+Pantalla *Reportes de nómina › Formato de tiempo extra* (`/nomina/reportes`): el **FORMATO DE AUTORIZACIÓN DE TIEMPO EXTRA** semanal por área, ya lleno, para recoger las firmas.
+
+- **Semana ISO 8601** (lunes a domingo, «Semana 43 · 19–25 oct 2026»); por defecto la última semana completa, con flechas y rango libre de hasta 7 días.
+- **Qué cuenta:** solo lo autorizado por Aut. 2 (`autorizada` o `procesada`). Las pendientes y devueltas de esa semana solo se avisan (cuántas y de qué áreas).
+- **Ajustes** (quitar a quien no asistió, reemplazarlo por otra persona del padrón, corregir las horas de un día): cada uno pide un motivo corto y se guarda aparte en `ajustesNomina/{año-semana}_{areaId}`; **nunca modifican las solicitudes**. «Deshacer ajustes» vuelve a lo autorizado.
+- **Marcar como firmada** bloquea el área y la semana; solo RH y admin pueden reabrirla (las reglas lo exigen). Todo queda en la bitácora.
+- **Reglas de Firestore:** `ajustesNomina` lo leen y lo escriben solo Nóminas, RH y admin; nadie lo borra; firmada = bloqueada. Pruebas: `tests/firestore.rules.ajustes-nomina.test.js`.
+- **Excel:** réplica del formato en papel (carta horizontal, una hoja por área; con más de 15 empleados continúa en otra página). «Descargar todas las áreas» agrega una primera hoja *Resumen* (horas por área, por empleado y por motivo con su porcentaje). Las constantes del formato (casillas de área, mapeo de áreas de la app, firmas, notas y pie `CM-FRH-??` / `REV-00` / `Fecha de Rev: 28 Oct 2021`) están en `src/utils/formatoNomina.js`. La columna *P.O./TB* sale vacía hasta que la solicitud traiga ese dato.
 
 ## La matriz
 
@@ -51,6 +61,11 @@ La tabla se **genera** desde `src/utils/permisos.js` (`npm run docs:permisos`); 
 | Pantalla: Solicitudes de transporte (Nóminas: solo ve y descarga) | ✔ | ✔ | ✔ | — | — | — | — |
 | Pantalla: Formato de rutas (Excel para el proveedor) | ✔ | ✔ | ✔ | — | — | — | — |
 | Pantalla: Rutas y puntos de reunión | ✔ | ✔ | — | — | — | — | — |
+| **Reportes de nómina** ||||||||
+| Pantalla: Reportes de nómina: formato de autorización de tiempo extra por área y semana | ✔ | ✔ | ✔ | — | — | — | — |
+| Acción: Ajustar el formato (quitar, reemplazar, corregir horas) y marcarlo como firmado; los cambios no tocan las solicitudes _(Cada cambio pide un motivo y queda en la bitácora)_ | ✔ | ✔ | ✔ | — | — | — | — |
+| Botón: Reabrir un área firmada | ✔ | ✔ | — | — | — | — | — |
+| Botón: Descargar el formato en Excel (un área o todas, con su hoja Resumen) | ✔ | ✔ | ✔ | — | — | — | — |
 | **Personal y estructura** ||||||||
 | Pantalla: Padrón de empleados (Nóminas: «Personal», solo lectura, con teléfono) | ✔ | ✔ | ✔ | — | — | — | — |
 | Pantalla: Estructura (áreas, puestos, turnos; Nóminas: solo lectura) | ✔ | ✔ | ✔ | — | — | — | — |
@@ -73,7 +88,7 @@ La tabla se **genera** desde `src/utils/permisos.js` (`npm run docs:permisos`); 
 | Botón: Dar o quitar el rol del sistema RH (con confirmación y bitácora) _(Nadie cambia su propio rol. A un RH solo se le cambia el rol (nombre y estado, solo el admin))_ | ✔ | ✔ | — | ✔ | — | — | — |
 | Botón: Dar o quitar el rol del sistema Nóminas (con confirmación y bitácora) _(Nadie se lo da a sí mismo. A quien ya es Nóminas solo se le cambia el rol)_ | ✔ | ✔ | — | ✔ | — | — | — |
 | Botón: Dar o quitar el rol del sistema Administrador | ✔ | — | — | — | — | — | — |
-| Botón: Restablecer contraseña (RH y Aut. 2: a usuarios con rol «usuario»; admin: a cualquiera menos a sí mismo) _(Contraseña temporal que se muestra una sola vez; nadie la restablece a sí mismo)_ | ✔ | ✔ | — | ✔ | — | — | — |
+| Botón: Restablecer contraseña (RH y Aut. 2: a usuarios y a Nóminas; admin: a cualquiera menos a sí mismo) _(Contraseña temporal que se muestra una sola vez; nadie la restablece a sí mismo)_ | ✔ | ✔ | — | ✔ | — | — | — |
 | Botón: Asignar, extender o revocar Aut. 1 y Solicitante _(Nadie, salvo admin, se asigna a sí mismo. Solo en áreas que participan)_ | ✔ | ✔ | — | ✔ | — | — | — |
 | Botón: Asignar, extender o revocar Aut. 2 | ✔ | — | — | — | — | — | — |
 | Botón: Ver el historial de una persona en el organigrama | ✔ | ✔ | — | ✔ | — | — | — |

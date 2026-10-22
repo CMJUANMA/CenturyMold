@@ -2,7 +2,7 @@
  * bitacoraDb.js — Registros de la bitácora que escribe la pantalla: descargas de información (quién bajó qué Excel y cuándo) y cambios de usuarios
  * (alta, cambio de rol del sistema, activar/desactivar). Cada renglón lleva el uid y el nombre reales de quien lo hizo (las reglas de /bitacora lo exigen)
  * y nunca el contenido de un archivo ni una contraseña. Si el registro falla no se bloquea la acción: solo se avisa en consola.
- * Solo RH, admin y la Aut. 2 (descargas y cambios de usuarios) pueden escribir en la bitácora; Nóminas, solo sus descargas y su paso de enviar al proveedor.
+ * Solo RH, admin y la Aut. 2 (descargas y cambios de usuarios) pueden escribir en la bitácora; Nóminas, solo sus descargas, su paso de enviar al proveedor y los ajustes y firmado de su formato (firestore.rules → accionDeNomina).
  */
 import { addDoc, collection, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, where } from 'firebase/firestore';
 import { auth, db } from '../firebase';
@@ -14,6 +14,7 @@ export const ACCIONES_DESCARGA = {
   consultaTE: 'descargar_consulta_te',
   formatoRutas: 'descargar_formato_rutas',
   respaldoCompleto: 'descargar_respaldo_completo',
+  formatoTENomina: 'descargar_formato_te_nomina',
 };
 
 /** Acciones sobre usuarios que se registran (quién creó, cambió de rol o activó/desactivó a quién) */

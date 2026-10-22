@@ -72,9 +72,18 @@ export const AYUDAS = {
       titulo: 'Cómo leer tu Inicio de Nóminas',
       pasos: [
         'Arriba está lo que falta por enviar al proveedor: tiempo extra ya autorizado que todavía nadie confirma. Toca la tarjeta para ir a "Por enviar al proveedor".',
-        '"Autorizado hoy" suma las solicitudes, los empleados y las horas del tiempo extra de hoy, por área.',
-        '"Autorizado esta semana" hace lo mismo de lunes a domingo. Sirve para armar la nómina.',
+        'La tarjeta de la semana te dice qué áreas ya revisaste o firmaste del formato de autorización de tiempo extra. Ábrela para trabajarlo.',
+        '"Autorizado hoy" y "Autorizado esta semana" suman las solicitudes, los empleados y las horas del tiempo extra autorizado, por área (la semana va de lunes a domingo).',
         'Para ver cada solicitud con su detalle, entra a "Tiempo extra" en el menú y usa los filtros de fecha, área, estatus y turno.',
+      ],
+    },
+    reportesNomina: {
+      titulo: 'Cómo sacar el formato de autorización de tiempo extra',
+      pasos: [
+        'Elige la semana (de lunes a domingo) con las flechas; por defecto es la última completa, o usa un rango de hasta 7 días. Solo cuenta lo que Aut. 2 ya autorizó; si hay solicitudes sin autorizar o devueltas, un aviso te dice cuántas y de qué áreas.',
+        'En cada área toca "Revisar": ahí puedes quitar a quien no asistió, reemplazarlo por otra persona o corregir las horas de un día. Cada cambio pide un motivo y no modifica la solicitud original.',
+        'Con "Descargar" bajas el formato listo para imprimir en hoja carta; "Descargar todas las áreas" trae además una hoja Resumen para capturar la nómina.',
+        'Cuando ya tengas las firmas, "Marcar como firmada" bloquea esa área. Solo Recursos Humanos puede reabrirla.',
       ],
     },
     formatoRutas: {
@@ -189,6 +198,7 @@ export const AYUDAS = {
     ],
     inicioNomina: [
       { selector: '[data-tour="inicioNomina-pendiente"]', titulo: 'Por enviar al proveedor', texto: 'Aquí ves cuánto tiempo extra ya autorizado falta por confirmar. Toca una tarjeta para ir a confirmarlo y generar la solicitud de transporte.' },
+      { selector: '[data-tour="inicioNomina-formato"]', titulo: 'Formato de la semana', texto: 'El estado del formato de tiempo extra de la última semana completa, por área: sin revisar, ajustada o firmada. Toca el botón para revisarlo y descargarlo.' },
       { selector: '[data-tour="inicioNomina-hoy"]', titulo: 'Autorizado hoy', texto: 'Solicitudes, empleados y horas totales del tiempo extra de hoy, por área.' },
       { selector: '[data-tour="inicioNomina-semana"]', titulo: 'Autorizado de la semana', texto: 'Lo mismo de lunes a domingo. Para ver cada solicitud con su detalle, entra a Tiempo extra en el menú.' },
     ],

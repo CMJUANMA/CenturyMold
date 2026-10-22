@@ -63,7 +63,7 @@ service cloud.firestore {
       // La Aut. 2 también los lee: necesita saber quién aún no tiene usuario al asignar roles
       allow read: if (isAuth() && request.auth.uid == uid) || esRH() || esAut2();
       // El rol admin solo lo da un admin; los demás gestores (RH, Aut. 2) crean usuarios con rol 'usuario'
-      allow create: if (esAdmin() || (gestorUsuarios() && request.resource.data.rol == 'usuario')) && perfilValido();
+      allow create: if (esAdmin() || (gestorUsuarios() && request.resource.data.rol in ['usuario', 'nomina'])) && perfilValido();
       // Un perfil trae nómina y nombre con tope de largo y activo booleano (el resto de campos los pone la app)
       function perfilValido() {
         let d = request.resource.data;
@@ -98,7 +98,7 @@ service cloud.firestore {
       // Borrar: el admin. RH solo para "Restablecer acceso": el perfil de un «usuario» (nunca el propio ni el de otro rh/admin) se borra
       // únicamente si en el MISMO lote se crea su perfil nuevo y su renglón de bitácora 'restablecer-{uid}' (ver `restablece`).
       allow delete: if esAdmin()
-        || (gestorUsuarios() && request.auth.uid != uid && resource.data.get('rol', '') == 'usuario' && restablece(uid));
+        || (gestorUsuarios() && request.auth.uid != uid && resource.data.get('rol', '') in ['usuario', 'nomina'] && restablece(uid));
       // El perfil se mueve al uid nuevo: misma nómina y mismo rol, que ya no existía, con debeCambiarPassword en true (contraseña temporal).
       // La bitácora (despues.uid) dice cuál es el uid nuevo; su alta la valida la regla de /bitacora (quién lo hizo y cuándo).
       function restablece(uid) {
@@ -163,13 +163,20 @@ service cloud.firestore {
       allow delete: if false;
     }
     // Bitácora: solo se crea. La leen y la crean admin y RH; la Aut. 2 solo lo de asignaciones (ella también asigna). Nóminas solo la ESCRIBE
-    // (sus descargas y el paso de enviar al proveedor); no la lee.
+    // (sus descargas, el paso de enviar al proveedor y los ajustes/firmado de su formato de tiempo extra); no la lee.
     // El Aut. 1 y el solicitante NO la leen: ahí queda quién asignó a quién y cuándo. Nadie la edita ni la borra.
+    // Nóminas solo escribe los tipos de registro de sus acciones reales: descargas, confirmar el envío al proveedor y los ajustes y el firmado de su formato
+    function accionDeNomina() {
+      let d = request.resource.data;
+      return (d.entidad == 'descarga' && d.accion in ['descargar_padron', 'descargar_resumen_te', 'descargar_consulta_te', 'descargar_formato_rutas', 'descargar_formato_te_nomina'])
+        || (d.entidad == 'tiempoExtra' && d.accion == 'recibir')
+        || (d.entidad.matches('ajustesNomina/.*') && d.accion in ['ajustar_nomina', 'deshacer_ajustes_nomina', 'firmar_nomina']);
+    }
     match /bitacora/{id} {
       allow read: if esRH() || (esAut2() && resource.data.get('entidad', '') == 'asignacion');
       // Quien la crea queda con su uid Y su nombre reales (no se puede firmar a nombre de otra persona). La Aut. 2 también registra sus descargas.
       allow create: if (esRH() || (esAut2() && (request.resource.data.entidad in ['asignacion', 'descarga'] || request.resource.data.entidad.matches('usuarios/.*')))
-                        || (esNomina() && (request.resource.data.entidad == 'descarga' || (request.resource.data.entidad == 'tiempoExtra' && request.resource.data.accion == 'recibir'))))
+                        || (esNomina() && accionDeNomina()))
         && request.resource.data.keys().hasOnly(['accion', 'entidad', 'antes', 'despues', 'porUid', 'porNombre', 'fecha'])
         && textoHasta(request.resource.data.accion, 60) && textoHasta(request.resource.data.entidad, 120)
         && request.resource.data.porUid == request.auth.uid
@@ -424,6 +431,33 @@ service cloud.firestore {
         && t().turno == turno && hora(t().entrada) && hora(t().salida)
         && t().actualizadoPor.uid == request.auth.uid && t().fechaActualizacion == request.time;
       allow delete: if false;
+    }
+
+    // ---------- Ajustes de nómina (Reportes de nómina: formato de autorización de tiempo extra por área y semana) ----------
+    // ajustesNomina/{semana}_{areaId} guarda aparte lo que Nóminas cambia sobre lo autorizado (quitar, reemplazar, corregir horas) y si el área ya se firmó;
+    // NO toca las solicitudes de tiempo extra. Solo Nóminas, RH y admin lo leen y lo escriben; nadie lo borra.
+    // Firmada = bloqueada: ya nadie la cambia salvo RH, que solo puede reabrirla (firmada: false). Quien guarda queda con su uid y la hora del servidor.
+    match /ajustesNomina/{id} {
+      allow read: if esRH() || esNomina();
+      allow create: if (esRH() || esNomina()) && ajusteValido(id);
+      allow update: if ((esRH() || esNomina()) && resource.data.get('firmada', false) != true && ajusteValido(id))
+        || (esRH() && resource.data.get('firmada', false) == true && request.resource.data.firmada == false
+            && request.resource.data.semana == resource.data.semana && request.resource.data.areaId == resource.data.areaId
+            && soloCambia(['firmada', 'firmadaPor', 'reabiertaPor', 'actualizadoPor', 'fechaActualizacion'])
+            && request.resource.data.actualizadoPor.uid == request.auth.uid && request.resource.data.fechaActualizacion == request.time);
+      allow delete: if false;
+      function ajusteValido(id) {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['semana', 'areaId', 'desde', 'hasta', 'cambios', 'renglones', 'firmada', 'firmadaPor', 'reabiertaPor', 'actualizadoPor', 'fechaActualizacion'])
+          && d.keys().hasAll(['semana', 'areaId', 'desde', 'hasta', 'cambios', 'renglones', 'firmada', 'actualizadoPor', 'fechaActualizacion'])
+          && textoHasta(d.semana, 30) && textoHasta(d.areaId, 60) && id == d.semana + '_' + d.areaId
+          && textoHasta(d.desde, 10) && textoHasta(d.hasta, 10)
+          && d.cambios is list && d.cambios.size() <= 300 && d.renglones is list && d.renglones.size() <= 300
+          && d.firmada is bool
+          && (!d.firmada || (d.get('firmadaPor', null) is map && d.firmadaPor.uid == request.auth.uid))
+          && d.actualizadoPor is map && d.actualizadoPor.uid == request.auth.uid
+          && d.fechaActualizacion == request.time;
+      }
     }
 
     // Contador del folio (TE-2026-0001): se incrementa de uno en uno dentro de la transacción de captura

@@ -31,13 +31,13 @@ describe('el rol Nóminas', () => {
 });
 
 describe('menú de Nóminas', () => {
-  it('Inicio · Tiempo extra · Por enviar al proveedor · Solicitudes de transporte · Formato de rutas · Personal · Estructura', () => {
-    expect(labels(itemsMenuNomina())).toEqual(['Inicio', 'Tiempo extra', 'Por enviar al proveedor', 'Solicitudes de transporte', 'Formato de rutas', 'Personal', 'Estructura']);
+  it('Inicio · Tiempo extra · Por enviar al proveedor · Solicitudes de transporte · Formato de rutas · Personal · Estructura · Formato de tiempo extra', () => {
+    expect(labels(itemsMenuNomina())).toEqual(['Inicio', 'Tiempo extra', 'Por enviar al proveedor', 'Solicitudes de transporte', 'Formato de rutas', 'Personal', 'Estructura', 'Formato de tiempo extra']);
   });
   it('lleva sus URLs y el contador de lo que falta por enviar', () => {
     const items = itemsMenuNomina();
     expect(items.filter(i => !i.section).map(i => i.path)).toEqual([
-      RUTAS.inicio, RUTAS.teConsulta, RUTAS.teRecepcion, RUTAS.transporteSolicitudes, RUTAS.formatoRutas, RUTAS.padron, RUTAS.estructura,
+      RUTAS.inicio, RUTAS.teConsulta, RUTAS.teRecepcion, RUTAS.transporteSolicitudes, RUTAS.formatoRutas, RUTAS.padron, RUTAS.estructura, RUTAS.nominaReportes,
     ]);
     expect(items.find(i => i.path === RUTAS.teRecepcion).contador).toBe('recepcion');
   });
@@ -55,9 +55,9 @@ describe('menú de Nóminas', () => {
     expect(labels(aut2)).toEqual(expect.arrayContaining(['Por autorizar', 'Organigrama', 'Asignar roles', 'Tiempo extra']));
     expect(labels(aut2)).not.toContain('Todas las solicitudes');
   });
-  it('deja el lugar de «Reportes de nómina» sin construirlo todavía', () => {
-    expect(ITEMS_MENU_NOMINA.some(i => i.section === 'Reportes de nómina')).toBe(false);
-    expect(readFileSync('src/utils/navegacion.js', 'utf8')).toContain('Reportes de nómina');
+  it('trae la sección «Reportes de nómina» con el formato de tiempo extra', () => {
+    expect(ITEMS_MENU_NOMINA.some(i => i.section === 'Reportes de nómina')).toBe(true);
+    expect(ITEMS_MENU_NOMINA.find(i => i.path === RUTAS.nominaReportes)?.label).toBe('Formato de tiempo extra');
   });
 });
 

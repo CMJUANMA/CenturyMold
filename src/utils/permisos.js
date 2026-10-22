@@ -61,6 +61,8 @@ export const CAPACIDADES = {
   verTransporte: (a) => a.esRH || a.esNomina,
   /** Padrón y Estructura: RH y admin los administran; Nóminas los ve en solo lectura (con el teléfono, que manda al proveedor) */
   verPersonal: (a) => a.esRH || a.esNomina,
+  /** Reportes de nómina (formato de autorización de tiempo extra por área y semana): Nóminas, RH y admin */
+  reportesNomina: (a) => a.esRH || a.esNomina,
   /** Organigrama: completo (Aut. 2, RH, admin) o de su área (Aut. 1) */
   organigrama: (a) => veOrganigrama(a),
   /** Pestaña Asignaciones: quien puede dar o quitar algún rol operativo */
@@ -114,6 +116,7 @@ export const RUTAS_PROTEGIDAS = [
 
   { id: 'transporteSolicitudes', ruta: RUTAS.transporteSolicitudes, puede: 'verTransporte' },
   { id: 'formatoRutas', ruta: RUTAS.formatoRutas, puede: 'verTransporte' },
+  { id: 'nominaReportes', ruta: RUTAS.nominaReportes, puede: 'reportesNomina' },
   { id: 'transporteCatalogos', ruta: RUTAS.transporteCatalogos, puede: 'rh' },
   { id: 'padron', ruta: RUTAS.padron, puede: 'verPersonal' },
   { id: 'estructura', ruta: RUTAS.estructura, puede: 'verPersonal' },
@@ -197,6 +200,10 @@ export const MATRIZ = [
   { grupo: 'Tiempo extra', tipo: 'pantalla', id: 'teRecepcion', nombre: 'Por enviar al proveedor (Nóminas solo confirma; RH además devuelve y cancela)', ruta: RUTAS.teRecepcion, quien: por('recibir'), menu: 'rh+nomina' },
 
   { grupo: 'Transporte', tipo: 'pantalla', id: 'transporteSolicitudes', nombre: 'Solicitudes de transporte (Nóminas: solo ve y descarga)', ruta: RUTAS.transporteSolicitudes, quien: por('verTransporte'), menu: 'rh+nomina' },
+  { grupo: 'Reportes de nómina', tipo: 'pantalla', id: 'reportesNomina', nombre: 'Reportes de nómina: formato de autorización de tiempo extra por área y semana', ruta: RUTAS.nominaReportes, quien: por('reportesNomina'), menu: 'rh+nomina' },
+  { grupo: 'Reportes de nómina', tipo: 'accion', id: 'ajustarNomina', nombre: 'Ajustar el formato (quitar, reemplazar, corregir horas) y marcarlo como firmado; los cambios no tocan las solicitudes', quien: por('reportesNomina'), nota: 'Cada cambio pide un motivo y queda en la bitácora' },
+  { grupo: 'Reportes de nómina', tipo: 'boton', id: 'reabrirNomina', nombre: 'Reabrir un área firmada', quien: rh },
+  { grupo: 'Reportes de nómina', tipo: 'boton', id: 'descargarFormatoNomina', nombre: 'Descargar el formato en Excel (un área o todas, con su hoja Resumen)', quien: por('reportesNomina') },
   { grupo: 'Transporte', tipo: 'pantalla', id: 'formatoRutasPagina', nombre: 'Formato de rutas (Excel para el proveedor)', ruta: RUTAS.formatoRutas, quien: por('verTransporte'), menu: 'nomina' },
   { grupo: 'Transporte', tipo: 'pantalla', id: 'transporteCatalogos', nombre: 'Rutas y puntos de reunión', ruta: RUTAS.transporteCatalogos, quien: por('rh'), menu: 'rh' },
 
@@ -236,7 +243,7 @@ export const MATRIZ = [
   { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'darRolRH', nombre: 'Dar o quitar el rol del sistema RH (con confirmación y bitácora)', quien: nivel2, nota: 'Nadie cambia su propio rol. A un RH solo se le cambia el rol (nombre y estado, solo el admin)' },
   { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'darRolNomina', nombre: 'Dar o quitar el rol del sistema Nóminas (con confirmación y bitácora)', quien: nivel2, nota: 'Nadie se lo da a sí mismo. A quien ya es Nóminas solo se le cambia el rol' },
   { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'darRolAdmin', nombre: 'Dar o quitar el rol del sistema Administrador', quien: soloAdmin },
-  { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'restablecerPassword', nombre: 'Restablecer contraseña (RH y Aut. 2: a usuarios con rol «usuario»; admin: a cualquiera menos a sí mismo)', quien: nivel2, nota: 'Contraseña temporal que se muestra una sola vez; nadie la restablece a sí mismo' },
+  { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'restablecerPassword', nombre: 'Restablecer contraseña (RH y Aut. 2: a usuarios y a Nóminas; admin: a cualquiera menos a sí mismo)', quien: nivel2, nota: 'Contraseña temporal que se muestra una sola vez; nadie la restablece a sí mismo' },
   { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'asignarAut1', nombre: 'Asignar, extender o revocar Aut. 1 y Solicitante', quien: (a) => a.esAdmin || a.esRH || a.esAut2, nota: 'Nadie, salvo admin, se asigna a sí mismo. Solo en áreas que participan' },
   { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'asignarAut2', nombre: 'Asignar, extender o revocar Aut. 2', quien: soloAdmin },
   { grupo: 'Usuarios y accesos', tipo: 'boton', id: 'historialPersona', nombre: 'Ver el historial de una persona en el organigrama', quien: nivel2 },

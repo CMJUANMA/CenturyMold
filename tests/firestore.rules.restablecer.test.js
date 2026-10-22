@@ -17,6 +17,7 @@ async function sembrar() {
     await setDoc(doc(db, 'usuarios', 'rh2'), perfil('rh', '3'));
     await setDoc(doc(db, 'usuarios', 'marco'), perfil('usuario', '5001'));
     await setDoc(doc(db, 'usuarios', 'otro'), perfil('usuario', '5002'));
+    await setDoc(doc(db, 'usuarios', 'alma'), perfil('nomina', '7001'));
     // Marco es Aut. 2 (asignación por nómina: no cambia al mover su perfil)
     await setDoc(doc(db, 'asignaciones', '5001_aut2_planta'), {
       nomina: '5001', nombre: 'Marco', rol: 'aut2', areaId: null, desde: new Date(Date.now() - 86400000), hasta: null, motivo: '',
@@ -44,7 +45,7 @@ async function restablecer(db, uidViejo, nominaViejo, rolViejo, cambios = {}) {
   }
   return lote.commit();
 }
-const NOMINA = { admin: '1', rh: '2', rh2: '3', marco: '5001', otro: '5002' };
+const NOMINA = { admin: '1', rh: '2', rh2: '3', marco: '5001', otro: '5002', alma: '7001' };
 const comoRH = (uid) => { const db = dbDe(uid); db._authUid = uid; db._nombre = `Persona ${NOMINA[uid]}`; return db; };
 
 beforeAll(async () => {
@@ -77,6 +78,26 @@ describe('RH restablece el acceso de un usuario', () => {
 
   it('un admin también puede restablecer a un usuario', async () => {
     await assertSucceeds(restablecer(comoRH('admin'), 'marco', '5001', 'usuario'));
+  });
+});
+
+describe('restablecer a una persona con rol Nóminas', () => {
+  it('RH, la Aut. 2 vigente y el admin le restablecen la contraseña conservando su rol', async () => {
+    await assertSucceeds(restablecer(comoRH('rh'), 'alma', '7001', 'nomina'));
+    await env.clearFirestore(); await sembrar();
+    await assertSucceeds(restablecer(comoRH('marco'), 'alma', '7001', 'nomina'));
+    await env.clearFirestore(); await sembrar();
+    await assertSucceeds(restablecer(comoRH('admin'), 'alma', '7001', 'nomina'));
+  });
+  it('no la puede restablecer ella misma, ni otro usuario sin asignación, ni cambiarle el rol en el camino', async () => {
+    await assertFails(restablecer(comoRH('alma'), 'alma', '7001', 'nomina'));
+    await assertFails(restablecer(comoRH('otro'), 'alma', '7001', 'nomina'));
+    await assertFails(restablecer(comoRH('rh'), 'alma', '7001', 'nomina', { nuevo: perfil('rh', '7001', { debeCambiarPassword: true }) }));
+    await assertFails(restablecer(comoRH('rh'), 'alma', '7001', 'nomina', { nuevo: perfil('usuario', '7001', { debeCambiarPassword: true }) }));
+  });
+  it('lo de RH y admin sigue igual: solo el admin restablece a un RH', async () => {
+    await assertFails(restablecer(comoRH('rh'), 'rh2', '3', 'rh'));
+    await assertFails(restablecer(comoRH('marco'), 'admin', '1', 'admin'));
   });
 });
 

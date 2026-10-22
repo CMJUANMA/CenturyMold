@@ -2,22 +2,26 @@
  * InicioNomina.jsx — Inicio del rol Nóminas (/): el tiempo extra AUTORIZADO de hoy y de esta semana (solicitudes, empleados y horas totales
  * por área) y lo que falta por enviar al proveedor. Es solo de consulta: todo sale de las solicitudes de la planta que ya se escuchan en
  * tiempo real (useResumenTE). "Autorizado" = autorizada o confirmada; la semana va de lunes a domingo, por la fecha del tiempo extra.
- * (La sección «Reportes de nómina» se agregará aquí y en el menú en la siguiente entrega.)
+ * La tarjeta «Semana N» lleva al formato de tiempo extra semanal (Reportes de nómina).
  */
 import { useMemo, useState } from 'react';
-import { CalendarDays, CalendarX, Clock, Inbox, Layers, Users } from 'lucide-react';
+import { ArrowRight, CalendarDays, CalendarX, Clock, FileSpreadsheet, Inbox, Layers, Lock, Users } from 'lucide-react';
 import { useAccesos } from '../hooks/useAccesos';
+import { useAjustesNomina } from '../hooks/useAjustesNomina';
 import { useAreas } from '../hooks/useAreas';
 import { useCatalogos } from '../hooks/useCatalogos';
 import { useResumenTE } from '../hooks/useResumenTE';
 import { useSaludo } from '../hooks/useSaludo';
 import { RUTAS } from '../rutas';
 import { resumenNomina } from '../utils/resumenInicio';
+import { ESTADOS_AREA, autorizadasDelPeriodo, estadoDeArea, etiquetaPeriodo, ultimaSemanaCompleta } from '../utils/formatoNomina';
+import { ymd } from '../utils/fechas';
 import AyudaPantalla from '../components/AyudaPantalla';
 import Aviso from '../components/ui/Aviso';
 import Boton from '../components/ui/Boton';
 import EncabezadoPagina from '../components/ui/EncabezadoPagina';
 import EstadoVacio from '../components/ui/EstadoVacio';
+import Insignia from '../components/ui/Insignia';
 import { EsqueletoIndicadores, EsqueletoTabla } from '../components/ui/Esqueleto';
 import { Fila, Tabla, Td, Th } from '../components/ui/Tabla';
 import { Indicador } from '../components/ui/Tarjeta';
@@ -60,6 +64,12 @@ export default function InicioNomina() {
   const [ahora] = useState(() => new Date());
   const r = useMemo(() => resumenNomina(planta, nombres, ahora), [planta, nombres, ahora]);
   const { porEnviar } = r;
+  // «Semana 43»: la última semana completa y el estado de su formato de tiempo extra, por área
+  const semanaFormato = useMemo(() => ultimaSemanaCompleta(ymd(ahora)), [ahora]);
+  const { ajustes } = useAjustesNomina(semanaFormato);
+  const areasFormato = useMemo(() => [...new Set(autorizadasDelPeriodo(planta, semanaFormato).map(t => t.areaId))]
+    .map(areaId => ({ areaId, nombre: nombres.get(areaId) ?? areaId, estado: estadoDeArea(ajustes.get(areaId)) }))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')), [planta, semanaFormato, ajustes, nombres]);
   const tieneRolOperativo = areasSolicitante.length > 0 || areasAut1.length > 0 || esAut2;
 
   return (
@@ -80,6 +90,25 @@ export default function InicioNomina() {
             <Indicador etiqueta="Por enviar al proveedor" valor={porEnviar.total} to={RUTAS.teRecepcion} icono={Inbox} atencion={porEnviar.total > 0} ayuda="autorizadas por confirmar" />
             <Indicador etiqueta="Fechas vencidas" valor={porEnviar.vencidas} to={RUTAS.teRecepcion} icono={CalendarX} atencion={porEnviar.vencidas > 0} ayuda="sin confirmar y con fecha que ya pasó" />
             <Indicador etiqueta="Empleados por enviar" valor={porEnviar.empleados} to={RUTAS.teRecepcion} icono={Users} ayuda="en lo que falta por confirmar" />
+          </div>
+        )}
+      </Seccion>
+
+      <Seccion titulo={`Semana ${semanaFormato.semana}: formato de tiempo extra`} tour={'inicioNomina-formato'}>
+        {cargando ? <EsqueletoTabla filas={2} columnas={3} /> : (
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5">
+            <p className="mb-3 text-sm text-[var(--text-secondary)]">{etiquetaPeriodo(semanaFormato)}</p>
+            {areasFormato.length === 0 ? <p className="text-sm text-[var(--text-muted)]">No hubo tiempo extra autorizado en esa semana.</p> : (
+              <ul className="mb-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                {areasFormato.map(a => (
+                  <li key={a.areaId} className="flex items-center justify-between gap-3 rounded-md border border-[var(--border-subtle)] px-3 py-2 text-sm">
+                    <span className="text-[var(--text-main)]">{a.nombre}</span>
+                    <Insignia tono={a.estado === 'firmada' ? 'exito' : a.estado === 'ajustada' ? 'info' : 'neutro'} icono={a.estado === 'firmada' ? Lock : undefined} sinIcono={a.estado === 'sin_revisar'}>{ESTADOS_AREA[a.estado]}</Insignia>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Boton to={RUTAS.nominaReportes} variante="contorno" icono={FileSpreadsheet} id="btn-ir-reportes-nomina">Abrir el formato de la semana <ArrowRight className="h-4 w-4" aria-hidden="true" /></Boton>
           </div>
         )}
       </Seccion>

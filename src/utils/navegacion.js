@@ -52,6 +52,9 @@ export const ITEMS_MENU_RH = [
   { path: RUTAS_TRANSPORTE_SUELTO.misSolicitudes, label: 'Mis solicitudes de transporte', icono: 'ClipboardList', funcion: 'transporteSuelto' },
   { path: RUTAS.transporteCatalogos, label: 'Rutas y puntos de reunión', icono: 'Database' },
 
+  { section: 'Reportes de nómina' },
+  { path: RUTAS.nominaReportes, label: 'Formato de tiempo extra', icono: 'FileSpreadsheet' },
+
   { section: 'Personal y estructura' },
   { path: RUTAS.padron, label: 'Padrón de empleados', icono: 'Users' },
   { path: RUTAS.estructura, label: 'Estructura', icono: 'Network' },
@@ -82,7 +85,8 @@ export const ITEMS_MENU_NOMINA = [
   { path: RUTAS.padron, label: 'Personal', icono: 'Users' },
   { path: RUTAS.estructura, label: 'Estructura', icono: 'Network' },
 
-  // Aquí irá la sección «Reportes de nómina» (siguiente entrega): se agrega como { section: 'Reportes de nómina' } + sus ítems.
+  { section: 'Reportes de nómina' },
+  { path: RUTAS.nominaReportes, label: 'Formato de tiempo extra', icono: 'FileSpreadsheet' },
 ];
 
 /**
