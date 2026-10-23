@@ -9,7 +9,7 @@
  */
 import { fechaLocal, rangoSemana, sumarDias, ymd } from './fechas.js';
 import { horasNominaPor } from '../funciones.js';
-import { ESTATUS_DESCARGA, calcularHoras, tramosPorDia } from './tiempoExtra.js';
+import { ESTATUS_DESCARGA, calcularHoras, esVencida, tramosPorDia } from './tiempoExtra.js';
 import { etiquetaMotivo, motivoDeEmpleado, textoNumero } from './motivosTE.js';
 
 // ── Constantes del formato en papel (editables aquí) ───────────────────────────────────────────
@@ -134,19 +134,28 @@ export const autorizadasDelPeriodo = (planta, periodo, modo = horasNominaPor) =>
 const PENDIENTES = ['pendiente_aut1', 'pendiente_aut2', 'devuelta'];
 
 /**
- * Lo que aún no está autorizado en ese periodo (pendientes y devueltas): cuántas solicitudes y de qué áreas, para avisar.
- * @returns {{ total:number, porArea: {areaId, nombre, pendientes, devueltas}[] }}
+ * Lo que aún no está autorizado en ese periodo (pendientes y devueltas, con su fecha todavía por llegar): cuántas solicitudes y de qué áreas, para avisar.
+ * Las VENCIDAS (su fecha ya pasó sin autorizarse, esVencida) NO cuentan en el formato ni aquí: van aparte en `vencidas` ({ total, porArea: [{ areaId, nombre, cantidad }] })
+ * para que Nóminas decida si agrega a alguien a mano.
+ * @returns {{ total:number, porArea: {areaId, nombre, pendientes, devueltas}[], vencidas: { total:number, porArea: {areaId, nombre, cantidad}[] } }}
  */
-export function pendientesDelPeriodo(planta, periodo, nombres = new Map()) {
+export function pendientesDelPeriodo(planta, periodo, nombres = new Map(), ahora = new Date()) {
   const grupos = new Map();
+  const venc = new Map();
   for (const t of planta) {
     if (!PENDIENTES.includes(t.estatus) || !enPeriodo(t, periodo)) continue;
+    if (esVencida(t, ahora)) {
+      const v = venc.get(t.areaId) ?? { areaId: t.areaId, nombre: nombres.get(t.areaId) ?? t.areaNombre ?? t.areaId, cantidad: 0 };
+      v.cantidad++; venc.set(t.areaId, v);
+      continue;
+    }
     const g = grupos.get(t.areaId) ?? { areaId: t.areaId, nombre: nombres.get(t.areaId) ?? t.areaNombre ?? t.areaId, pendientes: 0, devueltas: 0 };
     if (t.estatus === 'devuelta') g.devueltas++; else g.pendientes++;
     grupos.set(t.areaId, g);
   }
   const porArea = [...grupos.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  return { total: porArea.reduce((n, g) => n + g.pendientes + g.devueltas, 0), porArea };
+  const vencidas = [...venc.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  return { total: porArea.reduce((n, g) => n + g.pendientes + g.devueltas, 0), porArea, vencidas: { total: vencidas.reduce((n, g) => n + g.cantidad, 0), porArea: vencidas } };
 }
 
 // ── La tabla por empleado ──────────────────────────────────────────────────────────────────────

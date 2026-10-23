@@ -62,8 +62,9 @@ describe('qué cuenta de la semana', () => {
     expect(autorizadasDelPeriodo(planta, s).map(x => x.id)).toEqual(['a', 'b']);
   });
   it('avisa cuántas siguen pendientes o devueltas y de qué áreas', () => {
-    const p = pendientesDelPeriodo(planta, s, new Map([['moldes', 'Moldes'], ['calidad', 'Calidad']]));
+    const p = pendientesDelPeriodo(planta, s, new Map([['moldes', 'Moldes'], ['calidad', 'Calidad']]), new Date(2026, 9, 20, 12)); // martes 20: ninguna ha vencido
     expect(p.total).toBe(3);
+    expect(p.vencidas.total).toBe(0);
     expect(p.porArea).toEqual([
       { areaId: 'calidad', nombre: 'Calidad', pendientes: 1, devueltas: 1 },
       { areaId: 'moldes', nombre: 'Moldes', pendientes: 1, devueltas: 0 },

@@ -9,7 +9,7 @@ const s = (folio, estatus, extra = {}) => ({ id: folio, folio, estatus, areaId: 
 
 describe('sin solicitudes de tiempo extra', () => {
   it('todo es 0 y las listas están vacías, sin error', () => {
-    expect(contarMisSolicitudes([], AHORA)).toEqual({ borrador: 0, enAutorizacion: 0, devueltas: 0, autorizadasMes: 0 });
+    expect(contarMisSolicitudes([], AHORA)).toEqual({ borrador: 0, enAutorizacion: 0, devueltas: 0, vencidas: 0, autorizadasMes: 0 });
     expect(proximosAutorizados([], AHORA)).toEqual([]);
     expect(ultimasDelArea([])).toEqual([]);
     expect(semanaPorArea([], [{ id: 'moldes', nombre: 'Moldes' }], AHORA)).toEqual([{ areaId: 'moldes', nombre: 'Moldes', total: 0 }]);
@@ -25,7 +25,7 @@ describe('mis solicitudes', () => {
     s('TE-8', 'cancelada'),
   ];
   it('cuenta borradores, en autorización, devueltas y autorizadas del mes', () => {
-    expect(contarMisSolicitudes(propias, AHORA)).toEqual({ borrador: 1, enAutorizacion: 2, devueltas: 2, autorizadasMes: 1 });
+    expect(contarMisSolicitudes(propias, AHORA)).toEqual({ borrador: 1, enAutorizacion: 2, devueltas: 2, vencidas: 0, autorizadasMes: 1 });
   });
   it('próximos autorizados: de hoy en adelante, la más próxima primero, con estado del transporte', () => {
     const lista = proximosAutorizados([
@@ -73,7 +73,7 @@ describe('indicadores del Inicio de RH y admin', () => {
 
   it('sin solicitudes todo es 0 y no hay "más antigua"', () => {
     expect(indicadoresRH([], AHORA)).toEqual({
-      atencion: { porEnviar: 0, vencidas: 0, nivel1: 0, nivel2: 0, masAntiguaNivel1: null, masAntiguaNivel2: null, devueltas: 0 },
+      atencion: { porEnviar: 0, vencidas: 0, nivel1: 0, nivel2: 0, masAntiguaNivel1: null, masAntiguaNivel2: null, devueltas: 0, sinAutorizar: 0 },
       semana: { horasSemana: 0, horasMes: 0, empleadosSemana: 0, transporte7: 0 },
     });
     expect(proximos7Dias([], AHORA)).toEqual([]);
@@ -89,7 +89,7 @@ describe('indicadores del Inicio de RH y admin', () => {
       t('H', 'devuelta', '2026-10-22'), t('I', 'cancelada', '2026-10-22'),
     ];
     expect(indicadoresRH(planta, AHORA).atencion).toEqual({
-      porEnviar: 3, vencidas: 2, nivel1: 1, nivel2: 2, masAntiguaNivel1: 1, masAntiguaNivel2: 5, devueltas: 1,
+      porEnviar: 3, vencidas: 2, nivel1: 1, nivel2: 2, masAntiguaNivel1: 1, masAntiguaNivel2: 5, devueltas: 1, sinAutorizar: 0,
     });
   });
 

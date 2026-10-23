@@ -7,10 +7,10 @@ import { ESTATUS_TE_MAP } from './constantes.js';
 import { comparar } from './orden.js';
 import { agregarHojaReporte, nuevoLibro } from './formatosImportacion.js';
 import { bufferSeguro } from './excelSeguro.js';
-import { calcularHoras, etiquetaBloque, firmaTexto, textoRuta, textoTermina } from './tiempoExtra.js';
+import { calcularHoras, estatusVisible, etiquetaBloque, firmaTexto, textoRuta, textoTermina } from './tiempoExtra.js';
 import { motivoTextoEmpleado } from './motivosTE.js';
 
-const ORDEN_ESTATUS = ['pendiente_aut1', 'pendiente_aut2', 'autorizada', 'procesada', 'devuelta', 'cancelada'];
+const ORDEN_ESTATUS = ['pendiente_aut1', 'pendiente_aut2', 'autorizada', 'procesada', 'devuelta', 'vencida', 'cancelada'];
 const etiqueta = (estatus) => ESTATUS_TE_MAP[estatus]?.label ?? estatus;
 
 export const ENCABEZADOS_RESUMEN = ['Área', 'Estatus', 'Solicitudes', 'Empleados', 'Horas'];
@@ -34,8 +34,9 @@ export function construirLibroConsulta({ solicitudes, nombresArea, catalogos, no
   const area = (id) => nombresArea.get(id) ?? id;
   const grupos = new Map();
   for (const t of solicitudes) {
-    const k = `${area(t.areaId)}|${t.estatus}`;
-    const g = grupos.get(k) ?? { area: area(t.areaId), estatus: t.estatus, solicitudes: 0, empleados: 0, horas: 0 };
+    const est = estatusVisible(t); // «vencida» en lugar de pendiente / devuelta / borrador cuando venció
+    const k = `${area(t.areaId)}|${est}`;
+    const g = grupos.get(k) ?? { area: area(t.areaId), estatus: est, solicitudes: 0, empleados: 0, horas: 0 };
     g.solicitudes++;
     g.empleados += t.resumen?.totalEmpleados ?? t.empleados?.length ?? 0;
     g.horas += t.resumen?.totalHoras ?? 0;
@@ -54,7 +55,7 @@ export function construirLibroConsulta({ solicitudes, nombresArea, catalogos, no
     for (const e of t.empleados ?? []) {
       detalle.push([
         t.folio ?? '', area(t.areaId), t.fechaTE ?? '', motivoTextoEmpleado(t, e), String(e.nomina), nombre(e.nombre), e.puesto ?? '', etiquetaBloque(e), textoTermina(t.fechaTE, e.horaEntrada, e.horaSalida, { prefijo: false }), calcularHoras(e.horaEntrada, e.horaSalida),
-        e.alimentos ? 'Sí' : 'No', e.transporte ? 'Sí' : 'No', e.transporte ? textoRuta(e, catalogos) : '', etiqueta(t.estatus), firmaTexto(t.aut1, nombre), firmaTexto(t.aut2, nombre),
+        e.alimentos ? 'Sí' : 'No', e.transporte ? 'Sí' : 'No', e.transporte ? textoRuta(e, catalogos) : '', etiqueta(estatusVisible(t)), firmaTexto(t.aut1, nombre), firmaTexto(t.aut2, nombre),
       ]);
     }
   }

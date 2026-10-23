@@ -243,6 +243,33 @@ al enviar al menos uno con `motivo` = nombre del primero, y `motivoIndex` entero
 (formato del P.O./TB, descripción de «Otro», largo de los textos libres) lo valida la app. Pruebas: `tests/motivos-te.test.js`, `tests/firestore.rules.motivos.test.js`,
 `tests/firestore.rules.captura-te.test.js` y `tests/formato-nomina*.test.js`.
 
+## Tiempo extra vencido
+
+**Cuándo vence.** Una solicitud está **vencida** cuando termina el día de su fecha (después de las 11:59 p. m. de `fechaTE`, **hora de México**) y su estatus sigue siendo `borrador`, `pendiente_aut1`,
+`pendiente_aut2` o `devuelta`. Se **calcula en el cliente**, con una sola función, `esVencida(t, ahora)` en `src/utils/tiempoExtra.js` (junto con `hoyMexico`, `venceHoy`, `estatusVisible`,
+`esFechaPasadaSinEnviar` y `conVenceHoyPrimero`); **no se escribe ningún estatus en Firestore** (no hay Cloud Functions). La hora de México es `America/Mexico_City` (sin horario de verano desde 2022:
+la medianoche local es a las 06:00 UTC). Las pantallas se actualizan solas cada minuto (`useAhora`). Si algún día hay Blaze se puede volver un estatus real: `docs/blaze.md`.
+Autorizada, procesada y cancelada nunca vencen.
+
+**Qué se ve.** Etiqueta gris **«Vencida»** (`BadgeEstatus t={t}`) con el texto «No se autorizó antes de la fecha», en lugar de «En autorización» o «Devuelta».
+- *Por autorizar* (Aut. 1 y Aut. 2): las vencidas salen de la lista principal y de los contadores (`useBandeja`, `usePorAutorizar`) y van en la pestaña **«Vencidas»**, solo consulta (sin Autorizar ni Devolver).
+  Las pendientes que vencen **hoy** llevan la etiqueta **«Vence hoy»** y salen primero.
+- *Mis solicitudes*: pestaña **«Vencidas»** (cada solicitud va en una sola pestaña, la de su estatus visible); botón **«Duplicar con otra fecha»** (`duplicarComoBorrador`: copia empleados con su horario y transporte,
+  motivos, tipo y comentario en un borrador nuevo con la fecha elegida, de hoy en adelante) y, si era borrador, **Eliminar**.
+- *Inicio* de todos los roles: los contadores (en borrador, en autorización, devueltas, nivel 1 y 2, solicitudes de la semana) **excluyen** las vencidas.
+- *Consulta* (también Nóminas): filtro de estatus con **«Vencida»**; el Excel de la consulta las agrupa como «Vencida».
+
+**Bloqueo.** No se autoriza ni se devuelve una vencida: botones ocultos, validación **dentro de la transacción** (`autorizarSolicitud` / `devolverSolicitud`: «Esta solicitud ya venció») **y en las reglas de Firestore**
+(`pasoElDia(fechaTE)`: `request.time - 6 h >= timestamp.date(año, mes, día) + 1 día`, en las cuatro transiciones de autorizar y devolver; cabe holgadamente en el límite de 1000 expresiones). Cancelar sigue permitido.
+Pruebas: `tests/firestore.rules.vencidas.test.js`. (Las demás pruebas de reglas usan fechas de 2099 para no vencer nunca.)
+
+**Autorizada que ya pasó de fecha sin enviarse** (*Por enviar al proveedor*): sale aparte, en **«Fecha pasada – transporte no enviado»**, con **«Cerrar sin transporte»** (una o todas):
+`cerrarSinTransporte` pasa la solicitud a `procesada` **sin generar solicitud de transporte**, con `cerradaSinTransporte: true`, su renglón de historial (`recibida_rh`) y de bitácora (`cerrar_sin_transporte`), todo en una
+transacción. Solo con la fecha ya pasada (la regla lo comprueba) y solo RH, admin y Nóminas. **Sus horas siguen contando para nómina**, porque sí se autorizó.
+
+**Reportes de nómina.** Las vencidas **no cuentan** en el formato. Un aviso dice «X solicitudes de esta semana vencieron sin autorizarse» con enlace a la consulta filtrada por «Vencida», para que Nóminas decida si
+agrega a alguien a mano en la revisión. Pruebas: `tests/vencidas-te.test.js` (vence a medianoche, vence hoy, devuelta vencida, borrador vencido, autorizada sin enviar con fecha pasada, contadores y nómina).
+
 ## Revisión de nómina (pantalla completa)
 
 **Dónde:** *Reportes de nómina › Revisar* en la tarjeta de un área abre `/nomina/semana/:anioSemana/:areaId` (`:anioSemana` es la clave del periodo: `2026-42`, o `r20261019-20261023` en un rango libre);

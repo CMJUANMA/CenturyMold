@@ -7,6 +7,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useAjustesNomina } from './useAjustesNomina';
+import { useAhora } from './useAhora';
 import { useAreas } from './useAreas';
 import { useResumenTE } from './useResumenTE';
 import {
@@ -16,11 +17,12 @@ import { trozos } from '../utils/tiempoExtra';
 import { leerSolicitudTE } from '../utils/tiempoExtraDb';
 
 export function useAreasNomina(periodo) {
+  const ahora = useAhora();
   const { planta, cargando, error } = useResumenTE();
   const { nombres } = useAreas();
   const { ajustes, error: errorAjustes } = useAjustesNomina(periodo);
   const autorizadas = useMemo(() => (periodo ? autorizadasDelPeriodo(planta, periodo) : []), [planta, periodo]);
-  const pendientes = useMemo(() => (periodo ? pendientesDelPeriodo(planta, periodo, nombres) : { total: 0, porArea: [] }), [planta, periodo, nombres]);
+  const pendientes = useMemo(() => (periodo ? pendientesDelPeriodo(planta, periodo, nombres, ahora) : { total: 0, porArea: [], vencidas: { total: 0, porArea: [] } }), [planta, periodo, nombres, ahora]);
 
   const [detalle, setDetalle] = useState(() => new Map());
   const [errorDetalle, setErrorDetalle] = useState('');

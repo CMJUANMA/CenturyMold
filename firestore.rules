@@ -169,7 +169,7 @@ service cloud.firestore {
     function accionDeNomina() {
       let d = request.resource.data;
       return (d.entidad == 'descarga' && d.accion in ['descargar_padron', 'descargar_resumen_te', 'descargar_consulta_te', 'descargar_formato_rutas', 'descargar_formato_te_nomina'])
-        || (d.entidad == 'tiempoExtra' && d.accion == 'recibir')
+        || (d.entidad == 'tiempoExtra' && d.accion in ['recibir', 'cerrar_sin_transporte'])
         || (d.entidad.matches('ajustesNomina/.*') && d.accion in ['ajustar_nomina', 'deshacer_ajustes_nomina', 'firmar_nomina']);
     }
     match /bitacora/{id} {
@@ -586,6 +586,13 @@ service cloud.firestore {
         && despues().fechaCreacion == request.time
         && despues().fechaActualizacion == request.time;
 
+      // VENCIDA: pasó el día de la fecha del tiempo extra (hora de México; sin horario de verano desde 2022, así que UTC-6 fijo). Ya no se autoriza ni se devuelve
+      // (la app lo calcula igual con esVencida y no escribe ningún estatus). `f` = 'AAAA-MM-DD'; si no tiene esa forma, la petición se niega por el error al convertir.
+      function pasoElDia(f) {
+        let p = f.split('-');
+        return request.time - duration.value(6, 'h') >= timestamp.date(int(p[0]), int(p[1]), int(p[2])) + duration.value(1, 'd');
+      }
+
       // Cada transición es su propio "allow update" (se evalúan en OR). Primero se comparan los datos
       // (estatus antes/después, campos que cambian) y al final los roles, que leen el perfil y la matriz.
 
@@ -593,14 +600,14 @@ service cloud.firestore {
       allow update: if antes().estatus == 'pendiente_aut1' && despues().estatus == 'pendiente_aut2'
         && despues().fechaActualizacion == request.time
         && soloCambia(['estatus', 'aut1', 'fechaActualizacion'])
-        && antes().creadoPor != uid()
+        && antes().creadoPor != uid() && !pasoElDia(antes().fechaTE)
         && esAut1De(antes().areaId) && firmaValida(despues().aut1, false);
 
       // Aut. 1 devuelve (con motivo): pendiente_aut1 → devuelta
       allow update: if antes().estatus == 'pendiente_aut1' && despues().estatus == 'devuelta'
         && despues().fechaActualizacion == request.time
         && soloCambia(['estatus', 'devolucion', 'fechaActualizacion'])
-        && antes().creadoPor != uid()
+        && antes().creadoPor != uid() && !pasoElDia(antes().fechaTE)
         && esAut1De(antes().areaId) && devolucionValida(despues().devolucion, 1);
 
       // Aut. 2 vigente o RH autorizan: pendiente_aut2 → autorizada. Nadie firma lo que creó (lo de RH que no es Aut. 2 lo firma un Aut. 2 u otra
@@ -608,14 +615,14 @@ service cloud.firestore {
       allow update: if antes().estatus == 'pendiente_aut2' && despues().estatus == 'autorizada'
         && despues().fechaActualizacion == request.time
         && soloCambia(['estatus', 'aut2', 'fechaActualizacion'])
-        && antes().creadoPor != uid()
+        && antes().creadoPor != uid() && !pasoElDia(antes().fechaTE)
         && puedeFirmarAut2() && firmaValida(despues().aut2, !esAut2());
 
       // ...o devuelven (con motivo): pendiente_aut2 → devuelta
       allow update: if antes().estatus == 'pendiente_aut2' && despues().estatus == 'devuelta'
         && despues().fechaActualizacion == request.time
         && soloCambia(['estatus', 'devolucion', 'fechaActualizacion'])
-        && antes().creadoPor != uid()
+        && antes().creadoPor != uid() && !pasoElDia(antes().fechaTE)
         && puedeFirmarAut2() && devolucionValida(despues().devolucion, 2);
 
       // RH la recibe: autorizada → procesada, con la solicitud de transporte creada en la MISMA operación (getAfter) y apuntando a este
@@ -636,6 +643,18 @@ service cloud.firestore {
         && (despues().get('solicitudTransporteId', null) != null
             ? transporteGenerado(despues().solicitudTransporteId)
             : antes().resumen.get('totalTransporte', 0) == 0)
+        && (esRH() || esNomina());
+
+      // «Cerrar sin transporte»: una autorizada cuya fecha ya pasó y no se envió al proveedor pasa a procesada SIN solicitud de transporte (aunque tuviera empleados
+      // con transporte). Es una autorizada de verdad: sus horas siguen contando para nómina. Solo RH, admin y Nóminas; solo con la fecha ya pasada.
+      allow update: if antes().estatus == 'autorizada' && despues().estatus == 'procesada'
+        && despues().fechaActualizacion == request.time
+        && soloCambia(['estatus', 'recibidaPor', 'fechaRecepcion', 'cerradaSinTransporte', 'fechaActualizacion'])
+        && despues().cerradaSinTransporte == true && despues().fechaRecepcion == request.time
+        && despues().recibidaPor.keys().hasOnly(['nomina', 'nombre', 'fecha'])
+        && despues().recibidaPor.nomina == miNomina() && despues().recibidaPor.fecha == request.time
+        && despues().recibidaPor.get('nombre', '') == miNombre()
+        && pasoElDia(antes().fechaTE)
         && (esRH() || esNomina());
 
       // RH devuelve en la recepción (con motivo de 10+ caracteres, nivel 3): autorizada → devuelta

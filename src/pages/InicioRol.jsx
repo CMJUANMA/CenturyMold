@@ -124,7 +124,7 @@ export default function InicioRol() {
       {esAut1 && (
         <TablaInicio titulo="Últimas solicitudes de mi área"
           columnas={[{ texto: 'Folio', mono: true }, { texto: 'Área' }, { texto: 'Fecha' }, { texto: 'Estado' }]}
-          filas={ultimasDelArea(resumen.delArea).map(s => [s.folio ?? s.id, nombreArea(s.areaId), formatoFecha(`${s.fechaTE}T12:00:00`), <BadgeEstatus key="e" estatus={s.estatus} modulo="te" />])}
+          filas={ultimasDelArea(resumen.delArea).map(s => [s.folio ?? s.id, nombreArea(s.areaId), formatoFecha(`${s.fechaTE}T12:00:00`), <BadgeEstatus key="e" t={s} modulo="te" />])}
           vacio="Aún no hay solicitudes en tu área." />
       )}
 

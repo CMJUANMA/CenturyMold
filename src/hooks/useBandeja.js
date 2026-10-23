@@ -2,14 +2,16 @@
  * useBandeja.js — Lo que le toca firmar a esta persona, en tiempo real (onSnapshot):
  *   nivel1: pendiente_aut1 de las áreas donde es Aut. 1 vigente (una consulta por área)
  *   nivel2: pendiente_aut2 de todas las áreas, para la Aut. 2 y para RH/admin
- * Las más antiguas primero. Una persona con los dos roles recibe las dos listas.
+ * Las que vencen hoy primero y luego las más antiguas. Una persona con los dos roles recibe las dos listas.
+ * Las VENCIDAS (su fecha ya pasó, esVencida) salen de nivel1 y nivel2 y van aparte en `vencidas` (solo consulta).
  */
 import { useEffect, useMemo, useState } from 'react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from './useAuth';
 import { useAccesos } from './useAccesos';
-import { masAntiguasPrimero } from '../utils/tiempoExtra';
+import { conVenceHoyPrimero, esVencida } from '../utils/tiempoExtra';
+import { useAhora } from './useAhora';
 
 const VACIO = [];
 
@@ -18,6 +20,7 @@ export function useBandeja() {
   const { esRH, esAut2, areasAut1, cargando: cargandoAcc } = useAccesos();
   const claveAreas = [...areasAut1].sort().join(',');
   const firmaNivel2 = esAut2 || esRH;
+  const ahora = useAhora();
   const clave = `${uid}|${claveAreas}|${firmaNivel2}`;
   const [estado, setEstado] = useState({ clave: null, fuentes: {}, error: null });
 
@@ -45,7 +48,11 @@ export function useBandeja() {
   const listo = estado.clave === clave;
   return useMemo(() => {
     const f = listo ? estado.fuentes : {};
-    const nivel1 = masAntiguasPrimero(Object.entries(f).filter(([k]) => k.startsWith('n1:')).flatMap(([, v]) => v));
-    return { nivel1, nivel2: masAntiguasPrimero(f.n2 ?? VACIO), cargando: !!uid && !listo && !estado.error, error: listo ? estado.error : null };
-  }, [listo, estado, uid]);
+    const todas1 = Object.entries(f).filter(([k]) => k.startsWith('n1:')).flatMap(([, v]) => v);
+    const todas2 = f.n2 ?? VACIO;
+    const vivas = (l) => conVenceHoyPrimero(l.filter(t => !esVencida(t, ahora)), ahora);
+    const vencidas = [...todas1.map(t => ({ ...t, nivel: 1 })), ...todas2.map(t => ({ ...t, nivel: 2 }))].filter(t => esVencida(t, ahora))
+      .sort((a, b) => String(b.fechaTE).localeCompare(String(a.fechaTE)));
+    return { nivel1: vivas(todas1), nivel2: vivas(todas2), vencidas, cargando: !!uid && !listo && !estado.error, error: listo ? estado.error : null };
+  }, [listo, estado, uid, ahora]);
 }

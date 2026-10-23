@@ -107,7 +107,7 @@ describe('turnos de nómina', () => {
 describe('tipo de tiempo extra, rutas y transporte de llegada/salida', () => {
   const nuevo = (extra = {}) => ({
     areaId: 'produccion', areaNombre: 'Producción', creadoPor: 'sol', creadoPorNomina: N.sol, creadoPorNombre: 'sol',
-    fechaTE: '2026-11-05', motivo: 'Producción', comentario: 'Pedido urgente del cliente', estatus: 'borrador',
+    fechaTE: '2099-11-05', motivo: 'Producción', comentario: 'Pedido urgente del cliente', estatus: 'borrador',
     resumen: { totalEmpleados: 2, totalHoras: 4, totalTransporte: 1, totalAlimentos: 2 },
     tipo: 'turno_extra', rutasDistintas: 1, desgloseRutas: [{ rutaId: 'r1', nombre: 'LA LIRA', empleados: 2, llegada: 2, salida: 2 }], justificacionRutas: '',
     fechaCreacion: ts(), fechaActualizacion: ts(), ...extra,

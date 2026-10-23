@@ -21,7 +21,7 @@ const firmaSemilla = (nomina) => ({ nomina, nombre: `Usuario ${nomina}`, fecha: 
 
 const teSemilla = (id, estatus, extra = {}) => ({
   folio: `TE-2026-${id}`, areaId: 'produccion', areaNombre: 'Producción', creadoPor: 'solP', creadoPorNomina: N.solP, creadoPorNombre: 'solP',
-  fechaTE: '2026-11-02', motivo: 'Producción', estatus,
+  fechaTE: '2099-11-02', motivo: 'Producción', estatus,
   resumen: { totalEmpleados: 2, totalHoras: 17, totalTransporte: 1, totalAlimentos: 1 },
   aut1: firmaSemilla(N.aut1P), aut2: firmaSemilla(N.aut2), fechaCreacion: ahora(), fechaActualizacion: ahora(), ...extra,
 });
@@ -44,13 +44,13 @@ async function sembrar() {
     await setDoc(doc(db, 'tiempoExtra', 'te5'), teSemilla('0005', 'procesada', { solicitudTransporteId: 'sol5', recibidaPor: firmaSemilla(N.rh), fechaRecepcion: ahora() }));
     // Transporte de te3 (pendiente de envío) y de te5 (ya enviada al proveedor)
     const transporte = (te, folio, estatus) => ({
-      fechaSolicitud: ahora(), fechaServicio: '2026-11-02', solicitanteNombre: 'solP', solicitanteNomina: N.solP, creadoPor: 'rh', areaId: 'produccion', estatus,
+      fechaSolicitud: ahora(), fechaServicio: '2099-11-02', solicitanteNombre: 'solP', solicitanteNomina: N.solP, creadoPor: 'rh', areaId: 'produccion', estatus,
       origen: 'tiempo_extra', tiempoExtraId: te, folioTE: folio, totalPasajeros: 1, historial: [],
     });
     await setDoc(doc(db, 'solicitudes', 'sol3'), transporte('te3', 'TE-2026-0003', 'aprobada'));
     await setDoc(doc(db, 'solicitudes', 'sol5'), transporte('te5', 'TE-2026-0005', 'enviada al proveedor'));
     // Una solicitud de transporte normal de otro usuario
-    await setDoc(doc(db, 'solicitudes', 'normal1'), { fechaSolicitud: ahora(), fechaServicio: '2026-11-02', solicitanteNombre: 'ajeno', creadoPor: 'ajeno', estatus: 'pendiente', historial: [] });
+    await setDoc(doc(db, 'solicitudes', 'normal1'), { fechaSolicitud: ahora(), fechaServicio: '2099-11-02', solicitanteNombre: 'ajeno', creadoPor: 'ajeno', estatus: 'pendiente', historial: [] });
   });
 }
 
@@ -63,7 +63,7 @@ function recibir(uid, teId, { conTransporte = true, solId = 'solNueva', editarSo
   const folio = teId === 'te2' ? 'TE-2026-0002' : `TE-2026-000${teId.slice(2)}`;
   if (conTransporte && !sinSol) {
     b.set(doc(db, 'solicitudes', solId), {
-      fechaSolicitud: ts(), fechaServicio: '2026-11-02', solicitanteNombre: 'solP', solicitanteNomina: N.solP, creadoPor: uid, creadoPorNombre: uid,
+      fechaSolicitud: ts(), fechaServicio: '2099-11-02', solicitanteNombre: 'solP', solicitanteNomina: N.solP, creadoPor: uid, creadoPorNombre: uid,
       areaId: 'produccion', estatus: 'aprobada', origen: 'tiempo_extra', tiempoExtraId: teId, folioTE: folio,
       totalPasajeros: 1, totalAlimentos: 1, conteoTurnos: { 1: 1 }, conteoPuestos: { OPERADOR: 1 },
       revisadoPor: uid, revisadoPorNombre: uid, fechaRevision: ts(), historial: [{ fecha: new Date().toISOString(), usuario: uid, accion: 'creada', comentario: '' }],

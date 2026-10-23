@@ -9,7 +9,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarRange, ChevronLeft, ChevronRight, ClipboardCheck, Download, FileSpreadsheet, Lock } from 'lucide-react';
 import { useAreasNomina } from '../../hooks/useAreasNomina';
 import { useToast } from '../../hooks/useToast';
-import { RUTAS, rutaRevisarNomina } from '../../rutas';
+import { RUTAS, rutaConsultaTE, rutaRevisarNomina } from '../../rutas';
 import AyudaPantalla from '../../components/AyudaPantalla';
 import Aviso from '../../components/ui/Aviso';
 import Boton from '../../components/ui/Boton';
@@ -99,6 +99,13 @@ export default function ReportesNomina() {
 
       {error && (
         <Aviso tono="error" titulo="No se pudo leer la información">{error.message}. Revisa tu conexión y vuelve a abrir esta pantalla.</Aviso>
+      )}
+
+      {pendientes.vencidas.total > 0 && (
+        <Aviso tono="aviso" titulo={`${pendientes.vencidas.total} ${pendientes.vencidas.total === 1 ? 'solicitud' : 'solicitudes'} de esta semana ${pendientes.vencidas.total === 1 ? 'venció' : 'vencieron'} sin autorizarse`}
+          accion={<Boton tamano="sm" to={rutaConsultaTE('vencida')}>Ver las vencidas</Boton>}>
+          No cuentan en el formato. Si alguien trabajó de todos modos, puedes agregarlo a mano en «Revisar»: {pendientes.vencidas.porArea.map(g => `${g.nombre} (${g.cantidad})`).join(' · ')}.
+        </Aviso>
       )}
 
       {pendientes.total > 0 && (

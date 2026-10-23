@@ -31,7 +31,7 @@ async function sembrar() {
     }
     for (const estatus of ESTATUS) {
       await setDoc(doc(db, 'tiempoExtra', idDe(estatus)), {
-        areaId: 'produccion', areaNombre: 'Producción', creadoPor: 'solP', creadoPorNomina: N.solP, creadoPorNombre: NOMBRE('solP'), fechaTE: '2026-11-02',
+        areaId: 'produccion', areaNombre: 'Producción', creadoPor: 'solP', creadoPorNomina: N.solP, creadoPorNombre: NOMBRE('solP'), fechaTE: '2099-11-02',
         motivo: 'Producción', comentario: 'Pedido urgente', estatus, ...(estatus === 'borrador' ? {} : { folio: `TE-2026-${ESTATUS.indexOf(estatus)}` }),
         resumen: { totalEmpleados: 1, totalHoras: 2, totalTransporte: 0, totalAlimentos: 1 }, fechaCreacion: Timestamp.now(), fechaActualizacion: Timestamp.now(),
       });
@@ -143,7 +143,7 @@ describe('cancelar con transporte ya generado (RH)', () => {
       const db = ctx.firestore();
       await setDoc(doc(db, 'solicitudes', 'sol1'), { estatus: 'aprobada', origen: 'tiempo_extra', tiempoExtraId: idDe('procesada'), creadoPor: 'rh', historial: [], areaId: 'produccion' });
       await setDoc(doc(db, 'tiempoExtra', idDe('procesada')), {
-        areaId: 'produccion', areaNombre: 'Producción', creadoPor: 'solP', creadoPorNomina: N.solP, creadoPorNombre: NOMBRE('solP'), fechaTE: '2026-11-02', motivo: 'Producción',
+        areaId: 'produccion', areaNombre: 'Producción', creadoPor: 'solP', creadoPorNomina: N.solP, creadoPorNombre: NOMBRE('solP'), fechaTE: '2099-11-02', motivo: 'Producción',
         estatus: 'procesada', folio: 'TE-2026-0005', solicitudTransporteId: 'sol1', resumen: { totalEmpleados: 1, totalHoras: 2, totalTransporte: 1, totalAlimentos: 1 },
         fechaCreacion: Timestamp.now(), fechaActualizacion: Timestamp.now(),
       });

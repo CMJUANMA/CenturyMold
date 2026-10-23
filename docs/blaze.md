@@ -47,6 +47,16 @@ Blaze es **pago por uso con las mismas cuotas gratuitas** de Spark (Hosting, Fir
 
 **Control de gasto:** al activar Blaze, crear una **alerta de presupuesto** (por ejemplo 5 USD y 10 USD) y revisarla el primer mes. Una función con un error de bucle es el riesgo típico: por eso las funciones son *callable* con autenticación y sin disparadores recursivos.
 
+## Pendiente opcional: que «Vencida» sea un estatus real
+
+Hoy una solicitud **vencida** (su fecha ya pasó y sigue en borrador, pendiente_aut1, pendiente_aut2 o devuelta) **no se guarda como estatus**: la app la calcula con `esVencida` (`src/utils/tiempoExtra.js`,
+hora de México) en cada pantalla, y las reglas de Firestore bloquean autorizar y devolver comparando `fechaTE` con `request.time`. Funciona sin servidor, pero tiene límites:
+- Las consultas de Firestore no la conocen: las bandejas leen todas las pendientes y descartan las vencidas en el navegador.
+- Reportes y Excel que lean Firestore fuera de la app verían todavía «pendiente».
+Con Blaze, una **función programada** (cada noche, 00:05 hora de México) puede cambiar `estatus` a `vencida` (con `estatusAnterior`, para poder duplicar o auditar), escribir su renglón de historial y de bitácora, y las
+bandejas pasarían a consultar `where('estatus', '==', 'pendiente_aut…')` sin filtrar en el cliente. Al hacerlo: agregar `vencida` a `ESTATUS_TE`, quitar el cálculo de `esVencida` (o dejarlo como respaldo) y
+ajustar `tests/vencidas-te.test.js` y las reglas (`pasoElDia`).
+
 ## Pasos en la consola (cuando se decida)
 
 1. **Facturación.** Firebase Console › Configuración del proyecto › Uso y facturación › **Modificar plan** › Blaze. Elegir la cuenta de facturación (o crearla con la tarjeta de la empresa).

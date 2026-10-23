@@ -15,7 +15,7 @@ import { ACCIONES_TE_LABELS } from '../../utils/constantes';
 import { formatoFecha } from '../../utils/asignaciones';
 import { etiquetaBloque12, horasEnTexto12 } from '../../utils/horas';
 import { motivosDeTE, motivoTextoEmpleado } from '../../utils/motivosTE';
-import { calcularHoras, esExtension, textoTermina, firmaTexto, quienDevolvio, resumenTE, textoRuta, textoRutas } from '../../utils/tiempoExtra';
+import { TEXTO_VENCIDA, calcularHoras, esExtension, esVencida, textoTermina, firmaTexto, quienDevolvio, resumenTE, textoRuta, textoRutas } from '../../utils/tiempoExtra';
 import { leerTransporteDeTE } from '../../utils/tiempoExtraDb';
 import { quienCancelo } from '../../utils/cancelacion';
 
@@ -59,10 +59,12 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
   const bloques = Object.entries(resumenTE(empleados).porBloque);
   const nombre = (x) => formato?.nombre(x) ?? x;
   const devolucionPrevia = t.devolucion && t.estatus !== 'devuelta';
+  const vencida = esVencida(t);
 
   return (
     <div className="space-y-6 text-sm">
-      {t.estatus === 'devuelta' && t.devolucion && (
+      {vencida && <Aviso tono="info" titulo="Vencida">{TEXTO_VENCIDA}. Ya no se puede autorizar ni devolver; quien la solicitó puede duplicarla con otra fecha.</Aviso>}
+      {t.estatus === 'devuelta' && t.devolucion && !vencida && (
         <Aviso tono="aviso" titulo={`Devuelta por ${quienDevolvio(t.devolucion.nivel)} · ${nombre(t.devolucion.nombre)}`}>{t.devolucion.motivo}</Aviso>
       )}
       {devolucionPrevia && (
@@ -73,7 +75,7 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
       )}
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-5 sm:grid-cols-4">
-        {[['Estatus', <span key="e" className="flex flex-wrap items-center gap-1.5"><BadgeEstatus estatus={t.estatus} modulo="te" /><InsigniasTE t={t} /></span>], ['Tipo', esExtension(t) ? 'Extensión de turno' : 'Turno extra / día extra'], ['Área', area], ['Solicitante', nombre(t.creadoPorNombre ?? '—')],
+        {[['Estatus', <span key="e" className="flex flex-wrap items-center gap-1.5"><BadgeEstatus t={t} modulo="te" /><InsigniasTE t={t} /></span>], ['Tipo', esExtension(t) ? 'Extensión de turno' : 'Turno extra / día extra'], ['Área', area], ['Solicitante', nombre(t.creadoPorNombre ?? '—')],
           ['Fecha', t.fechaTE ? formatoFecha(`${t.fechaTE}T12:00:00`) : '—'], ['Motivo', motivosDeTE(t).some(m => m.nombre) ? <MotivosTE key="m" t={t} /> : '—'],
           ['Empleados', t.resumen?.totalEmpleados ?? 0], ['Horas', t.resumen?.totalHoras ?? 0], ['Con transporte', t.resumen?.totalTransporte ?? 0],
           ['Con alimentos', t.resumen?.totalAlimentos ?? 0], ['Firmó nivel 1', firmaTexto(t.aut1, nombre) || '—'], ['Firmó nivel 2', firmaTexto(t.aut2, nombre) || '—'],
@@ -83,7 +85,7 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
         {t.comentario && <div className="col-span-full"><dt className="text-xs text-[var(--text-muted)]">Comentario</dt><dd className="mt-0.5 text-[var(--text-main)]">{t.comentario}</dd></div>}
       </dl>
 
-      {avisoTransporte && ['pendiente_aut1', 'pendiente_aut2', 'autorizada'].includes(t.estatus) && (
+      {avisoTransporte && !vencida && ['pendiente_aut1', 'pendiente_aut2', 'autorizada'].includes(t.estatus) && (
         <Aviso tono="info">Al quedar autorizada, RH la confirmará y generará la solicitud de transporte de los empleados que lo pidieron.</Aviso>
       )}
 

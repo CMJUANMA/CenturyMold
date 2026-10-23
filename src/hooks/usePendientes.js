@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { FUNCIONES } from '../funciones';
+import { esVencida } from '../utils/tiempoExtra';
+import { useAhora } from './useAhora';
 import { ESTATUS_SOLICITUD, ESTATUS_TE, ROLES_ENVIAN_PROVEEDOR, ROLES_RH } from '../utils/constantes';
 
 /** Transporte: RH ve las solicitudes por revisar; cada solicitante, las novedades que no ha visto */
@@ -41,14 +43,15 @@ export function usePendientesRutas(usuario, accesos, activo = true) {
 
 /**
  * Por autorizar: lo que espera la firma de esta persona como Aut. 1 (pendiente_aut1 de sus áreas) o Aut. 2 (pendiente_aut2).
- * No cuenta lo que creó ella misma. Devuelve { aut1, aut2, total }.
+ * No cuenta lo que creó ella misma ni las vencidas (su fecha ya pasó). Devuelve { aut1, aut2, total }.
  */
 export function usePorAutorizar(usuario, accesos, activo = true) {
   const uid = usuario?.uid;
   const { areasAut1, esAut2 } = accesos;
   const firmaNivel2 = esAut2 || ROLES_RH.includes(usuario?.rol); // RH y admin también firman el nivel 2
   const idsAut1 = useMemo(() => [...areasAut1].sort().join('|'), [areasAut1]);
-  const [conteos, setConteos] = useState({});
+  const [docs, setDocs] = useState({}); // clave → solicitudes que llegaron (se cuentan al dibujar: lo vencido cambia con la hora)
+  const ahora = useAhora();
 
   useEffect(() => {
     if (!uid || !activo) return;
@@ -57,8 +60,8 @@ export function usePorAutorizar(usuario, accesos, activo = true) {
     const escuchar = (clave, q) => unsubs.push(onSnapshot(
       q,
       snap => {
-        const n = snap.docs.filter(d => d.data().creadoPor !== uid).length;
-        setConteos(c => (c[clave] === n ? c : { ...c, [clave]: n }));
+        const lista = snap.docs.map(d => d.data()).filter(d => d.creadoPor !== uid);
+        setDocs(c => ({ ...c, [clave]: lista }));
       },
       err => console.error('Por autorizar:', clave, err),
     ));
@@ -66,11 +69,12 @@ export function usePorAutorizar(usuario, accesos, activo = true) {
       escuchar(`aut1:${id}`, query(col, where('areaId', '==', id), where('estatus', '==', ESTATUS_TE.PENDIENTE_AUT1)));
     }
     if (firmaNivel2) escuchar('aut2', query(col, where('estatus', '==', ESTATUS_TE.PENDIENTE_AUT2)));
-    return () => { unsubs.forEach(u => u()); setConteos({}); };
+    return () => { unsubs.forEach(u => u()); setDocs({}); };
   }, [uid, activo, idsAut1, firmaNivel2]);
 
-  const aut1 = Object.entries(conteos).filter(([k]) => k.startsWith('aut1:')).reduce((a, [, n]) => a + n, 0);
-  const aut2 = conteos.aut2 ?? 0;
+  const vivas = (l = []) => l.filter(t => !esVencida(t, ahora)).length;
+  const aut1 = Object.entries(docs).filter(([k]) => k.startsWith('aut1:')).reduce((a, [, l]) => a + vivas(l), 0);
+  const aut2 = vivas(docs.aut2);
   return { aut1, aut2, total: aut1 + aut2 };
 }
 

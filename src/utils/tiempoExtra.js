@@ -14,6 +14,9 @@ export { motivoTexto };
 /** Estatus que pueden leer los autorizadores y RH (todos menos borrador: ese solo lo ve su creador) */
 export const ESTATUS_TE_VISIBLES = ['pendiente_aut1', 'pendiente_aut2', 'autorizada', 'devuelta', 'procesada', 'cancelada'];
 
+/** Estatus que se pueden elegir al filtrar la consulta: los de siempre y «vencida» (que no se guarda: ver esVencida) */
+export const ESTATUS_FILTRO_TE = [...ESTATUS_TE_VISIBLES, 'vencida'];
+
 export const MIN_COMENTARIO_TE = 10;
 /** Empleados por lote de escritura (las reglas validan cada uno contra el padrón; el límite de lecturas por lote es 20) */
 export const LOTE_EMPLEADOS = 10;
@@ -300,15 +303,16 @@ export const COMENTARIO_AUT2_PROPIA = 'Capturada y autorizada por Aut. 2';
 
 /** Nivel en el que va una solicitud, en texto */
 export function nivelEnTexto(estatus) {
-  return { borrador: 'Sin enviar', pendiente_aut1: 'Autorización 1', pendiente_aut2: 'Autorización 2', autorizada: 'Autorizada', devuelta: 'Devuelta', procesada: 'Confirmada por RH', cancelada: 'Cancelada' }[estatus] ?? estatus;
+  return { vencida: 'Vencida', borrador: 'Sin enviar', pendiente_aut1: 'Autorización 1', pendiente_aut2: 'Autorización 2', autorizada: 'Autorizada', devuelta: 'Devuelta', procesada: 'Confirmada por RH', cancelada: 'Cancelada' }[estatus] ?? estatus;
 }
 
-/** Pestañas de "Mis solicitudes" */
+/** Pestañas de "Mis solicitudes" (cada solicitud va en la de su estatus VISIBLE: una vencida va en «Vencidas», no en Borradores ni en Devueltas) */
 export const PESTANAS_TE = [
   { id: 'borrador', label: 'Borradores', estatus: ['borrador'] },
   { id: 'autorizacion', label: 'En autorización', estatus: ['pendiente_aut1', 'pendiente_aut2'] },
   { id: 'devuelta', label: 'Devueltas', estatus: ['devuelta'] },
   { id: 'autorizada', label: 'Autorizadas', estatus: ['autorizada', 'procesada'] },
+  { id: 'vencida', label: 'Vencidas', estatus: ['vencida'] },
   { id: 'cancelada', label: 'Canceladas', estatus: ['cancelada'] },
 ];
 
@@ -337,6 +341,39 @@ export function haceTiempo(desde, ahora = Date.now()) {
 /** La fecha del tiempo extra ya pasó ('AAAA-MM-DD' contra hoy) */
 export const fechaVencida = (fechaTE, hoy) => !!fechaTE && fechaTE < hoy;
 
+// ── Vencidas ──────────────────────────────────────────────────────────────
+// Un tiempo extra VENCE cuando termina el día de su fecha (después de las 11:59 p. m. de fechaTE, hora de México) y sigue sin terminar de autorizarse.
+// No se escribe en Firestore (no hay funciones en el servidor): se calcula siempre con esVencida, la ÚNICA función que decide esto en toda la app.
+// (Si algún día hay Blaze se puede volver un estatus real: docs/blaze.md.)
+
+/** Estatus que, pasada su fecha, se consideran vencidos */
+export const ESTATUS_QUE_VENCEN = ['borrador', 'pendiente_aut1', 'pendiente_aut2', 'devuelta'];
+export const ZONA_MEXICO = 'America/Mexico_City';
+export const MSG_VENCIDA = 'Esta solicitud ya venció';
+export const TEXTO_VENCIDA = 'No se autorizó antes de la fecha';
+
+/** La fecha de hoy en México ('AAAA-MM-DD'), con la hora de `ahora` (Date o milisegundos) */
+export function hoyMexico(ahora = new Date()) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: ZONA_MEXICO, year: 'numeric', month: '2-digit', day: '2-digit' })
+    .formatToParts(new Date(ahora)).map(x => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
+/** ¿Venció? Su fecha ya quedó atrás (en México) y su estatus sigue siendo borrador, pendiente_aut1, pendiente_aut2 o devuelta */
+export const esVencida = (t, ahora = new Date()) => !!t?.fechaTE && ESTATUS_QUE_VENCEN.includes(t.estatus) && String(t.fechaTE) < hoyMexico(ahora);
+
+/** ¿Es hoy el último día para autorizarla? (pendiente de autorizar, con fecha de hoy en México) */
+export const venceHoy = (t, ahora = new Date()) => !!t?.fechaTE && ['pendiente_aut1', 'pendiente_aut2'].includes(t.estatus) && String(t.fechaTE) === hoyMexico(ahora);
+
+/** El estatus que se muestra: 'vencida' en lugar de borrador / pendiente / devuelta cuando venció */
+export const estatusVisible = (t, ahora = new Date()) => (esVencida(t, ahora) ? 'vencida' : t?.estatus);
+
+/** Autorizada cuya fecha ya pasó y RH aún no la envía al proveedor (sí se autorizó: sus horas cuentan para nómina) */
+export const esFechaPasadaSinEnviar = (t, ahora = new Date()) => t?.estatus === 'autorizada' && !!t?.fechaTE && String(t.fechaTE) < hoyMexico(ahora);
+
+/** Las que vencen hoy primero, luego las más antiguas (para las bandejas) */
+export const conVenceHoyPrimero = (lista, ahora = new Date()) => [...lista].sort((a, b) => Number(venceHoy(b, ahora)) - Number(venceHoy(a, ahora)) || esperaDesde(a) - esperaDesde(b));
+
 /** Las más antiguas primero (por el tiempo que llevan esperando en su nivel) */
 export const masAntiguasPrimero = (lista) => [...lista].sort((a, b) => esperaDesde(a) - esperaDesde(b));
 
@@ -356,9 +393,9 @@ export function turnosDeTE(t) {
 }
 
 /** Filtros de la bandeja y de la consulta: área, estatus, rango de fecha del TE, turno ('1' | '2' | '3'), motivo (id del catálogo) y texto del solicitante */
-export function filtrarSolicitudes(lista, { areaId = '', estatus = '', desde = '', hasta = '', solicitante = '', turno = '', motivoId = '' } = {}, catalogoMotivos = []) {
+export function filtrarSolicitudes(lista, { areaId = '', estatus = '', desde = '', hasta = '', solicitante = '', turno = '', motivoId = '', ahora = new Date() } = {}, catalogoMotivos = []) {
   const q = String(solicitante).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
-  return lista.filter(t => (!areaId || t.areaId === areaId) && (!estatus || t.estatus === estatus) && (!turno || turnosDeTE(t).includes(turno)) && tieneMotivo(t, motivoId, catalogoMotivos)
+  return lista.filter(t => (!areaId || t.areaId === areaId) && (!estatus || estatusVisible(t, ahora) === estatus) && (!turno || turnosDeTE(t).includes(turno)) && tieneMotivo(t, motivoId, catalogoMotivos)
     && (!desde || String(t.fechaTE ?? '') >= desde) && (!hasta || String(t.fechaTE ?? '') <= hasta)
     && (!q || `${t.creadoPorNombre ?? ''} ${t.creadoPorNomina ?? ''}`.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q)));
 }

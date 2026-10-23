@@ -54,7 +54,7 @@ const empleados = (n, desde = 700) => Array.from({ length: n }, (_, i) => ({
   horaEntrada: turnos[i % 3][0], horaSalida: turnos[i % 3][1], rutaId: 'r1', comunidadId: 'c1', puntoReunionId: 'p1', transporte: i % 4 !== 0, alimentos: i % 2 === 0,
 }));
 const base = (id, extra = {}) => ({
-  id, existe: false, usuario: USUARIOS.solP, area: { id: 'produccion', nombre: 'Producción' }, fechaTE: '2026-12-01', motivo: 'Producción',
+  id, existe: false, usuario: USUARIOS.solP, area: { id: 'produccion', nombre: 'Producción' }, fechaTE: '2099-12-01', motivo: 'Producción',
   comentario: 'Entrega urgente de pedido', sucios: new Set(), eliminados: new Set(), ...extra,
 });
 const guardarNuevo = (m, id, lista, extra = {}) => m.guardarBorrador(base(id, { empleados: lista, sucios: new Set(lista.map(e => e.nomina)), ...extra }));
@@ -106,7 +106,7 @@ describe('enviar a autorización', () => {
     const lista = empleados(12);
     await guardarNuevo(m, 'BR-AAAAAAAAAA', lista);
     await guardarNuevo(m, 'BR-BBBBBBBBBB', lista);
-    const datos = (id) => ({ id, devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Entrega urgente de pedido', empleados: lista });
+    const datos = (id) => ({ id, devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2099-12-01', motivo: 'Producción', comentario: 'Entrega urgente de pedido', empleados: lista });
     expect(await m.enviarSolicitud(datos('BR-AAAAAAAAAA'))).toBe(`TE-${ANIO}-0013`);
     expect(await m.enviarSolicitud(datos('BR-BBBBBBBBBB'))).toBe(`TE-${ANIO}-0014`);
     const t = (await getDoc(doc(db, 'tiempoExtra', 'BR-AAAAAAAAAA'))).data();
@@ -120,7 +120,7 @@ describe('enviar a autorización', () => {
     await env.withSecurityRulesDisabled(async (ctx) => { await ctx.firestore().doc(`contadores/te-${ANIO}`).delete(); });
     const { db, m } = await comoUsuario('solP');
     await guardarNuevo(m, 'BR-AAAAAAAAAA', empleados(2));
-    const folio = await m.enviarSolicitud({ id: 'BR-AAAAAAAAAA', devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2026-12-01', motivo: 'Calidad', comentario: 'Revisión de lotes', empleados: empleados(2) });
+    const folio = await m.enviarSolicitud({ id: 'BR-AAAAAAAAAA', devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2099-12-01', motivo: 'Calidad', comentario: 'Revisión de lotes', empleados: empleados(2) });
     expect(folio).toBe(`TE-${ANIO}-0001`);
     expect((await getDoc(doc(db, 'contadores', `te-${ANIO}`))).data().ultimo).toBe(1);
   });
@@ -128,14 +128,14 @@ describe('enviar a autorización', () => {
     const { db, m } = await comoUsuario('aut1P');
     const lista = empleados(3);
     await m.guardarBorrador({ ...base('BR-CCCCCCCCCC', { usuario: USUARIOS.aut1P }), empleados: lista, sucios: new Set(lista.map(e => e.nomina)) });
-    await m.enviarSolicitud({ id: 'BR-CCCCCCCCCC', devuelta: false, usuario: USUARIOS.aut1P, estatus: 'pendiente_aut2', fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Pedido especial', empleados: lista });
+    await m.enviarSolicitud({ id: 'BR-CCCCCCCCCC', devuelta: false, usuario: USUARIOS.aut1P, estatus: 'pendiente_aut2', fechaTE: '2099-12-01', motivo: 'Producción', comentario: 'Pedido especial', empleados: lista });
     expect((await getDoc(doc(db, 'tiempoExtra', 'BR-CCCCCCCCCC'))).data().estatus).toBe('pendiente_aut2');
   });
   it('quien no es el Aut. 1 no puede saltarse su nivel', async () => {
     const { m } = await comoUsuario('solP');
     const lista = empleados(2);
     await guardarNuevo(m, 'BR-AAAAAAAAAA', lista);
-    await expect(m.enviarSolicitud({ id: 'BR-AAAAAAAAAA', devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut2', fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Entrega urgente', empleados: lista })).rejects.toThrow();
+    await expect(m.enviarSolicitud({ id: 'BR-AAAAAAAAAA', devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut2', fechaTE: '2099-12-01', motivo: 'Producción', comentario: 'Entrega urgente', empleados: lista })).rejects.toThrow();
   });
   it('ya enviada, el Aut. 1 la ve; sus empleados y su borrador previo, no', async () => {
     const { m } = await comoUsuario('solP');
@@ -144,7 +144,7 @@ describe('enviar a autorización', () => {
     const { db: dbAut1 } = await comoUsuario('aut1P');
     await assertFails(getDoc(doc(dbAut1, 'tiempoExtra', 'BR-AAAAAAAAAA')));
     const { m: m2 } = await comoUsuario('solP');
-    await m2.enviarSolicitud({ id: 'BR-AAAAAAAAAA', devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Entrega urgente', empleados: lista });
+    await m2.enviarSolicitud({ id: 'BR-AAAAAAAAAA', devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2099-12-01', motivo: 'Producción', comentario: 'Entrega urgente', empleados: lista });
     expect((await getDoc(doc(dbAut1, 'tiempoExtra', 'BR-AAAAAAAAAA'))).exists()).toBe(true);
   });
 });
@@ -154,16 +154,16 @@ describe('devuelta: corregir y reenviar', () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       const db = ctx.firestore();
       await setDoc(doc(db, 'tiempoExtra', 'TE-2026-0004'), {
-        folio: 'TE-2026-0004', areaId: 'produccion', areaNombre: 'Producción', creadoPor: 'solP', creadoPorNomina: N.solP, creadoPorNombre: 'x', fechaTE: '2026-12-01',
+        folio: 'TE-2026-0004', areaId: 'produccion', areaNombre: 'Producción', creadoPor: 'solP', creadoPorNomina: N.solP, creadoPorNombre: 'x', fechaTE: '2099-12-01',
         motivo: 'Producción', comentario: 'Entrega urgente de pedido', estatus: 'devuelta', resumen: { totalEmpleados: 2 }, fechaCreacion: Timestamp.now(), fechaActualizacion: Timestamp.now(),
         aut1: { nomina: N.aut1P, nombre: 'x', fecha: Timestamp.now(), comentario: '' }, devolucion: { nivel: 2, nomina: N.aut2, nombre: 'Salvador', motivo: 'Faltan horas', fecha: Timestamp.now() },
       });
     });
     const { db, m } = await comoUsuario('solP');
-    const folio = await m.enviarSolicitud({ id: 'TE-2026-0004', devuelta: true, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2026-12-02', motivo: 'Calidad', comentario: 'Corregido el horario', empleados: empleados(2) });
+    const folio = await m.enviarSolicitud({ id: 'TE-2026-0004', devuelta: true, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2099-12-02', motivo: 'Calidad', comentario: 'Corregido el horario', empleados: empleados(2) });
     expect(folio).toBe('TE-2026-0004');
     const t = (await getDoc(doc(db, 'tiempoExtra', 'TE-2026-0004'))).data();
-    expect(t).toMatchObject({ estatus: 'pendiente_aut1', fechaTE: '2026-12-02', motivo: 'Calidad' });
+    expect(t).toMatchObject({ estatus: 'pendiente_aut1', fechaTE: '2099-12-02', motivo: 'Calidad' });
     expect(t.aut1).toBeUndefined();
     expect((await m.leerHistorialTE('TE-2026-0004')).map(x => x.accion)).toEqual(['reenviada']);
     expect((await getDoc(doc(db, 'contadores', `te-${ANIO}`))).data().ultimo).toBe(12);
@@ -174,7 +174,7 @@ describe('cancelar y eliminar', () => {
   const enviada = async (m, id = 'BR-AAAAAAAAAA') => {
     const lista = empleados(2);
     await guardarNuevo(m, id, lista);
-    await m.enviarSolicitud({ id, devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Entrega urgente', empleados: lista });
+    await m.enviarSolicitud({ id, devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2099-12-01', motivo: 'Producción', comentario: 'Entrega urgente', empleados: lista });
   };
   it('cancela una pendiente con motivo (queda en la solicitud y en el historial); sin motivo no', async () => {
     const { db, m } = await comoUsuario('solP');
@@ -214,20 +214,20 @@ describe('ruta en el padrón y avisos de la misma fecha', () => {
   it('avisa de quien ya tiene otro tiempo extra no cancelado ese día (lo propio); ignora canceladas y la misma solicitud', async () => {
     const { m } = await comoUsuario('solP');
     const lista = empleados(3);
-    await guardarNuevo(m, 'BR-AAAAAAAAAA', lista, { fechaTE: '2026-12-01' });
-    await guardarNuevo(m, 'BR-BBBBBBBBBB', lista.slice(0, 1), { fechaTE: '2026-12-02' });
-    const ocupados = await m.leerOcupados({ uid: 'solP', areaId: 'produccion', fechaTE: '2026-12-01', esAut1DeLaArea: false, excluirId: 'BR-BBBBBBBBBB' });
+    await guardarNuevo(m, 'BR-AAAAAAAAAA', lista, { fechaTE: '2099-12-01' });
+    await guardarNuevo(m, 'BR-BBBBBBBBBB', lista.slice(0, 1), { fechaTE: '2099-12-02' });
+    const ocupados = await m.leerOcupados({ uid: 'solP', areaId: 'produccion', fechaTE: '2099-12-01', esAut1DeLaArea: false, excluirId: 'BR-BBBBBBBBBB' });
     expect([...ocupados.keys()].sort()).toEqual(['700', '701', '702']);
-    expect((await m.leerOcupados({ uid: 'solP', areaId: 'produccion', fechaTE: '2026-12-01', esAut1DeLaArea: false, excluirId: 'BR-AAAAAAAAAA' })).size).toBe(0);
-    expect((await m.leerOcupados({ uid: 'solP', areaId: 'produccion', fechaTE: '2026-12-09', esAut1DeLaArea: false })).size).toBe(0);
+    expect((await m.leerOcupados({ uid: 'solP', areaId: 'produccion', fechaTE: '2099-12-01', esAut1DeLaArea: false, excluirId: 'BR-AAAAAAAAAA' })).size).toBe(0);
+    expect((await m.leerOcupados({ uid: 'solP', areaId: 'produccion', fechaTE: '2099-12-09', esAut1DeLaArea: false })).size).toBe(0);
   });
   it('el Aut. 1 del área también ve lo que capturaron otros del área', async () => {
     const { m } = await comoUsuario('solP');
     const lista = empleados(2);
     await guardarNuevo(m, 'BR-AAAAAAAAAA', lista);
-    await m.enviarSolicitud({ id: 'BR-AAAAAAAAAA', devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Entrega urgente', empleados: lista });
+    await m.enviarSolicitud({ id: 'BR-AAAAAAAAAA', devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2099-12-01', motivo: 'Producción', comentario: 'Entrega urgente', empleados: lista });
     const { m: m2 } = await comoUsuario('aut1P');
-    const ocupados = await m2.leerOcupados({ uid: 'aut1P', areaId: 'produccion', fechaTE: '2026-12-01', esAut1DeLaArea: true });
+    const ocupados = await m2.leerOcupados({ uid: 'aut1P', areaId: 'produccion', fechaTE: '2099-12-01', esAut1DeLaArea: true });
     expect([...ocupados.keys()].sort()).toEqual(['700', '701']);
     expect(ocupados.get('700')).toMatchObject({ folio: `TE-${ANIO}-0013`, estatus: 'pendiente_aut1' });
   });
@@ -240,7 +240,7 @@ describe('autorizar y devolver (cada acción en su transacción)', () => {
     const { m } = await comoUsuario('solP');
     const lista = empleados(3);
     await guardarNuevo(m, id, lista);
-    await m.enviarSolicitud({ id, devuelta: false, usuario: USUARIOS.solP, estatus, fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Entrega urgente', empleados: lista });
+    await m.enviarSolicitud({ id, devuelta: false, usuario: USUARIOS.solP, estatus, fechaTE: '2099-12-01', motivo: 'Producción', comentario: 'Entrega urgente', empleados: lista });
     return m;
   };
 
@@ -294,7 +294,7 @@ describe('autorizar y devolver (cada acción en su transacción)', () => {
     expect(t.devolucion).toMatchObject({ nivel: 1, nomina: N.aut1P, motivo: 'Faltan los horarios del turno B' });
     const folio = t.folio;
     const oscar = await comoUsuario('solP');
-    await oscar.m.enviarSolicitud({ id: 'BR-AAAAAAAAAA', devuelta: true, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Corregí los horarios', empleados: empleados(3) });
+    await oscar.m.enviarSolicitud({ id: 'BR-AAAAAAAAAA', devuelta: true, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2099-12-01', motivo: 'Producción', comentario: 'Corregí los horarios', empleados: empleados(3) });
     t = (await getDoc(doc(oscar.db, 'tiempoExtra', 'BR-AAAAAAAAAA'))).data();
     expect(t).toMatchObject({ estatus: 'pendiente_aut1', folio });
     const a1b = await comoUsuario('aut1P');
@@ -317,7 +317,7 @@ describe('autorizar y devolver (cada acción en su transacción)', () => {
     const a1 = await comoUsuario('aut1P');
     const lista = empleados(2);
     await a1.m.guardarBorrador({ ...base('BR-DDDDDDDDDD', { usuario: USUARIOS.aut1P }), empleados: lista, sucios: new Set(lista.map(e => e.nomina)) });
-    await a1.m.enviarSolicitud({ id: 'BR-DDDDDDDDDD', devuelta: false, usuario: USUARIOS.aut1P, estatus: 'pendiente_aut2', fechaTE: '2026-12-01', motivo: 'Calidad', comentario: 'Revisión especial', empleados: lista });
+    await a1.m.enviarSolicitud({ id: 'BR-DDDDDDDDDD', devuelta: false, usuario: USUARIOS.aut1P, estatus: 'pendiente_aut2', fechaTE: '2099-12-01', motivo: 'Calidad', comentario: 'Revisión especial', empleados: lista });
     await expect(a1.m.autorizarSolicitud({ id: 'BR-DDDDDDDDDD', usuario: USUARIOS.aut1P, nivel: 1 })).rejects.toThrow();
     const a2 = await comoUsuario('aut2');
     await a2.m.autorizarSolicitud({ id: 'BR-DDDDDDDDDD', usuario: USUARIOS.aut2, nivel: 2, comoRH: false });
@@ -339,7 +339,7 @@ describe('Aut. 2 captura y envía lo suyo: queda autorizada con su firma de nive
     await m.guardarBorrador({ ...ADM(id, { usuario }), empleados: lista, sucios: new Set(lista.map(e => e.nomina)) });
     return lista;
   };
-  const enviar = (m, id, lista, usuario, estatus) => m.enviarSolicitud({ id, devuelta: false, usuario, estatus, fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Entrega urgente de pedido', empleados: lista });
+  const enviar = (m, id, lista, usuario, estatus) => m.enviarSolicitud({ id, devuelta: false, usuario, estatus, fechaTE: '2099-12-01', motivo: 'Producción', comentario: 'Entrega urgente de pedido', empleados: lista });
   beforeEach(sembrarAdm);
 
   it('en Administrativo: queda autorizada al enviarla, con aut2 (nombre, fecha y comentario), su folio y una sola entrada clara en el historial', async () => {
@@ -414,14 +414,14 @@ describe('Aut. 2 captura y envía lo suyo: queda autorizada con su firma de nive
       const d = ctx.firestore();
       await setDoc(doc(d, 'tiempoExtra', 'TE-2026-0900'), {
         areaId: 'administrativo', areaNombre: 'Administrativo', creadoPor: 'aut2', creadoPorNomina: N.aut2, creadoPorNombre: USUARIOS.aut2.nombre,
-        fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Entrega urgente de pedido', estatus: 'devuelta', folio: 'TE-2026-0900',
+        fechaTE: '2099-12-01', motivo: 'Producción', comentario: 'Entrega urgente de pedido', estatus: 'devuelta', folio: 'TE-2026-0900',
         aut1: { nomina: '1', nombre: 'X', fecha: Timestamp.now() }, resumen: {}, fechaCreacion: Timestamp.now(), fechaActualizacion: Timestamp.now(),
         devolucion: { nivel: 3, nomina: '90001', nombre: 'RH', motivo: 'Corrige los horarios', fecha: Timestamp.now() },
       });
       for (const e of lista) await setDoc(doc(d, 'tiempoExtra', 'TE-2026-0900', 'empleados', e.nomina), { nombre: e.nombre, puesto: 'ANALISTA', turnoNomina: 'A', horaEntrada: e.horaEntrada, horaSalida: e.horaSalida, horas: 9, requiereAlimentos: false, requiereTransporte: false });
     });
     const { db, m } = await comoUsuario('aut2');
-    const folio = await m.enviarSolicitud({ id: 'TE-2026-0900', devuelta: true, usuario: USUARIOS.aut2, estatus: 'autorizada', fechaTE: '2026-12-01', motivo: 'Producción', comentario: 'Corregí los horarios', empleados: lista });
+    const folio = await m.enviarSolicitud({ id: 'TE-2026-0900', devuelta: true, usuario: USUARIOS.aut2, estatus: 'autorizada', fechaTE: '2099-12-01', motivo: 'Producción', comentario: 'Corregí los horarios', empleados: lista });
     expect(folio).toBe('TE-2026-0900');
     const t = (await getDoc(doc(db, 'tiempoExtra', 'TE-2026-0900'))).data();
     expect(t.estatus).toBe('autorizada');
@@ -434,7 +434,7 @@ describe('Aut. 2 captura y envía lo suyo: queda autorizada con su firma de nive
 describe('motivo "Otro" (¿Cuál?) de las solicitudes anteriores en las reglas', () => {
   const lista = empleados(2);
   const otro = (texto) => ({ motivo: 'Otro', extras: { motivoOtro: texto } });
-  const datosEnvio = (id, extra = {}) => ({ id, devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2026-12-01', motivo: 'Otro', comentario: 'Entrega urgente de pedido', empleados: lista, ...extra });
+  const datosEnvio = (id, extra = {}) => ({ id, devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2099-12-01', motivo: 'Otro', comentario: 'Entrega urgente de pedido', empleados: lista, ...extra });
 
   it('un borrador con Otro y su ¿Cuál? se guarda y se envía; queda motivoOtro en la solicitud', async () => {
     const { db, m } = await comoUsuario('solP');
@@ -468,7 +468,7 @@ describe('motivos del catálogo en las reglas (varios por solicitud, P.O./TB y m
   const mot = (motivoId, extra = {}) => ({ ...motivoVacio(motivoId), ...extra });
   const dos = [mot('inventario-fisico', { detalle: 'apoyo a inventario' }), mot('cargo-po', { numero: '4551099797' })];
   const extrasDe = (motivos, empleadosLista = lista) => datosTE({ tipo: 'turno_extra', empleados: empleadosLista, motivos, catalogoMotivos: MOTIVOS_INICIALES });
-  const envio = (id, extra = {}) => ({ id, devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2026-12-01', comentario: 'Entrega urgente de pedido', empleados: lista, extras: extrasDe(dos), ...extra });
+  const envio = (id, extra = {}) => ({ id, devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2099-12-01', comentario: 'Entrega urgente de pedido', empleados: lista, extras: extrasDe(dos), ...extra });
   const guardarCon = (m, id, extras, l = lista, extra = {}) => m.guardarBorrador(base(id, { motivo: undefined, empleados: l, sucios: new Set(l.map(e => e.nomina)), extras, ...extra }));
 
   it('guarda el borrador con sus motivos (nombre copiado) y el motivoIndex de cada empleado; se envía y la bitácora lleva los motivos', async () => {

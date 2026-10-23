@@ -5,6 +5,8 @@
  *   enviarSolicitud   borrador → pendiente (asigna el FOLIO con el contador, en una transacción) o devuelta → pendiente (conserva su folio)
  *   cancelarSolicitud pendiente/devuelta → cancelada, con motivo
  *   eliminarBorrador  borra sus empleados en lotes y luego la solicitud
+ *   duplicarComoBorrador  copia una solicitud (empleados, motivos y transporte) en un borrador nuevo con otra fecha
+ *   cerrarSinTransporte   autorizada con fecha pasada que no se envió → procesada, sin solicitud de transporte
  */
 import {
   collection, deleteField, doc, getDoc, getDocs, query, runTransaction, serverTimestamp, where, writeBatch,
@@ -12,7 +14,7 @@ import {
 import { db } from '../firebase';
 import {
   ESTATUS_TE_VISIBLES, LOTE_EMPLEADOS, MIN_MOTIVO_CANCELACION_RH, MIN_MOTIVO_DEVOLUCION, MSG_YA_RESPONDIDA, NIVEL_RECEPCION,
-  COMENTARIO_AUT2_PROPIA, conteoFechas, datosSolicitudTransporte, docAEmpleado, empleadoADoc, folioDe, pasajerosDeTE, resumenTE, trozos,
+  COMENTARIO_AUT2_PROPIA, MSG_VENCIDA, conteoFechas, datosSolicitudTransporte, esVencida, hoyMexico, nuevoIdBorrador, docAEmpleado, empleadoADoc, folioDe, pasajerosDeTE, resumenTE, trozos,
 } from './tiempoExtra';
 import { normalizarEstatus } from './constantes';
 import { comparar } from './orden.js';
@@ -170,6 +172,26 @@ export async function eliminarBorrador(id) {
   await b.commit();
 }
 
+/**
+ * «Duplicar con otra fecha»: copia una solicitud (vencida, o cualquiera propia) en un BORRADOR nuevo con `fechaTE`: mismos empleados con su horario y transporte,
+ * motivos, tipo, comentario y justificación de rutas. No copia firmas, folio ni historial. `origen` viene de leerSolicitudTE (con sus empleados).
+ * @returns {Promise<string>} el id del borrador nuevo
+ */
+export async function duplicarComoBorrador({ origen, usuario, fechaTE }) {
+  if (!fechaTE || fechaTE < hoyMexico()) throw new Error('Elige una fecha de hoy en adelante.');
+  if (!origen.empleados?.length) throw new Error('La solicitud no tiene empleados que copiar.');
+  const id = nuevoIdBorrador();
+  const extras = {
+    motivo: origen.motivo ?? '', ...(Array.isArray(origen.motivos) ? { motivos: origen.motivos } : {}), ...(origen.motivoOtro ? { motivoOtro: origen.motivoOtro } : {}),
+    tipo: origen.tipo ?? 'turno_extra', rutasDistintas: origen.rutasDistintas ?? 0, desgloseRutas: origen.desgloseRutas ?? [], justificacionRutas: origen.justificacionRutas ?? '',
+  };
+  await guardarBorrador({
+    id, existe: false, usuario, area: { id: origen.areaId, nombre: origen.areaNombre ?? '' }, fechaTE, motivo: origen.motivo, comentario: origen.comentario ?? '',
+    empleados: origen.empleados, sucios: new Set(origen.empleados.map(e => e.nomina)), eliminados: new Set(), extras,
+  });
+  return id;
+}
+
 /** Ruta, comunidad y punto confirmados → padrón (solo empleados de su área; lo exigen las reglas) */
 export async function guardarRutasEnPadron(cambios) {
   for (const lote of trozos(Object.entries(cambios), 50)) {
@@ -224,6 +246,7 @@ export async function autorizarSolicitud({ id, usuario, nivel, comoRH = false, c
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists() || snap.data().estatus !== ESTATUS_DEL_NIVEL[nivel]) throw new YaRespondida();
+    if (esVencida(snap.data())) throw new Error(MSG_VENCIDA);
     if (snap.data().creadoPor === usuario.uid) throw new Error('No puedes autorizar tu propia solicitud.');
     const texto = String(comentario).trim();
     const firma = { nomina: String(usuario.nomina), nombre: usuario.nombre ?? '', fecha: serverTimestamp(), comentario: texto, comoRH: nivel === 2 ? !!comoRH : false };
@@ -242,6 +265,7 @@ export async function devolverSolicitud({ id, usuario, nivel, motivo }) {
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists() || snap.data().estatus !== ESTATUS_DEL_NIVEL[nivel]) throw new YaRespondida();
+    if (esVencida(snap.data())) throw new Error(MSG_VENCIDA);
     if (nivel !== NIVEL_RECEPCION && snap.data().creadoPor === usuario.uid) throw new Error('No puedes devolver tu propia solicitud.');
     tx.update(ref, {
       estatus: 'devuelta', fechaActualizacion: serverTimestamp(),
@@ -325,6 +349,25 @@ export async function recibirSolicitud({ id, usuario }) {
     tx.set(doc(collection(db, 'bitacora')), renglonBitacora(usuario, 'recibir', { estatus: 'autorizada', folio: te.folio ?? '' },
       { estatus: 'procesada', folio: te.folio ?? '', solicitudTransporteId: solRef?.id ?? null, pasajeros: pasajeros.length }));
     return { solicitudTransporteId: solRef?.id ?? null, pasajeros: pasajeros.length, fechas: Object.keys(conteoFechas(pasajeros, te.fechaTE)) };
+  });
+}
+
+/**
+ * «Cerrar sin transporte»: una autorizada cuya fecha ya pasó y que nunca se envió al proveedor pasa a procesada SIN generar la solicitud de transporte
+ * (ya no tiene caso pedir viajes de un día que pasó). Sigue siendo una solicitud autorizada: sus horas cuentan para nómina. Queda en el historial y en la
+ * bitácora (`cerrar_sin_transporte`). Una transacción: relee el estatus (aborta si ya no está autorizada) y comprueba que la fecha pasó.
+ */
+export async function cerrarSinTransporte({ id, usuario }) {
+  const ref = refTE(id);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists() || snap.data().estatus !== 'autorizada') throw new YaRespondida();
+    const te = snap.data();
+    if (!(String(te.fechaTE ?? '') < hoyMexico())) throw new Error('Solo se puede cerrar sin transporte cuando la fecha del tiempo extra ya pasó.');
+    tx.update(ref, { estatus: 'procesada', recibidaPor: firmaRH(usuario), fechaRecepcion: serverTimestamp(), cerradaSinTransporte: true, fechaActualizacion: serverTimestamp() });
+    tx.set(doc(collection(db, 'tiempoExtra', id, 'historial')), { ...entradaHistorial(usuario, 'recibida_rh', 'Cerrada sin transporte: la fecha ya pasó y no se envió al proveedor.'), nivel: 0 });
+    tx.set(doc(collection(db, 'bitacora')), renglonBitacora(usuario, 'cerrar_sin_transporte', { estatus: 'autorizada', folio: te.folio ?? '' },
+      { estatus: 'procesada', folio: te.folio ?? '', fechaTE: te.fechaTE ?? '', pasajeros: te.resumen?.totalTransporte ?? 0 }));
   });
 }
 

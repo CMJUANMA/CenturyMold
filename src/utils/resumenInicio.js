@@ -1,9 +1,10 @@
 /**
  * resumenInicio.js — Números y listas del Inicio por rol, a partir de las solicitudes de tiempo extra que el usuario puede ver.
  * Sin dependencias del navegador. Con listas vacías todo da 0 / [] (aún no hay solicitudes de tiempo extra).
+ * Los contadores NO cuentan las vencidas (borrador, pendiente o devuelta con la fecha ya pasada: esVencida); se cuentan aparte.
  */
 import { aFecha } from './asignaciones.js';
-import { esperaDesde } from './tiempoExtra.js';
+import { esVencida, esperaDesde } from './tiempoExtra.js';
 
 const EN_AUTORIZACION = ['pendiente_aut1', 'pendiente_aut2'];
 const AUTORIZADAS = ['autorizada', 'procesada'];
@@ -20,14 +21,16 @@ export function inicioDeSemana(ahora) {
   return d;
 }
 
-/** { borrador, enAutorizacion, devueltas, autorizadasMes } de las solicitudes propias */
+/** { borrador, enAutorizacion, devueltas, vencidas, autorizadasMes } de las solicitudes propias (las vencidas solo en `vencidas`) */
 export function contarMisSolicitudes(propias, ahora = new Date()) {
   const mes = inicioDeMes(ahora).getTime();
   const n = (f) => propias.filter(f).length;
+  const vive = (s) => !esVencida(s, ahora);
   return {
-    borrador: n(s => s.estatus === 'borrador'),
-    enAutorizacion: n(s => EN_AUTORIZACION.includes(s.estatus)),
-    devueltas: n(s => s.estatus === 'devuelta'),
+    borrador: n(s => s.estatus === 'borrador' && vive(s)),
+    enAutorizacion: n(s => EN_AUTORIZACION.includes(s.estatus) && vive(s)),
+    devueltas: n(s => s.estatus === 'devuelta' && vive(s)),
+    vencidas: n(s => esVencida(s, ahora)),
     autorizadasMes: n(s => AUTORIZADAS.includes(s.estatus) && (aFecha(s.aut2?.fecha ?? s.fechaActualizacion)?.getTime() ?? 0) >= mes),
   };
 }
@@ -61,7 +64,7 @@ export function semanaPorArea(planta, areas, ahora = new Date()) {
   const desde = inicioDeSemana(ahora).getTime();
   const cuenta = new Map(areas.map(a => [a.id, 0]));
   for (const s of planta) {
-    if (s.estatus === 'borrador' || cuando(s) < desde) continue;
+    if (s.estatus === 'borrador' || esVencida(s, ahora) || cuando(s) < desde) continue;
     cuenta.set(s.areaId, (cuenta.get(s.areaId) ?? 0) + 1);
   }
   const nombres = new Map(areas.map(a => [a.id, a.nombre]));
@@ -91,7 +94,7 @@ export function indicadoresRH(planta, ahora = new Date()) {
   const mes = iso(inicioDeMes(ahora));
   const finMes = iso(new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0));
   const en7 = sumarDiasIso(hoy, 7);
-  const de = (estatus) => planta.filter(s => s.estatus === estatus);
+  const de = (estatus) => planta.filter(s => s.estatus === estatus && !esVencida(s, ahora));
   const fecha = (s) => String(s.fechaTE ?? '');
   const autorizadas = planta.filter(s => AUTORIZADAS.includes(s.estatus));
   const suma = (lista, campo) => lista.reduce((a, s) => a + (s.resumen?.[campo] ?? 0), 0);
@@ -115,6 +118,7 @@ export function indicadoresRH(planta, ahora = new Date()) {
       masAntiguaNivel1: antigua(pend1),
       masAntiguaNivel2: antigua(pend2),
       devueltas: de('devuelta').length,
+      sinAutorizar: planta.filter(s => esVencida(s, ahora)).length, // vencieron sin autorizarse (no entran en los demás números)
     },
     semana: {
       horasSemana: redondear(suma(delaSemana, 'totalHoras')),

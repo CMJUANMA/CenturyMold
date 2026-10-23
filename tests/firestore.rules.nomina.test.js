@@ -20,7 +20,7 @@ const idAsig = (nomina, rol, areaId) => `${nomina}_${rol}_${rol === 'aut2' ? 'pl
 const firmaSemilla = (nomina) => ({ nomina, nombre: `Usuario ${nomina}`, fecha: ahora(), comentario: '' });
 const teSemilla = (id, estatus, extra = {}) => ({
   folio: `TE-2026-${id}`, areaId: 'produccion', areaNombre: 'Producción', creadoPor: 'solP', creadoPorNomina: N.solP, creadoPorNombre: 'solP',
-  fechaTE: '2026-11-02', motivo: 'Producción', estatus,
+  fechaTE: '2099-11-02', motivo: 'Producción', estatus,
   resumen: { totalEmpleados: 2, totalHoras: 17, totalTransporte: 1, totalAlimentos: 1 },
   aut1: firmaSemilla(N.aut1P), aut2: firmaSemilla(N.aut2), fechaCreacion: ahora(), fechaActualizacion: ahora(), ...extra,
 });
@@ -51,11 +51,11 @@ async function sembrar() {
     await setDoc(doc(db, 'tiempoExtra', 'te1', 'historial', 'h1'), { accion: 'enviada', nivel: 0, porUid: 'solP', porNomina: N.solP, porNombre: 'solP', comentario: '', fecha: ahora() });
     await setDoc(doc(db, 'tiempoExtra', 'te6', 'empleados', '600'), { nombre: 'Operador 600', puesto: 'OPERADOR', horas: 9 });
     await setDoc(doc(db, 'solicitudes', 'sol3'), {
-      fechaSolicitud: ahora(), fechaServicio: '2026-11-02', solicitanteNombre: 'solP', solicitanteNomina: N.solP, creadoPor: 'rh', areaId: 'produccion', estatus: 'aprobada',
+      fechaSolicitud: ahora(), fechaServicio: '2099-11-02', solicitanteNombre: 'solP', solicitanteNomina: N.solP, creadoPor: 'rh', areaId: 'produccion', estatus: 'aprobada',
       origen: 'tiempo_extra', tiempoExtraId: 'te3', folioTE: 'TE-2026-0003', totalPasajeros: 1, historial: [],
     });
     await setDoc(doc(db, 'solicitudes', 'sol3', 'pasajeros', '600'), { nomina: '600', nombre: 'Operador 600', creadoPor: 'rh' });
-    await setDoc(doc(db, 'solicitudes', 'normal1'), { fechaSolicitud: ahora(), fechaServicio: '2026-11-02', solicitanteNombre: 'ajeno', creadoPor: 'ajeno', estatus: 'pendiente', historial: [] });
+    await setDoc(doc(db, 'solicitudes', 'normal1'), { fechaSolicitud: ahora(), fechaServicio: '2099-11-02', solicitanteNombre: 'ajeno', creadoPor: 'ajeno', estatus: 'pendiente', historial: [] });
     await setDoc(doc(db, 'bitacora', 'b1'), { accion: 'asignar', entidad: 'asignacion', antes: null, despues: { id: 'x' }, porUid: 'admin', porNombre: 'admin', fecha: ahora() });
   });
 }
@@ -69,7 +69,7 @@ function recibir(uid, teId, { conTransporte = true, solId = 'solNueva', editarSo
   const folio = `TE-2026-000${teId.slice(2)}`;
   if (conTransporte) {
     b.set(doc(db, 'solicitudes', solId), {
-      fechaSolicitud: ts(), fechaServicio: '2026-11-02', solicitanteNombre: 'solP', solicitanteNomina: N.solP, creadoPor: uid, creadoPorNombre: uid,
+      fechaSolicitud: ts(), fechaServicio: '2099-11-02', solicitanteNombre: 'solP', solicitanteNomina: N.solP, creadoPor: uid, creadoPorNombre: uid,
       areaId: 'produccion', estatus: 'aprobada', origen: 'tiempo_extra', tiempoExtraId: teId, folioTE: folio,
       totalPasajeros: 1, totalAlimentos: 1, conteoTurnos: { 1: 1 }, conteoPuestos: { OPERADOR: 1 },
       revisadoPor: uid, revisadoPorNombre: uid, fechaRevision: ts(), historial: [{ fecha: new Date().toISOString(), usuario: uid, accion: 'creada', comentario: '' }],
@@ -162,7 +162,7 @@ describe('Nóminas NO puede escribir nada más en el tiempo extra', () => {
   it('no crea tiempo extra (sin asignación de solicitante)', async () => {
     const db = dbDe('nom');
     await assertFails(setDoc(doc(db, 'tiempoExtra', 'BR-abcdefghij1'), {
-      areaId: 'produccion', areaNombre: 'Producción', creadoPor: 'nom', creadoPorNomina: N.nom, creadoPorNombre: 'nom', fechaTE: '2026-11-05', motivo: 'Producción',
+      areaId: 'produccion', areaNombre: 'Producción', creadoPor: 'nom', creadoPorNomina: N.nom, creadoPorNombre: 'nom', fechaTE: '2099-11-05', motivo: 'Producción',
       estatus: 'borrador', resumen: { totalEmpleados: 0, totalHoras: 0, totalTransporte: 0, totalAlimentos: 0 }, tipo: 'turno_extra', fechaCreacion: ts(), fechaActualizacion: ts(),
     }));
   });
@@ -291,7 +291,7 @@ describe('Nóminas con una asignación conserva esos permisos (y solo esos)', ()
   it('como solicitante de su área puede crear un borrador, pero eso no le da autorizar', async () => {
     const db = dbDe('nomSol');
     await assertSucceeds(setDoc(doc(db, 'tiempoExtra', 'BR-abcdefghij2'), {
-      areaId: 'produccion', areaNombre: 'Producción', creadoPor: 'nomSol', creadoPorNomina: N.nomSol, creadoPorNombre: 'nomSol', fechaTE: '2026-11-05', motivo: 'Producción',
+      areaId: 'produccion', areaNombre: 'Producción', creadoPor: 'nomSol', creadoPorNomina: N.nomSol, creadoPorNombre: 'nomSol', fechaTE: '2099-11-05', motivo: 'Producción',
       estatus: 'borrador', resumen: { totalEmpleados: 0, totalHoras: 0, totalTransporte: 0, totalAlimentos: 0 }, tipo: 'turno_extra', fechaCreacion: ts(), fechaActualizacion: ts(),
     }));
     await assertFails(updateDoc(doc(db, 'tiempoExtra', 'te4'), { estatus: 'autorizada', aut2: { nomina: N.nomSol, nombre: 'nomSol', fecha: ts(), comentario: '', comoRH: true }, fechaActualizacion: ts() }));

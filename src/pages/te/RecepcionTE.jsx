@@ -3,11 +3,14 @@
  * en tiempo real y agrupado por fecha del tiempo extra (la más próxima primero). "Confirmar y generar transporte" crea UNA solicitud de transporte
  * por tiempo extra con los empleados que pidieron transporte (cada pasajero con su horario); "Confirmar todas las de esta fecha" lo hace por
  * fecha, cada una en su transacción. Si nadie lleva transporte, el botón dice "Confirmar (sin transporte)".
+ * Las autorizadas cuya fecha YA PASÓ y no se enviaron salen aparte, en «Fecha pasada – transporte no enviado»: ya no tiene caso pedir ese transporte, así que
+ * se «Cierran sin transporte» (pasan a procesada sin solicitud de transporte, con registro en la bitácora; sus horas siguen contando para nómina).
  * Aquí no se editan empleados: si algo está mal, RH devuelve con motivo (Nóminas solo confirma: no devuelve ni cancela). También baja el resumen de horas extra (mismo panel que Consulta).
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, ChevronRight, Clock } from 'lucide-react';
+import { CalendarX2, CheckCircle2, ChevronRight, XCircle } from 'lucide-react';
 import { useAccesos } from '../../hooks/useAccesos';
+import { useAhora } from '../../hooks/useAhora';
 import { useAuth } from '../../hooks/useAuth';
 import { useAreas } from '../../hooks/useAreas';
 import { useCatalogos } from '../../hooks/useCatalogos';
@@ -28,9 +31,8 @@ import Insignia from '../../components/ui/Insignia';
 import { Fila, Tabla, Td, Th } from '../../components/ui/Tabla';
 import { formatoFecha } from '../../utils/asignaciones';
 import { crearFormateadorNombres } from '../../utils/nombresPersona';
-import { NOMBRE_POR_ENVIAR, firmaTexto, mensajeConfirmada } from '../../utils/tiempoExtra';
-import { ymd } from '../../utils/fechas';
-import { leerHistorialTE, leerSolicitudTE, recibirVarias } from '../../utils/tiempoExtraDb';
+import { NOMBRE_POR_ENVIAR, firmaTexto, hoyMexico, mensajeConfirmada } from '../../utils/tiempoExtra';
+import { cerrarSinTransporte, leerHistorialTE, leerSolicitudTE, recibirVarias } from '../../utils/tiempoExtraDb';
 import AccionesRH from './AccionesRH';
 import { BotonDescargaResumenTE } from './DescargaTE';
 import BotonFormatoRutas from '../../components/FormatoRutas';
@@ -66,12 +68,14 @@ export default function RecepcionTE() {
   const { rutas, comunidades, puntos } = useCatalogos({ empleados: false });
   const confirmar = useConfirmar();
   const toast = useToast();
-  const [hoy] = useState(() => ymd());
+  const ahora = useAhora();
+  const hoy = hoyMexico(ahora);
   const [detalle, setDetalle] = useState(null); // { id, solicitud, historial, cargando }
   const [trabajando, setTrabajando] = useState(null); // fecha, 'detalle' o null
   const [resultado, setResultado] = useState(null); // { ok: [{ folio, fecha, pasajeros }], fallidas }
   const vistas = useRef(new Set());
   const ocupadoRef = useRef(false);
+  const [cerrando, setCerrando] = useState(false);
   const formato = useMemo(() => crearFormateadorNombres([]), []);
   const nombreArea = (id) => nombres.get(id) ?? id;
   const catalogos = useMemo(() => ({ rutas, comunidades, puntos }), [rutas, comunidades, puntos]);
@@ -117,7 +121,27 @@ export default function RecepcionTE() {
     setTrabajando(null); setTimeout(() => { ocupadoRef.current = false; }, 1500);
   };
 
+  // «Cerrar sin transporte»: una o varias autorizadas con la fecha ya pasada, cada una en su transacción
+  const cerrarSin = async (items) => {
+    const ok = await confirmar({
+      titulo: `Cerrar ${items.length} ${items.length === 1 ? 'solicitud' : 'solicitudes'} sin transporte`,
+      mensaje: `${suma(items, 'totalEmpleados')} empleados · ${suma(items, 'totalHoras')} horas. Su fecha ya pasó y no se envió al proveedor: pasan a «Confirmada por RH» SIN generar solicitud de transporte. Sus horas siguen contando para nómina, porque sí se autorizaron. Queda en la bitácora.`,
+      textoConfirmar: 'Cerrar sin transporte',
+    });
+    if (!ok) return;
+    setCerrando(true); ocupadoRef.current = true;
+    const hechas = [], fallidas = [];
+    for (const t of items) {
+      try { await cerrarSinTransporte({ id: t.id, usuario }); hechas.push(t.folio); } catch (err) { fallidas.push(`${t.folio}: ${err.message}`); }
+    }
+    if (hechas.length) toast.success(`Cerrada${hechas.length === 1 ? '' : 's'} sin transporte: ${hechas.join(', ')}.`);
+    if (fallidas.length) toast.error(`No se pudo cerrar: ${fallidas.join(' · ')}`, 9000);
+    setDetalle(null); setCerrando(false); setTimeout(() => { ocupadoRef.current = false; }, 1500);
+  };
+
   if (cargando) return <div className="space-y-8"><EsqueletoPagina bloques={0} /><EsqueletoTabla filas={3} columnas={7} /></div>;
+  const vigentes = porFecha.filter(g => g.fecha >= hoy);
+  const pasadas = porFecha.filter(g => g.fecha < hoy).flatMap(g => g.items); // las de la fecha más reciente primero
   const totalPendientes = lista.length;
   return (
     <div className="space-y-8">
@@ -145,19 +169,44 @@ export default function RecepcionTE() {
 
       {error && <Aviso tono="error" titulo="No se pudo leer la lista">{error.message}. Revisa tu conexión y vuelve a abrir esta pantalla.</Aviso>}
 
-      {porFecha.length === 0 && !error && (
+      {vigentes.length === 0 && pasadas.length === 0 && !error && (
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
           <EstadoVacio titulo="Nada por confirmar" texto="Cuando una solicitud tenga sus dos autorizaciones, aparecerá aquí." accion={{ texto: 'Ver todas las solicitudes', to: RUTAS.teConsulta }} />
         </div>
       )}
 
-      {porFecha.length > 0 && <Ayuda clave="recepcion.fecha" className="-mt-4" />}
-      {porFecha.map(({ fecha, items }, indice) => (
+      {pasadas.length > 0 && (
+        <section aria-label="Fecha pasada – transporte no enviado" data-tour="recepcion-pasadas" className="space-y-4 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="flex flex-wrap items-center gap-3 text-lg font-semibold text-[var(--text-main)]"><CalendarX2 className="h-5 w-5" aria-hidden="true" />Fecha pasada – transporte no enviado<Insignia sinIcono>{pasadas.length}</Insignia></h2>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">Ya se autorizaron, pero su fecha pasó sin enviarse al proveedor. Ya no tiene caso pedir su transporte: ciérralas. Sus horas siguen contando para nómina.</p>
+            </div>
+            <Boton variante="contorno" icono={XCircle} estado={cerrando ? 'cargando' : undefined} disabled={cerrando || !!trabajando} onClick={() => cerrarSin(pasadas)} id="btn-cerrar-todas-sin-transporte">Cerrar todas sin transporte ({pasadas.length})</Boton>
+          </div>
+          <ul className="space-y-2">
+            {pasadas.map(t => (
+              <li key={t.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-4 py-3 text-sm">
+                <div className="min-w-0">
+                  <p><span className="font-mono font-medium text-[var(--text-main)]">{t.folio}</span> · {nombreArea(t.areaId)} · {fechaLarga(t.fechaTE)}</p>
+                  <p className="text-xs text-[var(--text-secondary)]">{t.resumen?.totalEmpleados ?? 0} empleados · {t.resumen?.totalHoras ?? 0} h · {t.resumen?.totalTransporte ?? 0} con transporte · {formato.nombre(t.creadoPorNombre)}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Boton tamano="sm" onClick={() => abrir(t)}>Ver</Boton>
+                  <Boton tamano="sm" variante="primario" icono={XCircle} disabled={cerrando || !!trabajando} onClick={() => cerrarSin([t])}>Cerrar sin transporte</Boton>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {vigentes.length > 0 && <Ayuda clave="recepcion.fecha" className="-mt-4" />}
+      {vigentes.map(({ fecha, items }, indice) => (
         <section key={fecha} aria-label={`Fecha ${fechaLarga(fecha)}`} className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="flex flex-wrap items-center gap-3 text-lg font-semibold text-[var(--text-main)]">
               {fechaLarga(fecha)}
-              {fecha < hoy && <Insignia tono="aviso" icono={Clock}>Fecha vencida</Insignia>}
               <Insignia sinIcono>{items.length}</Insignia>
             </h2>
             {/* La primera fecha (la más próxima) lleva el botón principal; las demás, en contorno */}
@@ -214,8 +263,13 @@ export default function RecepcionTE() {
               acciones={(
                 <>
                   <div className="w-full"><Ayuda clave="recepcion.recibir" className="!mt-0" />{esRH && <Ayuda clave="recepcion.devolver" />}</div>
-                  <AccionesRH t={detalle.solicitud} acciones={esRH ? ['cancelar', 'devolver', 'recibir'] : ['recibir']} onHecho={() => setDetalle(null)} onTrabajando={enDetalle}
-                    onConfirmada={(t, r) => setResultado({ ok: [{ folio: t.folio, fecha: t.fechaTE, pasajeros: r.pasajeros, fechas: r.fechas }], fallidas: [] })} />
+                  {detalle.solicitud.fechaTE < hoy && <Boton variante="primario" icono={XCircle} disabled={cerrando} onClick={() => cerrarSin([detalle.solicitud])}>Cerrar sin transporte</Boton>}
+                  {detalle.solicitud.fechaTE < hoy
+                    ? esRH && <AccionesRH t={detalle.solicitud} acciones={['cancelar']} onHecho={() => setDetalle(null)} onTrabajando={enDetalle} onConfirmada={() => {}} />
+                    : (
+                      <AccionesRH t={detalle.solicitud} acciones={esRH ? ['cancelar', 'devolver', 'recibir'] : ['recibir']} onHecho={() => setDetalle(null)} onTrabajando={enDetalle}
+                        onConfirmada={(t, r) => setResultado({ ok: [{ folio: t.folio, fecha: t.fechaTE, pasajeros: r.pasajeros, fechas: r.fechas }], fallidas: [] })} />
+                    )}
                 </>
               )} />
           )}

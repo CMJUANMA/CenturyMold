@@ -187,7 +187,7 @@ describe('estatus y pestañas', () => {
   });
   it('nivel en texto y pestañas de Mis solicitudes', () => {
     expect(nivelEnTexto('pendiente_aut1')).toBe('Autorización 1');
-    expect(PESTANAS_TE.map(p => p.label)).toEqual(['Borradores', 'En autorización', 'Devueltas', 'Autorizadas', 'Canceladas']);
+    expect(PESTANAS_TE.map(p => p.label)).toEqual(['Borradores', 'En autorización', 'Devueltas', 'Autorizadas', 'Vencidas', 'Canceladas']);
   });
 });
 
@@ -242,7 +242,7 @@ describe('Excel de la consulta', () => {
     const solicitudes = [
       { folio: 'TE-2026-0001', areaId: 'moldes', estatus: 'autorizada', fechaTE: '2026-10-20', motivo: 'Otro', motivoOtro: 'Visita de cliente', resumen: { totalEmpleados: 2, totalHoras: 18 }, empleados: [e('1'), e('2', { transporte: false })],
         aut1: { nombre: 'ANSELMO', comoRH: false }, aut2: { nombre: 'ADMIN', comoRH: true } },
-      { folio: 'TE-2026-0002', areaId: 'moldes', estatus: 'pendiente_aut1', fechaTE: '2026-10-21', resumen: { totalEmpleados: 1, totalHoras: 9 }, empleados: [e('3')] },
+      { folio: 'TE-2026-0002', areaId: 'moldes', estatus: 'pendiente_aut1', fechaTE: '2099-10-21', resumen: { totalEmpleados: 1, totalHoras: 9 }, empleados: [e('3')] },
       { folio: 'TE-2026-0003', areaId: 'calidad', estatus: 'autorizada', fechaTE: '2026-10-22', resumen: { totalEmpleados: 1, totalHoras: 9 }, empleados: [e('4')] },
     ];
     const catalogos = { rutas: [{ id: 'r1', nombre: 'Norte' }], comunidades: [{ id: 'c1', nombre: 'Pueblito' }], puntos: [{ id: 'p1', nombre: 'Plaza' }] };

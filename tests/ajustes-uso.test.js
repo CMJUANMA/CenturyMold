@@ -31,6 +31,7 @@ describe('etiquetas de estatus de tiempo extra', () => {
     autorizada: 'Autorizada',
     procesada: 'Confirmada por RH',
     cancelada: 'Cancelada',
+    vencida: 'Vencida',
   };
   it('recorre TODOS los estatus y cada uno tiene su etiqueta', () => {
     expect(Object.values(ESTATUS_TE).sort()).toEqual(Object.keys(ESPERADAS).sort());

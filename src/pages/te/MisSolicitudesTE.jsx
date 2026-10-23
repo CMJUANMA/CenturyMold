@@ -1,18 +1,20 @@
 /**
  * MisSolicitudesTE.jsx — /tiempo-extra/mis-solicitudes: mis solicitudes de tiempo extra con pestañas por estatus y contadores,
  * detalle (línea de tiempo, empleados, motivo de devolución) y las acciones que corresponden a cada estatus:
- *   borrador → Continuar o Eliminar · devuelta → Corregir y reenviar · pendiente → Cancelar (con motivo) · autorizada → solo consulta.
+ *   borrador → Continuar o Eliminar · devuelta → Corregir y reenviar · pendiente → Cancelar (con motivo) · autorizada → solo consulta ·
+ *   vencida (su fecha ya pasó sin autorizarse) → «Duplicar con otra fecha» (y Eliminar si era borrador).
  * La acción principal de la pantalla es "Solicitar tiempo extra"; las demás van en contorno y las destructivas con texto de error.
  * En celular la tabla se vuelve una lista de tarjetas.
  */
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Eye, FilePlus, Pencil, Trash2 } from 'lucide-react';
+import { CopyPlus, Eye, FilePlus, Pencil, Trash2 } from 'lucide-react';
 import { useResumenTE } from '../../hooks/useResumenTE';
 import { useAreas } from '../../hooks/useAreas';
 import { useConfirmar } from '../../hooks/useConfirmar';
 import { useToast } from '../../hooks/useToast';
 import { usePendienteCon } from '../../hooks/usePendienteCon';
+import { useAhora } from '../../hooks/useAhora';
 import AyudaPantalla from '../../components/AyudaPantalla';
 import BadgeEstatus from '../../components/BadgeEstatus';
 import InsigniasTE from '../../components/InsigniasTE';
@@ -26,10 +28,12 @@ import { EsqueletoPagina, EsqueletoTabla } from '../../components/ui/Esqueleto';
 import Pestanas from '../../components/ui/Pestanas';
 import { Fila, Tabla, Td, Th } from '../../components/ui/Tabla';
 import { formatoFecha } from '../../utils/asignaciones';
-import { PESTANAS_TE, nivelEnTexto, textoRecibida } from '../../utils/tiempoExtra';
+import { Campo, Entrada } from '../../components/ui/Campo';
+import { PESTANAS_TE, TEXTO_VENCIDA, esVencida, estatusVisible, hoyMexico, nivelEnTexto, textoRecibida } from '../../utils/tiempoExtra';
+import { useAuth } from '../../hooks/useAuth';
 import { useCatalogos } from '../../hooks/useCatalogos';
 import DetalleTE from './DetalleTE';
-import { eliminarBorrador, leerHistorialTE, leerSolicitudTE } from '../../utils/tiempoExtraDb';
+import { duplicarComoBorrador, eliminarBorrador, leerHistorialTE, leerSolicitudTE } from '../../utils/tiempoExtraDb';
 import { quienCancelo } from '../../utils/cancelacion';
 import AccionCancelarTE from './AccionCancelarTE';
 
@@ -53,14 +57,17 @@ export default function MisSolicitudesTE() {
   const navigate = useNavigate();
   const confirmar = useConfirmar();
   const toast = useToast();
+  const { usuario } = useAuth();
+  const ahora = useAhora();
   const pendienteCon = usePendienteCon(propias);
   const [params] = useSearchParams();
   // ?pestana=... llega desde las tarjetas del Inicio
   const [pestana, setPestana] = useState(() => (PESTANAS_TE.some(p => p.id === params.get('pestana')) ? params.get('pestana') : 'borrador'));
   const [detalle, setDetalle] = useState(null); // { solicitud, historial, cargando }
   const [ocupadoId, setOcupadoId] = useState(null);
+  const [duplicando, setDuplicando] = useState(null); // { t, fecha, ocupado }
 
-  const porPestana = useMemo(() => Object.fromEntries(PESTANAS_TE.map(p => [p.id, propias.filter(t => p.estatus.includes(t.estatus)).sort((a, b) => cuando(b) - cuando(a))])), [propias]);
+  const porPestana = useMemo(() => Object.fromEntries(PESTANAS_TE.map(p => [p.id, propias.filter(t => p.estatus.includes(estatusVisible(t, ahora))).sort((a, b) => cuando(b) - cuando(a))])), [propias, ahora]);
   // Si la pestaña elegida está vacía y hay otra con datos (p. ej. recién enviada), se muestra la primera con datos
   const activa = PESTANAS_TE.find(p => p.id === pestana) ?? PESTANAS_TE[0];
   const lista = porPestana[activa.id] ?? [];
@@ -79,8 +86,26 @@ export default function MisSolicitudesTE() {
     try { await eliminarBorrador(t.id); toast.success('Borrador eliminado.'); } catch (err) { toast.error('No se pudo eliminar: ' + err.message); } finally { setOcupadoId(null); }
   };
 
+  const duplicar = async () => {
+    const { t, fecha } = duplicando;
+    setDuplicando(d => ({ ...d, ocupado: true }));
+    try {
+      const origen = await leerSolicitudTE(t.id);
+      const id = await duplicarComoBorrador({ origen, usuario, fechaTE: fecha });
+      toast.success('Listo: copiamos los empleados, motivos y transporte en un borrador nuevo. Revísalo y envíalo.');
+      setDuplicando(null); setDetalle(null);
+      navigate(`/tiempo-extra/${id}/editar`);
+    } catch (err) { toast.error('No se pudo duplicar: ' + err.message, 8000); setDuplicando(d => (d ? { ...d, ocupado: false } : d)); }
+  };
+
   const acciones = (t) => {
     const cargandoFila = ocupadoId === t.id;
+    if (esVencida(t, ahora)) return (
+      <>
+        <Boton tamano="sm" icono={CopyPlus} disabled={cargandoFila} onClick={() => setDuplicando({ t, fecha: '', ocupado: false })}>Duplicar con otra fecha</Boton>
+        {t.estatus === 'borrador' && <Boton tamano="sm" variante="peligro" icono={Trash2} disabled={cargandoFila} onClick={() => eliminar(t)}>Eliminar</Boton>}
+      </>
+    );
     if (t.estatus === 'borrador') return (
       <>
         <Boton tamano="sm" icono={Pencil} disabled={cargandoFila} onClick={() => navigate(`/tiempo-extra/${t.id}/editar`)}>Continuar</Boton>
@@ -103,6 +128,7 @@ export default function MisSolicitudesTE() {
     autorizacion: 'No tienes solicitudes esperando autorización.',
     devuelta: 'No tienes solicitudes devueltas. Qué bien: nada que corregir.',
     autorizada: 'Todavía no tienes solicitudes autorizadas.',
+    vencida: 'No tienes solicitudes vencidas.',
     cancelada: 'No tienes solicitudes canceladas.',
   }[activa.id];
 
@@ -145,7 +171,7 @@ export default function MisSolicitudesTE() {
                       <Td derecha>{t.resumen?.totalEmpleados ?? 0}</Td>
                       <Td derecha mono>{t.resumen?.totalHoras ?? 0}</Td>
                       <Td derecha>{t.resumen?.totalTransporte ?? 0}</Td>
-                      <Td><BadgeEstatus estatus={t.estatus} modulo="te" />{pendienteCon(t) && <p className="mt-1 text-xs text-[var(--text-secondary)]">{pendienteCon(t)}</p>}{t.estatus === 'procesada' && <p className="mt-1 text-xs text-[var(--text-secondary)]">{textoRecibida(t)}</p>}{t.estatus === 'cancelada' && <TextoCancelada t={t} />}</Td>
+                      <Td><BadgeEstatus t={t} modulo="te" />{esVencida(t, ahora) && <p className="mt-1 text-xs text-[var(--text-secondary)]">{TEXTO_VENCIDA}</p>}{!esVencida(t, ahora) && pendienteCon(t) && <p className="mt-1 text-xs text-[var(--text-secondary)]">{pendienteCon(t)}</p>}{t.estatus === 'procesada' && <p className="mt-1 text-xs text-[var(--text-secondary)]">{textoRecibida(t)}</p>}{t.estatus === 'cancelada' && <TextoCancelada t={t} />}</Td>
                       <Td>
                         <div className="flex flex-wrap justify-end gap-2">
                           <Boton tamano="sm" icono={Eye} onClick={() => abrirDetalle(t)} aria-label={`Ver detalle ${t.folio ?? 'del borrador'}`}>Ver</Boton>
@@ -163,13 +189,14 @@ export default function MisSolicitudesTE() {
                 <li key={t.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4">
                   <div className="flex items-start justify-between gap-3">
                     <p className={`text-sm font-medium text-[var(--text-main)] ${t.folio ? 'font-mono' : 'italic'}`}>{t.folio ?? 'Borrador'}</p>
-                    <BadgeEstatus estatus={t.estatus} modulo="te" />
+                    <BadgeEstatus t={t} modulo="te" />
                   </div>
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">{nombres.get(t.areaId) ?? t.areaNombre ?? t.areaId} · {t.fechaTE ? formatoFecha(`${t.fechaTE}T12:00:00`) : '—'}</p>
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">{t.resumen?.totalEmpleados ?? 0} empleados · {t.resumen?.totalHoras ?? 0} h · {t.resumen?.totalTransporte ?? 0} con transporte · {nivelEnTexto(t.estatus)}</p>
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">{t.resumen?.totalEmpleados ?? 0} empleados · {t.resumen?.totalHoras ?? 0} h · {t.resumen?.totalTransporte ?? 0} con transporte · {nivelEnTexto(estatusVisible(t, ahora))}</p>
                   <InsigniasTE t={t} className="mt-2" />
                   <MotivosTE t={t} className="mt-2" />
-                  {pendienteCon(t) && <p className="mt-2 text-xs text-[var(--text-secondary)]">{pendienteCon(t)}</p>}
+                  {esVencida(t, ahora) && <p className="mt-2 text-xs text-[var(--text-secondary)]">{TEXTO_VENCIDA}</p>}
+                  {!esVencida(t, ahora) && pendienteCon(t) && <p className="mt-2 text-xs text-[var(--text-secondary)]">{pendienteCon(t)}</p>}
                   {t.estatus === 'procesada' && <p className="mt-2 text-xs text-[var(--text-secondary)]">{textoRecibida(t)}</p>}
                   {t.estatus === 'cancelada' && <TextoCancelada t={t} className="mt-2" />}
                   <div className="mt-3 grid grid-cols-2 gap-2">
@@ -182,6 +209,21 @@ export default function MisSolicitudesTE() {
           </>
         )}
       </div>
+
+      {duplicando && (
+        <Modal isOpen onClose={() => !duplicando.ocupado && setDuplicando(null)} title="Duplicar con otra fecha" maxWidth="max-w-md" preventCloseOnBackdrop={duplicando.ocupado}
+          subtitulo="Copia los empleados, sus horarios y transporte, y los motivos en un borrador nuevo."
+          pie={(
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Boton onClick={() => setDuplicando(null)} disabled={duplicando.ocupado}>Cancelar</Boton>
+              <Boton variante="primario" icono={CopyPlus} estado={duplicando.ocupado ? 'cargando' : undefined} disabled={!duplicando.fecha || duplicando.fecha < hoyMexico()} onClick={duplicar} id="btn-duplicar-confirmar">Crear borrador</Boton>
+            </div>
+          )}>
+          <Campo etiqueta="Nueva fecha del tiempo extra" obligatorio ayuda="De hoy en adelante.">
+            <Entrada type="date" min={hoyMexico()} value={duplicando.fecha} onChange={e => setDuplicando(d => ({ ...d, fecha: e.target.value }))} autoFocus />
+          </Campo>
+        </Modal>
+      )}
 
       {detalle && (
         <Modal isOpen onClose={() => setDetalle(null)} title={detalle.solicitud.folio ?? 'Borrador'} maxWidth="max-w-4xl">

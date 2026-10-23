@@ -23,7 +23,7 @@ const ahora = () => Timestamp.now();
 
 const teSemilla = (folio, creadoPor, areaId, estatus, extra = {}) => ({
   folio, areaId, areaNombre: areaId, creadoPor, creadoPorNomina: N[creadoPor] ?? '', creadoPorNombre: creadoPor,
-  fechaTE: '2026-11-02', motivo: 'Entrega urgente', estatus,
+  fechaTE: '2099-11-02', motivo: 'Entrega urgente', estatus,
   resumen: { totalEmpleados: 1, totalHoras: 2, totalTransporte: 0, totalAlimentos: 1 },
   fechaCreacion: ahora(), fechaActualizacion: ahora(), ...extra,
 });
@@ -123,7 +123,7 @@ const BR = 'BR-ABCDEFGH12';
 /** Borrador nuevo: sin folio, con id propio. Lo que manda la pantalla al guardar el borrador */
 const nuevo = (uid, areaId, extra = {}) => ({
   areaId, areaNombre: AREA_NOMBRE[areaId] ?? areaId, creadoPor: uid, creadoPorNomina: N[uid], creadoPorNombre: `Usuario ${N[uid]}`,
-  fechaTE: '2026-11-05', motivo: 'Producción', comentario: 'Pedido urgente del cliente', estatus: 'borrador',
+  fechaTE: '2099-11-05', motivo: 'Producción', comentario: 'Pedido urgente del cliente', estatus: 'borrador',
   resumen: { totalEmpleados: 2, totalHoras: 4, totalTransporte: 1, totalAlimentos: 2 },
   fechaCreacion: ts(), fechaActualizacion: ts(), ...extra,
 });
@@ -686,7 +686,7 @@ describe('creador: cancelar, corregir y reenviar', () => {
   });
 
   it('corrige el contenido solo en estatus devuelta', async () => {
-    await assertSucceeds(actualizar('solP', 'TE-2026-0004', { motivo: 'Corregido', fechaTE: '2026-11-09', resumen: { totalEmpleados: 3, totalHoras: 6, totalTransporte: 0, totalAlimentos: 3 } }));
+    await assertSucceeds(actualizar('solP', 'TE-2026-0004', { motivo: 'Corregido', fechaTE: '2099-11-09', resumen: { totalEmpleados: 3, totalHoras: 6, totalTransporte: 0, totalAlimentos: 3 } }));
     for (const folio of ['TE-2026-0001', 'TE-2026-0002', 'TE-2026-0003']) {
       await assertFails(actualizar('solP', folio, { motivo: 'Corregido' }));
     }
@@ -955,7 +955,7 @@ describe('borrador: se arma en lotes y se envía a autorización', () => {
   });
   it('el creador edita el contenido del borrador; otros no; el área no cambia', async () => {
     await crearBorrador('solP', 'produccion');
-    await assertSucceeds(actualizar('solP', BR, { motivo: 'Calidad', comentario: 'Cambio de turno de calidad', fechaTE: '2026-11-09' }));
+    await assertSucceeds(actualizar('solP', BR, { motivo: 'Calidad', comentario: 'Cambio de turno de calidad', fechaTE: '2099-11-09' }));
     await assertFails(actualizar('solP', BR, { areaId: 'almacen' }));
     await assertFails(actualizar('solP', BR, { estatus: 'autorizada' }));
     await assertFails(actualizar('solP', BR, { folio: FOLIO }));

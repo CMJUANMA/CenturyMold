@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Download, Eye, FileSpreadsheet } from 'lucide-react';
 import { useAccesos } from '../../hooks/useAccesos';
+import { useAhora } from '../../hooks/useAhora';
 import { useAreas } from '../../hooks/useAreas';
 import { useCatalogos } from '../../hooks/useCatalogos';
 import { useResumenTE } from '../../hooks/useResumenTE';
@@ -31,7 +32,7 @@ import { Indicador } from '../../components/ui/Tarjeta';
 import { ESTATUS_TE_MAP } from '../../utils/constantes';
 import { formatoFecha, aFecha } from '../../utils/asignaciones';
 import { crearFormateadorNombres } from '../../utils/nombresPersona';
-import { ESTATUS_TE_VISIBLES, esperaDesde, filtrarSolicitudes } from '../../utils/tiempoExtra';
+import { ESTATUS_FILTRO_TE, esVencida, esperaDesde, filtrarSolicitudes } from '../../utils/tiempoExtra';
 import { inicioDeMes, inicioDeSemana } from '../../utils/resumenInicio';
 import { leerHistorialTE, leerSolicitudTE } from '../../utils/tiempoExtraDb';
 import AccionCancelarTE from './AccionCancelarTE';
@@ -52,20 +53,20 @@ export default function ConsultaTE() {
   const descargaResumen = esRH || esNomina;
   const soloNomina = esNomina && !esRH;
   const [params, setParams] = useSearchParams();
-  const [ahora] = useState(() => new Date());
+  const ahora = useAhora();
   const [filtros, setFiltros] = useState(() => ({
-    areaId: '', estatus: ESTATUS_TE_VISIBLES.includes(params.get('estatus')) ? params.get('estatus') : '', desde: '', hasta: '', turno: '', solicitante: '', motivoId: '',
+    areaId: '', estatus: ESTATUS_FILTRO_TE.includes(params.get('estatus')) ? params.get('estatus') : '', desde: '', hasta: '', turno: '', solicitante: '', motivoId: '',
   })); // ?estatus=... llega desde los indicadores del Inicio
   const [detalle, setDetalle] = useState(null);
   const [exportando, setExportando] = useState(null); // { hechos, total }
   const formato = useMemo(() => crearFormateadorNombres([]), []);
   const nombreArea = (id) => nombres.get(id) ?? id;
 
-  const filtradas = useMemo(() => filtrarSolicitudes(planta, filtros, motivos).sort((a, b) => esperaDesde(b) - esperaDesde(a)), [planta, filtros, motivos]);
+  const filtradas = useMemo(() => filtrarSolicitudes(planta, { ...filtros, ahora }, motivos).sort((a, b) => esperaDesde(b) - esperaDesde(a)), [planta, filtros, motivos, ahora]);
   const semana = inicioDeSemana(ahora).getTime();
   const mes = iso(inicioDeMes(ahora));
-  const pendientes1 = planta.filter(t => t.estatus === 'pendiente_aut1').length;
-  const pendientes2 = planta.filter(t => t.estatus === 'pendiente_aut2').length;
+  const pendientes1 = planta.filter(t => t.estatus === 'pendiente_aut1' && !esVencida(t, ahora)).length;
+  const pendientes2 = planta.filter(t => t.estatus === 'pendiente_aut2' && !esVencida(t, ahora)).length;
   const autorizadasSemana = planta.filter(t => AUTORIZADAS.includes(t.estatus) && (aFecha(t.aut2?.fecha ?? t.fechaActualizacion)?.getTime() ?? 0) >= semana).length;
   const delMes = useMemo(() => {
     const m = new Map(areas.filter(a => a.participaTE).map(a => [a.id, { empleados: 0, horas: 0 }]));
@@ -185,7 +186,7 @@ export default function ConsultaTE() {
           </Campo>
           <Campo etiqueta="Estatus">
             <Selector value={filtros.estatus} onChange={e => setFiltros(f => ({ ...f, estatus: e.target.value }))}>
-              <option value="">Todos</option>{ESTATUS_TE_VISIBLES.map(s => <option key={s} value={s}>{ESTATUS_TE_MAP[s].label}</option>)}
+              <option value="">Todos</option>{ESTATUS_FILTRO_TE.map(s => <option key={s} value={s}>{ESTATUS_TE_MAP[s].label}</option>)}
             </Selector>
           </Campo>
           <Campo etiqueta="Turno">
@@ -218,7 +219,7 @@ export default function ConsultaTE() {
                     <Fila key={t.id}>
                       <Td mono>{t.folio ?? '—'}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></Td><Td>{nombreArea(t.areaId)}<MotivosTE t={t} className="mt-1" /></Td><Td>{formato.nombre(t.creadoPorNombre ?? '')}</Td>
                       <Td className="whitespace-nowrap">{formatoFecha(`${t.fechaTE}T12:00:00`)}</Td><Td derecha>{t.resumen?.totalEmpleados ?? 0}</Td><Td derecha mono>{t.resumen?.totalHoras ?? 0}</Td>
-                      <Td><BadgeEstatus estatus={t.estatus} modulo="te" /></Td>
+                      <Td><BadgeEstatus t={t} modulo="te" /></Td>
                       <Td className="text-right"><Boton tamano="sm" icono={Eye} onClick={() => abrir(t)} aria-label={`Ver ${t.folio}`}>Ver</Boton></Td>
                     </Fila>
                   ))}
@@ -228,7 +229,7 @@ export default function ConsultaTE() {
             <ul className="space-y-3 md:hidden">
               {filtradas.map(t => (
                 <li key={t.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4">
-                  <div className="flex items-start justify-between gap-3"><p className="font-mono text-sm font-medium text-[var(--text-main)]">{t.folio ?? '—'}</p><BadgeEstatus estatus={t.estatus} modulo="te" /></div>
+                  <div className="flex items-start justify-between gap-3"><p className="font-mono text-sm font-medium text-[var(--text-main)]">{t.folio ?? '—'}</p><BadgeEstatus t={t} modulo="te" /></div>
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">{nombreArea(t.areaId)} · {formatoFecha(`${t.fechaTE}T12:00:00`)}</p>
                   <p className="mt-1 text-xs text-[var(--text-muted)]">{formato.nombre(t.creadoPorNombre ?? '')} · {t.resumen?.totalEmpleados ?? 0} empleados · {t.resumen?.totalHoras ?? 0} h</p>
                   <InsigniasTE t={t} className="mt-2" />

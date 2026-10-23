@@ -4,9 +4,11 @@
  * Las más antiguas primero; filtros por área y fechas; detalle con Autorizar / Devolver; "Autorizar N seleccionadas" (una transacción cada una).
  * Lo que uno mismo creó aparece deshabilitado. Pensada también para el celular: tarjetas y botones grandes.
  * El Aut. 1 tiene además "Historial de mi área" (lo que ya pasó por su nivel, solo lectura).
+ * Las VENCIDAS (su fecha ya pasó sin terminar de autorizarse) no salen en la lista ni en los contadores: van en la pestaña «Vencidas», solo consulta, sin Autorizar ni Devolver.
+ * Las que vencen HOY llevan «Vence hoy» y salen primero.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, Clock, Undo2 } from 'lucide-react';
+import { AlarmClock, CheckCircle2, Undo2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useAccesos } from '../../hooks/useAccesos';
 import { useAreas } from '../../hooks/useAreas';
@@ -35,28 +37,26 @@ import { Fila, Tabla, Td, Th } from '../../components/ui/Tabla';
 import { formatoFecha } from '../../utils/asignaciones';
 import { crearFormateadorNombres } from '../../utils/nombresPersona';
 import {
-  MIN_MOTIVO_DEVOLUCION, MSG_YA_RESPONDIDA, esPropia, esperaDesde, fechaVencida, filtrarSolicitudes, haceTiempo, totalesDe,
+  MIN_MOTIVO_DEVOLUCION, MSG_YA_RESPONDIDA, TEXTO_VENCIDA, esPropia, esVencida, esperaDesde, filtrarSolicitudes, haceTiempo, totalesDe, venceHoy,
 } from '../../utils/tiempoExtra';
 import { YaRespondida, autorizarSolicitud, autorizarVarias, devolverSolicitud, leerHistorialTE, leerSolicitudTE } from '../../utils/tiempoExtraDb';
-import { ymd } from '../../utils/fechas';
 import DetalleTE from './DetalleTE';
 import AccionCancelarTE from './AccionCancelarTE';
 
-function Vencida() {
-  return <Insignia tono="aviso" icono={Clock}>Fecha vencida</Insignia>;
+function VenceHoy() {
+  return <Insignia tono="error" icono={AlarmClock}>Vence hoy</Insignia>;
 }
 
 export default function BandejaTE() {
   const { usuario } = useAuth();
   const accesos = useAccesos();
-  const { nivel1, nivel2, cargando, error } = useBandeja();
+  const { nivel1, nivel2, vencidas, cargando, error } = useBandeja();
   const { nombres } = useAreas();
   const { rutas, comunidades, puntos } = useCatalogos({ empleados: false });
   const { delArea } = useResumenTE();
   const confirmar = useConfirmar();
   const toast = useToast();
   const avisar = useAvisarTE();
-  const [hoy] = useState(() => ymd());
   const [ahora, setAhora] = useState(() => Date.now());
   const [pestana, setPestana] = useState('bandeja');
   const [filtros, setFiltros] = useState({ areaId: '', desde: '', hasta: '' });
@@ -81,14 +81,14 @@ export default function BandejaTE() {
   // Aviso cuando algo desaparece de la bandeja sin que yo lo haya respondido (el solicitante la canceló, o alguien más la respondió)
   useEffect(() => {
     if (cargando) return;
-    const ahoraIds = new Set([...nivel1, ...nivel2].map(t => t.id));
+    const ahoraIds = new Set([...nivel1, ...nivel2, ...vencidas].map(t => t.id)); // al vencer solo cambia de pestaña: no avisa
     const quitadas = [...vistas.current].filter(id => !ahoraIds.has(id));
     vistas.current = ahoraIds;
     if (quitadas.length && !ocupadoRef.current) {
       toast.warning(quitadas.length === 1 ? 'Una solicitud ya no está disponible: el solicitante la canceló o alguien más la respondió.' : `${quitadas.length} solicitudes ya no están disponibles: las canceló su solicitante o alguien más las respondió.`, 7000);
       if (detalle && quitadas.includes(detalle.id)) setDetalle(null);
     }
-  }, [nivel1, nivel2, cargando, detalle, toast]);
+  }, [nivel1, nivel2, vencidas, cargando, detalle, toast]);
 
   const abrir = async (t, nivel, soloLectura = false) => {
     setTexto('');
@@ -104,8 +104,6 @@ export default function BandejaTE() {
 
   const autorizar = async () => {
     const { id, nivel, solicitud } = detalle;
-    if (fechaVencida(solicitud.fechaTE, hoy)
-      && !await confirmar({ titulo: 'Fecha vencida', mensaje: `La fecha del tiempo extra (${formatoFecha(`${solicitud.fechaTE}T12:00:00`)}) ya pasó. ¿Autorizar de todos modos?`, textoConfirmar: 'Autorizar igual', peligroso: true })) return;
     setTrabajando(true); ocupadoRef.current = true;
     try {
       await autorizarSolicitud({ id, usuario, nivel, comoRH: !accesos.esAut2, comentario: texto });
@@ -133,10 +131,10 @@ export default function BandejaTE() {
     const elegidas = items.filter(t => seleccion[nivel].has(t.id) && !esPropia(t, usuario.uid));
     if (!elegidas.length) return;
     const tot = totalesDe(elegidas);
-    const vencidas = elegidas.filter(t => fechaVencida(t.fechaTE, hoy)).length;
+    const hoyVencen = elegidas.filter(t => venceHoy(t, new Date(ahora))).length;
     const ok = await confirmar({
       titulo: `Autorizar ${tot.solicitudes} solicitudes`,
-      mensaje: `${tot.empleados} empleados · ${tot.horas} horas en total.${vencidas ? ` ${vencidas} tienen la fecha vencida.` : ''} Cada una se autoriza por separado.`,
+      mensaje: `${tot.empleados} empleados · ${tot.horas} horas en total.${hoyVencen ? ` ${hoyVencen} vencen hoy.` : ''} Cada una se autoriza por separado.`,
       textoConfirmar: `Autorizar ${tot.solicitudes}`,
     });
     if (!ok) return;
@@ -166,8 +164,9 @@ export default function BandejaTE() {
 
       {error && <Aviso tono="error" titulo="No se pudo leer la bandeja">{error.message}. Revisa tu conexión y vuelve a abrir esta pantalla.</Aviso>}
 
-      {esAut1 && (
-        <Pestanas etiqueta="Secciones" activa={pestana} onCambio={setPestana} items={[{ id: 'bandeja', etiqueta: 'Por autorizar' }, { id: 'historial', etiqueta: 'Historial de mi área' }]} />
+      {(esAut1 || firmaNivel2) && (
+        <Pestanas etiqueta="Secciones" activa={pestana} onCambio={setPestana}
+          items={[{ id: 'bandeja', etiqueta: 'Por autorizar' }, { id: 'vencidas', etiqueta: 'Vencidas', contador: vencidas.length }, ...(esAut1 ? [{ id: 'historial', etiqueta: 'Historial de mi área' }] : [])]} />
       )}
 
       {pestana === 'bandeja' && (
@@ -233,7 +232,7 @@ export default function BandejaTE() {
                                 <Td mono>{t.folio}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></Td>
                                 <Td>{nombreArea(t.areaId)}<MotivosTE t={t} className="mt-1" /></Td>
                                 <Td>{formato.nombre(t.creadoPorNombre)}</Td>
-                                <Td className="whitespace-nowrap">{formatoFecha(`${t.fechaTE}T12:00:00`)} {fechaVencida(t.fechaTE, hoy) && <Vencida />}</Td>
+                                <Td className="whitespace-nowrap">{formatoFecha(`${t.fechaTE}T12:00:00`)} {venceHoy(t, new Date(ahora)) && <VenceHoy />}</Td>
                                 <Td derecha>{t.resumen?.totalEmpleados ?? 0}</Td>
                                 <Td derecha mono>{t.resumen?.totalHoras ?? 0}</Td>
                                 <Td derecha>{t.resumen?.totalTransporte ?? 0}</Td>
@@ -261,7 +260,7 @@ export default function BandejaTE() {
                                 </label>
                               )}
                             </div>
-                            <p className="mt-2 text-sm text-[var(--text-main)]">{formatoFecha(`${t.fechaTE}T12:00:00`)} {fechaVencida(t.fechaTE, hoy) && <Vencida />}</p>
+                            <p className="mt-2 text-sm text-[var(--text-main)]">{formatoFecha(`${t.fechaTE}T12:00:00`)} {venceHoy(t, new Date(ahora)) && <VenceHoy />}</p>
                             <p className="mt-1 text-xs text-[var(--text-secondary)]"><b className="font-medium">{t.resumen?.totalEmpleados ?? 0}</b> empleados · <b className="font-medium">{t.resumen?.totalHoras ?? 0}</b> h · <b className="font-medium">{t.resumen?.totalTransporte ?? 0}</b> con transporte · {haceTiempo(esperaDesde(t), ahora)}</p>
                             {propia ? <p className="mt-3 text-xs text-[var(--text-muted)]">No puedes autorizar tu propia solicitud</p>
                               : <Boton className="mt-3 w-full" data-tour={t.id === primeraRevisable ? 'autorizar-revisar' : undefined} onClick={() => abrir(t, nivel)}>Revisar y responder</Boton>}
@@ -277,6 +276,29 @@ export default function BandejaTE() {
         </>
       )}
 
+      {pestana === 'vencidas' && (
+        <section aria-label="Vencidas" className="space-y-4">
+          <p className="text-sm text-[var(--text-secondary)]">Su fecha ya pasó y no se terminaron de autorizar: ya no se pueden autorizar ni devolver. Solo consulta; quien la solicitó puede duplicarla con otra fecha.</p>
+          {vencidas.length === 0 ? (
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]"><EstadoVacio texto="No hay solicitudes vencidas." /></div>
+          ) : (
+            <Tabla etiqueta="Solicitudes vencidas">
+              <thead><tr><Th>Folio</Th><Th>Área</Th><Th>Solicitante</Th><Th>Fecha del TE</Th><Th derecha>Empleados</Th><Th derecha>Horas</Th><Th>Estatus</Th><Th /></tr></thead>
+              <tbody>
+                {vencidas.map(t => (
+                  <Fila key={t.id}>
+                    <Td mono>{t.folio ?? '—'}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></Td><Td>{nombreArea(t.areaId)}<MotivosTE t={t} className="mt-1" /></Td><Td>{formato.nombre(t.creadoPorNombre)}</Td>
+                    <Td className="whitespace-nowrap">{formatoFecha(`${t.fechaTE}T12:00:00`)}</Td><Td derecha>{t.resumen?.totalEmpleados ?? 0}</Td><Td derecha mono>{t.resumen?.totalHoras ?? 0}</Td>
+                    <Td><BadgeEstatus t={t} modulo="te" /><p className="mt-1 text-xs text-[var(--text-secondary)]">{TEXTO_VENCIDA} · era de nivel {t.nivel}</p></Td>
+                    <Td className="text-right"><Boton tamano="sm" onClick={() => abrir(t, t.nivel, true)}>Ver</Boton></Td>
+                  </Fila>
+                ))}
+              </tbody>
+            </Tabla>
+          )}
+        </section>
+      )}
+
       {pestana === 'historial' && esAut1 && (
         <section aria-label="Historial de mi área" className="space-y-4">
           <p className="text-sm text-[var(--text-secondary)]">Lo que ya pasó por tu nivel (en autorización de nivel 2, autorizadas, devueltas y canceladas). Solo lectura.</p>
@@ -290,7 +312,7 @@ export default function BandejaTE() {
                   <Fila key={t.id}>
                     <Td mono>{t.folio ?? '—'}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></Td><Td>{nombreArea(t.areaId)}<MotivosTE t={t} className="mt-1" /></Td><Td>{formato.nombre(t.creadoPorNombre)}</Td>
                     <Td className="whitespace-nowrap">{formatoFecha(`${t.fechaTE}T12:00:00`)}</Td><Td derecha>{t.resumen?.totalEmpleados ?? 0}</Td><Td derecha mono>{t.resumen?.totalHoras ?? 0}</Td>
-                    <Td><BadgeEstatus estatus={t.estatus} modulo="te" /></Td>
+                    <Td><BadgeEstatus t={t} modulo="te" /></Td>
                     <Td className="text-right"><Boton tamano="sm" onClick={() => abrir(t, 1, true)}>Ver</Boton></Td>
                   </Fila>
                 ))}
@@ -304,7 +326,7 @@ export default function BandejaTE() {
         <Modal isOpen onClose={() => !trabajando && setDetalle(null)} title={detalle.solicitud.folio ?? 'Solicitud'} maxWidth="max-w-4xl" preventCloseOnBackdrop={trabajando}>
           {detalle.cargando ? <EsqueletoTabla filas={3} columnas={4} /> : (
             <DetalleTE t={detalle.solicitud} historial={detalle.historial} area={nombreArea(detalle.solicitud.areaId)} catalogos={{ rutas, comunidades, puntos }} formato={formato}
-              acciones={detalle.soloLectura ? null : esPropia(detalle.solicitud, usuario.uid)
+              acciones={detalle.soloLectura || esVencida(detalle.solicitud, new Date(ahora)) ? null : esPropia(detalle.solicitud, usuario.uid)
                 ? (
                   <div className="flex w-full flex-wrap items-center justify-between gap-3">
                     <p className="text-sm text-[var(--text-muted)]">No puedes autorizar tu propia solicitud.</p>

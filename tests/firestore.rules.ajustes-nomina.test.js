@@ -95,7 +95,7 @@ describe('ajustesNomina: empleados agregados que no venían en las solicitudes',
     renglones: [{ clave: '+300', nomina: '300', nombre: 'PEREZ LOPEZ JUAN', horas: { '2026-10-21': 4 }, original: {}, agregado: true, enPadron: false, quitado: false, subtotal: 4 }],
     actualizadoPor: { uid, nombre: uid },
   });
-  const solicitud = { estatus: 'autorizada', areaId: 'moldes', fechaTE: '2026-10-21', empleados: [] };
+  const solicitud = { estatus: 'autorizada', areaId: 'moldes', fechaTE: '2099-10-21', empleados: [] };
 
   it('Nóminas, RH y admin guardan un renglón agregado (dentro de ajustesNomina)', async () => {
     for (const uid of ['nom', 'rh', 'admin']) {

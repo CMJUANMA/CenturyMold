@@ -42,7 +42,7 @@ async function sembrar() {
     await setDoc(doc(db, 'contadores', `te-${ANIO}`), { ultimo: 12 });
     const te = (id, creadoPor, areaId, estatus, extra = {}) => setDoc(doc(db, 'tiempoExtra', id), {
       folio: `TE-${ANIO}-00${id.length}`, areaId, areaNombre: areaId === 'produccion' ? 'Producción' : 'Almacén', creadoPor, creadoPorNomina: N[creadoPor],
-      creadoPorNombre: NOMBRE(creadoPor), fechaTE: '2026-11-02', motivo: 'Producción', comentario: 'Pedido urgente', estatus,
+      creadoPorNombre: NOMBRE(creadoPor), fechaTE: '2099-11-02', motivo: 'Producción', comentario: 'Pedido urgente', estatus,
       resumen: { totalEmpleados: 1, totalHoras: 2, totalTransporte: 0, totalAlimentos: 1 }, fechaCreacion: Timestamp.now(), fechaActualizacion: Timestamp.now(), ...extra,
     });
     await te('TE-P1', 'solP', 'produccion', 'pendiente_aut1');
@@ -63,7 +63,7 @@ beforeEach(async () => { await env.clearFirestore(); await sembrar(); });
 /** Un borrador nuevo válido, con la forma real de la pantalla; `extra` lo estropea a propósito */
 const borrador = (uid, extra = {}) => ({
   areaId: 'produccion', areaNombre: 'Producción', creadoPor: uid, creadoPorNomina: N[uid], creadoPorNombre: NOMBRE(uid),
-  fechaTE: '2026-11-05', motivo: 'Producción', comentario: 'Pedido urgente del cliente', estatus: 'borrador',
+  fechaTE: '2099-11-05', motivo: 'Producción', comentario: 'Pedido urgente del cliente', estatus: 'borrador',
   resumen: { totalEmpleados: 2, totalHoras: 4, totalTransporte: 1, totalAlimentos: 2, porBloque: { 'A 7:00': 2 } },
   fechaCreacion: ts(), fechaActualizacion: ts(), ...extra,
 });

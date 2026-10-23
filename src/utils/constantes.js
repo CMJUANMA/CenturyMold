@@ -77,6 +77,8 @@ export const ESTATUS_TE = {
   DEVUELTA: 'devuelta',
   CANCELADA: 'cancelada',
   PROCESADA: 'procesada',
+  /** Solo en pantalla (no se guarda): venció su fecha sin terminar de autorizarse (esVencida, utils/tiempoExtra.js) */
+  VENCIDA: 'vencida',
 };
 
 const BADGE_WARNING = {
@@ -106,6 +108,7 @@ export const ESTATUS_TE_MAP = {
   },
   [ESTATUS_TE.CANCELADA]: { ...ESTATUS_MAP[ESTATUS_SOLICITUD.CANCELADA], label: 'Cancelada' },
   [ESTATUS_TE.PROCESADA]: { ...ESTATUS_MAP[ESTATUS_SOLICITUD.ENVIADA_PROVEEDOR], label: 'Confirmada por RH' },
+  [ESTATUS_TE.VENCIDA]: { ...ESTATUS_MAP[ESTATUS_SOLICITUD.CANCELADA], label: 'Vencida' },
 };
 
 /** Etiqueta de un estatus de tiempo extra (la misma en todas las pantallas y en los Excel) */

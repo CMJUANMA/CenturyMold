@@ -80,7 +80,7 @@ export const AYUDAS = {
     reportesNomina: {
       titulo: 'Cómo sacar el formato de autorización de tiempo extra',
       pasos: [
-        'Elige la semana (de lunes a domingo) con las flechas; por defecto es la última completa, o usa un rango de hasta 7 días. Solo cuenta lo que Aut. 2 ya autorizó; si hay solicitudes sin autorizar o devueltas, un aviso te dice cuántas y de qué áreas.',
+        'Elige la semana (de lunes a domingo) con las flechas; por defecto es la última completa, o usa un rango de hasta 7 días. Solo cuenta lo que Aut. 2 ya autorizó; si hay solicitudes sin autorizar o devueltas, un aviso te dice cuántas y de qué áreas, y otro avisa cuáles vencieron sin autorizarse (no cuentan; puedes agregar a alguien a mano en "Revisar").',
         'En cada área toca "Revisar": se abre una hoja a pantalla completa. Escribe las horas directo en el día (acepta medios, como 0.5; Tab, Enter y las flechas te mueven como en Excel); con el menú ⋯ de cada renglón reemplazas, quitas o restauras a alguien o cambias su motivo y P.O./TB, y "Agregar empleado" suma a quien no venía en las solicitudes. Los cambios se guardan juntos con "Guardar cambios", que pide un solo motivo, y no modifican la solicitud original.',
         'Con "Descargar" bajas el formato listo para imprimir en hoja carta; "Descargar todas las áreas" trae además una hoja Resumen para capturar la nómina.',
         'Cuando ya tengas las firmas, "Marcar como firmada" bloquea esa área. Solo Recursos Humanos puede reabrirla.',
@@ -146,13 +146,13 @@ export const AYUDAS = {
         'Las solicitudes están separadas por pestañas según en qué paso van.',
         'En "Borradores" puedes seguir una solicitud que no has enviado.',
         'En "Devueltas" están las que alguien te regresó para corregir. Léelas, corrígelas y reenvíalas.',
-        'Toca "Ver" para revisar el detalle y el historial de cualquier solicitud.',
+        'Si pasa el día de la fecha del tiempo extra y no se terminó de autorizar, pasa a "Vencidas": ya no se puede autorizar. Toca "Duplicar con otra fecha" para copiar sus empleados, motivos y transporte en un borrador nuevo. Toca "Ver" para revisar el detalle de cualquier solicitud.',
       ],
     },
     autorizar: {
       titulo: 'Cómo autorizar solicitudes',
       pasos: [
-        'Aquí están las solicitudes que esperan tu decisión. Las más antiguas salen primero.',
+        'Aquí están las solicitudes que esperan tu decisión. Las que "Vencen hoy" salen primero; luego, las más antiguas. Las que ya pasaron de fecha están en la pestaña "Vencidas" (solo consulta).',
         'Toca "Revisar" para ver los empleados, los horarios, las rutas y los comentarios.',
         'Si todo está bien, toca "Autorizar". Si algo no cuadra, escribe el motivo y toca "Devolver".',
         'Para varias solicitudes a la vez, marca sus casillas y toca "Autorizar seleccionadas".',
@@ -164,14 +164,14 @@ export const AYUDAS = {
         'Aquí están las solicitudes que ya tienen las dos autorizaciones y que RH todavía no confirma, agrupadas por fecha.',
         'Toca "Revisar" para ver el detalle. Aquí no se cambian empleados: si algo está mal, Recursos Humanos puede usar "Devolver" con el motivo (Nóminas solo confirma).',
         'Toca "Confirmar y generar transporte": se crea la solicitud de transporte de quienes lo pidieron. Si nadie lleva transporte, el botón dice "Confirmar (sin transporte)". Para varias del mismo día, usa "Confirmar todas las de esta fecha".',
-        'Cuando termines de confirmar, toca "Formato de rutas (proveedor)", arriba en esta misma pantalla, elige la fecha y baja el Excel para el proveedor.',
+        'Cuando termines de confirmar, toca "Formato de rutas (proveedor)", arriba en esta misma pantalla, elige la fecha y baja el Excel para el proveedor. Si una solicitud ya pasó de fecha sin enviarse, sale en "Fecha pasada – transporte no enviado": ciérrala con "Cerrar sin transporte" (sus horas siguen contando para nómina).',
       ],
     },
     consulta: {
       titulo: 'Todas las solicitudes',
       pasos: [
         'Aquí ves todas las solicitudes de tiempo extra enviadas, sin importar su estatus.',
-        'Usa los filtros de área, estatus, fechas, turno y solicitante para encontrar lo que buscas.',
+        'Usa los filtros de área, estatus (incluido "Vencida": su fecha pasó sin autorizarse), fechas, turno y solicitante para encontrar lo que buscas.',
         'Toca "Ver" para abrir el detalle de una solicitud, con su historial.',
         'Usa "Descargar resumen de horas extra" para nómina y comedor, o "Exportar consulta" para la lista que ves en pantalla.',
       ],
