@@ -12,7 +12,7 @@ import {
 import { db } from '../firebase';
 import {
   ESTATUS_TE_VISIBLES, LOTE_EMPLEADOS, MIN_MOTIVO_CANCELACION_RH, MIN_MOTIVO_DEVOLUCION, MSG_YA_RESPONDIDA, NIVEL_RECEPCION,
-  COMENTARIO_AUT2_PROPIA, datosSolicitudTransporte, docAEmpleado, empleadoADoc, folioDe, pasajerosDeTE, resumenTE, trozos,
+  COMENTARIO_AUT2_PROPIA, conteoFechas, datosSolicitudTransporte, docAEmpleado, empleadoADoc, folioDe, pasajerosDeTE, resumenTE, trozos,
 } from './tiempoExtra';
 import { normalizarEstatus } from './constantes';
 import { comparar } from './orden.js';
@@ -291,7 +291,7 @@ const entradaTransporte = (usuario, accion, comentario) => ({ fecha: new Date().
  * procesada (recibidaPor, fechaRecepcion, solicitudTransporteId), su historial y la bitácora. Los empleados del TE se leen antes porque
  * una transacción no admite consultas; ya no pueden cambiar (solo el creador edita empleados, y solo en borrador o devuelta).
  * Las reglas exigen además, con getAfter, que la solicitud de transporte y el paso a procesada lleguen en la misma operación.
- * @returns {Promise<{ solicitudTransporteId: string|null, pasajeros: number }>}
+ * @returns {Promise<{ solicitudTransporteId: string|null, pasajeros: number, fechas: string[] }>}  fechas = los días con viajes (la salida de lo que cruza la medianoche va al día siguiente)
  */
 export async function recibirSolicitud({ id, usuario }) {
   const ref = refTE(id);
@@ -324,7 +324,7 @@ export async function recibirSolicitud({ id, usuario }) {
     });
     tx.set(doc(collection(db, 'bitacora')), renglonBitacora(usuario, 'recibir', { estatus: 'autorizada', folio: te.folio ?? '' },
       { estatus: 'procesada', folio: te.folio ?? '', solicitudTransporteId: solRef?.id ?? null, pasajeros: pasajeros.length }));
-    return { solicitudTransporteId: solRef?.id ?? null, pasajeros: pasajeros.length };
+    return { solicitudTransporteId: solRef?.id ?? null, pasajeros: pasajeros.length, fechas: Object.keys(conteoFechas(pasajeros, te.fechaTE)) };
   });
 }
 

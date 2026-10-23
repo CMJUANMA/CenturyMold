@@ -3,7 +3,8 @@
  * Empleado del editor ↔ documento tiempoExtra/{id}/empleados/{nómina}, horas, validaciones, resumen y lotes.
  */
 import { MAX_PASAJEROS, resumenPasajeros } from './solicitudes.js';
-import { fechaConDia, rangoMes, rangoSemana, sumarDias } from './fechas.js';
+import { fechaConDia, fechaCorta, rangoMes, rangoSemana, sumarDias } from './fechas.js';
+import { formatoHora12 } from './horas.js';
 import { motivoTexto, motivosParaGuardar, problemasDeMotivos, tieneMotivo } from './motivosTE.js';
 
 // Los motivos (catálogo, varios por solicitud, P.O./TB) viven en motivosTE.js; motivoTexto se reexporta para los Excel y las pantallas
@@ -25,12 +26,58 @@ const minutos = (hora) => {
   return m ? Number(m[1]) * 60 + Number(m[2]) : null;
 };
 
-/** Horas entre entrada y salida; si la salida es "menor" cruza la medianoche. 0 si falta alguna o son iguales */
+/** Duración máxima razonable de un tiempo extra (de la hora de inicio a la de fin, aunque cruce la medianoche) */
+export const MAX_HORAS_TE = 16;
+
+const redondeoH = (min) => Math.round((min / 60) * 100) / 100;
+
+/**
+ * Horas entre entrada y salida, siempre positivas. Si la salida es menor o IGUAL a la entrada, el tiempo extra termina al día siguiente
+ * (22:00 → 7:00 = 9 h; 16:00 → 0:00 = 8 h; 7:00 → 7:00 = 24 h, que la captura rechaza por pasar de MAX_HORAS_TE). 0 si falta alguna hora.
+ */
 export function calcularHoras(entrada, salida) {
   const a = minutos(entrada), b = minutos(salida);
-  if (a === null || b === null || a === b) return 0;
-  const diff = b > a ? b - a : b + 24 * 60 - a;
-  return Math.round((diff / 60) * 100) / 100;
+  if (a === null || b === null) return 0;
+  return redondeoH(b > a ? b - a : b + 24 * 60 - a);
+}
+
+/** ¿Termina al día siguiente? (la hora de fin es menor o igual a la de inicio) */
+export function terminaDiaSiguiente(entrada, salida) {
+  const a = minutos(entrada), b = minutos(salida);
+  return a !== null && b !== null && b <= a;
+}
+
+/** Fecha real (AAAA-MM-DD) en que termina el tiempo extra que empieza el `fechaTE` */
+export const fechaDeFin = (fechaTE, entrada, salida) => (terminaDiaSiguiente(entrada, salida) ? sumarDias(fechaTE, 1) : fechaTE);
+
+/**
+ * "Termina: miércoles 22 oct, 7:00 a. m. (día siguiente)" ('' si falta la fecha o una hora). Con `soloSiCruza` solo lo dice si termina otro día;
+ * `prefijo: false` quita el "Termina: " (para las celdas de un Excel).
+ */
+export function textoTermina(fechaTE, entrada, salida, { soloSiCruza = false, prefijo = true } = {}) {
+  if (!fechaTE || minutos(entrada) === null || minutos(salida) === null) return '';
+  const cruza = terminaDiaSiguiente(entrada, salida);
+  if (soloSiCruza && !cruza) return '';
+  return `${prefijo ? 'Termina: ' : ''}${fechaCorta(fechaDeFin(fechaTE, entrada, salida))}, ${formatoHora12(salida)}${cruza ? ' (día siguiente)' : ''}`;
+}
+
+/**
+ * Las horas repartidas por día calendario: [{ fecha, horas }]. 22:00 → 7:00 del martes = 2 h del martes y 7 h del miércoles.
+ * Un fin justo a medianoche (16:00 → 0:00) no deja horas en el día siguiente.
+ */
+export function tramosPorDia(fechaTE, entrada, salida) {
+  const a = minutos(entrada), b = minutos(salida);
+  if (!fechaTE || a === null || b === null) return [];
+  if (b > a) return [{ fecha: fechaTE, horas: redondeoH(b - a) }];
+  return [{ fecha: fechaTE, horas: redondeoH(24 * 60 - a) }, ...(b > 0 ? [{ fecha: sumarDias(fechaTE, 1), horas: redondeoH(b) }] : [])];
+}
+
+/**
+ * Día de la SALIDA en el transporte. Termina el día siguiente si cruza la medianoche, salvo el fin justo a las 12:00 a. m. (16:00 → 0:00, el turno 2
+ * normal): esa salida es el cierre del servicio del día de inicio y sigue en su hoja, igual que siempre.
+ */
+export function fechaSalidaTransporte(fechaTE, entrada, salida) {
+  return minutos(salida) === 0 ? fechaTE : fechaDeFin(fechaTE, entrada, salida);
 }
 
 // ── Tipo de tiempo extra: turno extra (viene a la planta) o extensión de turno (ya está en la planta) ──
@@ -49,13 +96,13 @@ const SECUENCIA_BLOQUES = ['7:00', '16:00', '19:00', '0:00', '7:00'];
 
 /**
  * Horas de salida posibles de una extensión que EMPIEZA a la hora en que termina el turno normal del empleado: los bloques de salida
- * posteriores. 16:00 → 19:00, 0:00, 7:00 · 19:00 → 0:00, 7:00 · 0:00 → 7:00 · 7:00 → 16:00, 19:00, 0:00.
+ * posteriores que no pasen de MAX_HORAS_TE. 16:00 → 19:00, 0:00, 7:00 · 19:00 → 0:00, 7:00 · 0:00 → 7:00 · 7:00 → 16:00, 19:00 (a 0:00 serían 17 h).
  */
 export function salidasPosteriores(inicio) {
   const m = minutos(inicio);
   if (m === null) return [];
   const i = SECUENCIA_BLOQUES.slice(0, 4).findIndex(h => minutos(h) === m);
-  return i < 0 ? [] : SECUENCIA_BLOQUES.slice(i + 1).filter(h => calcularHoras(inicio, h) > 0);
+  return i < 0 ? [] : SECUENCIA_BLOQUES.slice(i + 1).filter(h => calcularHoras(inicio, h) <= MAX_HORAS_TE);
 }
 
 export const etiquetaBloque = (e) => (e?.horaEntrada && e?.horaSalida ? `${e.horaEntrada} → ${e.horaSalida}` : 'Sin horario');
@@ -209,7 +256,9 @@ export function problemasDeEnvio({ areaId, fechaTE, motivos = [], catalogoMotivo
       else if (!e.horaSalida) error(`${e.nombre}: elige hasta qué hora se queda.`, e.nomina);
       else if (!salidasPosteriores(e.horaEntrada).some(h => minutos(h) === minutos(e.horaSalida))) error(`${e.nombre}: la salida debe ser posterior al fin de su turno.`, e.nomina);
     } else if (!e.horaEntrada || !e.horaSalida) error(`${e.nombre}: falta el horario.`, e.nomina);
-    else if (e.horaEntrada === e.horaSalida) error(`${e.nombre}: la entrada y la salida no pueden ser iguales.`, e.nomina);
+    else if (calcularHoras(e.horaEntrada, e.horaSalida) > MAX_HORAS_TE) {
+      error(`${e.nombre}: el tiempo extra duraría ${calcularHoras(e.horaEntrada, e.horaSalida)} h${terminaDiaSiguiente(e.horaEntrada, e.horaSalida) ? ' (termina al día siguiente)' : ''}; el máximo es ${MAX_HORAS_TE} h.`, e.nomina);
+    }
     if (!transporteCompleto(e)) {
       error(e.transporte && e.rutaId && e.comunidadId && e.puntoReunionId
         ? `${e.nombre}: confirma la ruta precargada.` : `${e.nombre}: completa ruta, comunidad y punto de reunión.`, e.nomina);
@@ -383,6 +432,8 @@ export function turnoPorFin(hora) {
  * Pasajero del transporte (solicitudes/{id}/pasajeros/{nómina}) a partir de un empleado del tiempo extra con transporte.
  * Extensión de turno (ya está en la planta): va en la hoja de su turno normal, con ENTRADA "YA EN PLANTA" si solo pide salida y SALIDA su
  * hora extendida. Turno extra con solo llegada: SALIDA "NO REQUIERE".
+ * Fechas: la LLEGADA es el día de inicio (fechaLlegada = fechaTE) y la SALIDA, el día en que termina (fechaSalida: el siguiente si cruza la medianoche);
+ * turnoSalida es el turno de esa salida (el que termina a esa hora). El Formato de rutas pone cada viaje en su día (fechasDePasajero).
  */
 export function pasajeroDeEmpleado(e, te) {
   const sentido = sentidoDe(e) || 'ambos';
@@ -390,10 +441,31 @@ export function pasajeroDeEmpleado(e, te) {
     nomina: String(e.nomina), nombre: e.nombre, puesto: e.puesto ?? '',
     areaId: te.areaId ?? '', areaNombre: te.areaNombre ?? '', sentido,
     turno: esExtension(te) ? turnoPorFin(e.horaEntrada) : turnoPorEntrada(e.horaEntrada),
+    fechaLlegada: te.fechaTE ?? '', fechaSalida: te.fechaTE ? fechaSalidaTransporte(te.fechaTE, e.horaEntrada, e.horaSalida) : '', turnoSalida: turnoPorFin(e.horaSalida),
     horaEntrada: sentido === 'salida' ? YA_EN_PLANTA : horaFormatoRutas(e.horaEntrada),
     horaSalida: sentido === 'llegada' ? SIN_SALIDA : horaFormatoRutas(e.horaSalida),
     alimentos: !!e.alimentos, rutaId: e.rutaId ?? '', comunidadId: e.comunidadId ?? '', puntoReunionId: e.puntoReunionId ?? '',
   };
+}
+
+/**
+ * Los viajes de un pasajero y el día de cada uno: [{ fecha, viaje: 'llegada'|'salida'|'ambos', turno }]. Normalmente es uno solo (el día del servicio);
+ * si la salida cae otro día (cruza la medianoche) y también viene a la planta, son dos: la llegada ese día y la salida al siguiente.
+ * Los pasajeros anteriores (sin fechaSalida) y los que no cruzan quedan en el día del servicio, como siempre.
+ */
+export function fechasDePasajero(p, fechaServicio) {
+  const sentido = p.sentido ?? 'ambos';
+  const salida = p.fechaSalida;
+  if (!salida || salida === fechaServicio || sentido === 'llegada') return [{ fecha: fechaServicio, viaje: sentido, turno: p.turno }];
+  if (sentido === 'salida') return [{ fecha: salida, viaje: 'salida', turno: p.turnoSalida || p.turno }];
+  return [{ fecha: fechaServicio, viaje: 'llegada', turno: p.turno }, { fecha: salida, viaje: 'salida', turno: p.turnoSalida || p.turno }];
+}
+
+/** Cuántos viajes hay cada día: { '2026-10-21': 3, '2026-10-22': 2 } (se guarda en la solicitud de transporte para encontrarla por cualquiera de sus días) */
+export function conteoFechas(pasajeros, fechaServicio) {
+  const conteo = {};
+  for (const p of pasajeros) for (const v of fechasDePasajero(p, fechaServicio)) conteo[v.fecha] = (conteo[v.fecha] ?? 0) + 1;
+  return conteo;
 }
 
 /** Solo los empleados con transporte pasan a la solicitud de transporte; cada uno con su propio horario */
@@ -409,7 +481,7 @@ export function datosSolicitudTransporte(te, pasajeros, rh) {
     creadoPor: rh.uid, creadoPorNombre: rh.nombre ?? '',
     areaId: te.areaId, estatus: 'aprobada',
     origen: ORIGEN_TIEMPO_EXTRA, tiempoExtraId: te.id, folioTE: te.folio ?? '',
-    ...resumenPasajeros(pasajeros),
+    ...resumenPasajeros(pasajeros), conteoFechas: conteoFechas(pasajeros, te.fechaTE),
   };
 }
 
@@ -436,10 +508,15 @@ export function textoRecibida(t) {
 /** Nombre de la pantalla y del paso donde RH confirma lo autorizado y se genera el transporte (antes "Recepción") */
 export const NOMBRE_POR_ENVIAR = 'Por enviar al proveedor';
 
-/** Mensaje al confirmar: dónde quedó el transporte (o que no hay nada que enviar). `fecha` es la del tiempo extra (AAAA-MM-DD) */
-export function mensajeConfirmada({ fecha, pasajeros }) {
+/**
+ * Mensaje al confirmar: dónde quedó el transporte (o que no hay nada que enviar). `fecha` es la del tiempo extra (AAAA-MM-DD); `fechas` (opcional) son los
+ * días con viajes (conteoFechas): si hay salidas otro día, lo dice.
+ */
+export function mensajeConfirmada({ fecha, pasajeros, fechas = [] }) {
   if (!(pasajeros > 0)) return 'Listo. Se confirmó sin transporte: no hay nada que enviar al proveedor.';
-  return `Listo. El transporte de ${fechaConDia(fecha)} ya aparece en Solicitudes de transporte y se incluirá en el Formato de rutas.`;
+  const otros = [...new Set(fechas)].filter(f => f !== fecha).sort();
+  const aparte = otros.length ? ` Las salidas del ${otros.map(f => fechaConDia(f)).join(' y del ')} van en el formato de ese día.` : '';
+  return `Listo. El transporte de ${fechaConDia(fecha)} ya aparece en Solicitudes de transporte y se incluirá en el Formato de rutas.${aparte}`;
 }
 
 /** Texto del botón de confirmar: si nadie lleva transporte, lo dice */

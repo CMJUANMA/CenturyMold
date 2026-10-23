@@ -24,9 +24,9 @@ describe('horas', () => {
     expect(calcularHoras('0:00', '7:00')).toBe(7);
     expect(calcularHoras('16:00', '7:00')).toBe(15);
   });
-  it('0 si falta una hora o entrada = salida', () => {
+  it('0 si falta una hora; entrada = salida es un día completo (24 h) que la captura rechaza', () => {
     expect(calcularHoras('', '16:00')).toBe(0);
-    expect(calcularHoras('7:00', '7:00')).toBe(0);
+    expect(calcularHoras('7:00', '7:00')).toBe(24);
     expect(calcularHoras('raro', '7:00')).toBe(0);
   });
 });
@@ -138,10 +138,10 @@ describe('validaciones de envío', () => {
     expect(errores({ empleados: [] })).toContain('Agrega al menos un empleado.');
     expect(errores({ empleados: Array.from({ length: 151 }, (_, i) => emp(String(i))) }).join()).toMatch(/Máximo 150/);
   });
-  it('sin repetidos, con horario y entrada distinta de salida', () => {
+  it('sin repetidos, con horario y de máximo 16 horas', () => {
     expect(errores({ empleados: [emp('1'), emp('1')] }).join()).toMatch(/repetido/);
     expect(errores({ empleados: [emp('1', { horaEntrada: '' })] }).join()).toMatch(/falta el horario/);
-    expect(errores({ empleados: [emp('1', { horaEntrada: '7:00', horaSalida: '7:00' })] }).join()).toMatch(/no pueden ser iguales/);
+    expect(errores({ empleados: [emp('1', { horaEntrada: '7:00', horaSalida: '7:00' })] }).join()).toContain("duraría 24 h (termina al día siguiente); el máximo es 16 h");
   });
   it('transporte completo en cada empleado que lo pida; la precargada se confirma', () => {
     expect(errores({ empleados: [emp('1', { puntoReunionId: '' })] }).join()).toMatch(/completa ruta, comunidad y punto/);
@@ -256,7 +256,7 @@ describe('Excel de la consulta', () => {
     const d = wb.getWorksheet('Detalle');
     expect(d.getRow(1).values.slice(1)).toEqual(ENCABEZADOS_DETALLE);
     expect(d.rowCount).toBe(5); // encabezado + 4 empleados
-    expect(d.getRow(2).values.slice(1)).toEqual(['TE-2026-0001', 'Moldes', '2026-10-20', 'Otro: Visita de cliente', '1', 'EMP 1', 'OP', '7:00 → 16:00', 9, 'Sí', 'Sí', 'Norte · Pueblito · Plaza', 'Autorizada', 'ANSELMO', 'ADMIN (RH)']);
+    expect(d.getRow(2).values.slice(1)).toEqual(['TE-2026-0001', 'Moldes', '2026-10-20', 'Otro: Visita de cliente', '1', 'EMP 1', 'OP', '7:00 → 16:00', 'martes 20 oct, 4:00 p. m.', 9, 'Sí', 'Sí', 'Norte · Pueblito · Plaza', 'Autorizada', 'ANSELMO', 'ADMIN (RH)']);
     expect(d.getRow(3).values.slice(1)).toEqual(expect.arrayContaining(['No', '']));
   });
 });

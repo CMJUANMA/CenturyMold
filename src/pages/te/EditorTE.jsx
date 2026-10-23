@@ -513,7 +513,7 @@ export default function EditorTE() {
                 <Ayuda clave="solicitar.transporte" className="!mt-0" />
               </div>
               {empleados.map((e, i) => (
-                <FilaEmpleadoTE key={e.nomina} tour={i === 0 ? 'solicitar-empleado-fila' : undefined} e={e} tipo={tipo} opcionesMotivo={opcionesMotivo} rutas={rutas} comunidades={comunidades} puntos={puntos} seleccionado={seleccion.has(e.nomina)}
+                <FilaEmpleadoTE key={e.nomina} fechaTE={fechaTE} tour={i === 0 ? 'solicitar-empleado-fila' : undefined} e={e} tipo={tipo} opcionesMotivo={opcionesMotivo} rutas={rutas} comunidades={comunidades} puntos={puntos} seleccionado={seleccion.has(e.nomina)}
                   telefono={telefonoDe(e.nomina)} puedeTelefono={puedeTelefono} onTelefono={cambiarTelefono}
                   aviso={avisoDe(e.nomina)} error={errorDe(e.nomina)} onSeleccionar={alternarSeleccion} onCambio={cambiar} onQuitar={quitar} />
               ))}

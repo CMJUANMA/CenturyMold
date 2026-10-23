@@ -15,7 +15,7 @@ import { ACCIONES_TE_LABELS } from '../../utils/constantes';
 import { formatoFecha } from '../../utils/asignaciones';
 import { etiquetaBloque12, horasEnTexto12 } from '../../utils/horas';
 import { motivosDeTE, motivoTextoEmpleado } from '../../utils/motivosTE';
-import { calcularHoras, esExtension, firmaTexto, quienDevolvio, resumenTE, textoRuta, textoRutas } from '../../utils/tiempoExtra';
+import { calcularHoras, esExtension, textoTermina, firmaTexto, quienDevolvio, resumenTE, textoRuta, textoRutas } from '../../utils/tiempoExtra';
 import { leerTransporteDeTE } from '../../utils/tiempoExtraDb';
 import { quienCancelo } from '../../utils/cancelacion';
 
@@ -127,7 +127,7 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
               {empleados.map(e => (
                 <Fila key={e.nomina}>
                   <Td mono>{e.nomina}</Td><Td>{nombre(e.nombre)}</Td><Td className="text-[var(--text-secondary)]">{e.puesto}</Td>
-                  <Td className="whitespace-nowrap">{etiquetaBloque12(e)}</Td><Td derecha mono>{calcularHoras(e.horaEntrada, e.horaSalida)}</Td>
+                  <Td className="whitespace-nowrap">{etiquetaBloque12(e)}{textoTermina(t.fechaTE, e.horaEntrada, e.horaSalida, { soloSiCruza: true }) && <span className="mt-0.5 block text-xs text-[var(--status-info-text)]">{textoTermina(t.fechaTE, e.horaEntrada, e.horaSalida)}</span>}</Td><Td derecha mono>{calcularHoras(e.horaEntrada, e.horaSalida)}</Td>
                   <Td>{e.alimentos ? 'Sí' : 'No'}</Td>{variosMotivos && <Td className="min-w-40 whitespace-normal text-[var(--text-secondary)]">{motivoTextoEmpleado(t, e) || '—'}</Td>}<Td>{textoRuta(e, catalogos ?? {})}</Td>
                 </Fila>
               ))}
@@ -140,6 +140,7 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
             <li key={e.nomina} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4">
               <p className="font-medium text-[var(--text-main)]">{nombre(e.nombre)}</p>
               <p className="text-xs text-[var(--text-secondary)]"><span className="font-mono">{e.nomina}</span> · {e.puesto}</p>
+              {textoTermina(t.fechaTE, e.horaEntrada, e.horaSalida, { soloSiCruza: true }) && <p className="mt-1 text-xs text-[var(--status-info-text)]">{textoTermina(t.fechaTE, e.horaEntrada, e.horaSalida)}</p>}
               <p className="mt-1 text-[var(--text-main)]">{etiquetaBloque12(e)} · <b className="font-medium">{calcularHoras(e.horaEntrada, e.horaSalida)} h</b>{e.alimentos ? ' · Alimentos' : ''}</p>
               {variosMotivos && <p className="text-xs text-[var(--text-secondary)]">Motivo: {motivoTextoEmpleado(t, e) || '—'}</p>}
               <p className="text-[var(--text-secondary)]">{textoRuta(e, catalogos ?? {})}</p>

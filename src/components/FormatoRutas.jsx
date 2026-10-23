@@ -4,6 +4,8 @@
  * de descargar y no baja un Excel vacío. Lo usan "Por enviar al proveedor" (para confirmar y descargar en la misma pantalla) y
  * "Solicitudes de transporte". Las solicitudes de tiempo extra ya nacen aprobadas; con el transporte suelto encendido (funciones.js)
  * se puede incluir también las pendientes.
+ * Un tiempo extra que cruza la medianoche trae su salida al día siguiente: la solicitud de transporte guarda cuántos viajes tiene cada día (conteoFechas), así que
+ * se busca desde el día anterior y cada fecha muestra y baja solo los viajes que le tocan.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -14,6 +16,7 @@ import { useAreas } from '../hooks/useAreas';
 import { useCatalogos } from '../hooks/useCatalogos';
 import { useToast } from '../hooks/useToast';
 import { ESTATUS_SOLICITUD } from '../utils/constantes';
+import { sumarDias } from '../utils/fechas';
 import { exportarSolicitudes } from '../utils/exportarSolicitudes';
 import { ACCIONES_DESCARGA, registrarDescarga } from '../utils/bitacoraDb';
 import Ayuda from './Ayuda';
@@ -24,6 +27,8 @@ import { Campo, Casilla, Entrada, OpcionRadio } from './ui/Campo';
 import { Esqueleto } from './ui/Esqueleto';
 
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+/** Viajes por día de una solicitud de transporte: { fecha: n }. Las anteriores (sin conteoFechas) tienen todo en su fecha de servicio */
+const viajesPorDia = (s) => (s.conteoFechas && Object.keys(s.conteoFechas).length ? s.conteoFechas : { [s.fechaServicio]: s.totalPasajeros || 0 });
 function fechasLocales() {
   const d = new Date();
   const hoy = iso(d);
@@ -60,7 +65,7 @@ export default function BotonFormatoRutas({ id = 'btn-formato-rutas' }) {
   useEffect(() => {
     if (!abierto || !valido) return;
     let vigente = true;
-    getDocs(query(collection(db, 'solicitudes'), where('fechaServicio', '>=', rangoDesde), where('fechaServicio', '<=', rangoHasta)))
+    getDocs(query(collection(db, 'solicitudes'), where('fechaServicio', '>=', sumarDias(rangoDesde, -1)), where('fechaServicio', '<=', rangoHasta)))
       .then(snap => { if (vigente) setCandidatas({ clave, lista: snap.docs.map(d => ({ id: d.id, ...d.data(), estatus: d.data().estatus?.toLowerCase() || ESTATUS_SOLICITUD.PENDIENTE })) }); })
       .catch(err => {
         if (!vigente) return;
@@ -73,11 +78,12 @@ export default function BotonFormatoRutas({ id = 'btn-formato-rutas' }) {
 
   const cargando = abierto && valido && candidatas.clave !== clave;
   const paraExportar = (candidatas.clave === clave ? candidatas.lista : []).filter(s => {
+    if (!Object.keys(viajesPorDia(s)).some(f => f >= rangoDesde && f <= rangoHasta)) return false;
     if (s.estatus === ESTATUS_SOLICITUD.APROBADA) return aprobadas;
     if (s.estatus === ESTATUS_SOLICITUD.PENDIENTE) return conPendientes && pendientes;
     return false;
   });
-  const totalPasajeros = paraExportar.reduce((a, s) => a + (s.totalPasajeros || 0), 0);
+  const totalPasajeros = paraExportar.reduce((a, s) => a + Object.entries(viajesPorDia(s)).filter(([f]) => f >= rangoDesde && f <= rangoHasta).reduce((n, [, v]) => n + v, 0), 0);
 
   // Los pasajeros se leen solo al exportar (en tandas para no saturar la red)
   const descargar = async () => {
@@ -93,7 +99,7 @@ export default function BotonFormatoRutas({ id = 'btn-formato-rutas' }) {
         }));
         conPasajeros.push(...tanda);
       }
-      await exportarSolicitudes(conPasajeros, catalogos, toast, `Transporte_${sufijo}.xlsx`);
+      await exportarSolicitudes(conPasajeros, catalogos, toast, `Transporte_${sufijo}.xlsx`, { desde: rangoDesde, hasta: rangoHasta });
       registrarDescarga(ACCIONES_DESCARGA.formatoRutas, { archivo: `Transporte_${sufijo}.xlsx`, solicitudes: conPasajeros.length });
       setAbierto(false);
     } catch (err) {

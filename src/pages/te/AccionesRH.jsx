@@ -47,7 +47,7 @@ export default function AccionesRH({ t, acciones, onHecho, onTrabajando, onConfi
   const recibir = () => ejecutar(async () => {
     const r = await recibirSolicitud({ id: t.id, usuario });
     if (onConfirmada) onConfirmada(t, r);
-    else toast.success(mensajeConfirmada({ fecha: t.fechaTE, pasajeros: r.pasajeros }), 9000);
+    else toast.success(mensajeConfirmada({ fecha: t.fechaTE, pasajeros: r.pasajeros, fechas: r.fechas }), 9000);
     onHecho?.();
   });
 

@@ -8,9 +8,10 @@
  *   AREA: área del pasajero (pasajero.areaId del padrón); en solicitudes anteriores sin área, la de la solicitud; si no hay, vacía.
  * ENTRADA y SALIDA salen en 24 horas con dos dígitos ("07:00", "16:00"); se cambia con FORMATO_HORA_PROVEEDOR (horas.js).
  * Tiempo extra: sus pasajeros ya traen el turno que corresponde a su hora de ENTRADA (pasajero.turno), así que caen en la hoja de ese
- * turno; su bloque dice "Solicitante: [solicitante original] · Tiempo extra TE-AAAA-NNNN" (no el nombre de RH).
+ * turno; un pasajero que viene y se va otro día (cruza la medianoche) sale en DOS hojas: la llegada el día del servicio (SALIDA «NO REQUIERE») y la salida
+ * el día siguiente (ENTRADA «YA EN PLANTA»), en el turno que termina a esa hora. Su bloque dice "Solicitante: [solicitante original] · Tiempo extra TE-AAAA-NNNN" (no el nombre de RH).
  */
-import { solicitanteDeTransporte } from './tiempoExtra.js';
+import { SIN_SALIDA, YA_EN_PLANTA, fechasDePasajero, solicitanteDeTransporte } from './tiempoExtra.js';
 import { aFechaIso, comparar, texto } from './orden.js';
 import { formatoTelefono } from './telefono.js';
 import { horaParaProveedor } from './horas.js';
@@ -48,16 +49,23 @@ const diaLocal = (valor) => {
  * Agrupa los pasajeros por hoja (fecha de servicio + turno).
  * @returns {Record<string, {fechaServicio, turnoName, pasajeros: {solicitud, pasajero}[]}>}
  */
-export function agruparHojas(solicitudes, { puestoDe = () => '', areaDe = () => '' } = {}) {
+export function agruparHojas(solicitudes, { puestoDe = () => '', areaDe = () => '', rango = null } = {}) {
   const hojasData = {};
   for (const sol of solicitudes) {
     for (const pas of sol.pasajeros || []) {
-      const fechaServicio = texto(sol.fechaServicio) || 'Sin fecha';
-      const turnoRaw = pas.turno || sol.turno || 'Sin turno';
-      const turnoName = NOMBRE_TURNO[turnoRaw] ?? texto(turnoRaw);
-      const key = `${fechaServicio}|${turnoName}`;
-      if (!hojasData[key]) hojasData[key] = { fechaServicio, turnoName, pasajeros: [] };
-      hojasData[key].pasajeros.push({ solicitud: sol, pasajero: { ...pas, puesto: pas.puesto || puestoDe(pas.nomina), area: areaDe(pas, sol) } });
+      const servicio = texto(sol.fechaServicio) || 'Sin fecha';
+      const viajes = servicio === 'Sin fecha' ? [{ fecha: servicio, viaje: pas.sentido, turno: pas.turno }] : fechasDePasajero(pas, servicio);
+      for (const v of viajes) {
+        // `rango` { desde, hasta }: solo las hojas de esos días (una solicitud del día anterior puede traer salidas de hoy)
+        if (rango && (v.fecha < rango.desde || v.fecha > rango.hasta)) continue;
+        const turnoRaw = v.turno || pas.turno || sol.turno || 'Sin turno';
+        const turnoName = NOMBRE_TURNO[turnoRaw] ?? texto(turnoRaw);
+        const key = `${v.fecha}|${turnoName}`;
+        // Cada viaje lleva solo lo suyo: la llegada no pide salida y la salida no pide entrada
+        const horas = viajes.length < 2 ? {} : v.viaje === 'llegada' ? { horaSalida: SIN_SALIDA } : { horaEntrada: YA_EN_PLANTA };
+        if (!hojasData[key]) hojasData[key] = { fechaServicio: v.fecha, turnoName, pasajeros: [] };
+        hojasData[key].pasajeros.push({ solicitud: sol, pasajero: { ...pas, ...horas, puesto: pas.puesto || puestoDe(pas.nomina), area: areaDe(pas, sol) } });
+      }
     }
   }
   return hojasData;
@@ -70,9 +78,10 @@ export function agruparHojas(solicitudes, { puestoDe = () => '', areaDe = () => 
  * @param {{rutas: Array, comunidades: Array, puntos: Array, areas?: Array}} p.catalogos  para resolver nombres
  * @param {(nomina: string) => object} [p.empleadoDe]  padrón, para completar el puesto de pasajeros que no lo traen
  * @param {(nomina: string) => string} [p.telefonoDe]  teléfono del empleado (10 dígitos) o ''
+ * @param {{desde: string, hasta: string}} [p.rango]  solo las hojas de esos días (AAAA-MM-DD)
  * @returns el libro, o null si no hay pasajeros
  */
-export function construirLibroProveedor({ ExcelJS, solicitudes, catalogos, empleadoDe = () => ({}), telefonoDe = () => '' }) {
+export function construirLibroProveedor({ ExcelJS, solicitudes, catalogos, empleadoDe = () => ({}), telefonoDe = () => '', rango = null }) {
   const nombreDe = (lista, id) => texto((lista ?? []).find(x => x.id === id)?.nombre);
   const nombreRuta = id => nombreDe(catalogos.rutas, id);
   const nombreCom = id => nombreDe(catalogos.comunidades, id);
@@ -81,7 +90,7 @@ export function construirLibroProveedor({ ExcelJS, solicitudes, catalogos, emple
 
   const hojasData = agruparHojas(solicitudes, {
     puestoDe: (nomina) => texto(empleadoDe(nomina).puesto),
-    areaDe: (pas, sol) => nombreArea(pas.areaId || sol.areaId) || texto(pas.areaNombre),
+    areaDe: (pas, sol) => nombreArea(pas.areaId || sol.areaId) || texto(pas.areaNombre), rango,
   });
   if (Object.keys(hojasData).length === 0) return null;
 

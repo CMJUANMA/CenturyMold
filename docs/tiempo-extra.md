@@ -243,6 +243,25 @@ al enviar al menos uno con `motivo` = nombre del primero, y `motivoIndex` entero
 (formato del P.O./TB, descripción de «Otro», largo de los textos libres) lo valida la app. Pruebas: `tests/motivos-te.test.js`, `tests/firestore.rules.motivos.test.js`,
 `tests/firestore.rules.captura-te.test.js` y `tests/formato-nomina*.test.js`.
 
+## Tiempo extra que cruza la medianoche
+
+**Regla:** si la hora de fin es menor o igual a la de inicio, el tiempo extra termina **al día siguiente** (22:00 → 7:00 = 9 h; 16:00 → 0:00 = 8 h). Las horas (`calcularHoras`) son siempre positivas; 7:00 → 7:00
+serían 24 h. **Máximo 16 h** (`MAX_HORAS_TE`): la captura lo rechaza con «el tiempo extra duraría N h; el máximo es 16 h» (y las salidas posibles de una extensión se limitan igual). 12:00 a. m. como
+inicio es el inicio del día elegido (la madrugada de ese día); la ayuda de «Entrada» lo dice. Las horas de la captura salen de los bloques de siempre (7:00, 16:00, 19:00, 0:00); la lógica vale para cualquier hora.
+
+**Cómo se ve:** «Termina: miércoles 21 oct, 7:00 a. m. (día siguiente)» (`textoTermina`) en la fila de cada empleado al capturar, en el detalle (tabla y tarjetas) y en una columna «Termina» de los Excel de consulta y de
+horas para RH. Las listas (bandejas, consulta, mis solicitudes) llevan la insignia «Termina al día siguiente» cuando alguien termina después de las 12:00 a. m. (el fin justo a medianoche, el turno 2 normal, no la lleva).
+
+**Transporte:** cada pasajero guarda `fechaLlegada` (día de inicio), `fechaSalida` y `turnoSalida`. La LLEGADA va el día de inicio; la SALIDA, el día en que termina (el siguiente si cruza). Un pasajero que viene y
+se va otro día sale en **dos hojas** del Formato de rutas: la llegada el día del servicio (SALIDA «NO REQUIERE») y la salida al día siguiente (ENTRADA «YA EN PLANTA») en el turno que termina a esa hora (7:00 a. m. → turno 3).
+Una extensión que termina de madrugada solo sale al día siguiente. **Excepción:** el fin justo a las 12:00 a. m. (16:00 → 0:00) sigue en el servicio del día que empezó, como siempre (si no, todo el turno 2 se partiría).
+La solicitud de transporte guarda `conteoFechas` ({ día: viajes }): el Formato de rutas busca desde el día anterior y cada fecha (Hoy, Mañana, una fecha o un rango) muestra y baja solo los viajes de esos días. Al
+confirmar, el aviso dice que las salidas de otro día van en el formato de ese día. Los pasajeros anteriores (sin esas fechas) no cambian.
+
+**Nómina:** `horasNominaPor` en `src/funciones.js`: `'inicio'` (por defecto) cuenta todas las horas en el día y la semana en que EMPIEZA (23:00 del domingo a 7:00 del lunes = 8 h del domingo); `'dividir'` las reparte por
+día calendario (1 h del domingo y 7 h del lunes, que va en la semana siguiente; esa semana también trae lo que empezó el domingo). Solo cambia el formato de nómina: las solicitudes no se tocan.
+Pruebas: `tests/medianoche-te.test.js` (los cinco casos en horas, validación, transporte y nómina).
+
 ## Ajustes de uso (tipo, rutas, extensión de turno, descargas, ayudas)
 
 - **Estatus**: una sola etiqueta por estatus en todas las pantallas y Excel (`ESTATUS_TE_MAP` / `etiquetaEstatusTE`): Borrador · En autorización (nivel 1) · En autorización (nivel 2) · Devuelta · Autorizada · Confirmada por RH · Cancelada.

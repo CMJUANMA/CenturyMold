@@ -113,7 +113,7 @@ export default function RecepcionTE() {
     setTrabajando(fecha); ocupadoRef.current = true;
     const r = await recibirVarias({ ids: items.map(t => t.id), usuario });
     const folio = (id) => items.find(t => t.id === id)?.folio ?? id;
-    setResultado({ ok: r.ok.map(x => ({ folio: folio(x.id), fecha, pasajeros: x.pasajeros })), fallidas: r.fallidas.map(f => ({ folio: folio(f.id), motivo: f.motivo })) });
+    setResultado({ ok: r.ok.map(x => ({ folio: folio(x.id), fecha, pasajeros: x.pasajeros, fechas: x.fechas })), fallidas: r.fallidas.map(f => ({ folio: folio(f.id), motivo: f.motivo })) });
     setTrabajando(null); setTimeout(() => { ocupadoRef.current = false; }, 1500);
   };
 
@@ -215,7 +215,7 @@ export default function RecepcionTE() {
                 <>
                   <div className="w-full"><Ayuda clave="recepcion.recibir" className="!mt-0" />{esRH && <Ayuda clave="recepcion.devolver" />}</div>
                   <AccionesRH t={detalle.solicitud} acciones={esRH ? ['cancelar', 'devolver', 'recibir'] : ['recibir']} onHecho={() => setDetalle(null)} onTrabajando={enDetalle}
-                    onConfirmada={(t, r) => setResultado({ ok: [{ folio: t.folio, fecha: t.fechaTE, pasajeros: r.pasajeros }], fallidas: [] })} />
+                    onConfirmada={(t, r) => setResultado({ ok: [{ folio: t.folio, fecha: t.fechaTE, pasajeros: r.pasajeros, fechas: r.fechas }], fallidas: [] })} />
                 </>
               )} />
           )}
@@ -229,7 +229,7 @@ export default function RecepcionTE() {
               <div className="space-y-3">
                 <Aviso tono="exito">{resultado.ok.length} {resultado.ok.length === 1 ? 'confirmada' : 'confirmadas'}: {resultado.ok.map(x => x.folio).join(', ')}</Aviso>
                 {[...new Set(resultado.ok.filter(x => x.pasajeros > 0).map(x => x.fecha))].map(fecha => (
-                  <p key={fecha} className="text-[var(--text-main)]">{mensajeConfirmada({ fecha, pasajeros: 1 })}</p>
+                  <p key={fecha} className="text-[var(--text-main)]">{mensajeConfirmada({ fecha, pasajeros: 1, fechas: resultado.ok.filter(x => x.fecha === fecha).flatMap(x => x.fechas ?? []) })}</p>
                 ))}
                 {resultado.ok.some(x => !(x.pasajeros > 0)) && <p className="text-[var(--text-main)]">{mensajeConfirmada({ pasajeros: 0 })}{resultado.ok.some(x => x.pasajeros > 0) ? ` (${resultado.ok.filter(x => !(x.pasajeros > 0)).map(x => x.folio).join(', ')})` : ''}</p>}
                 {resultado.ok.some(x => x.pasajeros > 0) && (

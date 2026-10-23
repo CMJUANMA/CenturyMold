@@ -9,21 +9,21 @@
  * al guardar se recuerdan en el padrón. El teléfono (para que el transporte pueda llamar) se muestra desde el padrón, se puede capturar o
  * corregir, y también se guarda en el padrón; solo lo ven RH y quien solicita en esa área (`puedeTelefono`). Falta de teléfono: aviso suave.
  */
-import { AlertCircle, CheckCircle2, MapPin, Trash2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, MapPin, Moon, Trash2 } from 'lucide-react';
 import Boton from '../../components/ui/Boton';
 import { Entrada, Selector } from '../../components/ui/Campo';
 import { CASILLA } from '../../components/ui/estilos';
 import { opcionesVigentes } from '../../utils/activo';
 import { estadoTelefono } from '../../utils/telefono';
 import { formatoHora12 } from '../../utils/horas';
-import { HORAS_ENTRADA_TE, HORAS_SALIDA_TE, TIPOS_TE, calcularHoras, salidasPosteriores } from '../../utils/tiempoExtra';
+import { HORAS_ENTRADA_TE, HORAS_SALIDA_TE, TIPOS_TE, calcularHoras, salidasPosteriores, textoTermina } from '../../utils/tiempoExtra';
 
 // Selectores de la fila: 44 px en celular y 36 px en escritorio, donde la fila es compacta
 const SEL = 'md:!min-h-9 !py-1.5';
 const etiqueta = 'mb-1 block text-xs font-medium text-[var(--text-muted)] lg:hidden';
 export const COLUMNAS_FILA = 'lg:grid lg:grid-cols-[2rem_minmax(0,2.2fr)_7rem_7rem_4rem_6rem_8rem_2.5rem] lg:items-center lg:gap-3';
 
-export default function FilaEmpleadoTE({ tour, e, tipo = TIPOS_TE.TURNO_EXTRA, opcionesMotivo = [], rutas, comunidades, puntos, seleccionado, aviso, error, telefono = '', puedeTelefono = false, onTelefono, onSeleccionar, onCambio, onQuitar }) {
+export default function FilaEmpleadoTE({ tour, e, fechaTE = '', tipo = TIPOS_TE.TURNO_EXTRA, opcionesMotivo = [], rutas, comunidades, puntos, seleccionado, aviso, error, telefono = '', puedeTelefono = false, onTelefono, onSeleccionar, onCambio, onQuitar }) {
   const extension = tipo === TIPOS_TE.EXTENSION;
   const horas = calcularHoras(e.horaEntrada, e.horaSalida);
   const pedirConfirmar = e.transporte && e.necesitaConfirmar && !e.confirmada;
@@ -42,6 +42,9 @@ export default function FilaEmpleadoTE({ tour, e, tipo = TIPOS_TE.TURNO_EXTRA, o
           <p className="truncate text-xs text-[var(--text-secondary)]">
             <span className="font-mono">{e.nomina}</span>{e.puesto ? ` · ${e.puesto}` : ''}
           </p>
+          {textoTermina(fechaTE, e.horaEntrada, e.horaSalida, { soloSiCruza: true }) && (
+            <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-[var(--status-info-text)]"><Moon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{textoTermina(fechaTE, e.horaEntrada, e.horaSalida)}</p>
+          )}
           {opcionesMotivo.length > 1 && (
             <div className="mt-2">
               <label htmlFor={`mot-${e.nomina}`} className="mb-1 block text-xs font-medium text-[var(--text-muted)]">Motivo</label>

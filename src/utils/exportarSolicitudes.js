@@ -13,8 +13,9 @@ import { leerTelefonos } from './contactosDb';
  * @param {{rutas: Array, comunidades: Array, puntos: Array, areas?: Array}} catalogos  para resolver nombres
  * @param {{success: Function, error: Function}} toast
  * @param {string} fileName
+ * @param {{desde: string, hasta: string}} [rango]  solo las hojas de esos días
  */
-export async function exportarSolicitudes(solicitudesExport, catalogos, toast, fileName) {
+export async function exportarSolicitudes(solicitudesExport, catalogos, toast, fileName, rango = null) {
   if (solicitudesExport.length === 0) return toast.error('No hay solicitudes para exportar.');
 
   // exceljs pesa mucho: se descarga solo cuando se exporta
@@ -37,7 +38,7 @@ export async function exportarSolicitudes(solicitudesExport, catalogos, toast, f
 
   const workbook = construirLibroProveedor({
     ExcelJS, solicitudes: solicitudesExport, catalogos, empleadoDe: (nomina) => empList.find(e => String(e.nomina) === String(nomina)) || {},
-    telefonoDe: (nomina) => telefonos.get(String(nomina)) ?? '',
+    telefonoDe: (nomina) => telefonos.get(String(nomina)) ?? '', rango,
   });
   // Si no hay nada que bajar se avisa con un error (la pantalla lo muestra); antes solo salía un aviso y el panel se cerraba como si se hubiera descargado
   if (!workbook) throw new Error('No hay pasajeros válidos para exportar.');

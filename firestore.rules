@@ -266,7 +266,7 @@ service cloud.firestore {
         return d.origen == 'tiempo_extra' && d.estatus == 'aprobada' && d.tiempoExtraId is string
           && d.keys().hasOnly(['fechaSolicitud', 'fechaServicio', 'solicitanteNombre', 'solicitanteNomina', 'creadoPor', 'creadoPorNombre',
                                'areaId', 'estatus', 'origen', 'tiempoExtraId', 'folioTE', 'totalPasajeros', 'totalAlimentos',
-                               'conteoTurnos', 'conteoPuestos', 'historial', 'revisadoPor', 'revisadoPorNombre', 'fechaRevision'])
+                               'conteoTurnos', 'conteoPuestos', 'conteoFechas', 'historial', 'revisadoPor', 'revisadoPorNombre', 'fechaRevision'])
           && d.fechaSolicitud == request.time
           && get(te).data.estatus == 'autorizada'
           && getAfter(te).data.estatus == 'procesada'

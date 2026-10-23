@@ -61,6 +61,14 @@ export function rangoSemana(fechaYmd = ymd(), offsetSemanas = 0) {
 const DIAS_SEMANA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+/** "miércoles 22 oct" */
+export function fechaCorta(fechaYmd) {
+  const d = fechaLocal(fechaYmd);
+  return d ? `${DIAS_SEMANA[d.getDay()]} ${d.getDate()} ${MESES_CORTOS[d.getMonth()]}` : '';
+}
+
 /** Primer y último día del mes de `fechaYmd` */
 export function rangoMes(fechaYmd = ymd()) {
   const d = fechaLocal(fechaYmd);

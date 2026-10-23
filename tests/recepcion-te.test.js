@@ -90,7 +90,7 @@ describe('transporte de un tiempo extra', () => {
 
 describe('Excel del proveedor', () => {
   // Un tiempo extra con tres empleados en horarios distintos, y una solicitud normal del mismo día
-  const empleadosTE = [emp('1', '7:00', '16:00', { alimentos: true }), emp('2', '16:00', '0:00'), emp('3', '19:00', '7:00'), emp('4', '0:00', '7:00')];
+  const empleadosTE = [emp('1', '7:00', '16:00', { alimentos: true }), emp('2', '16:00', '0:00'), emp('3', '19:00', '0:00'), emp('4', '0:00', '7:00')];
   const pasajerosTE = pasajerosDeTE(empleadosTE, te).map(p => ({ ...p, rutaId: p.nomina === '2' ? 'r2' : 'r1' }));
   const solTE = { ...datosSolicitudTransporte(te, pasajerosTE, { uid: 'rh1', nombre: 'MARCO RH' }), id: 's-te', fechaSolicitud: '2026-10-14T10:00:00.000Z', pasajeros: pasajerosTE };
   const solNormal = {
@@ -230,8 +230,8 @@ describe('Excel de tiempo extra para RH', () => {
   it('Detalle: una fila por empleado con horas, ruta, solicitante, quién firmó y la fecha de autorización', () => {
     const wb = construirLibroTiempoExtra({ ExcelJS, solicitudes: sols, nombresArea, catalogos, filtros: { areaId: 'moldes' } });
     const d = wb.getWorksheet('Detalle');
-    expect(valores(d.getRow(5))).toEqual(['TE-2026-0001', '20/10/2026', 'Moldes', 'Turno extra', '', '1', 'EMPLEADO 1', 'OPERADOR', '7:00', '16:00', 9, 'Sí', 'Sí', 'llegada y salida', 'Norte · Pueblito · Plaza', 'OSCAR PEREZ', 'ANSELMO', 'ADMIN (RH)', '15/10/2026 14:30']);
-    expect(valores(d.getRow(7))).toEqual(['TE-2026-0002', '21/10/2026', 'Moldes', 'Turno extra', '', '1', 'EMPLEADO 1', 'OPERADOR', '16:00', '0:00', 8, 'Sí', 'No', '', '', 'OSCAR PEREZ', '', '', '']);
+    expect(valores(d.getRow(5))).toEqual(['TE-2026-0001', '20/10/2026', 'Moldes', 'Turno extra', '', '1', 'EMPLEADO 1', 'OPERADOR', '7:00', '16:00', 'martes 20 oct, 4:00 p. m.', 9, 'Sí', 'Sí', 'llegada y salida', 'Norte · Pueblito · Plaza', 'OSCAR PEREZ', 'ANSELMO', 'ADMIN (RH)', '15/10/2026 14:30']);
+    expect(valores(d.getRow(7))).toEqual(['TE-2026-0002', '21/10/2026', 'Moldes', 'Turno extra', '', '1', 'EMPLEADO 1', 'OPERADOR', '16:00', '0:00', 'jueves 22 oct, 12:00 a. m. (día siguiente)', 8, 'Sí', 'No', '', '', 'OSCAR PEREZ', '', '', '']);
     expect(d.rowCount).toBe(7); // título, subtítulo, vacía, encabezado y 3 empleados
   });
 

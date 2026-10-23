@@ -156,7 +156,7 @@ describe('extensión de turno', () => {
     expect(salidasPosteriores('16:00')).toEqual(['19:00', '0:00', '7:00']);
     expect(salidasPosteriores('19:00')).toEqual(['0:00', '7:00']);
     expect(salidasPosteriores('0:00')).toEqual(['7:00']);
-    expect(salidasPosteriores('7:00')).toEqual(['16:00', '19:00', '0:00']);
+    expect(salidasPosteriores('7:00')).toEqual(['16:00', '19:00']); // a 0:00 serían 17 h: pasa del máximo de 16
     expect(salidasPosteriores('')).toEqual([]);
     expect(salidasPosteriores('12:00')).toEqual([]);
   });

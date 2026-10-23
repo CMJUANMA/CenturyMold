@@ -8,7 +8,8 @@
  * Sin Firebase ni navegador. El Excel está en exportarFormatoNomina.js; lo que habla con Firestore, en ajustesNominaDb.js.
  */
 import { fechaLocal, rangoSemana, sumarDias, ymd } from './fechas.js';
-import { ESTATUS_DESCARGA, calcularHoras } from './tiempoExtra.js';
+import { horasNominaPor } from '../funciones.js';
+import { ESTATUS_DESCARGA, calcularHoras, tramosPorDia } from './tiempoExtra.js';
 import { etiquetaMotivo, motivoDeEmpleado, textoNumero } from './motivosTE.js';
 
 // ── Constantes del formato en papel (editables aquí) ───────────────────────────────────────────
@@ -123,7 +124,12 @@ export const idAjuste = (periodo, areaId) => `${periodo.clave}_${areaId}`;
 const enPeriodo = (t, p) => !!t.fechaTE && t.fechaTE >= p.desde && t.fechaTE <= p.hasta && p.dias.includes(t.fechaTE);
 
 /** Solo lo autorizado por Aut. 2 (autorizada o procesada) cuya fecha de tiempo extra cae en el periodo */
-export const autorizadasDelPeriodo = (planta, periodo) => planta.filter(t => ESTATUS_DESCARGA.includes(t.estatus) && enPeriodo(t, periodo));
+/**
+ * Con `modo` 'dividir' también entra lo que empezó el día anterior al periodo (su parte después de la medianoche cae en este); por defecto, horasNominaPor
+ * (funciones.js): 'inicio' cuenta todo el día en que empieza.
+ */
+export const autorizadasDelPeriodo = (planta, periodo, modo = horasNominaPor) => planta.filter(t => ESTATUS_DESCARGA.includes(t.estatus)
+  && (enPeriodo(t, periodo) || (modo === 'dividir' && !!t.fechaTE && periodo.dias.includes(sumarDias(t.fechaTE, 1)))));
 
 const PENDIENTES = ['pendiente_aut1', 'pendiente_aut2', 'devuelta'];
 
@@ -149,24 +155,29 @@ export function pendientesDelPeriodo(planta, periodo, nombres = new Map()) {
  * Lo autorizado, un renglón por empleado: horas por día (suma si tiene varias solicitudes el mismo día) y los motivos de cada día.
  * @param {object[]} solicitudes  de UN área, con `empleados` (docAEmpleado)
  * @param {{dias: (string|null)[]}} periodo
+ * @param {'inicio'|'dividir'} [modo]  cómo cuentan las horas que cruzan la medianoche (por defecto horasNominaPor, funciones.js)
  */
-export function filasAutorizadas(solicitudes, periodo) {
+export function filasAutorizadas(solicitudes, periodo, modo = horasNominaPor) {
   const filas = new Map();
   for (const t of solicitudes) {
-    if (!periodo.dias.includes(t.fechaTE)) continue;
     for (const e of t.empleados ?? []) {
+      // Las horas de este empleado por día: todas el día en que empieza, o repartidas por día calendario; solo cuentan los días del periodo
+      const h = calcularHoras(e.horaEntrada, e.horaSalida);
+      const tramos = (modo === 'dividir' ? tramosPorDia(t.fechaTE, e.horaEntrada, e.horaSalida) : [{ fecha: t.fechaTE, horas: h }])
+        .filter(x => periodo.dias.includes(x.fecha) && x.horas > 0);
+      if (!tramos.length) continue;
       const clave = String(e.nomina);
       const f = filas.get(clave) ?? { clave, nomina: clave, nombre: e.nombre ?? '', puesto: e.puesto ?? '', horas: {}, motivos: {}, numeros: {}, detalle: {} };
-      const h = calcularHoras(e.horaEntrada, e.horaSalida);
-      const dia = t.fechaTE;
-      f.horas[dia] = redondeo((f.horas[dia] ?? 0) + h);
       // El motivo de ESTE empleado (el de su motivoIndex) con su detalle; el número de P.O./TB va aparte
       const m = motivoDeEmpleado(t, e);
-      if (m?.nombre) {
-        const texto = etiquetaMotivo(m, { conNumero: false });
-        if (!(f.motivos[dia] ?? []).includes(texto)) f.motivos[dia] = [...(f.motivos[dia] ?? []), texto];
-        if (m.numero && !(f.numeros[dia] ?? []).includes(m.numero)) f.numeros[dia] = [...(f.numeros[dia] ?? []), m.numero];
-        f.detalle[dia] = [...(f.detalle[dia] ?? []), { nombre: m.nombre, numero: m.numero, tipo: m.numero ? (m.tipoNumero || 'po') : '', horas: h }];
+      for (const { fecha: dia, horas: hd } of tramos) {
+        f.horas[dia] = redondeo((f.horas[dia] ?? 0) + hd);
+        if (m?.nombre) {
+          const texto = etiquetaMotivo(m, { conNumero: false });
+          if (!(f.motivos[dia] ?? []).includes(texto)) f.motivos[dia] = [...(f.motivos[dia] ?? []), texto];
+          if (m.numero && !(f.numeros[dia] ?? []).includes(m.numero)) f.numeros[dia] = [...(f.numeros[dia] ?? []), m.numero];
+          f.detalle[dia] = [...(f.detalle[dia] ?? []), { nombre: m.nombre, numero: m.numero, tipo: m.numero ? (m.tipoNumero || 'po') : '', horas: hd }];
+        }
       }
       filas.set(clave, f);
     }
