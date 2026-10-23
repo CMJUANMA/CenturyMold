@@ -4,8 +4,7 @@
  *   · Solo cuenta el tiempo extra AUTORIZADO por Aut. 2 (autorizada o procesada); las pendientes y devueltas de esa semana solo se avisan.
  *   · La tabla por empleado (horas por día, subtotal y motivo) sale de las solicitudes y NO las modifica: los ajustes de Nóminas (quitar,
  *     reemplazar, corregir horas) viven aparte, como una lista de cambios que se aplica sobre lo autorizado (ajustesNomina/{semana}_{areaId}).
- * Motivos: cada empleado lleva el motivo de SU solicitud (motivoIndex) con su detalle; el número de P.O./TB va en su propia columna y, si el área trae
- * alguno, el formato pide la firma (2) del Program Manager. Nóminas también puede corregir el motivo de un renglón (tipo de cambio «motivo»).
+ * Motivos: cada empleado lleva el motivo de SU solicitud (motivoIndex) con su detalle; el número de P.O./TB va en su propia columna. Nóminas también puede corregir el motivo de un renglón (tipo de cambio «motivo»).
  * Sin Firebase ni navegador. El Excel está en exportarFormatoNomina.js; lo que habla con Firestore, en ajustesNominaDb.js.
  */
 import { fechaLocal, rangoSemana, sumarDias, ymd } from './fechas.js';
@@ -293,9 +292,6 @@ export function desgloseFila(f, periodo) {
   }
   return salida;
 }
-
-/** ¿Algún renglón del área lleva P.O. o TB? Entonces el formato necesita la firma (2) del Program Manager */
-export const areaRequierePM = (filas, periodo) => filasVigentes(filas).some(f => desgloseFila(f, periodo).some(x => x.numero));
 
 /** Los renglones que van al formato: sin los quitados */
 export const filasVigentes = (filas) => filas.filter(f => !f.quitado);

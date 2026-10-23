@@ -514,7 +514,7 @@ function TabMotivos({ motivos, reload }) {
           <Campo etiqueta="Nombre del motivo" obligatorio ayuda="Así se ve en las solicitudes y en el formato de nómina.">
             <Entrada required autoFocus maxLength={MAX_NOMBRE_MOTIVO} value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="Ej. Inventario físico" />
           </Campo>
-          <Campo etiqueta="¿Qué número pide?" ayuda="Con P.O. o TB, la solicitud pide el número y avisa que necesita la firma del Program Manager.">
+          <Campo etiqueta="¿Qué número pide?" ayuda="Con P.O. o TB, la solicitud pide el número.">
             <Selector value={form.requiereNumero} onChange={e => setForm(f => ({ ...f, requiereNumero: e.target.value }))}>
               <option value="">Ninguno</option><option value="po">Número de P.O.</option><option value="tb">Número de TB</option>
             </Selector>

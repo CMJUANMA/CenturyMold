@@ -231,11 +231,11 @@ distinguir P.O. de TB en los reportes) y `motivo` = el nombre del primero (para 
 (`motivosDeTE` las normaliza) y **no se migró ningún dato**. Si una anterior (borrador o devuelta) se edita, la pantalla pide elegir un motivo del catálogo y al guardar se borra `motivoOtro`.
 
 **Dónde se ve.** Detalle de la solicitud (con el motivo de cada empleado cuando hay varios), *Mis solicitudes*, *Por autorizar* (Aut. 1 y Aut. 2), *Por enviar al proveedor* y *Consulta* (también para Nóminas):
-los motivos como etiquetas («Cargo a P.O. 4551099797», «Inventario físico · apoyo a inventario»). Con P.O. o TB aparece «**Requiere firma del Program Manager**» para Aut. 2 y Nóminas (y RH). La consulta tiene filtro
+los motivos como etiquetas («Cargo a P.O. 4551099797», «Inventario físico · apoyo a inventario»). La consulta tiene filtro
 por motivo. Los Excel de consulta y de horas para RH traen el motivo de cada empleado.
 
 **Formato de nómina** (*Reportes de nómina*): la columna «Descripción Motivo/Razón» lleva el motivo de cada empleado con su detalle («Sáb: …; Dom: …» si cambia en la semana); la columna «P.O./TB», el número que
-le corresponde. Si el área trae algún P.O./TB, la tarjeta del área y el Excel marcan que requiere la firma (2) del Program Manager. La hoja «Resumen» agrega las horas por motivo con su porcentaje y una tabla de horas
+le corresponde. La firma (2) del Excel queda como en el formato en papel («Nombre & Firma de Program Manager** (si aplica)»), sin avisos ni resaltado. La hoja «Resumen» agrega las horas por motivo con su porcentaje y una tabla de horas
 por número de P.O./TB. Los ajustes permiten además **corregir el motivo (y el P.O./TB) de un renglón** (cambio tipo `motivo` en `ajustesNomina`; manda sobre lo de las solicitudes y no las modifica).
 
 **Reglas** (`firestore.rules`): `motivosTE` (lectura de cualquier usuario activo, escritura RH/admin, validada, sin borrado) y, en `tiempoExtra`, `motivos` (lista de hasta 5 mapas con esos campos y nombre ≤ 60),

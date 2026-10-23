@@ -139,7 +139,7 @@ describe('seguridad del archivo', () => {
   });
 });
 
-describe('P.O./TB y la firma del Program Manager', () => {
+describe('P.O./TB en el formato', () => {
   const conPO = (i) => fila(i, {
     motivos: { '2026-10-24': ['Cargo a P.O.'], '2026-10-25': ['Cargo a P.O.'] }, numeros: { '2026-10-24': ['4551099797'], '2026-10-25': ['4551099797'] },
     detalle: { '2026-10-24': [{ nombre: 'Cargo a P.O.', numero: '4551099797', tipo: 'po', horas: 9 }], '2026-10-25': [{ nombre: 'Cargo a P.O.', numero: '4551099797', tipo: 'po', horas: 4 }] },
@@ -154,18 +154,20 @@ describe('P.O./TB y la firma del Program Manager', () => {
     expect(buscar(ws, 'EMPLEADO 0').getCell('M').value).toBe('Cargo a P.O.');
     expect(buscar(ws, 'EMPLEADO 1').getCell('L').value).toBe('');
   });
-  it('si el área trae P.O. o TB, marca que requiere la firma (2) del Program Manager', () => {
-    const t = textos(wb.getWorksheet('Moldes'));
-    expect(t.filter(x => x.includes('REQUIERE la firma (2) del Program Manager'))).toHaveLength(1); // en el total
-    expect(t.some(x => x.includes('REQUERIDA: lleva P.O./TB'))).toBe(true); // y en la firma (2)
-    expect(t).toContain('REQUIERE la firma (2) del Program Manager: lleva P.O./TB');
-  });
-  it('un área sin P.O. ni TB no lo marca', () => {
-    expect(textos(wb.getWorksheet('Calidad')).some(x => x.includes('REQUIERE'))).toBe(false);
+  it('la firma (2) queda como en el formato en papel, con o sin P.O./TB: sin resaltado ni texto extra', () => {
+    for (const nombre of ['Moldes', 'Calidad']) {
+      const ws = wb.getWorksheet(nombre);
+      const t = textos(ws);
+      expect(t).toContain(FIRMAS_FORMATO[1]);
+      expect(t.some(x => /REQUIER|REQUERIDA/.test(x))).toBe(false);
+      ws.eachRow(r => r.eachCell(c => {
+        if (String(c.value).includes('Program Manager')) { expect(c.fill?.fgColor?.argb).toBeUndefined(); expect(c.font?.color).toBeUndefined(); }
+      }));
+    }
   });
   it('la hoja Resumen trae las horas por número de P.O./TB', () => {
     const t = textos(wb.getWorksheet('Resumen'));
-    expect(t).toContain('Horas por número de P.O./TB (requieren firma del Program Manager)');
+    expect(t).toContain('Horas por número de P.O./TB');
     expect(t).toContain('P.O. 4551099797');
   });
   it('sin ningún P.O./TB el Resumen no trae esa tabla', () => {

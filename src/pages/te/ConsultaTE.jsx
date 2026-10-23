@@ -216,7 +216,7 @@ export default function ConsultaTE() {
                 <tbody>
                   {filtradas.map(t => (
                     <Fila key={t.id}>
-                      <Td mono>{t.folio ?? '—'}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></Td><Td>{nombreArea(t.areaId)}<MotivosTE t={t} pm className="mt-1" /></Td><Td>{formato.nombre(t.creadoPorNombre ?? '')}</Td>
+                      <Td mono>{t.folio ?? '—'}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></Td><Td>{nombreArea(t.areaId)}<MotivosTE t={t} className="mt-1" /></Td><Td>{formato.nombre(t.creadoPorNombre ?? '')}</Td>
                       <Td className="whitespace-nowrap">{formatoFecha(`${t.fechaTE}T12:00:00`)}</Td><Td derecha>{t.resumen?.totalEmpleados ?? 0}</Td><Td derecha mono>{t.resumen?.totalHoras ?? 0}</Td>
                       <Td><BadgeEstatus estatus={t.estatus} modulo="te" /></Td>
                       <Td className="text-right"><Boton tamano="sm" icono={Eye} onClick={() => abrir(t)} aria-label={`Ver ${t.folio}`}>Ver</Boton></Td>
@@ -232,7 +232,7 @@ export default function ConsultaTE() {
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">{nombreArea(t.areaId)} · {formatoFecha(`${t.fechaTE}T12:00:00`)}</p>
                   <p className="mt-1 text-xs text-[var(--text-muted)]">{formato.nombre(t.creadoPorNombre ?? '')} · {t.resumen?.totalEmpleados ?? 0} empleados · {t.resumen?.totalHoras ?? 0} h</p>
                   <InsigniasTE t={t} className="mt-2" />
-                  <MotivosTE t={t} pm className="mt-2" />
+                  <MotivosTE t={t} className="mt-2" />
                   <Boton className="mt-3 w-full" icono={Eye} onClick={() => abrir(t)} aria-label={`Ver ${t.folio}`}>Ver</Boton>
                 </li>
               ))}

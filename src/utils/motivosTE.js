@@ -14,7 +14,6 @@ export const MIN_COMENTARIO_MOTIVO = 10;
 export const MAX_COMENTARIO_MOTIVO = 200;
 export const MAX_DETALLE_MOTIVO = 120;
 export const MAX_NOMBRE_MOTIVO = 60;
-export const AVISO_PROGRAM_MANAGER = 'Requiere firma del Program Manager';
 export const TIPOS_NUMERO = { po: 'P.O.', tb: 'TB' };
 
 /** Carga inicial del catálogo, en este orden. El id del documento es fijo para que sembrarlo dos veces no duplique nada */
@@ -150,9 +149,6 @@ export function numerosDeTE(t) {
   return motivosDeTE(t).filter(m => m.numero).map(m => ({ tipo: m.tipoNumero || 'po', numero: m.numero }))
     .filter(n => { const k = `${n.tipo}|${n.numero}`; if (vistos.has(k)) return false; vistos.add(k); return true; });
 }
-
-/** ¿Lleva P.O. o TB? Entonces necesita la firma del Program Manager */
-export const requiereProgramManager = (t) => numerosDeTE(t).length > 0;
 
 /** "P.O. 4551099797" · "TB AB12" */
 export const textoNumero = (n) => `${TIPOS_NUMERO[n.tipo] ?? ''} ${n.numero}`.trim();

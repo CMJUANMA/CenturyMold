@@ -7,8 +7,7 @@ import { useEffect, useState } from 'react';
 import { Bus, Route } from 'lucide-react';
 import BadgeEstatus from '../../components/BadgeEstatus';
 import InsigniasTE from '../../components/InsigniasTE';
-import MotivosTE, { AvisoProgramManager } from '../../components/MotivosTE';
-import { useAccesos } from '../../hooks/useAccesos';
+import MotivosTE from '../../components/MotivosTE';
 import Aviso from '../../components/ui/Aviso';
 import Insignia from '../../components/ui/Insignia';
 import { Fila, Tabla, Td, Th } from '../../components/ui/Tabla';
@@ -56,7 +55,6 @@ function TransporteDeTE({ t }) {
 
 export default function DetalleTE({ t, historial = [], area, catalogos, formato, acciones, avisoTransporte = false }) {
   const empleados = t.empleados ?? [];
-  const { esRH, esAut2, esNomina } = useAccesos();
   const variosMotivos = motivosDeTE(t).length > 1;
   const bloques = Object.entries(resumenTE(empleados).porBloque);
   const nombre = (x) => formato?.nombre(x) ?? x;
@@ -84,8 +82,6 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
         ))}
         {t.comentario && <div className="col-span-full"><dt className="text-xs text-[var(--text-muted)]">Comentario</dt><dd className="mt-0.5 text-[var(--text-main)]">{t.comentario}</dd></div>}
       </dl>
-
-      {(esAut2 || esNomina || esRH) && <AvisoProgramManager t={t} />}
 
       {avisoTransporte && ['pendiente_aut1', 'pendiente_aut2', 'autorizada'].includes(t.estatus) && (
         <Aviso tono="info">Al quedar autorizada, RH la confirmará y generará la solicitud de transporte de los empleados que lo pidieron.</Aviso>

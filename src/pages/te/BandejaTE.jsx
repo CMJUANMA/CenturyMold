@@ -231,7 +231,7 @@ export default function BandejaTE() {
                               <Fila key={t.id} className={propia ? 'opacity-60' : ''}>
                                 <Td>{!propia && <input type="checkbox" aria-label={`Seleccionar ${t.folio}`} checked={seleccion[nivel].has(t.id)} onChange={() => alternar(nivel, t.id)} className={CASILLA} />}</Td>
                                 <Td mono>{t.folio}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></Td>
-                                <Td>{nombreArea(t.areaId)}<MotivosTE t={t} pm={nivel === 2} className="mt-1" /></Td>
+                                <Td>{nombreArea(t.areaId)}<MotivosTE t={t} className="mt-1" /></Td>
                                 <Td>{formato.nombre(t.creadoPorNombre)}</Td>
                                 <Td className="whitespace-nowrap">{formatoFecha(`${t.fechaTE}T12:00:00`)} {fechaVencida(t.fechaTE, hoy) && <Vencida />}</Td>
                                 <Td derecha>{t.resumen?.totalEmpleados ?? 0}</Td>
@@ -254,7 +254,7 @@ export default function BandejaTE() {
                         return (
                           <li key={t.id} className={`rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 ${propia ? 'opacity-60' : ''}`}>
                             <div className="flex items-start justify-between gap-3">
-                              <div><p className="font-mono text-sm font-medium text-[var(--text-main)]">{t.folio}</p><p className="text-xs text-[var(--text-secondary)]">{nombreArea(t.areaId)} · {formato.nombre(t.creadoPorNombre)}</p><InsigniasTE t={t} className="mt-1" /><MotivosTE t={t} pm={nivel === 2} className="mt-1" /></div>
+                              <div><p className="font-mono text-sm font-medium text-[var(--text-main)]">{t.folio}</p><p className="text-xs text-[var(--text-secondary)]">{nombreArea(t.areaId)} · {formato.nombre(t.creadoPorNombre)}</p><InsigniasTE t={t} className="mt-1" /><MotivosTE t={t} className="mt-1" /></div>
                               {!propia && (
                                 <label className="-m-2 flex h-11 w-11 cursor-pointer items-center justify-center">
                                   <input type="checkbox" aria-label={`Seleccionar ${t.folio}`} checked={seleccion[nivel].has(t.id)} onChange={() => alternar(nivel, t.id)} className={CASILLA} />

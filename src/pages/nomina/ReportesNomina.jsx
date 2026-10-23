@@ -5,7 +5,7 @@
  * y «Descargar» (Excel listo para imprimir). Los ajustes viven aparte (ajustesNomina) y nunca modifican las solicitudes.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarRange, ChevronLeft, ChevronRight, ClipboardCheck, Download, FileSignature, FileSpreadsheet, Lock } from 'lucide-react';
+import { CalendarRange, ChevronLeft, ChevronRight, ClipboardCheck, Download, FileSpreadsheet, Lock } from 'lucide-react';
 import { useAccesos } from '../../hooks/useAccesos';
 import { useAjustesNomina } from '../../hooks/useAjustesNomina';
 import { useAreas } from '../../hooks/useAreas';
@@ -25,10 +25,9 @@ import Insignia from '../../components/ui/Insignia';
 import { ACCIONES_DESCARGA, registrarDescarga } from '../../utils/bitacoraDb';
 import { ymd } from '../../utils/fechas';
 import {
-  ESTADOS_AREA, areaRequierePM, autorizadasDelPeriodo, estadoDeArea, etiquetaPeriodo, filasAutorizadas, filasDelArea, filasVigentes, moverSemana, nombreArchivoFormato,
+  ESTADOS_AREA, autorizadasDelPeriodo, estadoDeArea, etiquetaPeriodo, filasAutorizadas, filasDelArea, filasVigentes, moverSemana, nombreArchivoFormato,
   pendientesDelPeriodo, periodoLibre, semanaDe, totalesDeFilas, ultimaSemanaCompleta,
 } from '../../utils/formatoNomina';
-import { AVISO_PROGRAM_MANAGER } from '../../utils/motivosTE';
 import { crearFormateadorNombres } from '../../utils/nombresPersona';
 import { trozos } from '../../utils/tiempoExtra';
 import { leerSolicitudTE } from '../../utils/tiempoExtraDb';
@@ -84,7 +83,7 @@ export default function ReportesNomina() {
       const base = periodo ? filasAutorizadas(delArea, periodo) : [];
       const filas = periodo ? filasDelArea({ solicitudes: delArea, periodo, ajuste }) : [];
       const totales = totalesDeFilas(filas, periodo);
-      return { areaId, nombre: nombres.get(areaId) ?? areaId, base, filas, ajuste, totales, estado: estadoDeArea(ajuste), requierePM: periodo ? areaRequierePM(filas, periodo) : false };
+      return { areaId, nombre: nombres.get(areaId) ?? areaId, base, filas, ajuste, totales, estado: estadoDeArea(ajuste) };
     }).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   }, [autorizadas, detalle, ajustes, periodo, nombres]);
 
@@ -184,11 +183,6 @@ export default function ReportesNomina() {
                     <div><dt className="text-xs text-[var(--text-muted)]">Empleados</dt><dd className="text-2xl font-medium tabular-nums text-[var(--text-main)]">{a.totales.empleados}</dd></div>
                     <div><dt className="text-xs text-[var(--text-muted)]">Horas totales</dt><dd className="text-2xl font-medium tabular-nums text-[var(--text-main)]">{a.totales.horas}</dd></div>
                   </dl>
-                )}
-                {a.requierePM && (
-                  <p className="flex items-start gap-2 rounded-md border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-xs font-medium text-[var(--status-warning-text)]">
-                    <FileSignature className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />{AVISO_PROGRAM_MANAGER}: lleva P.O. o TB.
-                  </p>
                 )}
                 <div className="mt-auto flex flex-wrap gap-2">
                   <Boton icono={ClipboardCheck} onClick={() => setRevisando(a.areaId)} disabled={cargandoDetalle && a.base.length === 0} aria-label={`Revisar ${a.nombre}`}>Revisar</Boton>

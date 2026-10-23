@@ -1,7 +1,7 @@
 // «Reportes de nómina»: semana ISO, qué solicitudes cuentan, la tabla por empleado y los ajustes. Datos ficticios, sin Firebase.
 import { describe, expect, it } from 'vitest';
 import {
-  CASILLAS_AREA, CASILLA_POR_AREA, aplicarCambios, areaRequierePM, autorizadasDelPeriodo, cambioHoras, cambioMotivo, cambioQuitar, cambioReemplazar, casillaDeArea, desgloseFila, estadoDeArea, etiquetaPeriodo,
+  CASILLAS_AREA, CASILLA_POR_AREA, aplicarCambios, autorizadasDelPeriodo, cambioHoras, cambioMotivo, cambioQuitar, cambioReemplazar, casillaDeArea, desgloseFila, estadoDeArea, etiquetaPeriodo,
   filasAutorizadas, filasDelArea, filasVigentes, fueAjustada, horasValidas, idAjuste, motivoDeFila, moverSemana, nombreArchivoFormato, pendientesDelPeriodo, periodoLibre,
   problemaMotivo, renglonParaGuardar, resumenDelPeriodo, semanaDe, semanaDeClave, totalesDeFilas, ultimaSemanaCompleta, yaEstaEnTabla,
 } from '../src/utils/formatoNomina.js';
@@ -228,11 +228,6 @@ describe('motivos por empleado, P.O./TB y corrección del motivo', () => {
     const f = { horas: { '2026-10-24': 5, '2026-10-25': 4 }, numeros: { '2026-10-24': ['4551099797'], '2026-10-25': ['TB2045'] } };
     expect(aplicarCambios([{ clave: '1', nomina: '1', nombre: 'X', ...f, motivos: {} }], [], s)[0].numero).toBe('Sáb: 4551099797; Dom: TB2045');
   });
-  it('el área con P.O. o TB requiere la firma del Program Manager; sin números, no', () => {
-    expect(areaRequierePM(filas, s)).toBe(true);
-    expect(areaRequierePM(filas.filter(f => f.nomina === '300'), s)).toBe(false);
-    expect(areaRequierePM(aplicarCambios(base, [cambioQuitar(de('100'), 'No asistió'), cambioQuitar(de('200'), 'No asistió')], s), s)).toBe(false);
-  });
   it('Nóminas puede corregir el motivo de un renglón: manda sobre el de las solicitudes y se puede deshacer', () => {
     const nuevo = { nombre: 'Cargo a P.O.', numero: '4551000001', tipoNumero: 'po', comentario: '', detalle: 'molde 12' };
     const ajustadas = aplicarCambios(base, [cambioMotivo(de('300'), nuevo, 'Lo pidió el cliente')], s);
@@ -240,7 +235,6 @@ describe('motivos por empleado, P.O./TB y corrección del motivo', () => {
     expect(f.motivo).toBe('Cargo a P.O. · molde 12');
     expect(f.numero).toBe('4551000001');
     expect(fueAjustada(f)).toBe(true);
-    expect(areaRequierePM(ajustadas.filter(x => x.nomina === '300'), s)).toBe(true);
     expect(aplicarCambios(base, [], s).find(x => x.nomina === '300').motivo).toBe('Otro: Visita de cliente');
     expect(cambioMotivo(de('300'), nuevo, ' x ')).toMatchObject({ tipo: 'motivo', clave: '300', antes: 'Otro: Visita de cliente', motivo: 'x' });
   });

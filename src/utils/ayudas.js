@@ -16,7 +16,7 @@ export const AYUDAS = {
     'solicitar.tipo': 'Elige "Turno extra" si el empleado viene a la planta solo para el tiempo extra. Elige "Extensión de turno" si ya está trabajando en la planta y se queda más tiempo.',
     'solicitar.tipo.turno_extra': 'Turno extra / día extra: el empleado viene a la planta para el tiempo extra.',
     'solicitar.tipo.extension': 'Extensión de turno: el empleado ya está en la planta y se queda más tiempo.',
-    'solicitar.motivo': 'Elige el motivo; si hay más de uno, toca "Agregar otro motivo" (hasta 5) y cada empleado lleva el suyo. Cargo a P.O. o TB pide su número y la firma del Program Manager; Otro pide describirlo.',
+    'solicitar.motivo': 'Elige el motivo; si hay más de uno, toca "Agregar otro motivo" (hasta 5) y cada empleado lleva el suyo. Cargo a P.O. o TB pide su número; Otro pide describirlo.',
     'solicitar.comentario': 'Cuéntales a quienes autorizan por qué se necesita. Escribe al menos 10 letras.',
     'solicitar.agregar': 'Abre la lista de empleados de tu área. Puedes marcar a varios y agregarlos de una vez.',
     'solicitar.aplicar': 'Cambia el horario, los alimentos o el transporte de varios empleados a la vez. Marca las casillas de los que quieras; si no marcas ninguno, se aplica a todos.',
@@ -81,7 +81,7 @@ export const AYUDAS = {
       titulo: 'Cómo sacar el formato de autorización de tiempo extra',
       pasos: [
         'Elige la semana (de lunes a domingo) con las flechas; por defecto es la última completa, o usa un rango de hasta 7 días. Solo cuenta lo que Aut. 2 ya autorizó; si hay solicitudes sin autorizar o devueltas, un aviso te dice cuántas y de qué áreas.',
-        'En cada área toca "Revisar": ahí puedes quitar a quien no asistió, reemplazarlo por otra persona, corregir las horas de un día o corregir el motivo y el P.O./TB de un renglón. Si el área tiene P.O. o TB, el formato pide la firma (2) del Program Manager. Cada cambio pide un motivo y no modifica la solicitud original.',
+        'En cada área toca "Revisar": ahí puedes quitar a quien no asistió, reemplazarlo por otra persona, corregir las horas de un día o corregir el motivo y el P.O./TB de un renglón. Cada cambio pide un motivo y no modifica la solicitud original.',
         'Con "Descargar" bajas el formato listo para imprimir en hoja carta; "Descargar todas las áreas" trae además una hoja Resumen para capturar la nómina.',
         'Cuando ya tengas las firmas, "Marcar como firmada" bloquea esa área. Solo Recursos Humanos puede reabrirla.',
       ],

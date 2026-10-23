@@ -6,7 +6,7 @@
  * («9 → 5», con un indicador). «Deshacer ajustes» vuelve a lo autorizado; «Marcar como firmada» bloquea el área y RH puede reabrirla.
  */
 import { useMemo, useState } from 'react';
-import { ArrowLeftRight, Clock, Download, FileCheck2, FileSignature, Lock, Pencil, Tag, Undo2, UserMinus } from 'lucide-react';
+import { ArrowLeftRight, Clock, Download, FileCheck2, Lock, Pencil, Tag, Undo2, UserMinus } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 import { useConfirmar } from '../../hooks/useConfirmar';
 import BuscadorEmpleado from '../../components/BuscadorEmpleado';
@@ -19,10 +19,10 @@ import { Fila, Tabla, Td, Th } from '../../components/ui/Tabla';
 import BloqueMotivosTE from '../te/BloqueMotivosTE';
 import { ACCIONES_AJUSTE_NOMINA, guardarAjuste, reabrirAjuste } from '../../utils/ajustesNominaDb';
 import {
-  DIAS_CORTO, FILAS_POR_PAGINA, MAX_MOTIVO_AJUSTE, MIN_MOTIVO_AJUSTE, aplicarCambios, areaRequierePM, cambioHoras, cambioMotivo, cambioQuitar, cambioReemplazar, estadoDeArea,
+  DIAS_CORTO, FILAS_POR_PAGINA, MAX_MOTIVO_AJUSTE, MIN_MOTIVO_AJUSTE, aplicarCambios, cambioHoras, cambioMotivo, cambioQuitar, cambioReemplazar, estadoDeArea,
   filasVigentes, fueAjustada, horasValidas, problemaMotivo, totalesDeFilas, yaEstaEnTabla,
 } from '../../utils/formatoNomina';
-import { AVISO_PROGRAM_MANAGER, etiquetaMotivo, motivoVacio, motivosParaGuardar, problemasDeMotivos } from '../../utils/motivosTE';
+import { etiquetaMotivo, motivoVacio, motivosParaGuardar, problemasDeMotivos } from '../../utils/motivosTE';
 
 const ddmm = (ymd) => (ymd ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}` : '');
 
@@ -71,7 +71,6 @@ export default function TablaAjustesArea({ abierto, onClose, area, periodo, base
   const totales = totalesDeFilas(filas, periodo);
   const estado = estadoDeArea(ajuste);
   const sinAutorizado = base.length === 0;
-  const requierePM = areaRequierePM(filas, periodo);
 
   const guardar = (nuevos, accion, antes, despues) => guardarAjuste({
     periodo, areaId: area.areaId, cambios: nuevos, filas: aplicarCambios(base, nuevos, periodo), usuario, accion, antes, despues,
@@ -170,9 +169,6 @@ export default function TablaAjustesArea({ abierto, onClose, area, periodo, base
           <Aviso tono="exito" titulo="Esta área ya está firmada" icon={Lock}>
             Quedó bloqueada{ajuste.firmadaPor?.nombre ? ` por ${nombre(ajuste.firmadaPor.nombre)}` : ''}. {esRH ? 'Puedes reabrirla si hay que corregir algo.' : 'Si hay que corregir algo, pide a Recursos Humanos que la reabra.'}
           </Aviso>
-        )}
-        {requierePM && !sinAutorizado && (
-          <Aviso tono="aviso" icon={FileSignature} titulo={AVISO_PROGRAM_MANAGER}>Hay P.O. o TB en esta área: el formato necesita la firma (2) del Program Manager responsable de la cuenta de cargo.</Aviso>
         )}
         {ajuste?.reabiertaPor && !firmada && <Aviso tono="info">Esta área fue reabierta por {nombre(ajuste.reabiertaPor.nombre ?? '')}.</Aviso>}
         {sinAutorizado ? <Aviso tono="aviso">No hay tiempo extra autorizado de esta área en el periodo.</Aviso> : (

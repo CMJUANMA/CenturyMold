@@ -1,8 +1,8 @@
 // Motivos del tiempo extra: catálogo inicial, validación (P.O., TB, Otro, repetidos, máximo), lectura de solicitudes nuevas y anteriores. Datos ficticios, sin Firebase.
 import { describe, expect, it } from 'vitest';
 import {
-  AVISO_PROGRAM_MANAGER, MAX_MOTIVOS_TE, MOTIVOS_INICIALES, etiquetaMotivo, limpiarNumero, motivoDeEmpleado, motivoDesdeGuardado, motivoTexto, motivoTextoEmpleado, motivoVacio,
-  motivosDeTE, motivosParaGuardar, numeroValido, numerosDeTE, ordenarMotivos, problemasDeMotivos, reajustarIndice, requiereProgramManager, textoNumero, tieneMotivo,
+  MAX_MOTIVOS_TE, MOTIVOS_INICIALES, etiquetaMotivo, limpiarNumero, motivoDeEmpleado, motivoDesdeGuardado, motivoTexto, motivoTextoEmpleado, motivoVacio,
+  motivosDeTE, motivosParaGuardar, numeroValido, numerosDeTE, ordenarMotivos, problemasDeMotivos, reajustarIndice, textoNumero, tieneMotivo,
 } from '../src/utils/motivosTE.js';
 
 const CAT = MOTIVOS_INICIALES;
@@ -149,13 +149,10 @@ describe('leer una solicitud (nueva o anterior)', () => {
     expect(motivosDeTE({})).toEqual([]);
     expect(motivoTextoEmpleado({ motivo: 'Producción' }, { motivoIndex: 3 })).toBe('Producción');
   });
-  it('P.O. o TB: lista de números y aviso del Program Manager', () => {
+  it('P.O. o TB: lista de números', () => {
     expect(numerosDeTE(nueva)).toEqual([{ tipo: 'po', numero: '4551099797' }, { tipo: 'tb', numero: 'TB2045' }]);
     expect(numerosDeTE(nueva).map(textoNumero)).toEqual(['P.O. 4551099797', 'TB TB2045']);
-    expect(requiereProgramManager(nueva)).toBe(true);
-    expect(requiereProgramManager({ motivo: 'Producción' })).toBe(false);
-    expect(requiereProgramManager({ motivos: [{ nombre: 'Inventario físico' }] })).toBe(false);
-    expect(AVISO_PROGRAM_MANAGER).toBe('Requiere firma del Program Manager');
+    expect(numerosDeTE({ motivo: 'Producción' })).toEqual([]);
   });
   it('filtro por motivo: por id; las anteriores por el nombre del catálogo', () => {
     expect(tieneMotivo(nueva, 'cargo-po', CAT)).toBe(true);

@@ -175,7 +175,7 @@ export default function RecepcionTE() {
                 {items.map(t => (
                   <Fila key={t.id}>
                     <Td mono>{t.folio}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></Td>
-                    <Td>{nombreArea(t.areaId)}<MotivosTE t={t} pm className="mt-1" /></Td>
+                    <Td>{nombreArea(t.areaId)}<MotivosTE t={t} className="mt-1" /></Td>
                     <Td>{formato.nombre(t.creadoPorNombre)}</Td>
                     <Td derecha>{t.resumen?.totalEmpleados ?? 0}</Td>
                     <Td derecha mono>{t.resumen?.totalHoras ?? 0}</Td>
@@ -197,7 +197,7 @@ export default function RecepcionTE() {
                 <p className="font-mono text-sm font-medium text-[var(--text-main)]">{t.folio}</p>
                 <p className="text-xs text-[var(--text-secondary)]">{nombreArea(t.areaId)} · {formato.nombre(t.creadoPorNombre)}</p>
                 <InsigniasTE t={t} className="mt-1" />
-                <MotivosTE t={t} pm className="mt-1" />
+                <MotivosTE t={t} className="mt-1" />
                 <p className="mt-2 text-xs text-[var(--text-secondary)]"><b className="font-medium">{t.resumen?.totalEmpleados ?? 0}</b> empleados · <b className="font-medium">{t.resumen?.totalHoras ?? 0}</b> h · <b className="font-medium">{t.resumen?.totalTransporte ?? 0}</b> con transporte · <b className="font-medium">{t.resumen?.totalAlimentos ?? 0}</b> con alimentos</p>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">Aut. 1: {firmaTexto(t.aut1, (x) => formato.nombre(x)) || '—'} · Aut. 2: {firmaTexto(t.aut2, (x) => formato.nombre(x)) || '—'}</p>
                 <Boton className="mt-3 w-full" onClick={() => abrir(t)}>Revisar y confirmar</Boton>
