@@ -448,8 +448,10 @@ service cloud.firestore {
     }
 
     // ---------- Ajustes de nómina (Reportes de nómina: formato de autorización de tiempo extra por área y semana) ----------
-    // ajustesNomina/{semana}_{areaId} guarda aparte lo que Nóminas cambia sobre lo autorizado (quitar, reemplazar, corregir horas) y si el área ya se firmó;
-    // NO toca las solicitudes de tiempo extra. Solo Nóminas, RH y admin lo leen y lo escriben; nadie lo borra.
+    // ajustesNomina/{semana}_{areaId} guarda aparte lo que Nóminas cambia sobre lo autorizado (quitar, reemplazar, corregir horas, corregir el motivo y AGREGAR a
+    // alguien que no venía en las solicitudes) y si el área ya se firmó; NO toca las solicitudes de tiempo extra. Un guardado manda toda la lista de cambios
+    // (hasta 1000, con la misma razón para los nuevos) y los renglones resultantes (hasta 300). Una regla no puede recorrer listas: que un empleado no salga
+    // dos veces lo cuida la pantalla (y el Excel solo imprime lo que hay en `renglones`). Solo Nóminas, RH y admin lo leen y lo escriben; nadie lo borra.
     // Firmada = bloqueada: ya nadie la cambia salvo RH, que solo puede reabrirla (firmada: false). Quien guarda queda con su uid y la hora del servidor.
     match /ajustesNomina/{id} {
       allow read: if esRH() || esNomina();
@@ -466,7 +468,7 @@ service cloud.firestore {
           && d.keys().hasAll(['semana', 'areaId', 'desde', 'hasta', 'cambios', 'renglones', 'firmada', 'actualizadoPor', 'fechaActualizacion'])
           && textoHasta(d.semana, 30) && textoHasta(d.areaId, 60) && id == d.semana + '_' + d.areaId
           && textoHasta(d.desde, 10) && textoHasta(d.hasta, 10)
-          && d.cambios is list && d.cambios.size() <= 300 && d.renglones is list && d.renglones.size() <= 300
+          && d.cambios is list && d.cambios.size() <= 1000 && d.renglones is list && d.renglones.size() <= 300
           && d.firmada is bool
           && (!d.firmada || (d.get('firmadaPor', null) is map && d.firmadaPor.uid == request.auth.uid))
           && d.actualizadoPor is map && d.actualizadoPor.uid == request.auth.uid

@@ -243,6 +243,27 @@ al enviar al menos uno con `motivo` = nombre del primero, y `motivoIndex` entero
 (formato del P.O./TB, descripción de «Otro», largo de los textos libres) lo valida la app. Pruebas: `tests/motivos-te.test.js`, `tests/firestore.rules.motivos.test.js`,
 `tests/firestore.rules.captura-te.test.js` y `tests/formato-nomina*.test.js`.
 
+## Revisión de nómina (pantalla completa)
+
+**Dónde:** *Reportes de nómina › Revisar* en la tarjeta de un área abre `/nomina/semana/:anioSemana/:areaId` (`:anioSemana` es la clave del periodo: `2026-42`, o `r20261019-20261023` en un rango libre);
+«← Volver a la semana» regresa a la misma semana. Solo Nóminas, RH y admin (capacidad `reportesNomina`).
+
+**La hoja.** Una tabla con encabezado fijo y columnas # / Nómina / Nombre fijas al desplazar de lado; el nombre va en un renglón (como en el padrón, con recorte y el nombre completo al pasar el mouse); buscador por
+nombre o nómina; total abajo. Cada día es un campo numérico que se edita directo (medios y cuartos; vacío = sin horas): **Enter** baja, **Mayús+Enter** sube, **↑ ↓** cambian de renglón, **← →** de día,
+**Tab** avanza y **Esc** deja el valor. Una celda cambiada se pinta con color suave y al pasar el mouse dice «Autorizado: 9 h». El menú **⋯** de cada renglón: *Reemplazar por otro empleado*, *Cambiar motivo y P.O./TB*,
+*Restaurar lo autorizado* y *Quitar (no asistió)*. La barra de abajo, siempre a la vista, trae el estado, empleados, horas, «X cambios sin guardar», *Guardar cambios*, *Marcar como firmada* y *Descargar*.
+
+**Guardar.** Los cambios se acumulan como borrador (en la pantalla) y se guardan **juntos**: *Guardar cambios* pide **un solo motivo** (3 a 120 letras) para todo ese guardado. En `ajustesNomina` cada cambio
+queda con ese motivo y la bitácora (`ajustar_nomina`) guarda un renglón con el motivo, el total y el detalle (hasta 80 cambios: tipo, nómina, día, antes y después). Con cambios sin guardar, salir de la
+pantalla o cerrar la pestaña avisa; *Marcar como firmada* y *Descargar* piden guardar primero. No se guarda un empleado agregado sin horas ni el mismo empleado dos veces en el área.
+
+**Agregar empleado.** *+ Agregar empleado* busca en el padrón activo (primero los del área); si es de otra área avisa «Es de <área>, ¿agregarlo aquí?». Si no está en el padrón se captura nómina (solo números) y nombre
+a mano, con el aviso «No está en el padrón». El renglón sale con la etiqueta «Agregado», horas por día editables y su motivo (del catálogo, con P.O./TB si aplica). **Solo vive en `ajustesNomina`**
+(cambio tipo `agregar`, `clave` `+nómina`): no crea ni modifica solicitudes de tiempo extra, y sale en el Excel y en la hoja Resumen como cualquier otro renglón.
+
+**Reglas y pruebas.** `ajustesNomina` admite hasta 1000 cambios y 300 renglones; las reglas no recorren listas, así que «no repetir empleado» y «agregado con horas» los valida la pantalla. Nóminas no puede escribir
+`tiempoExtra`. Pruebas: `tests/revision-nomina.test.js` y `tests/firestore.rules.ajustes-nomina.test.js`.
+
 ## Tiempo extra que cruza la medianoche
 
 **Regla:** si la hora de fin es menor o igual a la de inicio, el tiempo extra termina **al día siguiente** (22:00 → 7:00 = 9 h; 16:00 → 0:00 = 8 h). Las horas (`calcularHoras`) son siempre positivas; 7:00 → 7:00

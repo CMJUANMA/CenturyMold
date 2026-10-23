@@ -92,7 +92,7 @@ export default function Modal({
         className={`anim-modal modal-panel flex w-full flex-col overflow-hidden rounded-t-xl border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-main)] shadow-xl outline-none sm:rounded-lg ${ANCHO_DESDE_SM[maxWidth] ?? 'sm:max-w-md'} ${className}`}
       >
         {/* Encabezado: fijo arriba, con el botón de cerrar siempre a la vista */}
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--border-color)] bg-[var(--bg-surface)] px-5 py-3 sm:py-4">
+        <div className="flex shrink-0 !flex-nowrap items-start justify-between gap-3 border-b border-[var(--border-color)] bg-[var(--bg-surface)] px-5 py-3 sm:py-4">
           <div className="flex min-w-0 items-start gap-3">
             {Icono && (
               <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--bg-surface-hover)]">

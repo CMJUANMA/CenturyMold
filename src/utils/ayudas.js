@@ -81,7 +81,7 @@ export const AYUDAS = {
       titulo: 'Cómo sacar el formato de autorización de tiempo extra',
       pasos: [
         'Elige la semana (de lunes a domingo) con las flechas; por defecto es la última completa, o usa un rango de hasta 7 días. Solo cuenta lo que Aut. 2 ya autorizó; si hay solicitudes sin autorizar o devueltas, un aviso te dice cuántas y de qué áreas.',
-        'En cada área toca "Revisar": ahí puedes quitar a quien no asistió, reemplazarlo por otra persona, corregir las horas de un día o corregir el motivo y el P.O./TB de un renglón. Cada cambio pide un motivo y no modifica la solicitud original.',
+        'En cada área toca "Revisar": se abre una hoja a pantalla completa. Escribe las horas directo en el día (acepta medios, como 0.5; Tab, Enter y las flechas te mueven como en Excel); con el menú ⋯ de cada renglón reemplazas, quitas o restauras a alguien o cambias su motivo y P.O./TB, y "Agregar empleado" suma a quien no venía en las solicitudes. Los cambios se guardan juntos con "Guardar cambios", que pide un solo motivo, y no modifican la solicitud original.',
         'Con "Descargar" bajas el formato listo para imprimir en hoja carta; "Descargar todas las áreas" trae además una hoja Resumen para capturar la nómina.',
         'Cuando ya tengas las firmas, "Marcar como firmada" bloquea esa área. Solo Recursos Humanos puede reabrirla.',
       ],

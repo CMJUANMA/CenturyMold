@@ -25,6 +25,7 @@ export const RUTAS = {
 
   // Reportes de nómina (Nóminas, RH y admin)
   nominaReportes: '/nomina/reportes',
+  nominaRevisar: '/nomina/semana/:anioSemana/:areaId',
 
   // Personal y estructura
   padron: '/personal/padron',
@@ -33,6 +34,12 @@ export const RUTAS = {
   organigrama: '/personal/accesos/organigrama',
   asignaciones: '/personal/accesos/asignaciones',
 };
+
+/** Reportes de nómina en un periodo (la clave de la semana, "2026-43", o de un rango libre) */
+export const rutaReportesNomina = (clave) => (clave ? `${RUTAS.nominaReportes}?periodo=${encodeURIComponent(clave)}` : RUTAS.nominaReportes);
+
+/** La pantalla de revisión de un área en un periodo */
+export const rutaRevisarNomina = (clave, areaId) => `/nomina/semana/${encodeURIComponent(clave)}/${encodeURIComponent(areaId)}`;
 
 /** Pestaña de Usuarios y accesos: usuarios · asignaciones · organigrama */
 export const rutaAccesos = (tab) => `${RUTAS.accesos}/${tab}`;

@@ -1,19 +1,15 @@
 /**
  * ReportesNomina.jsx — /nomina/reportes (Nóminas, RH y admin): el FORMATO DE AUTORIZACIÓN DE TIEMPO EXTRA semanal, un área por tarjeta.
  * Toma solo el tiempo extra autorizado por Aut. 2 (autorizada o procesada) de la semana ISO elegida (lunes a domingo; por defecto la última completa)
- * o de un rango libre de hasta 7 días. Cada tarjeta trae empleados, horas y estado (Sin revisar / Ajustada / Firmada) con «Revisar» (tabla editable)
- * y «Descargar» (Excel listo para imprimir). Los ajustes viven aparte (ajustesNomina) y nunca modifican las solicitudes.
+ * o de un rango libre de hasta 7 días. Cada tarjeta trae empleados, horas y estado (Sin revisar / Ajustada / Firmada) con «Revisar» (abre la pantalla
+ * completa RevisarAreaNomina) y «Descargar» (Excel listo para imprimir). Los ajustes viven aparte (ajustesNomina) y nunca modifican las solicitudes.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarRange, ChevronLeft, ChevronRight, ClipboardCheck, Download, FileSpreadsheet, Lock } from 'lucide-react';
-import { useAccesos } from '../../hooks/useAccesos';
-import { useAjustesNomina } from '../../hooks/useAjustesNomina';
-import { useAreas } from '../../hooks/useAreas';
-import { useAuth } from '../../hooks/useAuth';
-import { useCatalogos } from '../../hooks/useCatalogos';
-import { useResumenTE } from '../../hooks/useResumenTE';
+import { useAreasNomina } from '../../hooks/useAreasNomina';
 import { useToast } from '../../hooks/useToast';
-import { RUTAS } from '../../rutas';
+import { RUTAS, rutaRevisarNomina } from '../../rutas';
 import AyudaPantalla from '../../components/AyudaPantalla';
 import Aviso from '../../components/ui/Aviso';
 import Boton from '../../components/ui/Boton';
@@ -22,88 +18,39 @@ import EncabezadoPagina from '../../components/ui/EncabezadoPagina';
 import EstadoVacio from '../../components/ui/EstadoVacio';
 import { Esqueleto } from '../../components/ui/Esqueleto';
 import Insignia from '../../components/ui/Insignia';
-import { ACCIONES_DESCARGA, registrarDescarga } from '../../utils/bitacoraDb';
+import { descargarFormatoAreas } from '../../utils/descargarFormatoNomina';
 import { ymd } from '../../utils/fechas';
 import {
-  ESTADOS_AREA, autorizadasDelPeriodo, estadoDeArea, etiquetaPeriodo, filasAutorizadas, filasDelArea, filasVigentes, moverSemana, nombreArchivoFormato,
-  pendientesDelPeriodo, periodoLibre, semanaDe, totalesDeFilas, ultimaSemanaCompleta,
+  ESTADOS_AREA, etiquetaPeriodo, filasVigentes, moverSemana, periodoDeClave, periodoLibre, semanaDe, ultimaSemanaCompleta,
 } from '../../utils/formatoNomina';
 import { crearFormateadorNombres } from '../../utils/nombresPersona';
-import { trozos } from '../../utils/tiempoExtra';
-import { leerSolicitudTE } from '../../utils/tiempoExtraDb';
-import TablaAjustesArea from './TablaAjustesArea';
 
 const TONO_ESTADO = { sin_revisar: 'neutro', ajustada: 'info', firmada: 'exito' };
 
 export default function ReportesNomina() {
   const toast = useToast();
-  const { usuario } = useAuth();
-  const { esRH } = useAccesos();
-  const { planta, cargando: cargandoPlanta, error } = useResumenTE();
-  const { nombres } = useAreas();
-  const { empleadosActivos, motivos } = useCatalogos();
   const formato = useMemo(() => crearFormateadorNombres([]), []);
   const nombre = (x) => formato.nombre(x);
 
   const [hoy] = useState(() => ymd());
-  const [modo, setModo] = useState('semana');
-  const [semana, setSemana] = useState(() => ultimaSemanaCompleta(hoy));
-  const [rango, setRango] = useState(() => ({ desde: semana.desde, hasta: semana.dias[4] }));
+  const [params] = useSearchParams();
+  const [inicial] = useState(() => periodoDeClave(params.get('periodo')));
+  const [modo, setModo] = useState(inicial?.tipo === 'rango' ? 'rango' : 'semana');
+  const [semana, setSemana] = useState(() => (inicial?.tipo === 'semana' ? inicial : ultimaSemanaCompleta(hoy)));
+  const [rango, setRango] = useState(() => (inicial?.tipo === 'rango' ? { desde: inicial.desde, hasta: inicial.hasta } : { desde: semana.desde, hasta: semana.dias[4] }));
   const periodo = useMemo(() => (modo === 'semana' ? semana : periodoLibre(rango.desde, rango.hasta)), [modo, semana, rango]);
 
-  const { ajustes, error: errorAjustes } = useAjustesNomina(periodo);
-  const autorizadas = useMemo(() => (periodo ? autorizadasDelPeriodo(planta, periodo) : []), [planta, periodo]);
-  const pendientes = useMemo(() => (periodo ? pendientesDelPeriodo(planta, periodo, nombres) : { total: 0, porArea: [] }), [planta, periodo, nombres]);
+  const { areas, pendientes, cargando: cargandoPlanta, cargandoDetalle, error } = useAreasNomina(periodo);
 
-  // Los empleados de cada solicitud autorizada (se guardan por solicitud: cambiar de semana no vuelve a leer lo ya leído)
-  const [detalle, setDetalle] = useState(() => new Map());
-  const [errorDetalle, setErrorDetalle] = useState('');
-  const faltan = useMemo(() => autorizadas.filter(t => !detalle.has(t.id)), [autorizadas, detalle]);
-  const claveFaltan = faltan.map(t => t.id).join(',');
-  useEffect(() => {
-    if (!claveFaltan) return undefined;
-    let vigente = true;
-    (async () => {
-      for (const lote of trozos(claveFaltan.split(','), 5)) {
-        const leidas = await Promise.all(lote.map(id => leerSolicitudTE(id).then(s => [id, s])));
-        if (!vigente) return;
-        setDetalle(prev => { const m = new Map(prev); leidas.forEach(([id, s]) => m.set(id, s ?? { id, empleados: [] })); return m; });
-      }
-    })().catch(err => { if (vigente) setErrorDetalle(err.message); });
-    return () => { vigente = false; };
-  }, [claveFaltan]);
-  const cargandoDetalle = faltan.length > 0 && !errorDetalle;
-
-  // Una tarjeta por área con tiempo extra autorizado en el periodo
-  const areas = useMemo(() => {
-    const ids = [...new Set(autorizadas.map(t => t.areaId))];
-    return ids.map(areaId => {
-      const delArea = autorizadas.map(t => detalle.get(t.id)).filter(s => s && s.areaId === areaId);
-      const ajuste = ajustes.get(areaId) ?? null;
-      const base = periodo ? filasAutorizadas(delArea, periodo) : [];
-      const filas = periodo ? filasDelArea({ solicitudes: delArea, periodo, ajuste }) : [];
-      const totales = totalesDeFilas(filas, periodo);
-      return { areaId, nombre: nombres.get(areaId) ?? areaId, base, filas, ajuste, totales, estado: estadoDeArea(ajuste) };
-    }).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  }, [autorizadas, detalle, ajustes, periodo, nombres]);
-
-  const [revisando, setRevisando] = useState(null);
+  const navegar = useNavigate();
   const [descargando, setDescargando] = useState(null); // areaId | 'todas'
-  const revisada = areas.find(a => a.areaId === revisando) ?? null;
   const conEmpleados = areas.filter(a => filasVigentes(a.filas).length > 0);
 
   const descargar = async (lista, todas) => {
     if (!periodo || lista.length === 0) return;
     setDescargando(todas ? 'todas' : lista[0].areaId);
     try {
-      const ExcelJS = (await import('exceljs')).default;
-      const { descargarFormatoNomina } = await import('../../utils/exportarFormatoNomina');
-      const archivo = nombreArchivoFormato(periodo, todas ? '' : lista[0].nombre);
-      await descargarFormatoNomina({
-        ExcelJS, periodo, conResumen: todas, fecha: new Date(), nombre,
-        areas: lista.map(a => ({ areaId: a.areaId, nombre: a.nombre, filas: a.filas })),
-      }, archivo);
-      registrarDescarga(ACCIONES_DESCARGA.formatoTENomina, { periodo: periodo.clave, areas: lista.length, archivo });
+      await descargarFormatoAreas({ periodo, areas: lista, todas, nombre });
       toast.success(todas ? `Excel descargado: ${lista.length} áreas con su hoja Resumen.` : `Excel descargado: ${lista[0].nombre}.`);
     } catch (err) {
       console.error(err);
@@ -150,8 +97,8 @@ export default function ReportesNomina() {
         {enCurso && <p className="text-xs text-[var(--status-warning-text)]">Este periodo aún no termina: lo autorizado todavía puede cambiar.</p>}
       </section>
 
-      {(error || errorAjustes || errorDetalle) && (
-        <Aviso tono="error" titulo="No se pudo leer la información">{(error ?? errorAjustes)?.message ?? errorDetalle}. Revisa tu conexión y vuelve a abrir esta pantalla.</Aviso>
+      {error && (
+        <Aviso tono="error" titulo="No se pudo leer la información">{error.message}. Revisa tu conexión y vuelve a abrir esta pantalla.</Aviso>
       )}
 
       {pendientes.total > 0 && (
@@ -185,19 +132,13 @@ export default function ReportesNomina() {
                   </dl>
                 )}
                 <div className="mt-auto flex flex-wrap gap-2">
-                  <Boton icono={ClipboardCheck} onClick={() => setRevisando(a.areaId)} disabled={cargandoDetalle && a.base.length === 0} aria-label={`Revisar ${a.nombre}`}>Revisar</Boton>
+                  <Boton icono={ClipboardCheck} onClick={() => navegar(rutaRevisarNomina(periodo.clave, a.areaId))} disabled={cargandoDetalle && a.base.length === 0} aria-label={`Revisar ${a.nombre}`}>Revisar</Boton>
                   <Boton icono={Download} onClick={() => descargar([a], false)} estado={descargando === a.areaId ? 'cargando' : undefined} disabled={a.totales.empleados === 0 || cargandoDetalle} aria-label={`Descargar ${a.nombre}`}>Descargar</Boton>
                 </div>
               </article>
             ))}
           </section>
         )}
-
-      {revisada && periodo && (
-        <TablaAjustesArea abierto onClose={() => setRevisando(null)} area={revisada} periodo={periodo} base={revisada.base} ajuste={revisada.ajuste}
-          usuario={usuario} esRH={esRH} empleados={empleadosActivos} motivos={motivos} nombre={nombre}
-          onDescargar={() => descargar([revisada], false)} descargando={descargando === revisada.areaId} />
-      )}
     </div>
   );
 }

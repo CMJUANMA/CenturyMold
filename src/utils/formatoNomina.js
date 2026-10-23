@@ -189,7 +189,7 @@ export const sumaHoras = (horas) => redondeo(Object.values(horas ?? {}).reduce((
 
 // ── Ajustes de Nóminas ─────────────────────────────────────────────────────────────────────────
 
-export const TIPOS_CAMBIO = { QUITAR: 'quitar', REEMPLAZAR: 'reemplazar', HORAS: 'horas', MOTIVO: 'motivo' };
+export const TIPOS_CAMBIO = { QUITAR: 'quitar', REEMPLAZAR: 'reemplazar', HORAS: 'horas', MOTIVO: 'motivo', AGREGAR: 'agregar' };
 
 /** Un cambio del historial de ajustes. `clave` = la nómina del renglón tal como venía autorizada (no cambia aunque se reemplace) */
 export const cambioQuitar = (fila, motivo) => ({ tipo: TIPOS_CAMBIO.QUITAR, clave: fila.clave, nomina: fila.nomina, nombre: fila.nombre, motivo: String(motivo).trim() });
@@ -213,6 +213,34 @@ export const cambioMotivo = (fila, nuevo, motivo) => ({
   motivo: String(motivo).trim(),
 });
 
+/**
+ * Agrega a alguien que no venía en las solicitudes. El renglón nace sin horas (se capturan después con cambios de horas) y con el motivo dado.
+ * `clave` lleva un "+" para no chocar con la de un renglón autorizado de la misma nómina. `enPadron` = false si se capturó a mano.
+ * `motivo` (la razón del ajuste) se queda vacío hasta que se guardan los cambios.
+ */
+export const cambioAgregar = (empleado, nuevo, { enPadron = true, areaOrigen = '' } = {}) => ({
+  tipo: TIPOS_CAMBIO.AGREGAR, clave: `+${String(empleado.nomina)}`, nomina: String(empleado.nomina), nombre: empleado.nombre ?? '', puesto: empleado.puesto ?? '',
+  enPadron: enPadron !== false, areaOrigen: areaOrigen ?? '',
+  motivoNuevo: {
+    nombre: nuevo.nombre ?? '', numero: nuevo.numero ?? '', tipoNumero: nuevo.tipoNumero ?? '', comentario: nuevo.comentario ?? '', detalle: nuevo.detalle ?? '',
+  },
+  motivo: '',
+});
+
+/** Nómina escrita a mano de alguien que no está en el padrón: solo dígitos, hasta 10 */
+export const NOMINA_MANUAL = /^\d{1,10}$/;
+export const MIN_NOMBRE_MANUAL = 5;
+export const MAX_NOMBRE_MANUAL = 80;
+
+/** ¿Qué falta para agregar a alguien capturado a mano? (null = está bien) */
+export function problemaEmpleadoManual({ nomina, nombre }) {
+  if (!NOMINA_MANUAL.test(String(nomina ?? '').trim())) return 'La nómina son solo números (hasta 10 dígitos).';
+  const n = String(nombre ?? '').trim();
+  if (n.length < MIN_NOMBRE_MANUAL) return `Escribe el nombre completo (mínimo ${MIN_NOMBRE_MANUAL} letras).`;
+  if (n.length > MAX_NOMBRE_MANUAL) return `El nombre es muy largo (máximo ${MAX_NOMBRE_MANUAL} letras).`;
+  return null;
+}
+
 /** ¿Qué falta para aceptar este motivo corto? (null = está bien) */
 export function problemaMotivo(motivo) {
   const t = String(motivo ?? '').trim();
@@ -233,6 +261,14 @@ export function aplicarCambios(base, cambios = [], periodo) {
     ...f, horas: { ...f.horas }, original: { ...f.horas }, quitado: false, reemplazoDe: null, editados: [], motivoCorregido: null,
   }));
   for (const c of cambios ?? []) {
+    if (c.tipo === TIPOS_CAMBIO.AGREGAR) {
+      if (filas.some(x => x.clave === c.clave)) continue;
+      filas.push({
+        clave: c.clave, nomina: String(c.nomina), nombre: c.nombre ?? '', puesto: c.puesto ?? '', horas: {}, motivos: {}, numeros: {}, detalle: {}, original: {},
+        quitado: false, reemplazoDe: null, editados: [], motivoCorregido: c.motivoNuevo ?? null, agregado: true, enPadron: c.enPadron !== false, areaOrigen: c.areaOrigen ?? '',
+      });
+      continue;
+    }
     const f = filas.find(x => x.clave === c.clave);
     if (!f) continue;
     if (c.tipo === TIPOS_CAMBIO.QUITAR) f.quitado = true;
@@ -245,12 +281,12 @@ export function aplicarCambios(base, cambios = [], periodo) {
     } else if (c.tipo === TIPOS_CAMBIO.MOTIVO) f.motivoCorregido = c.motivoNuevo;
   }
   return filas.map(f => ({
-    ...f, subtotal: sumaHoras(f.horas), subtotalOriginal: sumaHoras(f.original), motivo: motivoDeFila(f, periodo), numero: numeroDeFila(f, periodo),
+    ...f, editados: f.agregado ? [] : f.editados.filter(d => (f.horas[d] ?? 0) !== (f.original[d] ?? 0)), subtotal: sumaHoras(f.horas), subtotalOriginal: sumaHoras(f.original), motivo: motivoDeFila(f, periodo), numero: numeroDeFila(f, periodo),
   }));
 }
 
 /** ¿El renglón cambió respecto a lo autorizado? */
-export const fueAjustada = (f) => f.quitado || !!f.reemplazoDe || f.editados.length > 0 || !!f.motivoCorregido;
+export const fueAjustada = (f) => !!f.agregado || f.quitado || !!f.reemplazoDe || f.editados.length > 0 || !!f.motivoCorregido;
 
 /**
  * Texto del renglón para el formato a partir de lo de cada día (motivos o números): el mismo de toda la semana, o, si son distintos, "Sáb: …; Dom: …".
@@ -317,11 +353,83 @@ export function totalesDeFilas(filas, periodo) {
 export const renglonParaGuardar = (f) => ({
   clave: f.clave, nomina: f.nomina, nombre: f.nombre, puesto: f.puesto ?? '', horas: f.horas, original: f.original, motivos: f.motivos ?? {},
   numeros: f.numeros ?? {}, detalle: f.detalle ?? {}, motivoCorregido: f.motivoCorregido ?? null,
-  quitado: !!f.quitado, reemplazoDe: f.reemplazoDe ?? null, editados: f.editados ?? [], subtotal: f.subtotal, motivo: f.motivo ?? '', numero: f.numero ?? '',
+  quitado: !!f.quitado, reemplazoDe: f.reemplazoDe ?? null, editados: f.editados ?? [], agregado: !!f.agregado, enPadron: f.enPadron !== false, subtotal: f.subtotal, motivo: f.motivo ?? '', numero: f.numero ?? '',
 });
 
 /** ¿Ese empleado ya está en la tabla (sin contar a los quitados)? Un reemplazo no puede repetir a alguien */
 export const yaEstaEnTabla = (filas, nomina) => filasVigentes(filas).some(f => String(f.nomina) === String(nomina));
+
+// ── Borrador de cambios (la pantalla de revisión acumula y guarda todo junto) ──────────────────────
+
+/** Un cambio aún sin guardar no tiene la razón del ajuste (`motivo`): se la pone «sellarCambios» al guardar */
+export const esCambioNuevo = (c) => !String(c?.motivo ?? '').trim();
+
+/** Cuántas cosas cambiaron respecto a lo guardado: los cambios nuevos y los guardados que se quitaron del borrador */
+export const contarSinGuardar = (trabajo, guardados = []) => {
+  if (!trabajo) return 0;
+  const siguen = new Set(trabajo);
+  return trabajo.filter(esCambioNuevo).length + guardados.filter(c => !siguen.has(c)).length;
+};
+
+/** Pone las horas de un día. Reemplaza el cambio de horas aún sin guardar de esa celda; si queda igual que antes, no deja ningún cambio */
+export function conHoras(base, trabajo, periodo, clave, dia, horas) {
+  const sinPendiente = trabajo.filter(c => !(esCambioNuevo(c) && c.tipo === TIPOS_CAMBIO.HORAS && c.clave === clave && c.dia === dia));
+  const fila = aplicarCambios(base, sinPendiente, periodo).find(f => f.clave === clave);
+  if (!fila) return trabajo;
+  const nuevo = redondeo(Number(horas) || 0);
+  if (nuevo === (fila.horas[dia] ?? 0)) return sinPendiente;
+  return [...sinPendiente, cambioHoras(fila, dia, nuevo, '')];
+}
+
+/** Quita el renglón: marca como quitado un renglón autorizado; uno agregado se borra por completo junto con sus cambios */
+export function conRenglonQuitado(trabajo, fila) {
+  if (fila.agregado) return trabajo.filter(c => c.clave !== fila.clave);
+  return [...trabajo.filter(c => !(esCambioNuevo(c) && c.tipo === TIPOS_CAMBIO.QUITAR && c.clave === fila.clave)), cambioQuitar(fila, '')];
+}
+
+/** «Restaurar lo autorizado»: borra todos los cambios del renglón (los guardados también; se registra al guardar) */
+export const conRenglonRestaurado = (trabajo, clave) => trabajo.filter(c => c.clave !== clave);
+
+/** Los nombres/nóminas que aparecen dos veces entre los renglones vigentes (no se permite el mismo empleado dos veces) */
+export function nominasRepetidas(filas) {
+  const vistas = new Set(), repetidas = new Set();
+  for (const f of filasVigentes(filas)) { if (vistas.has(String(f.nomina))) repetidas.add(String(f.nomina)); vistas.add(String(f.nomina)); }
+  return [...repetidas];
+}
+
+/** Los renglones agregados vigentes que siguen sin horas */
+export const agregadosSinHoras = (filas) => filasVigentes(filas).filter(f => f.agregado && !(f.subtotal > 0));
+
+/** Pone la razón del ajuste a los cambios nuevos (la misma para todos); los ya guardados conservan la suya */
+export const sellarCambios = (trabajo, motivo) => trabajo.map(c => (esCambioNuevo(c) ? { ...c, motivo: String(motivo).trim() } : c));
+
+const MAX_RESUMEN = 80;
+
+/** Resumen corto de lo que se guarda, para la bitácora: [{ tipo, nomina, dia?, antes?, horas? }] (hasta 80) y cuántos hay en total */
+export function resumenDeGuardado(trabajo, guardados = []) {
+  const siguen = new Set(trabajo);
+  const lineas = [
+    ...trabajo.filter(esCambioNuevo).map(c => {
+      const base = { tipo: c.tipo, nomina: String(c.nomina ?? c.de?.nomina ?? '') };
+      if (c.tipo === TIPOS_CAMBIO.HORAS) return { ...base, dia: c.dia, antes: c.antes, horas: c.horas };
+      if (c.tipo === TIPOS_CAMBIO.REEMPLAZAR) return { ...base, por: c.por.nomina };
+      if (c.tipo === TIPOS_CAMBIO.MOTIVO || c.tipo === TIPOS_CAMBIO.AGREGAR) return { ...base, motivoNuevo: etiquetaMotivo(c.motivoNuevo) };
+      return base;
+    }),
+    ...guardados.filter(c => !siguen.has(c)).map(c => ({ tipo: 'restaurar', nomina: String(c.nomina ?? c.de?.nomina ?? ''), deshace: c.tipo })),
+  ];
+  return { total: lineas.length, cambios: lineas.slice(0, MAX_RESUMEN) };
+}
+
+// ── Periodo en la URL ──────────────────────────────────────────────────────────────────────────
+
+/** La clave de un periodo (la de la URL) → su periodo: "2026-43" (semana) o "r20261019-20261023" (rango libre). null si no sirve */
+export function periodoDeClave(clave) {
+  const semana = semanaDeClave(clave);
+  if (semana) return semana;
+  const m = /^r(\d{4})(\d{2})(\d{2})-(\d{4})(\d{2})(\d{2})$/.exec(String(clave ?? ''));
+  return m ? periodoLibre(`${m[1]}-${m[2]}-${m[3]}`, `${m[4]}-${m[5]}-${m[6]}`) : null;
+}
 
 /** Estado de un área: 'firmada' · 'ajustada' (hay cambios) · 'sin_revisar' */
 export const ESTADOS_AREA = { sin_revisar: 'Sin revisar', ajustada: 'Ajustada', firmada: 'Firmada' };

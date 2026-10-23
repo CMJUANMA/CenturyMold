@@ -7,7 +7,7 @@
  * Se guardan completos (incluye inactivos, que EditarSolicitud necesita para mostrar valores
  * ya guardados) y se exponen también los activos ya filtrados.
  *
- * El padrón se lee según el rol (lo exigen las reglas): admin, RH y Aut. 2 lo leen completo; el solicitante y el Aut. 1,
+ * El padrón se lee según el rol (lo exigen las reglas): admin, RH, Nóminas y Aut. 2 lo leen completo; el solicitante y el Aut. 1,
  * solo los empleados de sus áreas vigentes (where('areaId', 'in', susÁreas), en trozos de 10). Si cambian sus áreas, se relee.
  *
  * Se consume con el hook useCatalogos() de hooks/useCatalogos.js.
@@ -48,7 +48,7 @@ export function CatalogosProvider({ children }) {
   const uid = usuario?.uid ?? null;
   const accesos = useAccesos();
   // Qué parte del padrón le toca a este usuario; cambia si le dan o quitan un rol
-  const completo = accesos.esRH || accesos.esAut2;
+  const completo = accesos.esRH || accesos.esAut2 || accesos.esNomina; // Nóminas lee todo el padrón (firestore.rules): lo necesita para reemplazar y agregar en la revisión
   const areasPadron = useMemo(() => [...new Set([...accesos.areasSolicitante, ...accesos.areasAut1])].sort(), [accesos.areasSolicitante, accesos.areasAut1]);
   const clavePadron = `${completo ? '*' : areasPadron.join(',')}`;
   const accesoListo = !accesos.cargando;
