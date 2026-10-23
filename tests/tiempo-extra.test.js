@@ -138,10 +138,10 @@ describe('validaciones de envío', () => {
     expect(errores({ empleados: [] })).toContain('Agrega al menos un empleado.');
     expect(errores({ empleados: Array.from({ length: 151 }, (_, i) => emp(String(i))) }).join()).toMatch(/Máximo 150/);
   });
-  it('sin repetidos, con horario y de máximo 16 horas', () => {
+  it('sin repetidos, con horario y entrada distinta de salida', () => {
     expect(errores({ empleados: [emp('1'), emp('1')] }).join()).toMatch(/repetido/);
     expect(errores({ empleados: [emp('1', { horaEntrada: '' })] }).join()).toMatch(/falta el horario/);
-    expect(errores({ empleados: [emp('1', { horaEntrada: '7:00', horaSalida: '7:00' })] }).join()).toContain("duraría 24 h (termina al día siguiente); el máximo es 16 h");
+    expect(errores({ empleados: [emp('1', { horaEntrada: '7:00', horaSalida: '7:00' })] }).join()).toContain("La entrada y la salida no pueden ser la misma hora.");
   });
   it('transporte completo en cada empleado que lo pida; la precargada se confirma', () => {
     expect(errores({ empleados: [emp('1', { puntoReunionId: '' })] }).join()).toMatch(/completa ruta, comunidad y punto/);

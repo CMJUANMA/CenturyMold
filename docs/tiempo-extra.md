@@ -246,8 +246,8 @@ al enviar al menos uno con `motivo` = nombre del primero, y `motivoIndex` entero
 ## Tiempo extra que cruza la medianoche
 
 **Regla:** si la hora de fin es menor o igual a la de inicio, el tiempo extra termina **al día siguiente** (22:00 → 7:00 = 9 h; 16:00 → 0:00 = 8 h). Las horas (`calcularHoras`) son siempre positivas; 7:00 → 7:00
-serían 24 h. **Máximo 16 h** (`MAX_HORAS_TE`): la captura lo rechaza con «el tiempo extra duraría N h; el máximo es 16 h» (y las salidas posibles de una extensión se limitan igual). 12:00 a. m. como
-inicio es el inicio del día elegido (la madrugada de ese día); la ayuda de «Entrada» lo dice. Las horas de la captura salen de los bloques de siempre (7:00, 16:00, 19:00, 0:00); la lógica vale para cualquier hora.
+serían 24 h, por eso **la entrada y la salida no pueden ser la misma hora** («La entrada y la salida no pueden ser la misma hora»). **No hay tope de duración**: `duracionMaximaHoras` en
+`src/funciones.js` (null = sin límite) queda por si después hay que ponerlo; con un número, la captura rechaza lo que dure más y la extensión no ofrece salidas que lo pasen. 12:00 a. m. como
 
 **Cómo se ve:** «Termina: miércoles 21 oct, 7:00 a. m. (día siguiente)» (`textoTermina`) en la fila de cada empleado al capturar, en el detalle (tabla y tarjetas) y en una columna «Termina» de los Excel de consulta y de
 horas para RH. Las listas (bandejas, consulta, mis solicitudes) llevan la insignia «Termina al día siguiente» cuando alguien termina después de las 12:00 a. m. (el fin justo a medianoche, el turno 2 normal, no la lleva).

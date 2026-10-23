@@ -1,14 +1,14 @@
-// Tiempo extra que cruza la medianoche: horas, texto de término, validación de 16 h, transporte (cada viaje en su día) y nómina (por inicio o dividido).
+// Tiempo extra que cruza la medianoche: horas, texto de término, validación (sin tope de duración), transporte (cada viaje en su día) y nómina (por inicio o dividido).
 // Casos: a) martes 12:00 a. m.–7:00 a. m. · b) martes 10:00 p. m.–7:00 a. m. · c) martes 4:00 p. m.–12:00 a. m. · d) domingo 11:00 p. m.–7:00 a. m. · e) extensión que termina de madrugada.
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import {
-  MAX_HORAS_TE, calcularHoras, conteoFechas, datosSolicitudTransporte, fechaDeFin, fechaSalidaTransporte, fechasDePasajero, mensajeConfirmada, pasajeroDeEmpleado,
+  calcularHoras, conteoFechas, datosSolicitudTransporte, fechaDeFin, fechaSalidaTransporte, fechasDePasajero, mensajeConfirmada, pasajeroDeEmpleado,
   pasajerosDeTE, problemasDeEnvio, resumenTE, salidasPosteriores, terminaDiaSiguiente, textoTermina, tramosPorDia,
 } from '../src/utils/tiempoExtra.js';
 import { agruparHojas, construirLibroProveedor } from '../src/utils/libroProveedor.js';
 import { aplicarCambios, autorizadasDelPeriodo, filasAutorizadas, semanaDe, totalesDeFilas } from '../src/utils/formatoNomina.js';
-import { horasNominaPor } from '../src/funciones.js';
+import { duracionMaximaHoras, horasNominaPor } from '../src/funciones.js';
 import { MOTIVOS_INICIALES, motivoVacio } from '../src/utils/motivosTE.js';
 
 const MARTES = '2026-10-20';
@@ -70,21 +70,33 @@ describe('cómo se muestra dónde termina', () => {
   });
 });
 
-describe('validación: máximo 16 horas', () => {
+describe('validación: sin tope de duración, salvo la misma hora', () => {
   const base = { areaId: 'moldes', fechaTE: MARTES, motivos: [motivoVacio('inventario-fisico')], catalogoMotivos: MOTIVOS_INICIALES, comentario: 'Pedido urgente del cliente', hoy: '2026-10-01' };
   const errores = (c, extra = {}) => problemasDeEnvio({ ...base, empleados: [c.e], tipo: c.tipo, ...extra }).filter(x => x.nivel === 'error').map(x => x.mensaje);
+  it('no hay máximo: duracionMaximaHoras es null', () => {
+    expect(duracionMaximaHoras).toBeNull();
+  });
   it('los cinco casos son válidos', () => {
-    expect(MAX_HORAS_TE).toBe(16);
     for (const id of Object.keys(CASOS)) expect(errores(CASOS[id], { fechaTE: CASOS[id].fecha }), id).toEqual([]);
   });
-  it('de más de 16 horas, con un mensaje claro (7:00→7:00 son 24 h; 0:00→19:00, 19 h)', () => {
-    expect(errores({ e: emp('7:00', '7:00') })).toEqual(['ANA: el tiempo extra duraría 24 h (termina al día siguiente); el máximo es 16 h.']);
-    expect(errores({ e: emp('0:00', '19:00') })).toEqual(['ANA: el tiempo extra duraría 19 h; el máximo es 16 h.']);
-    expect(errores({ e: emp('16:00', '7:00') })).toEqual([]); // 15 h
+  it('lo largo ya no se rechaza (0:00→19:00 son 19 h; 19:00→16:00, 21 h)', () => {
+    expect(errores({ e: emp('0:00', '19:00') })).toEqual([]);
+    expect(errores({ e: emp('16:00', '7:00') })).toEqual([]);
+    expect(errores({ e: emp('19:00', '16:00') })).toEqual([]);
   });
-  it('las salidas posibles de una extensión no pasan de 16 h', () => {
-    expect(salidasPosteriores('7:00')).toEqual(['16:00', '19:00']);
+  it('entrada igual a salida no se permite', () => {
+    expect(errores({ e: emp('7:00', '7:00') })).toEqual(['ANA: La entrada y la salida no pueden ser la misma hora.']);
+    expect(errores({ e: emp('0:00', '0:00') })).toEqual(['ANA: La entrada y la salida no pueden ser la misma hora.']);
+  });
+  it('la extensión que empieza a las 7:00 vuelve a ofrecer 12:00 a. m. como salida', () => {
+    expect(salidasPosteriores('7:00')).toEqual(['16:00', '19:00', '0:00']);
     expect(salidasPosteriores('19:00')).toEqual(['0:00', '7:00']);
+    expect(errores({ e: emp('7:00', '0:00', { transporteLlegada: false }), tipo: 'extension' })).toEqual([]);
+  });
+  it('si más adelante se pone un máximo en funciones.js, se aplica (se prueba pasándolo)', () => {
+    expect(errores({ e: emp('0:00', '19:00') }, { duracionMaxima: 16 })).toEqual(['ANA: el tiempo extra duraría 19 h; el máximo es 16 h.']);
+    expect(errores({ e: emp('16:00', '7:00') }, { duracionMaxima: 16 })).toEqual([]);
+    expect(salidasPosteriores('7:00', 16)).toEqual(['16:00', '19:00']);
   });
 });
 

@@ -5,6 +5,7 @@
 import { MAX_PASAJEROS, resumenPasajeros } from './solicitudes.js';
 import { fechaConDia, fechaCorta, rangoMes, rangoSemana, sumarDias } from './fechas.js';
 import { formatoHora12 } from './horas.js';
+import { duracionMaximaHoras } from '../funciones.js';
 import { motivoTexto, motivosParaGuardar, problemasDeMotivos, tieneMotivo } from './motivosTE.js';
 
 // Los motivos (catálogo, varios por solicitud, P.O./TB) viven en motivosTE.js; motivoTexto se reexporta para los Excel y las pantallas
@@ -26,14 +27,11 @@ const minutos = (hora) => {
   return m ? Number(m[1]) * 60 + Number(m[2]) : null;
 };
 
-/** Duración máxima razonable de un tiempo extra (de la hora de inicio a la de fin, aunque cruce la medianoche) */
-export const MAX_HORAS_TE = 16;
-
 const redondeoH = (min) => Math.round((min / 60) * 100) / 100;
 
 /**
  * Horas entre entrada y salida, siempre positivas. Si la salida es menor o IGUAL a la entrada, el tiempo extra termina al día siguiente
- * (22:00 → 7:00 = 9 h; 16:00 → 0:00 = 8 h; 7:00 → 7:00 = 24 h, que la captura rechaza por pasar de MAX_HORAS_TE). 0 si falta alguna hora.
+ * (22:00 → 7:00 = 9 h; 16:00 → 0:00 = 8 h; 7:00 → 7:00 = 24 h, que la captura no permite: la entrada y la salida no pueden ser la misma hora). 0 si falta alguna hora.
  */
 export function calcularHoras(entrada, salida) {
   const a = minutos(entrada), b = minutos(salida);
@@ -96,13 +94,13 @@ const SECUENCIA_BLOQUES = ['7:00', '16:00', '19:00', '0:00', '7:00'];
 
 /**
  * Horas de salida posibles de una extensión que EMPIEZA a la hora en que termina el turno normal del empleado: los bloques de salida
- * posteriores que no pasen de MAX_HORAS_TE. 16:00 → 19:00, 0:00, 7:00 · 19:00 → 0:00, 7:00 · 0:00 → 7:00 · 7:00 → 16:00, 19:00 (a 0:00 serían 17 h).
+ * posteriores (y, si funciones.js pone duracionMaximaHoras, los que no la pasen). 16:00 → 19:00, 0:00, 7:00 · 19:00 → 0:00, 7:00 · 0:00 → 7:00 · 7:00 → 16:00, 19:00, 0:00.
  */
-export function salidasPosteriores(inicio) {
+export function salidasPosteriores(inicio, maximo = duracionMaximaHoras) {
   const m = minutos(inicio);
   if (m === null) return [];
   const i = SECUENCIA_BLOQUES.slice(0, 4).findIndex(h => minutos(h) === m);
-  return i < 0 ? [] : SECUENCIA_BLOQUES.slice(i + 1).filter(h => calcularHoras(inicio, h) <= MAX_HORAS_TE);
+  return i < 0 ? [] : SECUENCIA_BLOQUES.slice(i + 1).filter(h => calcularHoras(inicio, h) < 24 && (maximo == null || calcularHoras(inicio, h) <= maximo));
 }
 
 export const etiquetaBloque = (e) => (e?.horaEntrada && e?.horaSalida ? `${e.horaEntrada} → ${e.horaSalida}` : 'Sin horario');
@@ -236,7 +234,7 @@ export function resumenTE(empleados) {
  * Los errores bloquean el envío; los avisos (otro tiempo extra el mismo día) no.
  * @param {object} p { fechaTE, motivos (los del editor), catalogoMotivos, comentario, empleados, hoy ('AAAA-MM-DD'), ocupados: Map nómina → { folio, estatus } }
  */
-export function problemasDeEnvio({ areaId, fechaTE, motivos = [], catalogoMotivos = [], comentario, empleados, hoy, ocupados = new Map(), tipo = TIPOS_TE.TURNO_EXTRA, justificacionRutas = '' }) {
+export function problemasDeEnvio({ areaId, fechaTE, motivos = [], catalogoMotivos = [], comentario, empleados, hoy, ocupados = new Map(), tipo = TIPOS_TE.TURNO_EXTRA, justificacionRutas = '', duracionMaxima = duracionMaximaHoras }) {
   const p = [];
   const error = (mensaje, nomina) => p.push({ nivel: 'error', mensaje, nomina });
   if (!areaId) error('Elige el área.');
@@ -254,10 +252,11 @@ export function problemasDeEnvio({ areaId, fechaTE, motivos = [], catalogoMotivo
       // La extensión empieza al terminar su turno normal y se queda hasta un bloque de salida posterior
       if (!e.horaEntrada) error(`${e.nombre}: falta la hora en que termina su turno.`, e.nomina);
       else if (!e.horaSalida) error(`${e.nombre}: elige hasta qué hora se queda.`, e.nomina);
-      else if (!salidasPosteriores(e.horaEntrada).some(h => minutos(h) === minutos(e.horaSalida))) error(`${e.nombre}: la salida debe ser posterior al fin de su turno.`, e.nomina);
+      else if (!salidasPosteriores(e.horaEntrada, duracionMaxima).some(h => minutos(h) === minutos(e.horaSalida))) error(`${e.nombre}: la salida debe ser posterior al fin de su turno.`, e.nomina);
     } else if (!e.horaEntrada || !e.horaSalida) error(`${e.nombre}: falta el horario.`, e.nomina);
-    else if (calcularHoras(e.horaEntrada, e.horaSalida) > MAX_HORAS_TE) {
-      error(`${e.nombre}: el tiempo extra duraría ${calcularHoras(e.horaEntrada, e.horaSalida)} h${terminaDiaSiguiente(e.horaEntrada, e.horaSalida) ? ' (termina al día siguiente)' : ''}; el máximo es ${MAX_HORAS_TE} h.`, e.nomina);
+    else if (minutos(e.horaEntrada) === minutos(e.horaSalida)) error(`${e.nombre}: La entrada y la salida no pueden ser la misma hora.`, e.nomina);
+    else if (duracionMaxima != null && calcularHoras(e.horaEntrada, e.horaSalida) > duracionMaxima) {
+      error(`${e.nombre}: el tiempo extra duraría ${calcularHoras(e.horaEntrada, e.horaSalida)} h${terminaDiaSiguiente(e.horaEntrada, e.horaSalida) ? ' (termina al día siguiente)' : ''}; el máximo es ${duracionMaxima} h.`, e.nomina);
     }
     if (!transporteCompleto(e)) {
       error(e.transporte && e.rutaId && e.comunidadId && e.puntoReunionId

@@ -9,6 +9,12 @@
 export const FUNCIONES = { transporteSuelto: false };
 
 /**
+ * Duración máxima de un tiempo extra, en horas (de la hora de inicio a la de fin, aunque cruce la medianoche). null = sin límite (hoy no hay).
+ * Con un número, la captura rechaza lo que dure más y la extensión de turno no ofrece salidas que lo pasen.
+ */
+export const duracionMaximaHoras = null;
+
+/**
  * Nómina: ¿en qué día y semana cuentan las horas de un tiempo extra que cruza la medianoche?
  *   'inicio'  (por defecto) todas en el día en que EMPIEZA: 23:00 del domingo a 7:00 del lunes = 8 h del domingo, en su semana.
  *   'dividir' cada hora en su día calendario: 1 h del domingo y 7 h del lunes (que cae en la semana siguiente).
