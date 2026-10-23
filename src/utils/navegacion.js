@@ -50,7 +50,7 @@ export const ITEMS_MENU_RH = [
   { path: RUTAS.transporteSolicitudes, label: 'Solicitudes de transporte', icono: 'Bus' },
   { path: RUTAS_TRANSPORTE_SUELTO.nueva, label: 'Nueva solicitud de transporte', icono: 'FilePlus', funcion: 'transporteSuelto' },
   { path: RUTAS_TRANSPORTE_SUELTO.misSolicitudes, label: 'Mis solicitudes de transporte', icono: 'ClipboardList', funcion: 'transporteSuelto' },
-  { path: RUTAS.transporteCatalogos, label: 'Rutas y puntos de reunión', icono: 'Database' },
+  { path: RUTAS.transporteCatalogos, label: 'Catálogos', icono: 'Database' },
 
   { section: 'Reportes de nómina' },
   { path: RUTAS.nominaReportes, label: 'Formato de tiempo extra', icono: 'FileSpreadsheet' },

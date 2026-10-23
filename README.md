@@ -58,7 +58,7 @@ Todas las URLs están en `src/rutas.js` (las del transporte suelto, en `src/func
 | `/tiempo-extra/consulta` | Todas las solicitudes de tiempo extra (solo lectura) | Aut. 2, RH |
 | `/tiempo-extra/recepcion` | Por enviar al proveedor: confirmar, devolver, **Formato de rutas** y resumen de horas extra | RH |
 | `/transporte/solicitudes` | Solicitudes de transporte (las que genera el tiempo extra) | RH |
-| `/transporte/catalogos` | Rutas y puntos de reunión | RH |
+| `/transporte/catalogos` | Catálogos: rutas, comunidades, puntos de reunión y motivos del tiempo extra | RH |
 | `/personal/padron` | Padrón de empleados (alta, importación y respaldo) | RH |
 | `/personal/estructura` | Áreas, puestos (con nivel), excepciones y turnos | RH |
 | `/personal/accesos[/usuarios\|asignaciones\|organigrama]` | Usuarios y accesos, Organigrama | RH; Aut. 2 y Aut. 1 según su rol |

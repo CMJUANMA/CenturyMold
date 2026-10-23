@@ -2,7 +2,7 @@
  * CatalogosContext.jsx
  * ──────────────────────────────────────────────────────────────────────────
  * Catálogos compartidos, cargados UNA vez por sesión y solo cuando una pantalla los pide:
- *   - catálogo: rutas, comunidades y puntosReunion
+ *   - catálogo: rutas, comunidades, puntosReunion y motivosTE (los motivos del tiempo extra)
  *   - empleados
  * Se guardan completos (incluye inactivos, que EditarSolicitud necesita para mostrar valores
  * ya guardados) y se exponen también los activos ya filtrados.
@@ -23,10 +23,11 @@ import { useAuth } from '../hooks/useAuth';
 import { useAccesos } from '../hooks/useAccesos';
 import { CatalogosContext } from './catalogosStore';
 import { esActivo } from '../utils/activo';
+import { ordenarMotivos } from '../utils/motivosTE';
 
 
 
-const VACIO = { uid: null, rutas: [], comunidades: [], puntos: [], empleados: [] };
+const VACIO = { uid: null, rutas: [], comunidades: [], puntos: [], motivos: [], empleados: [] };
 const leer = (nombre) => getDocs(collection(db, nombre))
   .then(s => s.docs.map(d => ({ id: d.id, ...d.data() })));
 
@@ -75,13 +76,13 @@ export function CatalogosProvider({ children }) {
     setErrorG(e => ({ ...e, [grupo]: null }));
     try {
       const resultado = grupo === 'cat'
-        ? await Promise.all([leer('rutas'), leer('comunidades'), leer('puntosReunion')])
+        ? await Promise.all([leer('rutas'), leer('comunidades'), leer('puntosReunion'), leer('motivosTE')])
         : await leerPadron(alcance.current);
       if (v !== version.current[grupo]) return; // llegó una carga más nueva: se ignora esta
       setDatos(d => {
         const base = d.uid === uidActual ? d : { ...VACIO, uid: uidActual };
         return grupo === 'cat'
-          ? { ...base, rutas: resultado[0], comunidades: resultado[1], puntos: resultado[2] }
+          ? { ...base, rutas: resultado[0], comunidades: resultado[1], puntos: resultado[2], motivos: ordenarMotivos(resultado[3]) }
           : { ...base, empleados: resultado };
       });
       cargadoPara.current[grupo] = uidActual;
@@ -150,6 +151,8 @@ export function CatalogosProvider({ children }) {
     comunidades: vigentes.comunidades,
     puntos: vigentes.puntos,
     empleados: vigentes.empleados,
+    motivos: vigentes.motivos,
+    motivosActivos: vigentes.motivos.filter(esActivo),
     rutasActivas: vigentes.rutas.filter(esActivo),
     comunidadesActivas: vigentes.comunidades.filter(esActivo),
     puntosActivos: vigentes.puntos.filter(esActivo),

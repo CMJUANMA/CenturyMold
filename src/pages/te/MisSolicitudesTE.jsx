@@ -16,6 +16,7 @@ import { usePendienteCon } from '../../hooks/usePendienteCon';
 import AyudaPantalla from '../../components/AyudaPantalla';
 import BadgeEstatus from '../../components/BadgeEstatus';
 import InsigniasTE from '../../components/InsigniasTE';
+import MotivosTE from '../../components/MotivosTE';
 import Modal from '../../components/Modal';
 import Aviso from '../../components/ui/Aviso';
 import Boton from '../../components/ui/Boton';
@@ -140,7 +141,7 @@ export default function MisSolicitudesTE() {
                     <Fila key={t.id}>
                       <Td mono={!!t.folio}>{t.folio ?? <span className="italic text-[var(--text-muted)]">Borrador</span>}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></Td>
                       <Td className="whitespace-nowrap">{t.fechaTE ? formatoFecha(`${t.fechaTE}T12:00:00`) : '—'}</Td>
-                      <Td>{nombres.get(t.areaId) ?? t.areaNombre ?? t.areaId}</Td>
+                      <Td>{nombres.get(t.areaId) ?? t.areaNombre ?? t.areaId}<MotivosTE t={t} className="mt-1" /></Td>
                       <Td derecha>{t.resumen?.totalEmpleados ?? 0}</Td>
                       <Td derecha mono>{t.resumen?.totalHoras ?? 0}</Td>
                       <Td derecha>{t.resumen?.totalTransporte ?? 0}</Td>
@@ -167,6 +168,7 @@ export default function MisSolicitudesTE() {
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">{nombres.get(t.areaId) ?? t.areaNombre ?? t.areaId} · {t.fechaTE ? formatoFecha(`${t.fechaTE}T12:00:00`) : '—'}</p>
                   <p className="mt-1 text-xs text-[var(--text-muted)]">{t.resumen?.totalEmpleados ?? 0} empleados · {t.resumen?.totalHoras ?? 0} h · {t.resumen?.totalTransporte ?? 0} con transporte · {nivelEnTexto(t.estatus)}</p>
                   <InsigniasTE t={t} className="mt-2" />
+                  <MotivosTE t={t} className="mt-2" />
                   {pendienteCon(t) && <p className="mt-2 text-xs text-[var(--text-secondary)]">{pendienteCon(t)}</p>}
                   {t.estatus === 'procesada' && <p className="mt-2 text-xs text-[var(--text-secondary)]">{textoRecibida(t)}</p>}
                   {t.estatus === 'cancelada' && <TextoCancelada t={t} className="mt-2" />}

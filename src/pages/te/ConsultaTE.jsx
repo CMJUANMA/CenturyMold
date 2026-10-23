@@ -18,6 +18,7 @@ import Ayuda from '../../components/Ayuda';
 import AyudaPantalla from '../../components/AyudaPantalla';
 import BadgeEstatus from '../../components/BadgeEstatus';
 import InsigniasTE from '../../components/InsigniasTE';
+import MotivosTE from '../../components/MotivosTE';
 import Modal from '../../components/Modal';
 import Aviso from '../../components/ui/Aviso';
 import Boton from '../../components/ui/Boton';
@@ -45,7 +46,7 @@ const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 export default function ConsultaTE() {
   const { planta, cargando, error } = useResumenTE();
   const { areas, nombres } = useAreas();
-  const { rutas, comunidades, puntos } = useCatalogos({ empleados: false });
+  const { rutas, comunidades, puntos, motivos } = useCatalogos({ empleados: false });
   const toast = useToast();
   const { esRH, esNomina } = useAccesos();
   const descargaResumen = esRH || esNomina;
@@ -53,14 +54,14 @@ export default function ConsultaTE() {
   const [params, setParams] = useSearchParams();
   const [ahora] = useState(() => new Date());
   const [filtros, setFiltros] = useState(() => ({
-    areaId: '', estatus: ESTATUS_TE_VISIBLES.includes(params.get('estatus')) ? params.get('estatus') : '', desde: '', hasta: '', turno: '', solicitante: '',
+    areaId: '', estatus: ESTATUS_TE_VISIBLES.includes(params.get('estatus')) ? params.get('estatus') : '', desde: '', hasta: '', turno: '', solicitante: '', motivoId: '',
   })); // ?estatus=... llega desde los indicadores del Inicio
   const [detalle, setDetalle] = useState(null);
   const [exportando, setExportando] = useState(null); // { hechos, total }
   const formato = useMemo(() => crearFormateadorNombres([]), []);
   const nombreArea = (id) => nombres.get(id) ?? id;
 
-  const filtradas = useMemo(() => filtrarSolicitudes(planta, filtros).sort((a, b) => esperaDesde(b) - esperaDesde(a)), [planta, filtros]);
+  const filtradas = useMemo(() => filtrarSolicitudes(planta, filtros, motivos).sort((a, b) => esperaDesde(b) - esperaDesde(a)), [planta, filtros, motivos]);
   const semana = inicioDeSemana(ahora).getTime();
   const mes = iso(inicioDeMes(ahora));
   const pendientes1 = planta.filter(t => t.estatus === 'pendiente_aut1').length;
@@ -130,7 +131,7 @@ export default function ConsultaTE() {
 
   if (cargando) return <div className="space-y-8"><EsqueletoPagina bloques={0} /><EsqueletoIndicadores cantidad={3} className="grid gap-4 sm:grid-cols-3" /><EsqueletoTabla filas={5} columnas={7} /></div>;
   const hayFiltros = Object.values(filtros).some(Boolean);
-  const limpiar = () => setFiltros({ areaId: '', estatus: '', desde: '', hasta: '', turno: '', solicitante: '' });
+  const limpiar = () => setFiltros({ areaId: '', estatus: '', desde: '', hasta: '', turno: '', solicitante: '', motivoId: '' });
   return (
     <div className="space-y-8">
       <EncabezadoPagina
@@ -176,7 +177,7 @@ export default function ConsultaTE() {
 
       <section aria-label="Solicitudes" className="space-y-4">
         <h2 className="text-lg font-semibold text-[var(--text-main)]">Solicitudes</h2>
-        <div className="grid gap-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 sm:grid-cols-2 lg:grid-cols-6 lg:items-end" role="group" aria-label="Filtros">
+        <div className="grid gap-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end" role="group" aria-label="Filtros">
           <Campo etiqueta="Área">
             <Selector value={filtros.areaId} onChange={e => setFiltros(f => ({ ...f, areaId: e.target.value }))}>
               <option value="">Todas</option>{areas.filter(a => a.participaTE !== undefined).map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
@@ -192,10 +193,15 @@ export default function ConsultaTE() {
               <option value="">Todos</option><option value="1">Turno 1 (7:00 a 15:59)</option><option value="2">Turno 2 (16:00 a 23:59)</option><option value="3">Turno 3 (0:00 a 6:59)</option>
             </Selector>
           </Campo>
+          <Campo etiqueta="Motivo">
+            <Selector id="filtro-motivo" value={filtros.motivoId} onChange={e => setFiltros(f => ({ ...f, motivoId: e.target.value }))}>
+              <option value="">Todos</option>{motivos.map(m => <option key={m.id} value={m.id}>{m.nombre}{m.activo === false ? ' (dado de baja)' : ''}</option>)}
+            </Selector>
+          </Campo>
           <Campo etiqueta="Fecha del tiempo extra, desde"><Entrada type="date" value={filtros.desde} onChange={e => setFiltros(f => ({ ...f, desde: e.target.value }))} /></Campo>
           <Campo etiqueta="Hasta"><Entrada type="date" value={filtros.hasta} min={filtros.desde} onChange={e => setFiltros(f => ({ ...f, hasta: e.target.value }))} /></Campo>
           <Campo etiqueta="Solicitante"><Entrada type="search" value={filtros.solicitante} placeholder="Nombre o nómina" onChange={e => setFiltros(f => ({ ...f, solicitante: e.target.value }))} /></Campo>
-          {hayFiltros && <div className="sm:col-span-2 lg:col-span-6"><Boton variante="fantasma" onClick={limpiar}>Limpiar filtros</Boton></div>}
+          {hayFiltros && <div className="sm:col-span-2 lg:col-span-4"><Boton variante="fantasma" onClick={limpiar}>Limpiar filtros</Boton></div>}
         </div>
 
         {filtradas.length === 0 ? (
@@ -210,7 +216,7 @@ export default function ConsultaTE() {
                 <tbody>
                   {filtradas.map(t => (
                     <Fila key={t.id}>
-                      <Td mono>{t.folio ?? '—'}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></Td><Td>{nombreArea(t.areaId)}</Td><Td>{formato.nombre(t.creadoPorNombre ?? '')}</Td>
+                      <Td mono>{t.folio ?? '—'}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></Td><Td>{nombreArea(t.areaId)}<MotivosTE t={t} pm className="mt-1" /></Td><Td>{formato.nombre(t.creadoPorNombre ?? '')}</Td>
                       <Td className="whitespace-nowrap">{formatoFecha(`${t.fechaTE}T12:00:00`)}</Td><Td derecha>{t.resumen?.totalEmpleados ?? 0}</Td><Td derecha mono>{t.resumen?.totalHoras ?? 0}</Td>
                       <Td><BadgeEstatus estatus={t.estatus} modulo="te" /></Td>
                       <Td className="text-right"><Boton tamano="sm" icono={Eye} onClick={() => abrir(t)} aria-label={`Ver ${t.folio}`}>Ver</Boton></Td>
@@ -226,6 +232,7 @@ export default function ConsultaTE() {
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">{nombreArea(t.areaId)} · {formatoFecha(`${t.fechaTE}T12:00:00`)}</p>
                   <p className="mt-1 text-xs text-[var(--text-muted)]">{formato.nombre(t.creadoPorNombre ?? '')} · {t.resumen?.totalEmpleados ?? 0} empleados · {t.resumen?.totalHoras ?? 0} h</p>
                   <InsigniasTE t={t} className="mt-2" />
+                  <MotivosTE t={t} pm className="mt-2" />
                   <Boton className="mt-3 w-full" icono={Eye} onClick={() => abrir(t)} aria-label={`Ver ${t.folio}`}>Ver</Boton>
                 </li>
               ))}

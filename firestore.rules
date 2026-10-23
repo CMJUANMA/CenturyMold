@@ -186,6 +186,20 @@ service cloud.firestore {
         && request.resource.data.fecha == request.time;
       allow update, delete: if false;
     }
+    // Motivos del tiempo extra: { nombre, orden, activo, requiereNumero: null|'po'|'tb', requiereComentario }. Los lee cualquier usuario activo (se eligen al
+    // capturar); solo RH y admin los crean y editan. Baja lógica (activo: false): nadie borra, y las solicitudes ya guardan una copia del nombre.
+    match /motivosTE/{id} {
+      function m() { return request.resource.data; }
+      function motivoValido() {
+        return m().keys().hasOnly(['nombre', 'orden', 'activo', 'requiereNumero', 'requiereComentario'])
+          && m().nombre is string && m().nombre.trim().size() > 0 && m().nombre.size() <= 60
+          && m().orden is number && m().activo is bool && m().requiereComentario is bool
+          && m().requiereNumero in [null, 'po', 'tb'];
+      }
+      allow read: if activo();
+      allow create, update: if esRH() && motivoValido();
+      allow delete: if false;
+    }
     match /rutas/{id}         { allow read: if activo(); allow create, update: if esRH() && request.resource.data.keys().size() <= 25; allow delete: if esRH(); }
     match /comunidades/{id}   { allow read: if activo(); allow create, update: if esRH() && request.resource.data.keys().size() <= 25; allow delete: if esRH(); }
     match /puntosReunion/{id} { allow read: if activo(); allow create, update: if esRH() && request.resource.data.keys().size() <= 25; allow delete: if esRH(); }
@@ -510,7 +524,7 @@ service cloud.firestore {
         let d = despues();
         let r = d.get('resumen', {});
         return d.get('fechaTE', '').matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')
-          && d.get('motivo', '').size() <= 60 && d.get('comentario', '').size() <= 1000 && d.get('justificacionRutas', '').size() <= 1000
+          && d.get('motivo', '').size() <= 60 && d.get('comentario', '').size() <= 1000 && d.get('justificacionRutas', '').size() <= 1000 && motivosValidos()
           && r.keys().size() <= 5 && r.get('totalEmpleados', 0) <= 150 && r.get('totalTransporte', 0) <= 150
           && r.get('totalAlimentos', 0) <= 150 && r.get('totalHoras', 0) <= 3600 && r.get('porBloque', {}).size() <= 60
           && d.get('rutasDistintas', 0) <= 60 && d.get('desgloseRutas', []).size() <= 60;
@@ -521,12 +535,30 @@ service cloud.firestore {
           && despues().get('areaNombre', get(areaPath(despues().areaId)).data.get('nombre', '')) == get(areaPath(despues().areaId)).data.get('nombre', '');
       }
 
-      // Motivo "Otro": motivoOtro (¿Cuál?) solo existe con ese motivo, es texto de hasta 60 caracteres y, al enviar, de al menos 3
+      // Motivos de la solicitud (hasta 5): [{ motivoId, nombre, numero, comentario, detalle, tipoNumero }]. Las reglas no recorren listas y cada petición tiene un
+      // tope de 1000 expresiones, así que se revisan las 5 posiciones con lo mínimo: que sean mapas con esos campos y que el nombre (copia del catálogo) tenga tope.
+      // El formato del P.O./TB, la descripción de "Otro" y el largo de los textos libres los valida la app (solo dañan la propia solicitud del creador).
+      function motivoOk(m) {
+        return m is map && m.keys().hasOnly(['motivoId', 'nombre', 'numero', 'comentario', 'detalle', 'tipoNumero']) && textoHasta(m.get('nombre', ''), 60);
+      }
+      function motivosValidos() {
+        let l = despues().get('motivos', []);
+        return l is list && l.size() <= 5
+          && (l.size() < 1 || motivoOk(l[0])) && (l.size() < 2 || motivoOk(l[1])) && (l.size() < 3 || motivoOk(l[2]))
+          && (l.size() < 4 || motivoOk(l[3])) && (l.size() < 5 || motivoOk(l[4]));
+      }
+      // Al enviar: con `motivos`, al menos uno y `motivo` es el nombre del primero (con nombre); sin ellos (solicitud anterior), el "¿Cuál?" de siempre
+      function motivosCompletos() {
+        let d = despues();
+        return d.keys().hasAny(['motivos'])
+          ? (d.motivos.size() >= 1 && d.motivo == d.motivos[0].get('nombre', '') && d.motivo.size() > 0)
+          : motivoOtroCompleto();
+      }
+
+      // Motivo "Otro" de las solicitudes anteriores: motivoOtro (¿Cuál?) solo existe con ese motivo, es texto de hasta 60 caracteres y, al enviar, de al menos 3
       function motivoOtroValido() {
         let d = despues();
-        return d.motivo == 'Otro'
-          ? (!d.keys().hasAny(['motivoOtro']) || (d.motivoOtro is string && d.motivoOtro.trim().size() <= 60 && d.motivoOtro.size() <= 60))
-          : !d.keys().hasAny(['motivoOtro']);
+        return !d.keys().hasAny(['motivoOtro']) || (d.motivo == 'Otro' && d.motivoOtro is string && d.motivoOtro.size() <= 60);
       }
       function motivoOtroCompleto() {
         let d = despues();
@@ -538,7 +570,7 @@ service cloud.firestore {
       allow create: if activo()
         && teId.matches('BR-[A-Za-z0-9]{10,}')
         && despues().keys().hasOnly(['areaId', 'areaNombre', 'creadoPor', 'creadoPorNomina', 'creadoPorNombre',
-                                     'fechaTE', 'motivo', 'motivoOtro', 'comentario', 'estatus', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas',
+                                     'fechaTE', 'motivo', 'motivoOtro', 'motivos', 'comentario', 'estatus', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas',
                                      'fechaCreacion', 'fechaActualizacion'])
         && despues().keys().hasAll(['areaId', 'creadoPor', 'creadoPorNomina', 'fechaTE', 'motivo', 'estatus',
                                     'fechaCreacion', 'fechaActualizacion'])
@@ -649,7 +681,7 @@ service cloud.firestore {
       // (y de un borrador, mientras se arma)
       allow update: if antes().estatus in ['devuelta', 'borrador'] && despues().estatus == antes().estatus
         && despues().fechaActualizacion == request.time
-        && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'fechaActualizacion'])
+        && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'motivos', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'fechaActualizacion'])
         && tipoValido() && motivoOtroValido() && contenidoValido()
         && antes().creadoPor == uid() && activo();
 
@@ -658,8 +690,8 @@ service cloud.firestore {
       allow update: if antes().estatus == 'borrador' && despues().estatus in ['pendiente_aut1', 'pendiente_aut2']
         && despues().fechaActualizacion == request.time
         && !despues().keys().hasAny(['aut1', 'aut2'])
-        && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'folio', 'fechaActualizacion'])
-        && tipoValido() && rutasJustificadas() && motivoOtroValido() && motivoOtroCompleto() && contenidoValido()
+        && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'motivos', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'folio', 'fechaActualizacion'])
+        && tipoValido() && rutasJustificadas() && motivoOtroValido() && motivosCompletos() && contenidoValido()
         && antes().creadoPor == uid()
         && puedeCapturarTE(antes().areaId)
         && despues().estatus == estatusInicial(antes().areaId)
@@ -670,8 +702,8 @@ service cloud.firestore {
       allow update: if antes().estatus == 'borrador' && despues().estatus == 'autorizada'
         && despues().fechaActualizacion == request.time
         && !despues().keys().hasAny(['aut1'])
-        && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'folio', 'aut2', 'fechaActualizacion'])
-        && tipoValido() && rutasJustificadas() && motivoOtroValido() && motivoOtroCompleto() && contenidoValido()
+        && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'motivos', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'folio', 'aut2', 'fechaActualizacion'])
+        && tipoValido() && rutasJustificadas() && motivoOtroValido() && motivosCompletos() && contenidoValido()
         && antes().creadoPor == uid()
         && puedeCapturarComoAut2(antes().areaId)
         && firmaAut2Propia()
@@ -681,8 +713,8 @@ service cloud.firestore {
       allow update: if antes().estatus == 'devuelta' && despues().estatus == 'autorizada'
         && despues().fechaActualizacion == request.time
         && !despues().keys().hasAny(['aut1'])
-        && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'aut1', 'aut2', 'fechaActualizacion'])
-        && tipoValido() && rutasJustificadas() && motivoOtroValido() && motivoOtroCompleto() && contenidoValido()
+        && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'motivos', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'aut1', 'aut2', 'fechaActualizacion'])
+        && tipoValido() && rutasJustificadas() && motivoOtroValido() && motivosCompletos() && contenidoValido()
         && antes().creadoPor == uid()
         && puedeCapturarComoAut2(antes().areaId)
         && firmaAut2Propia();
@@ -691,8 +723,8 @@ service cloud.firestore {
       allow update: if antes().estatus == 'devuelta' && despues().estatus in ['pendiente_aut1', 'pendiente_aut2']
         && despues().fechaActualizacion == request.time
         && !despues().keys().hasAny(['aut1', 'aut2'])
-        && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'aut1', 'aut2', 'fechaActualizacion'])
-        && tipoValido() && rutasJustificadas() && motivoOtroValido() && motivoOtroCompleto() && contenidoValido()
+        && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'motivos', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'aut1', 'aut2', 'fechaActualizacion'])
+        && tipoValido() && rutasJustificadas() && motivoOtroValido() && motivosCompletos() && contenidoValido()
         && antes().creadoPor == uid()
         && puedeCapturarTE(antes().areaId)
         && despues().estatus == estatusInicial(antes().areaId);
@@ -718,7 +750,8 @@ service cloud.firestore {
         function formaEmpleado() {
           let e = request.resource.data;
           return e.keys().hasOnly(['nombre', 'puesto', 'turnoNomina', 'horaEntrada', 'horaSalida', 'horas',
-                                   'requiereAlimentos', 'requiereTransporte', 'transporteLlegada', 'transporteSalida', 'rutaId', 'comunidadId', 'puntoReunionId'])
+                                   'requiereAlimentos', 'requiereTransporte', 'transporteLlegada', 'transporteSalida', 'rutaId', 'comunidadId', 'puntoReunionId', 'motivoIndex'])
+            && e.get('motivoIndex', 0) is int && e.get('motivoIndex', 0) >= 0 && e.get('motivoIndex', 0) <= 4
             && textoHasta(e.get('nombre', ''), 120) && textoHasta(e.get('puesto', ''), 120) && textoHasta(e.get('turnoNomina', ''), 10)
             && textoHasta(e.get('horaEntrada', ''), 10) && textoHasta(e.get('horaSalida', ''), 10)
             && e.get('horas', 0) is number && e.get('horas', 0) >= 0 && e.get('horas', 0) <= 48

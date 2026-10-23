@@ -20,6 +20,7 @@ import Ayuda from '../../components/Ayuda';
 import AyudaPantalla from '../../components/AyudaPantalla';
 import BadgeEstatus from '../../components/BadgeEstatus';
 import InsigniasTE from '../../components/InsigniasTE';
+import MotivosTE from '../../components/MotivosTE';
 import Modal from '../../components/Modal';
 import Aviso from '../../components/ui/Aviso';
 import Boton from '../../components/ui/Boton';
@@ -230,7 +231,7 @@ export default function BandejaTE() {
                               <Fila key={t.id} className={propia ? 'opacity-60' : ''}>
                                 <Td>{!propia && <input type="checkbox" aria-label={`Seleccionar ${t.folio}`} checked={seleccion[nivel].has(t.id)} onChange={() => alternar(nivel, t.id)} className={CASILLA} />}</Td>
                                 <Td mono>{t.folio}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></Td>
-                                <Td>{nombreArea(t.areaId)}</Td>
+                                <Td>{nombreArea(t.areaId)}<MotivosTE t={t} pm={nivel === 2} className="mt-1" /></Td>
                                 <Td>{formato.nombre(t.creadoPorNombre)}</Td>
                                 <Td className="whitespace-nowrap">{formatoFecha(`${t.fechaTE}T12:00:00`)} {fechaVencida(t.fechaTE, hoy) && <Vencida />}</Td>
                                 <Td derecha>{t.resumen?.totalEmpleados ?? 0}</Td>
@@ -253,7 +254,7 @@ export default function BandejaTE() {
                         return (
                           <li key={t.id} className={`rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 ${propia ? 'opacity-60' : ''}`}>
                             <div className="flex items-start justify-between gap-3">
-                              <div><p className="font-mono text-sm font-medium text-[var(--text-main)]">{t.folio}</p><p className="text-xs text-[var(--text-secondary)]">{nombreArea(t.areaId)} · {formato.nombre(t.creadoPorNombre)}</p><InsigniasTE t={t} className="mt-1" /></div>
+                              <div><p className="font-mono text-sm font-medium text-[var(--text-main)]">{t.folio}</p><p className="text-xs text-[var(--text-secondary)]">{nombreArea(t.areaId)} · {formato.nombre(t.creadoPorNombre)}</p><InsigniasTE t={t} className="mt-1" /><MotivosTE t={t} pm={nivel === 2} className="mt-1" /></div>
                               {!propia && (
                                 <label className="-m-2 flex h-11 w-11 cursor-pointer items-center justify-center">
                                   <input type="checkbox" aria-label={`Seleccionar ${t.folio}`} checked={seleccion[nivel].has(t.id)} onChange={() => alternar(nivel, t.id)} className={CASILLA} />
@@ -287,7 +288,7 @@ export default function BandejaTE() {
               <tbody>
                 {historialArea.map(t => (
                   <Fila key={t.id}>
-                    <Td mono>{t.folio ?? '—'}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></Td><Td>{nombreArea(t.areaId)}</Td><Td>{formato.nombre(t.creadoPorNombre)}</Td>
+                    <Td mono>{t.folio ?? '—'}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></Td><Td>{nombreArea(t.areaId)}<MotivosTE t={t} className="mt-1" /></Td><Td>{formato.nombre(t.creadoPorNombre)}</Td>
                     <Td className="whitespace-nowrap">{formatoFecha(`${t.fechaTE}T12:00:00`)}</Td><Td derecha>{t.resumen?.totalEmpleados ?? 0}</Td><Td derecha mono>{t.resumen?.totalHoras ?? 0}</Td>
                     <Td><BadgeEstatus estatus={t.estatus} modulo="te" /></Td>
                     <Td className="text-right"><Boton tamano="sm" onClick={() => abrir(t, 1, true)}>Ver</Boton></Td>

@@ -17,6 +17,7 @@ import {
 import { normalizarEstatus } from './constantes';
 import { comparar } from './orden.js';
 import { MIN_MOTIVO_CANCELACION } from './cancelacion.js';
+import { motivoTexto } from './motivosTE.js';
 
 const refTE = (id) => doc(db, 'tiempoExtra', id);
 
@@ -50,12 +51,17 @@ export async function leerHistorialTE(id) {
  * @param {object} p.extras      tipo, rutasDistintas, desgloseRutas y justificacionRutas (ver datosTE en tiempoExtra.js)
  * @param {(hechos:number,total:number)=>void} [p.onProgreso]
  */
-/** motivoOtro vacío = no aplica: se omite al crear y se borra al actualizar (cambió a otro motivo) */
+/**
+ * El motivo: la solicitud guarda `motivos` (la lista del catálogo) y `motivo` = el nombre del primero; ambos vienen en `extras` (datosTE).
+ * Un `motivo` suelto sigue valiendo para quien aún no usa el catálogo (las pruebas de reglas de las solicitudes anteriores).
+ * motivoOtro (el "¿Cuál?" de las solicitudes anteriores) vacío = no aplica: se omite al crear y se borra al actualizar (ya tiene motivos nuevos o cambió de motivo).
+ */
 const conMotivoOtro = (extras, nuevo) => {
   const { motivoOtro, ...resto } = extras;
   if (motivoOtro) return { ...resto, motivoOtro };
   return nuevo ? resto : { ...resto, motivoOtro: deleteField() };
 };
+const motivoDe = (motivo, extras) => motivo ?? extras.motivo ?? '';
 
 export async function guardarBorrador({ id, existe, usuario, area, fechaTE, motivo, comentario, empleados, sucios, eliminados, extras = {}, onProgreso }) {
   const porNomina = new Map(empleados.map(e => [e.nomina, e]));
@@ -71,11 +77,11 @@ export async function guardarBorrador({ id, existe, usuario, area, fechaTE, moti
   // El primer lote lleva la solicitud (se crea o se actualiza) junto con los primeros empleados
   const primero = writeBatch(db);
   if (existe) {
-    primero.update(refTE(id), { fechaTE, motivo, comentario, resumen, ...conMotivoOtro(extras, false), fechaActualizacion: serverTimestamp() });
+    primero.update(refTE(id), { fechaTE, comentario, resumen, ...conMotivoOtro(extras, false), motivo: motivoDe(motivo, extras), fechaActualizacion: serverTimestamp() });
   } else {
     primero.set(refTE(id), {
       areaId: area.id, areaNombre: area.nombre, creadoPor: usuario.uid, creadoPorNomina: String(usuario.nomina), creadoPorNombre: usuario.nombre ?? '',
-      fechaTE, motivo, comentario, estatus: 'borrador', resumen, ...conMotivoOtro(extras, true), fechaCreacion: serverTimestamp(), fechaActualizacion: serverTimestamp(),
+      fechaTE, comentario, estatus: 'borrador', resumen, ...conMotivoOtro(extras, true), motivo: motivoDe(motivo, extras), fechaCreacion: serverTimestamp(), fechaActualizacion: serverTimestamp(),
     });
   }
   escribirEmpleados(primero, lotesEmp[0] ?? []);
@@ -106,12 +112,14 @@ export async function guardarBorrador({ id, existe, usuario, area, fechaTE, moti
  */
 export async function enviarSolicitud({ id, devuelta, usuario, estatus, fechaTE, motivo, comentario, empleados, extras = {} }) {
   const resumen = resumenTE(empleados);
-  const contenido = { fechaTE, motivo, comentario, resumen, ...conMotivoOtro(extras, false) };
+  const contenido = { fechaTE, comentario, resumen, ...conMotivoOtro(extras, false), motivo: motivoDe(motivo, extras) };
+  // La bitácora de la solicitud lleva los motivos con los que se envió (hasta 1000 caracteres, el tope de las reglas)
+  const conMotivos = `Motivos: ${motivoTexto(extras)}`.slice(0, 1000);
   const autoAut2 = estatus === 'autorizada';
   const firmaAut2 = () => ({ nomina: String(usuario.nomina), nombre: usuario.nombre ?? '', fecha: serverTimestamp(), comentario: COMENTARIO_AUT2_PROPIA, comoRH: false });
   const historial = (accion) => (autoAut2
     ? { ...entradaHistorial(usuario, 'enviada_autorizada', COMENTARIO_AUT2_PROPIA), nivel: 2 }
-    : entradaHistorial(usuario, accion));
+    : entradaHistorial(usuario, accion, extras.motivos?.length ? conMotivos : ''));
   if (devuelta) {
     const b = writeBatch(db);
     b.update(refTE(id), { ...contenido, estatus, aut1: deleteField(), aut2: autoAut2 ? firmaAut2() : deleteField(), fechaActualizacion: serverTimestamp() });

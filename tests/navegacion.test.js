@@ -97,7 +97,7 @@ describe('menú de admin y RH: ven todo su menú', () => {
   it('los nombres son los acordados', () => {
     expect(menuDe('rh').filter(i => !i.section).map(i => i.label)).toEqual([
       'Inicio', 'Solicitar tiempo extra', 'Mis solicitudes', 'Por autorizar', 'Por enviar al proveedor', 'Todas las solicitudes',
-      'Solicitudes de transporte', 'Rutas y puntos de reunión', 'Formato de tiempo extra', 'Padrón de empleados', 'Estructura', 'Usuarios y accesos', 'Organigrama',
+      'Solicitudes de transporte', 'Catálogos', 'Formato de tiempo extra', 'Padrón de empleados', 'Estructura', 'Usuarios y accesos', 'Organigrama',
     ]);
   });
   it('ya no hay dos "Resumen" ni etiquetas repetidas', () => {

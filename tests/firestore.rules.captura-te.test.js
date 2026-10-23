@@ -5,7 +5,8 @@ import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { assertFails, initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import { Timestamp, collection, doc, getDoc, getDocs, setDoc } from 'firebase/firestore';
-import { empleadoDesdePadron } from '../src/utils/tiempoExtra.js';
+import { datosTE, empleadoDesdePadron } from '../src/utils/tiempoExtra.js';
+import { MOTIVOS_INICIALES, motivoVacio } from '../src/utils/motivosTE.js';
 
 let env;
 const ANIO = new Date().getFullYear();
@@ -430,7 +431,7 @@ describe('Aut. 2 captura y envía lo suyo: queda autorizada con su firma de nive
   });
 });
 
-describe('motivo "Otro" (¿Cuál?) en las reglas', () => {
+describe('motivo "Otro" (¿Cuál?) de las solicitudes anteriores en las reglas', () => {
   const lista = empleados(2);
   const otro = (texto) => ({ motivo: 'Otro', extras: { motivoOtro: texto } });
   const datosEnvio = (id, extra = {}) => ({ id, devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2026-12-01', motivo: 'Otro', comentario: 'Entrega urgente de pedido', empleados: lista, ...extra });
@@ -459,5 +460,89 @@ describe('motivo "Otro" (¿Cuál?) en las reglas', () => {
     const t = (await getDoc(doc(db, 'tiempoExtra', 'BR-EEEEEEEEEE'))).data();
     expect(t.motivo).toBe('Calidad');
     expect(t.motivoOtro).toBeUndefined();
+  });
+});
+
+describe('motivos del catálogo en las reglas (varios por solicitud, P.O./TB y motivoIndex por empleado)', () => {
+  const lista = empleados(3).map((e, i) => ({ ...e, motivoIndex: i === 1 ? 1 : 0 }));
+  const mot = (motivoId, extra = {}) => ({ ...motivoVacio(motivoId), ...extra });
+  const dos = [mot('inventario-fisico', { detalle: 'apoyo a inventario' }), mot('cargo-po', { numero: '4551099797' })];
+  const extrasDe = (motivos, empleadosLista = lista) => datosTE({ tipo: 'turno_extra', empleados: empleadosLista, motivos, catalogoMotivos: MOTIVOS_INICIALES });
+  const envio = (id, extra = {}) => ({ id, devuelta: false, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2026-12-01', comentario: 'Entrega urgente de pedido', empleados: lista, extras: extrasDe(dos), ...extra });
+  const guardarCon = (m, id, extras, l = lista, extra = {}) => m.guardarBorrador(base(id, { motivo: undefined, empleados: l, sucios: new Set(l.map(e => e.nomina)), extras, ...extra }));
+
+  it('guarda el borrador con sus motivos (nombre copiado) y el motivoIndex de cada empleado; se envía y la bitácora lleva los motivos', async () => {
+    const { db, m } = await comoUsuario('solP');
+    await guardarCon(m, 'BR-AAAAAAAAAA', extrasDe(dos));
+    const t = (await getDoc(doc(db, 'tiempoExtra', 'BR-AAAAAAAAAA'))).data();
+    expect(t.motivo).toBe('Inventario físico');
+    expect(t.motivos).toEqual([
+      { motivoId: 'inventario-fisico', nombre: 'Inventario físico', numero: '', comentario: '', detalle: 'apoyo a inventario', tipoNumero: '' },
+      { motivoId: 'cargo-po', nombre: 'Cargo a P.O.', numero: '4551099797', comentario: '', detalle: '', tipoNumero: 'po' },
+    ]);
+    expect(t.motivoOtro).toBeUndefined();
+    expect((await getDoc(doc(db, 'tiempoExtra', 'BR-AAAAAAAAAA', 'empleados', lista[1].nomina))).data().motivoIndex).toBe(1);
+    await m.enviarSolicitud(envio('BR-AAAAAAAAAA'));
+    expect((await getDoc(doc(db, 'tiempoExtra', 'BR-AAAAAAAAAA'))).data()).toMatchObject({ estatus: 'pendiente_aut1', motivo: 'Inventario físico' });
+    const h = await m.leerHistorialTE('BR-AAAAAAAAAA');
+    expect(h[0].comentario).toBe('Motivos: Inventario físico · apoyo a inventario / Cargo a P.O. 4551099797');
+  });
+  it('el Aut. 1 lee los motivos; el Aut. 2 que captura la deja autorizada con sus motivos', async () => {
+    const { m } = await comoUsuario('solP');
+    await guardarCon(m, 'BR-AAAAAAAAAA', extrasDe(dos));
+    await m.enviarSolicitud(envio('BR-AAAAAAAAAA'));
+    const a1 = await comoUsuario('aut1P');
+    expect((await getDoc(doc(a1.db, 'tiempoExtra', 'BR-AAAAAAAAAA'))).data().motivos).toHaveLength(2);
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const d = ctx.firestore();
+      await setDoc(doc(d, 'areas', 'administrativo'), { nombre: 'Administrativo', participaTE: false, activa: true, orden: 9 });
+      for (let i = 0; i < 3; i++) await setDoc(doc(d, 'empleados', String(900 + i)), { nombre: `ADMIN ${900 + i}`, nomina: String(900 + i), areaId: 'administrativo', puesto: 'ANALISTA', turnoNomina: 'A' });
+    });
+    const a2 = await comoUsuario('aut2');
+    const lista2 = empleados(2, 900).map((e, i) => ({ ...e, motivoIndex: i }));
+    await guardarCon(a2.m, 'BR-BBBBBBBBBB', extrasDe(dos, lista2), lista2, { usuario: USUARIOS.aut2, area: { id: 'administrativo', nombre: 'Administrativo' } });
+    await a2.m.enviarSolicitud(envio('BR-BBBBBBBBBB', { usuario: USUARIOS.aut2, estatus: 'autorizada', empleados: lista2, extras: extrasDe(dos, lista2) }));
+    expect((await getDoc(doc(a2.db, 'tiempoExtra', 'BR-BBBBBBBBBB'))).data()).toMatchObject({ estatus: 'autorizada', motivo: 'Inventario físico' });
+    expect((await a2.m.leerHistorialTE('BR-BBBBBBBBBB')).map(h => h.accion)).toEqual(['enviada_autorizada']);
+  });
+  it('no se pasa de cinco motivos ni se aceptan campos que no son del motivo ni nombres larguísimos', async () => {
+    const { m } = await comoUsuario('solP');
+    const cinco = ['cubrir-vacante', 'embarques-fin-de-semana', 'inventario-fisico', 'cubrir-vacaciones', 'adecuacion-contenedores'].map(id => mot(id));
+    const ok = extrasDe(cinco);
+    await expect(guardarCon(m, 'BR-BBBBBBBBBB', { ...ok, motivos: [...ok.motivos, ok.motivos[0]] })).rejects.toThrow();
+    await expect(guardarCon(m, 'BR-CCCCCCCCCC', { ...ok, motivos: [{ ...ok.motivos[0], extra: 'x'.repeat(2000) }] })).rejects.toThrow();
+    await expect(guardarCon(m, 'BR-DDDDDDDDDD', { ...ok, motivos: [{ ...ok.motivos[0], nombre: 'x'.repeat(61) }] })).rejects.toThrow();
+    await guardarCon(m, 'BR-EEEEEEEEEE', ok);
+  });
+  it('no se envía sin motivos, ni con un motivo que no es el del primero', async () => {
+    const { m } = await comoUsuario('solP');
+    await guardarCon(m, 'BR-AAAAAAAAAA', extrasDe([mot('')]));
+    await expect(m.enviarSolicitud(envio('BR-AAAAAAAAAA', { extras: extrasDe([mot('')]) }))).rejects.toThrow();
+    await expect(m.enviarSolicitud(envio('BR-AAAAAAAAAA', { extras: { ...extrasDe(dos), motivo: 'Otro nombre' } }))).rejects.toThrow();
+    await m.enviarSolicitud(envio('BR-AAAAAAAAAA'));
+  });
+  it('el motivoIndex de un empleado es un entero de 0 a 4', async () => {
+    const { db, m } = await comoUsuario('solP');
+    await guardarCon(m, 'BR-GGGGGGGGGG', extrasDe(dos), [lista[0]]);
+    // La app ya normaliza el índice; las reglas lo exigen aunque alguien escriba directo
+    const ref = doc(db, 'tiempoExtra', 'BR-GGGGGGGGGG', 'empleados', lista[0].nomina);
+    const actual = (await getDoc(ref)).data();
+    for (const indice of [5, -1, 1.5, '1', null]) await assertFails(setDoc(ref, { ...actual, motivoIndex: indice }));
+    await setDoc(ref, { ...actual, motivoIndex: 4 });
+    expect((await getDoc(ref)).data().motivoIndex).toBe(4);
+  });
+  it('una solicitud anterior (motivo y motivoOtro) se puede corregir con motivos nuevos: se borra el ¿Cuál?', async () => {
+    const { db, m } = await comoUsuario('solP');
+    await guardarNuevo(m, 'BR-AAAAAAAAAA', lista, { motivo: 'Otro', extras: { motivoOtro: 'Visita de cliente' } });
+    await m.guardarBorrador(base('BR-AAAAAAAAAA', { existe: true, motivo: undefined, empleados: lista, extras: extrasDe(dos) }));
+    const t = (await getDoc(doc(db, 'tiempoExtra', 'BR-AAAAAAAAAA'))).data();
+    expect(t.motivo).toBe('Inventario físico');
+    expect(t.motivoOtro).toBeUndefined();
+    expect(t.motivos).toHaveLength(2);
+  });
+  it('la solicitud anterior sin motivos nuevos se sigue enviando con su ¿Cuál? de siempre', async () => {
+    const { m } = await comoUsuario('solP');
+    await guardarNuevo(m, 'BR-AAAAAAAAAA', lista, { motivo: 'Otro', extras: { motivoOtro: 'Visita de cliente' } });
+    await m.enviarSolicitud({ ...envio('BR-AAAAAAAAAA'), motivo: 'Otro', extras: { motivoOtro: 'Visita de cliente' } });
   });
 });

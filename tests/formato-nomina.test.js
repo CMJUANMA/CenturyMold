@@ -1,9 +1,9 @@
 // «Reportes de nómina»: semana ISO, qué solicitudes cuentan, la tabla por empleado y los ajustes. Datos ficticios, sin Firebase.
 import { describe, expect, it } from 'vitest';
 import {
-  CASILLAS_AREA, CASILLA_POR_AREA, aplicarCambios, autorizadasDelPeriodo, cambioHoras, cambioQuitar, cambioReemplazar, casillaDeArea, estadoDeArea, etiquetaPeriodo,
-  filasAutorizadas, filasDelArea, filasVigentes, horasValidas, idAjuste, motivoDeFila, moverSemana, nombreArchivoFormato, pendientesDelPeriodo, periodoLibre,
-  problemaMotivo, resumenDelPeriodo, semanaDe, semanaDeClave, totalesDeFilas, ultimaSemanaCompleta, yaEstaEnTabla,
+  CASILLAS_AREA, CASILLA_POR_AREA, aplicarCambios, areaRequierePM, autorizadasDelPeriodo, cambioHoras, cambioMotivo, cambioQuitar, cambioReemplazar, casillaDeArea, desgloseFila, estadoDeArea, etiquetaPeriodo,
+  filasAutorizadas, filasDelArea, filasVigentes, fueAjustada, horasValidas, idAjuste, motivoDeFila, moverSemana, nombreArchivoFormato, pendientesDelPeriodo, periodoLibre,
+  problemaMotivo, renglonParaGuardar, resumenDelPeriodo, semanaDe, semanaDeClave, totalesDeFilas, ultimaSemanaCompleta, yaEstaEnTabla,
 } from '../src/utils/formatoNomina.js';
 
 describe('semana ISO 8601 (lunes a domingo)', () => {
@@ -192,5 +192,84 @@ describe('nombre del archivo', () => {
     expect(nombreArchivoFormato(s, 'Producción')).toBe('FormatoTE_Semana43_2026_Produccion.xlsx');
     expect(nombreArchivoFormato(s)).toBe('FormatoTE_Semana43_2026_TodasLasAreas.xlsx');
     expect(nombreArchivoFormato(periodoLibre('2026-10-21', '2026-10-24'))).toBe('FormatoTE_2026-10-21_a_2026-10-24_TodasLasAreas.xlsx');
+  });
+});
+
+describe('motivos por empleado, P.O./TB y corrección del motivo', () => {
+  const s = semanaDe('2026-10-22');
+  const emp = (nomina, nombre, extra = {}) => ({ nomina, nombre, puesto: 'Op', horaEntrada: '7:00', horaSalida: '16:00', ...extra });
+  const m = (nombre, extra = {}) => ({ motivoId: nombre, nombre, numero: '', comentario: '', detalle: '', tipoNumero: '', ...extra });
+  const po = m('Cargo a P.O.', { numero: '4551099797', tipoNumero: 'po' });
+  const tb = m('Cargo a TB', { numero: 'TB2045', tipoNumero: 'tb' });
+  const inv = m('Inventario físico', { detalle: 'apoyo a inventario' });
+  const solicitudes = [
+    // Sábado: dos motivos; ANA (el primero) en inventario, BETO (el segundo) con cargo a P.O.
+    { id: '1', fechaTE: '2026-10-24', motivo: 'Inventario físico', motivos: [inv, po], empleados: [emp('100', 'ANA'), emp('200', 'BETO', { motivoIndex: 1 })] },
+    // Domingo: ANA con cargo a TB
+    { id: '2', fechaTE: '2026-10-25', motivo: 'Cargo a TB', motivos: [tb], empleados: [emp('100', 'ANA', { horaSalida: '11:00' })] },
+    // Una solicitud anterior (solo motivo) sigue entrando igual
+    { id: '3', fechaTE: '2026-10-24', motivo: 'Otro', motivoOtro: 'Visita de cliente', empleados: [emp('300', 'CARLA', { horaSalida: '12:00' })] },
+  ];
+  const base = filasAutorizadas(solicitudes, s);
+  const filas = aplicarCambios(base, [], s);
+  const de = (n) => filas.find(f => f.nomina === n);
+
+  it('cada empleado lleva el motivo de su solicitud con su detalle, sin el número', () => {
+    expect(de('100').motivo).toBe('Sáb: Inventario físico · apoyo a inventario; Dom: Cargo a TB');
+    expect(de('200').motivo).toBe('Cargo a P.O.');
+    expect(de('300').motivo).toBe('Otro: Visita de cliente');
+  });
+  it('la columna P.O./TB lleva el número que corresponde a ese empleado', () => {
+    expect(de('100').numero).toBe('TB2045');
+    expect(de('200').numero).toBe('4551099797');
+    expect(de('300').numero).toBe('');
+  });
+  it('si en la semana cambia el número, dice qué día', () => {
+    const f = { horas: { '2026-10-24': 5, '2026-10-25': 4 }, numeros: { '2026-10-24': ['4551099797'], '2026-10-25': ['TB2045'] } };
+    expect(aplicarCambios([{ clave: '1', nomina: '1', nombre: 'X', ...f, motivos: {} }], [], s)[0].numero).toBe('Sáb: 4551099797; Dom: TB2045');
+  });
+  it('el área con P.O. o TB requiere la firma del Program Manager; sin números, no', () => {
+    expect(areaRequierePM(filas, s)).toBe(true);
+    expect(areaRequierePM(filas.filter(f => f.nomina === '300'), s)).toBe(false);
+    expect(areaRequierePM(aplicarCambios(base, [cambioQuitar(de('100'), 'No asistió'), cambioQuitar(de('200'), 'No asistió')], s), s)).toBe(false);
+  });
+  it('Nóminas puede corregir el motivo de un renglón: manda sobre el de las solicitudes y se puede deshacer', () => {
+    const nuevo = { nombre: 'Cargo a P.O.', numero: '4551000001', tipoNumero: 'po', comentario: '', detalle: 'molde 12' };
+    const ajustadas = aplicarCambios(base, [cambioMotivo(de('300'), nuevo, 'Lo pidió el cliente')], s);
+    const f = ajustadas.find(x => x.nomina === '300');
+    expect(f.motivo).toBe('Cargo a P.O. · molde 12');
+    expect(f.numero).toBe('4551000001');
+    expect(fueAjustada(f)).toBe(true);
+    expect(areaRequierePM(ajustadas.filter(x => x.nomina === '300'), s)).toBe(true);
+    expect(aplicarCambios(base, [], s).find(x => x.nomina === '300').motivo).toBe('Otro: Visita de cliente');
+    expect(cambioMotivo(de('300'), nuevo, ' x ')).toMatchObject({ tipo: 'motivo', clave: '300', antes: 'Otro: Visita de cliente', motivo: 'x' });
+  });
+  it('el renglón guardado conserva el número, el desglose y el motivo corregido', () => {
+    const g = renglonParaGuardar(de('200'));
+    expect(g).toMatchObject({ numero: '4551099797', motivoCorregido: null });
+    expect(g.detalle['2026-10-24']).toEqual([{ nombre: 'Cargo a P.O.', numero: '4551099797', tipo: 'po', horas: 9 }]);
+    expect(JSON.parse(JSON.stringify(g))).toEqual(g);
+  });
+  it('un área firmada antes de los motivos nuevos se sigue leyendo (sin desglose, usa el texto del día)', () => {
+    const antigua = [{ clave: '1', nomina: '1', nombre: 'ANA', horas: { '2026-10-24': 6 }, motivos: { '2026-10-24': ['Producción'] }, subtotal: 6, quitado: false }];
+    const r = resumenDelPeriodo([{ areaId: 'moldes', nombre: 'Moldes', filas: antigua }], s);
+    expect(r.porMotivo).toEqual([['Producción', 6, 100]]);
+    expect(r.porNumero).toEqual([]);
+  });
+
+  describe('resumen', () => {
+    const r = resumenDelPeriodo([{ areaId: 'moldes', nombre: 'Moldes', filas }], s);
+    it('horas por motivo con porcentaje (ANA 9 + BETO 9 + CARLA 5 + ANA 4)', () => {
+      expect(r.total.horas).toBe(27);
+      expect(r.porMotivo).toEqual([['Cargo a P.O.', 9, 33.3], ['Inventario físico', 9, 33.3], ['Cargo a TB', 4, 14.8], ['Otro', 5, 18.5]].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es')));
+    });
+    it('horas por número de P.O./TB, con cuántos empleados y de qué áreas', () => {
+      expect(r.porNumero).toEqual([['P.O. 4551099797', 9, 1, 'Moldes'], ['TB TB2045', 4, 1, 'Moldes']]);
+    });
+    it('el desglose reparte las horas ajustadas por Nóminas en proporción', () => {
+      const mixto = { horas: { '2026-10-24': 6 }, detalle: { '2026-10-24': [{ nombre: 'A', numero: '', tipo: '', horas: 4 }, { nombre: 'B', numero: '', tipo: '', horas: 2 }] } };
+      expect(desgloseFila(mixto, s).map(x => [x.nombre, x.horas])).toEqual([['A', 4], ['B', 2]]);
+      expect(desgloseFila({ ...mixto, horas: { '2026-10-24': 3 } }, s).map(x => [x.nombre, x.horas])).toEqual([['A', 2], ['B', 1]]);
+    });
   });
 });

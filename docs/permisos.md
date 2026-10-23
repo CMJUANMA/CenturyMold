@@ -24,10 +24,10 @@ Pantalla *Reportes de nómina › Formato de tiempo extra* (`/nomina/reportes`):
 
 - **Semana ISO 8601** (lunes a domingo, «Semana 43 · 19–25 oct 2026»); por defecto la última semana completa, con flechas y rango libre de hasta 7 días.
 - **Qué cuenta:** solo lo autorizado por Aut. 2 (`autorizada` o `procesada`). Las pendientes y devueltas de esa semana solo se avisan (cuántas y de qué áreas).
-- **Ajustes** (quitar a quien no asistió, reemplazarlo por otra persona del padrón, corregir las horas de un día): cada uno pide un motivo corto y se guarda aparte en `ajustesNomina/{año-semana}_{areaId}`; **nunca modifican las solicitudes**. «Deshacer ajustes» vuelve a lo autorizado.
+- **Ajustes** (quitar a quien no asistió, reemplazarlo por otra persona del padrón, corregir las horas de un día o el motivo y el P.O./TB de un renglón): cada uno pide un motivo corto y se guarda aparte en `ajustesNomina/{año-semana}_{areaId}`; **nunca modifican las solicitudes**. «Deshacer ajustes» vuelve a lo autorizado.
 - **Marcar como firmada** bloquea el área y la semana; solo RH y admin pueden reabrirla (las reglas lo exigen). Todo queda en la bitácora.
 - **Reglas de Firestore:** `ajustesNomina` lo leen y lo escriben solo Nóminas, RH y admin; nadie lo borra; firmada = bloqueada. Pruebas: `tests/firestore.rules.ajustes-nomina.test.js`.
-- **Excel:** réplica del formato en papel (carta horizontal, una hoja por área; con más de 15 empleados continúa en otra página). «Descargar todas las áreas» agrega una primera hoja *Resumen* (horas por área, por empleado y por motivo con su porcentaje). Las constantes del formato (casillas de área, mapeo de áreas de la app, firmas, notas y pie `CM-FRH-??` / `REV-00` / `Fecha de Rev: 28 Oct 2021`) están en `src/utils/formatoNomina.js`. La columna *P.O./TB* sale vacía hasta que la solicitud traiga ese dato.
+- **Excel:** réplica del formato en papel (carta horizontal, una hoja por área; con más de 15 empleados continúa en otra página). «Descargar todas las áreas» agrega una primera hoja *Resumen* (horas por área, por empleado y por motivo con su porcentaje, y por número de P.O./TB). Las constantes del formato (casillas de área, mapeo de áreas de la app, firmas, notas y pie `CM-FRH-??` / `REV-00` / `Fecha de Rev: 28 Oct 2021`) están en `src/utils/formatoNomina.js`. La columna *P.O./TB* lleva el número de cada empleado y, si el área trae alguno, el formato marca que requiere la firma (2) del Program Manager.
 
 ## La matriz
 
@@ -60,10 +60,10 @@ La tabla se **genera** desde `src/utils/permisos.js` (`npm run docs:permisos`); 
 | **Transporte** ||||||||
 | Pantalla: Solicitudes de transporte (Nóminas: solo ve y descarga) | ✔ | ✔ | ✔ | — | — | — | — |
 | Pantalla: Formato de rutas (Excel para el proveedor) | ✔ | ✔ | ✔ | — | — | — | — |
-| Pantalla: Rutas y puntos de reunión | ✔ | ✔ | — | — | — | — | — |
+| Pantalla: Catálogos (rutas, comunidades, puntos de reunión y, en la pestaña Motivos, los motivos del tiempo extra: agregar, editar, ordenar y desactivar) | ✔ | ✔ | — | — | — | — | — |
 | **Reportes de nómina** ||||||||
 | Pantalla: Reportes de nómina: formato de autorización de tiempo extra por área y semana | ✔ | ✔ | ✔ | — | — | — | — |
-| Acción: Ajustar el formato (quitar, reemplazar, corregir horas) y marcarlo como firmado; los cambios no tocan las solicitudes _(Cada cambio pide un motivo y queda en la bitácora)_ | ✔ | ✔ | ✔ | — | — | — | — |
+| Acción: Ajustar el formato (quitar, reemplazar, corregir horas o el motivo y P.O./TB de un renglón) y marcarlo como firmado; los cambios no tocan las solicitudes _(Cada cambio pide un motivo y queda en la bitácora)_ | ✔ | ✔ | ✔ | — | — | — | — |
 | Botón: Reabrir un área firmada | ✔ | ✔ | — | — | — | — | — |
 | Botón: Descargar el formato en Excel (un área o todas, con su hoja Resumen) | ✔ | ✔ | ✔ | — | — | — | — |
 | **Personal y estructura** ||||||||

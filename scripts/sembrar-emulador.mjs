@@ -1,6 +1,8 @@
 // Siembra los emuladores de Firebase (auth 9099 y firestore 8080) con datos FICTICIOS para tomar capturas de la app.
 // Uso: npx firebase emulators:start --only auth,firestore --project demo-solicitud-rutas   y, en otra terminal: node scripts/sembrar-emulador.mjs
 // Usuarios (contraseña "Prueba123"): 90001 admin · 90002 RH · 11 Aut. 2 · 50610 Aut. 1 de Moldes · 50532 solicitante de Moldes · 50999 sin rol
+import { MOTIVOS_INICIALES } from '../src/utils/motivosTE.js';
+
 const PROYECTO = 'demo-solicitud-rutas';
 const FS = `http://127.0.0.1:8080/v1/projects/${PROYECTO}/databases/(default)/documents`;
 const AUTH = 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake';
@@ -61,6 +63,7 @@ await guardar('comunidades/pueblito', { nombre: 'El Pueblito', rutaId: 'norte', 
 await guardar('comunidades/colon', { nombre: 'Colón', rutaId: 'sur', activo: true });
 await guardar('puntosReunion/plaza', { clave: 'PLAZA', nombre: 'Plaza principal', comunidadId: 'pueblito', rutaId: 'norte', activo: true });
 await guardar('puntosReunion/iglesia', { clave: 'IGLESIA', nombre: 'Templo', comunidadId: 'colon', rutaId: 'sur', activo: true });
+for (const { id, ...campos } of MOTIVOS_INICIALES) await guardar(`motivosTE/${id}`, campos);
 for (const t of ['A', 'B', 'C']) await guardar(`turnosNomina/${t}`, { entrada: t === 'A' ? '7:00' : t === 'B' ? '16:00' : '0:00', salida: t === 'A' ? '16:00' : t === 'B' ? '0:00' : '7:00' });
 
 const nombresEmp = ['GARCÍA LÓPEZ JOSÉ', 'HERNÁNDEZ RUIZ MARÍA', 'MARTÍNEZ SOTO LUIS', 'RAMÍREZ CRUZ ANA', 'TORRES VEGA PEDRO', 'FLORES MORA CARLOS', 'RIVERA DÍAZ ELENA', 'GÓMEZ PAZ JORGE', 'CASTILLO REYES ROSA', 'ORTIZ LUNA DIEGO', 'MORALES JUÁREZ SOFÍA', 'MEDINA ROJAS ARTURO'];
@@ -92,13 +95,18 @@ const solicitudes = [
   ['autorizada', 'moldes', 1, 8, 64, 6], ['autorizada', 'mantenimiento', -2, 3, 24, 0], ['autorizada', 'produccion', 4, 10, 80, 8],
   ['procesada', 'moldes', 3, 5, 40, 4], ['procesada', 'calidad', 6, 4, 32, 3], ['devuelta', 'produccion', 5, 3, 24, 2], ['borrador', 'moldes', 7, 2, 16, 1],
 ];
+// Un tercio con el motivo anterior (motivo + motivoOtro, sin motivos), otro con un motivo del catálogo y otro con dos, uno de ellos cargo a P.O.
+const inventario = { motivoId: 'inventario-fisico', nombre: 'Inventario físico', numero: '', comentario: '', detalle: 'apoyo a inventario', tipoNumero: '' };
+const cargoPO = { motivoId: 'cargo-po', nombre: 'Cargo a P.O.', numero: '4551099797', comentario: '', detalle: 'movimiento de máquina Krauss Maffei 750', tipoNumero: 'po' };
+const motivosDeSemilla = (n) => (n % 3 === 0 ? { motivo: 'Otro', motivoOtro: 'Entrega urgente de molde' }
+  : n % 3 === 1 ? { motivo: inventario.nombre, motivos: [inventario] } : { motivo: inventario.nombre, motivos: [inventario, cargoPO] });
 let n = 0;
 for (const [estatus, areaId, offset, totalEmpleados, totalHoras, totalTransporte] of solicitudes) {
   n++;
   const id = estatus === 'borrador' ? `BR-SEMILLA${n}XYZ` : `semilla${n}`;
   const doc = {
     areaId, areaNombre: area[areaId], creadoPor: uids['50532'], creadoPorNomina: '50532', creadoPorNombre: 'ACOSTA OSCAR',
-    fechaTE: ymd(dia(offset)), motivo: n % 3 === 0 ? 'Otro' : 'Producción', ...(n % 3 === 0 ? { motivoOtro: 'Entrega urgente de molde' } : {}),
+    fechaTE: ymd(dia(offset)), ...motivosDeSemilla(n),
     comentario: 'Pedido urgente del cliente', estatus, tipo: 'turno_extra', rutasDistintas: 1, desgloseRutas: [], justificacionRutas: '',
     resumen: { totalEmpleados, totalHoras, totalTransporte, totalAlimentos: totalEmpleados, porBloque: {} },
     fechaCreacion: dia(-3 + (n % 3)), fechaActualizacion: dia(-2 + (n % 2)),

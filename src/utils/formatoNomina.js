@@ -4,10 +4,13 @@
  *   · Solo cuenta el tiempo extra AUTORIZADO por Aut. 2 (autorizada o procesada); las pendientes y devueltas de esa semana solo se avisan.
  *   · La tabla por empleado (horas por día, subtotal y motivo) sale de las solicitudes y NO las modifica: los ajustes de Nóminas (quitar,
  *     reemplazar, corregir horas) viven aparte, como una lista de cambios que se aplica sobre lo autorizado (ajustesNomina/{semana}_{areaId}).
+ * Motivos: cada empleado lleva el motivo de SU solicitud (motivoIndex) con su detalle; el número de P.O./TB va en su propia columna y, si el área trae
+ * alguno, el formato pide la firma (2) del Program Manager. Nóminas también puede corregir el motivo de un renglón (tipo de cambio «motivo»).
  * Sin Firebase ni navegador. El Excel está en exportarFormatoNomina.js; lo que habla con Firestore, en ajustesNominaDb.js.
  */
 import { fechaLocal, rangoSemana, sumarDias, ymd } from './fechas.js';
-import { ESTATUS_DESCARGA, calcularHoras, motivoTexto } from './tiempoExtra.js';
+import { ESTATUS_DESCARGA, calcularHoras } from './tiempoExtra.js';
+import { etiquetaMotivo, motivoDeEmpleado, textoNumero } from './motivosTE.js';
 
 // ── Constantes del formato en papel (editables aquí) ───────────────────────────────────────────
 
@@ -152,13 +155,20 @@ export function filasAutorizadas(solicitudes, periodo) {
   const filas = new Map();
   for (const t of solicitudes) {
     if (!periodo.dias.includes(t.fechaTE)) continue;
-    const motivo = motivoTexto(t);
     for (const e of t.empleados ?? []) {
       const clave = String(e.nomina);
-      const f = filas.get(clave) ?? { clave, nomina: clave, nombre: e.nombre ?? '', puesto: e.puesto ?? '', horas: {}, motivos: {} };
+      const f = filas.get(clave) ?? { clave, nomina: clave, nombre: e.nombre ?? '', puesto: e.puesto ?? '', horas: {}, motivos: {}, numeros: {}, detalle: {} };
       const h = calcularHoras(e.horaEntrada, e.horaSalida);
-      f.horas[t.fechaTE] = redondeo((f.horas[t.fechaTE] ?? 0) + h);
-      if (motivo && !(f.motivos[t.fechaTE] ?? []).includes(motivo)) f.motivos[t.fechaTE] = [...(f.motivos[t.fechaTE] ?? []), motivo];
+      const dia = t.fechaTE;
+      f.horas[dia] = redondeo((f.horas[dia] ?? 0) + h);
+      // El motivo de ESTE empleado (el de su motivoIndex) con su detalle; el número de P.O./TB va aparte
+      const m = motivoDeEmpleado(t, e);
+      if (m?.nombre) {
+        const texto = etiquetaMotivo(m, { conNumero: false });
+        if (!(f.motivos[dia] ?? []).includes(texto)) f.motivos[dia] = [...(f.motivos[dia] ?? []), texto];
+        if (m.numero && !(f.numeros[dia] ?? []).includes(m.numero)) f.numeros[dia] = [...(f.numeros[dia] ?? []), m.numero];
+        f.detalle[dia] = [...(f.detalle[dia] ?? []), { nombre: m.nombre, numero: m.numero, tipo: m.numero ? (m.tipoNumero || 'po') : '', horas: h }];
+      }
       filas.set(clave, f);
     }
   }
@@ -169,7 +179,7 @@ export const sumaHoras = (horas) => redondeo(Object.values(horas ?? {}).reduce((
 
 // ── Ajustes de Nóminas ─────────────────────────────────────────────────────────────────────────
 
-export const TIPOS_CAMBIO = { QUITAR: 'quitar', REEMPLAZAR: 'reemplazar', HORAS: 'horas' };
+export const TIPOS_CAMBIO = { QUITAR: 'quitar', REEMPLAZAR: 'reemplazar', HORAS: 'horas', MOTIVO: 'motivo' };
 
 /** Un cambio del historial de ajustes. `clave` = la nómina del renglón tal como venía autorizada (no cambia aunque se reemplace) */
 export const cambioQuitar = (fila, motivo) => ({ tipo: TIPOS_CAMBIO.QUITAR, clave: fila.clave, nomina: fila.nomina, nombre: fila.nombre, motivo: String(motivo).trim() });
@@ -179,6 +189,18 @@ export const cambioReemplazar = (fila, por, motivo) => ({
 });
 export const cambioHoras = (fila, dia, horas, motivo) => ({
   tipo: TIPOS_CAMBIO.HORAS, clave: fila.clave, nomina: fila.nomina, nombre: fila.nombre, dia, antes: Number(fila.horas?.[dia] ?? 0), horas: redondeo(Number(horas)), motivo: String(motivo).trim(),
+});
+
+/**
+ * Corrige el motivo de un renglón (todo el periodo). `nuevo` = el motivo ya limpio ({ nombre, numero, tipoNumero, comentario, detalle }, como se guarda en una solicitud);
+ * `motivo` es la razón del cambio, como en los demás.
+ */
+export const cambioMotivo = (fila, nuevo, motivo) => ({
+  tipo: TIPOS_CAMBIO.MOTIVO, clave: fila.clave, nomina: fila.nomina, nombre: fila.nombre, antes: fila.motivo ?? '', antesNumero: fila.numero ?? '',
+  motivoNuevo: {
+    nombre: nuevo.nombre ?? '', numero: nuevo.numero ?? '', tipoNumero: nuevo.tipoNumero ?? '', comentario: nuevo.comentario ?? '', detalle: nuevo.detalle ?? '',
+  },
+  motivo: String(motivo).trim(),
 });
 
 /** ¿Qué falta para aceptar este motivo corto? (null = está bien) */
@@ -198,7 +220,7 @@ export const horasValidas = (h) => Number.isFinite(Number(h)) && h !== '' && Num
  */
 export function aplicarCambios(base, cambios = [], periodo) {
   const filas = base.map(f => ({
-    ...f, horas: { ...f.horas }, original: { ...f.horas }, quitado: false, reemplazoDe: null, editados: [],
+    ...f, horas: { ...f.horas }, original: { ...f.horas }, quitado: false, reemplazoDe: null, editados: [], motivoCorregido: null,
   }));
   for (const c of cambios ?? []) {
     const f = filas.find(x => x.clave === c.clave);
@@ -210,30 +232,70 @@ export function aplicarCambios(base, cambios = [], periodo) {
     } else if (c.tipo === TIPOS_CAMBIO.HORAS) {
       if (Number(c.horas) > 0) f.horas[c.dia] = redondeo(Number(c.horas)); else delete f.horas[c.dia];
       if (!f.editados.includes(c.dia)) f.editados.push(c.dia);
-    }
+    } else if (c.tipo === TIPOS_CAMBIO.MOTIVO) f.motivoCorregido = c.motivoNuevo;
   }
-  return filas.map(f => ({ ...f, subtotal: sumaHoras(f.horas), subtotalOriginal: sumaHoras(f.original), motivo: motivoDeFila(f, periodo) }));
+  return filas.map(f => ({
+    ...f, subtotal: sumaHoras(f.horas), subtotalOriginal: sumaHoras(f.original), motivo: motivoDeFila(f, periodo), numero: numeroDeFila(f, periodo),
+  }));
 }
 
 /** ¿El renglón cambió respecto a lo autorizado? */
-export const fueAjustada = (f) => f.quitado || !!f.reemplazoDe || f.editados.length > 0;
+export const fueAjustada = (f) => f.quitado || !!f.reemplazoDe || f.editados.length > 0 || !!f.motivoCorregido;
 
 /**
- * Motivo del renglón para el formato: el de la solicitud; si en la semana son distintos, "Sáb: …; Dom: …".
- * Un día corregido sin solicitud ese día usa el motivo de cualquiera de los otros días.
+ * Texto del renglón para el formato a partir de lo de cada día (motivos o números): el mismo de toda la semana, o, si son distintos, "Sáb: …; Dom: …".
+ * Solo cuentan los días con horas.
  */
-export function motivoDeFila(f, periodo) {
-  const porDia = [];
+function textoPorDia(porDia, f, periodo) {
+  const dias = [];
   (periodo?.dias ?? []).forEach((d, i) => {
     if (!d || !(f.horas?.[d] > 0)) return;
-    porDia.push([i, (f.motivos?.[d] ?? []).join(' / ')]);
+    dias.push([i, (porDia?.[d] ?? []).join(' / ')]);
   });
-  const conMotivo = porDia.filter(([, m]) => m);
-  const distintos = [...new Set(conMotivo.map(([, m]) => m))];
+  const conTexto = dias.filter(([, m]) => m);
+  const distintos = [...new Set(conTexto.map(([, m]) => m))];
   if (distintos.length === 0) return '';
   if (distintos.length === 1) return distintos[0];
-  return conMotivo.map(([i, m]) => `${DIAS_CORTO[i]}: ${m}`).join('; ');
+  return conTexto.map(([i, m]) => `${DIAS_CORTO[i]}: ${m}`).join('; ');
 }
+
+/** Motivo del renglón («Descripción Motivo / Razón»): el de cada empleado con su detalle; el que corrigió Nóminas manda sobre el de las solicitudes */
+export function motivoDeFila(f, periodo) {
+  return f.motivoCorregido ? etiquetaMotivo(f.motivoCorregido, { conNumero: false }) : textoPorDia(f.motivos, f, periodo);
+}
+
+/** P.O./TB del renglón: el número que corresponde a ese empleado ("Sáb: …; Dom: …" si cambia en la semana) */
+export function numeroDeFila(f, periodo) {
+  return f.motivoCorregido ? (f.motivoCorregido.numero ?? '') : textoPorDia(f.numeros, f, periodo);
+}
+
+/**
+ * Las horas del renglón repartidas por motivo y número: [{ nombre, numero, tipo, horas }]. Cada día reparte sus horas (ya ajustadas por Nóminas)
+ * en proporción a lo que traía cada solicitud; un día sin motivo cuenta como «Sin motivo». Un motivo corregido cubre todo el renglón.
+ * Las copias firmadas antes de los motivos nuevos solo traen el texto del motivo del día.
+ */
+export function desgloseFila(f, periodo) {
+  const salida = [];
+  for (const d of periodo?.dias ?? []) {
+    const h = d ? Number(f.horas?.[d] ?? 0) : 0;
+    if (!(h > 0)) continue;
+    if (f.motivoCorregido) {
+      salida.push({ nombre: f.motivoCorregido.nombre || 'Sin motivo', numero: f.motivoCorregido.numero ?? '', tipo: f.motivoCorregido.numero ? (f.motivoCorregido.tipoNumero || 'po') : '', horas: h });
+      continue;
+    }
+    const partes = f.detalle?.[d] ?? [];
+    if (partes.length) {
+      const suma = partes.reduce((n, x) => n + (Number(x.horas) || 0), 0);
+      for (const x of partes) salida.push({ nombre: x.nombre, numero: x.numero ?? '', tipo: x.tipo ?? '', horas: redondeo(suma > 0 ? (h * (Number(x.horas) || 0)) / suma : h / partes.length) });
+    } else {
+      salida.push({ nombre: (f.motivos?.[d] ?? [])[0] || 'Sin motivo', numero: (f.numeros?.[d] ?? [])[0] ?? '', tipo: '', horas: h });
+    }
+  }
+  return salida;
+}
+
+/** ¿Algún renglón del área lleva P.O. o TB? Entonces el formato necesita la firma (2) del Program Manager */
+export const areaRequierePM = (filas, periodo) => filasVigentes(filas).some(f => desgloseFila(f, periodo).some(x => x.numero));
 
 /** Los renglones que van al formato: sin los quitados */
 export const filasVigentes = (filas) => filas.filter(f => !f.quitado);
@@ -247,7 +309,8 @@ export function totalesDeFilas(filas, periodo) {
 /** Lo que se guarda de cada renglón en el documento de ajustes (también sirve de copia cuando se firma) */
 export const renglonParaGuardar = (f) => ({
   clave: f.clave, nomina: f.nomina, nombre: f.nombre, puesto: f.puesto ?? '', horas: f.horas, original: f.original, motivos: f.motivos ?? {},
-  quitado: !!f.quitado, reemplazoDe: f.reemplazoDe ?? null, editados: f.editados ?? [], subtotal: f.subtotal, motivo: f.motivo ?? '',
+  numeros: f.numeros ?? {}, detalle: f.detalle ?? {}, motivoCorregido: f.motivoCorregido ?? null,
+  quitado: !!f.quitado, reemplazoDe: f.reemplazoDe ?? null, editados: f.editados ?? [], subtotal: f.subtotal, motivo: f.motivo ?? '', numero: f.numero ?? '',
 });
 
 /** ¿Ese empleado ya está en la tabla (sin contar a los quitados)? Un reemplazo no puede repetir a alguien */
@@ -270,10 +333,11 @@ export function filasDelArea({ solicitudes, periodo, ajuste }) {
 
 /**
  * @param {{areaId, nombre, filas}[]} areas  con las filas ya ajustadas
- * @returns {{ porArea:[nombre, empleados, horas][], porEmpleado:[area, nomina, nombre, horas][], porMotivo:[motivo, horas, porcentaje][], total:{empleados, horas} }}
+ * @returns {{ porArea:[nombre, empleados, horas][], porEmpleado:[area, nomina, nombre, horas][], porMotivo:[motivo, horas, porcentaje][],
+ *   porNumero:[etiqueta ("P.O. 4551099797"), horas, empleados, áreas][], total:{empleados, horas} }}
  */
 export function resumenDelPeriodo(areas, periodo) {
-  const porArea = [], porEmpleado = [], motivos = new Map();
+  const porArea = [], porEmpleado = [], motivos = new Map(), numeros = new Map();
   let empleados = 0, horas = 0;
   for (const a of areas) {
     const vigentes = filasVigentes(a.filas);
@@ -282,17 +346,22 @@ export function resumenDelPeriodo(areas, periodo) {
     empleados += vigentes.length; horas += h;
     for (const f of vigentes) {
       porEmpleado.push([a.nombre, f.nomina, f.nombre, f.subtotal]);
-      for (const d of periodo.dias) {
-        if (!d || !(f.horas[d] > 0)) continue;
-        const m = (f.motivos?.[d] ?? [])[0] || 'Sin motivo';
-        motivos.set(m, redondeo((motivos.get(m) ?? 0) + f.horas[d]));
+      for (const x of desgloseFila(f, periodo)) {
+        motivos.set(x.nombre, redondeo((motivos.get(x.nombre) ?? 0) + x.horas));
+        if (!x.numero) continue;
+        const k = `${x.tipo || 'po'}|${x.numero}`;
+        const g = numeros.get(k) ?? { tipo: x.tipo || 'po', numero: x.numero, horas: 0, personas: new Set(), areas: new Set() };
+        g.horas = redondeo(g.horas + x.horas); g.personas.add(f.clave); g.areas.add(a.nombre);
+        numeros.set(k, g);
       }
     }
   }
   horas = redondeo(horas);
   const porMotivo = [...motivos.entries()].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0], 'es'))
     .map(([m, h]) => [m, h, horas > 0 ? Math.round((h / horas) * 1000) / 10 : 0]);
-  return { porArea, porEmpleado, porMotivo, total: { empleados, horas } };
+  const porNumero = [...numeros.values()].sort((x, y) => y.horas - x.horas || x.numero.localeCompare(y.numero, 'es'))
+    .map(g => [textoNumero(g), g.horas, g.personas.size, [...g.areas].join(', ')]);
+  return { porArea, porEmpleado, porMotivo, porNumero, total: { empleados, horas } };
 }
 
 export const nombreArchivoFormato = (periodo, areaNombre = '') => {

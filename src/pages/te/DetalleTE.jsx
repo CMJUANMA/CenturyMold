@@ -7,13 +7,16 @@ import { useEffect, useState } from 'react';
 import { Bus, Route } from 'lucide-react';
 import BadgeEstatus from '../../components/BadgeEstatus';
 import InsigniasTE from '../../components/InsigniasTE';
+import MotivosTE, { AvisoProgramManager } from '../../components/MotivosTE';
+import { useAccesos } from '../../hooks/useAccesos';
 import Aviso from '../../components/ui/Aviso';
 import Insignia from '../../components/ui/Insignia';
 import { Fila, Tabla, Td, Th } from '../../components/ui/Tabla';
 import { ACCIONES_TE_LABELS } from '../../utils/constantes';
 import { formatoFecha } from '../../utils/asignaciones';
 import { etiquetaBloque12, horasEnTexto12 } from '../../utils/horas';
-import { calcularHoras, esExtension, firmaTexto, motivoTexto, quienDevolvio, resumenTE, textoRuta, textoRutas } from '../../utils/tiempoExtra';
+import { motivosDeTE, motivoTextoEmpleado } from '../../utils/motivosTE';
+import { calcularHoras, esExtension, firmaTexto, quienDevolvio, resumenTE, textoRuta, textoRutas } from '../../utils/tiempoExtra';
 import { leerTransporteDeTE } from '../../utils/tiempoExtraDb';
 import { quienCancelo } from '../../utils/cancelacion';
 
@@ -53,6 +56,8 @@ function TransporteDeTE({ t }) {
 
 export default function DetalleTE({ t, historial = [], area, catalogos, formato, acciones, avisoTransporte = false }) {
   const empleados = t.empleados ?? [];
+  const { esRH, esAut2, esNomina } = useAccesos();
+  const variosMotivos = motivosDeTE(t).length > 1;
   const bloques = Object.entries(resumenTE(empleados).porBloque);
   const nombre = (x) => formato?.nombre(x) ?? x;
   const devolucionPrevia = t.devolucion && t.estatus !== 'devuelta';
@@ -71,7 +76,7 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-5 sm:grid-cols-4">
         {[['Estatus', <span key="e" className="flex flex-wrap items-center gap-1.5"><BadgeEstatus estatus={t.estatus} modulo="te" /><InsigniasTE t={t} /></span>], ['Tipo', esExtension(t) ? 'Extensión de turno' : 'Turno extra / día extra'], ['Área', area], ['Solicitante', nombre(t.creadoPorNombre ?? '—')],
-          ['Fecha', t.fechaTE ? formatoFecha(`${t.fechaTE}T12:00:00`) : '—'], ['Motivo', motivoTexto(t) || '—'],
+          ['Fecha', t.fechaTE ? formatoFecha(`${t.fechaTE}T12:00:00`) : '—'], ['Motivo', motivosDeTE(t).some(m => m.nombre) ? <MotivosTE key="m" t={t} /> : '—'],
           ['Empleados', t.resumen?.totalEmpleados ?? 0], ['Horas', t.resumen?.totalHoras ?? 0], ['Con transporte', t.resumen?.totalTransporte ?? 0],
           ['Con alimentos', t.resumen?.totalAlimentos ?? 0], ['Firmó nivel 1', firmaTexto(t.aut1, nombre) || '—'], ['Firmó nivel 2', firmaTexto(t.aut2, nombre) || '—'],
           ...(t.recibidaPor ? [['Confirmada por RH', `${nombre(t.recibidaPor.nombre)} · ${fechaHora(t.fechaRecepcion)}`]] : [])].map(([k, v]) => (
@@ -79,6 +84,8 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
         ))}
         {t.comentario && <div className="col-span-full"><dt className="text-xs text-[var(--text-muted)]">Comentario</dt><dd className="mt-0.5 text-[var(--text-main)]">{t.comentario}</dd></div>}
       </dl>
+
+      {(esAut2 || esNomina || esRH) && <AvisoProgramManager t={t} />}
 
       {avisoTransporte && ['pendiente_aut1', 'pendiente_aut2', 'autorizada'].includes(t.estatus) && (
         <Aviso tono="info">Al quedar autorizada, RH la confirmará y generará la solicitud de transporte de los empleados que lo pidieron.</Aviso>
@@ -118,17 +125,17 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
         <div className="hidden md:block">
           <Tabla etiqueta="Empleados de la solicitud">
             <thead>
-              <tr><Th>Nómina</Th><Th>Nombre</Th><Th>Puesto</Th><Th>Horario</Th><Th derecha>Horas</Th><Th>Alimentos</Th><Th>Ruta / comunidad / punto</Th></tr>
+              <tr><Th>Nómina</Th><Th>Nombre</Th><Th>Puesto</Th><Th>Horario</Th><Th derecha>Horas</Th><Th>Alimentos</Th>{variosMotivos && <Th>Motivo</Th>}<Th>Ruta / comunidad / punto</Th></tr>
             </thead>
             <tbody>
               {empleados.map(e => (
                 <Fila key={e.nomina}>
                   <Td mono>{e.nomina}</Td><Td>{nombre(e.nombre)}</Td><Td className="text-[var(--text-secondary)]">{e.puesto}</Td>
                   <Td className="whitespace-nowrap">{etiquetaBloque12(e)}</Td><Td derecha mono>{calcularHoras(e.horaEntrada, e.horaSalida)}</Td>
-                  <Td>{e.alimentos ? 'Sí' : 'No'}</Td><Td>{textoRuta(e, catalogos ?? {})}</Td>
+                  <Td>{e.alimentos ? 'Sí' : 'No'}</Td>{variosMotivos && <Td className="min-w-40 whitespace-normal text-[var(--text-secondary)]">{motivoTextoEmpleado(t, e) || '—'}</Td>}<Td>{textoRuta(e, catalogos ?? {})}</Td>
                 </Fila>
               ))}
-              {empleados.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-[var(--text-muted)]">Sin empleados.</td></tr>}
+              {empleados.length === 0 && <tr><td colSpan={variosMotivos ? 8 : 7} className="px-4 py-6 text-center text-[var(--text-muted)]">Sin empleados.</td></tr>}
             </tbody>
           </Tabla>
         </div>
@@ -138,6 +145,7 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
               <p className="font-medium text-[var(--text-main)]">{nombre(e.nombre)}</p>
               <p className="text-xs text-[var(--text-secondary)]"><span className="font-mono">{e.nomina}</span> · {e.puesto}</p>
               <p className="mt-1 text-[var(--text-main)]">{etiquetaBloque12(e)} · <b className="font-medium">{calcularHoras(e.horaEntrada, e.horaSalida)} h</b>{e.alimentos ? ' · Alimentos' : ''}</p>
+              {variosMotivos && <p className="text-xs text-[var(--text-secondary)]">Motivo: {motivoTextoEmpleado(t, e) || '—'}</p>}
               <p className="text-[var(--text-secondary)]">{textoRuta(e, catalogos ?? {})}</p>
             </li>
           ))}

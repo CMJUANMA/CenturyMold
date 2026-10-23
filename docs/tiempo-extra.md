@@ -79,7 +79,7 @@ roles ve la unión de lo que le toca a cada uno. Lógica pura en `src/utils/nave
 | Solicitante | Inicio · Solicitar tiempo extra · Mis solicitudes | botón grande "Solicitar tiempo extra"; empleados de mi área; borrador / en autorización / devueltas (resaltadas) / autorizadas del mes; próximos autorizados |
 | Aut. 1 | lo del solicitante + Por autorizar (contador) + Mi área | además "Por autorizar (N)" y "Últimas solicitudes de mi área" |
 | Aut. 2 | Inicio · Solicitar tiempo extra · Mis solicitudes · Por autorizar · Todas las solicitudes · Organigrama · Asignar roles | por autorizar nivel 2, solicitudes de la semana por área, empleados de planta |
-| RH / admin | Inicio · Tiempo extra (Solicitar, Mis solicitudes, Por autorizar, Por enviar al proveedor, Todas las solicitudes) · Transporte (Solicitudes de transporte, Rutas y puntos de reunión) · Personal y estructura (Padrón, Estructura, Usuarios y accesos, Organigrama) · Herramientas (solo admin) | **Requieren atención** (resaltado si >0): por enviar al proveedor, fechas vencidas sin confirmar, por autorizar nivel 1, por autorizar nivel 2 (con la más antigua) y devueltas. **Esta semana**: horas autorizadas (semana y mes), empleados con tiempo extra y con transporte en 7 días. Accesos rápidos y tabla de los próximos 7 días |
+| RH / admin | Inicio · Tiempo extra (Solicitar, Mis solicitudes, Por autorizar, Por enviar al proveedor, Todas las solicitudes) · Transporte (Solicitudes de transporte, Catálogos) · Personal y estructura (Padrón, Estructura, Usuarios y accesos, Organigrama) · Herramientas (solo admin) | **Requieren atención** (resaltado si >0): por enviar al proveedor, fechas vencidas sin confirmar, por autorizar nivel 1, por autorizar nivel 2 (con la más antigua) y devueltas. **Esta semana**: horas autorizadas (semana y mes), empleados con tiempo extra y con transporte en 7 días. Accesos rápidos y tabla de los próximos 7 días |
 | Sin ningún rol | Inicio | «Pide acceso al área de Sistemas o, en su caso, a Recursos Humanos» |
 
 - El saludo usa el nombre de pila ("Buenas tardes, Oscar") con el formateador de nombres del organigrama; si no puede separar con seguridad, saluda sin nombre.
@@ -149,10 +149,10 @@ escriben en **lotes de 10**. Por eso TODA solicitud nace como **borrador**:
 5. **Cancelar** una pendiente o devuelta exige **motivo** (`motivoCancelacion`, mínimo 3 caracteres; queda también en el historial). Un **borrador no se cancela: se elimina**
    (solo el propio; primero se borran sus empleados en lotes y al final la solicitud).
 
-Campos de la solicitud: `areaId, areaNombre, creadoPor(+Nomina/Nombre), fechaTE, motivo` (Producción, Mantenimiento, Calidad, Inventario, Embarques u Otro),
+Campos de la solicitud: `areaId, areaNombre, creadoPor(+Nomina/Nombre), fechaTE, motivos` (del catálogo, hasta 5; ver *Motivos del tiempo extra*) y `motivo` (el nombre del primero; en las solicitudes anteriores, el único motivo),
 `comentario` (obligatorio al enviar, 10+ caracteres), `estatus, resumen, folio` (desde que se envía), `devolucion`, `motivoCancelacion`.
 
-Editor: elige el área (fija si solo tiene una), fecha (hoy o futura), motivo y comentario; "Agregar empleados" abre el selector de **todos los activos del área**
+Editor: elige el área (fija si solo tiene una), fecha (hoy o futura), motivos y comentario; "Agregar empleados" abre el selector de **todos los activos del área**
 (buscador, filtros por puesto y ruta, casillas para agregar 30 o más de golpe). Cada empleado: entrada (7:00, 16:00, 19:00, 0:00), salida (16:00, 19:00, 0:00, 7:00),
 horas calculadas (cruza medianoche), alimentos y transporte (marcado por defecto, con ruta → comunidad → punto precargados del padrón con confirmación; lo confirmado se
 guarda en el padrón de empleados de su área). Barra "aplicar a todos / a los seleccionados" y resumen fijo (empleados, horas, transporte, alimentos y empleados por horario).
@@ -211,6 +211,38 @@ Consultas: las del Aut. 1, la Aut. 2 y RH sobre `tiempoExtra` deben **excluir bo
   La consulta usa el índice compuesto `estatus + fechaTE` de `firestore.indexes.json`.
 - El solicitante ve `procesada` como "Confirmada por RH · transporte solicitado" (o "· sin transporte"), y lo autorizado con transporte como "Por enviar al proveedor". Menú de RH: "Por enviar al proveedor" con contador; la tarjeta del portal y del resumen lleva a esa pantalla.
 
+## Motivos del tiempo extra (catálogo, varios por solicitud, P.O./TB)
+
+**Catálogo** (`motivosTE/{id}`, lo editan RH y admin en *Catálogos › Motivos*; lo lee cualquier usuario activo; nadie lo borra, la baja es lógica):
+`{ nombre, orden, activo, requiereNumero: null | 'po' | 'tb', requiereComentario }`. Se puede agregar, editar, subir/bajar (cambia `orden`) y desactivar. Un motivo desactivado ya no se ofrece en
+solicitudes nuevas, pero las solicitudes que lo tienen lo siguen mostrando bien (guardan una copia del nombre). La **carga inicial** son nueve motivos, en este orden: Cubrir vacante / falta de
+personal · Embarques fin de semana · Inventario físico · Cubrir vacaciones / cumpleaños / incapacidad · Adecuación de contenedores · Cubrir tiempo de la brigada · Cargo a P.O. (`requiereNumero: 'po'`) ·
+Cargo a TB (`'tb'`) · Otro (`requiereComentario: true`). Con el catálogo vacío, la pestaña ofrece «Cargar motivos iniciales» (ids fijos: repetirla no duplica); `scripts/cargar-motivos.mjs` hace lo mismo
+desde la terminal. Código: `src/utils/motivosTE.js` (lógica pura) y `motivosDb.js` (escrituras).
+
+**Captura** (`pages/te/BloqueMotivosTE.jsx`, en *Solicitar tiempo extra*, borrador, corrección tras devolución y autoguardado): un primer motivo obligatorio y «+ Agregar otro motivo» (máximo 5; cada
+uno agregado se puede quitar). Según el motivo: **P.O.** pide «Número de P.O.» (obligatorio, solo dígitos, de 6 a 15); **TB**, «Número de TB» (obligatorio, letras y números, hasta 20); **Otro**,
+«Describe el motivo» (obligatorio, mínimo 10 caracteres). Todos llevan un «Detalle» opcional (hasta 120). No se repite el mismo motivo con el mismo número. Con más de un motivo, cada empleado tiene un select
+«Motivo» (por defecto el primero) y la barra de aplicar tiene «Aplicar a todos» para el motivo; si se quita un motivo, quienes lo tenían pasan al primero.
+
+**Qué se guarda.** En la solicitud: `motivos: [{ motivoId, nombre, numero, comentario, detalle, tipoNumero }]` (el nombre se **copia**; `tipoNumero` = 'po' | 'tb' | '' copia lo que pedía el motivo, para
+distinguir P.O. de TB en los reportes) y `motivo` = el nombre del primero (para lo que solo lee texto). En cada empleado: `motivoIndex` (0 a 4). La bitácora de la solicitud
+(`historial`, 'enviada' / 'reenviada') lleva «Motivos: …». **Compatibilidad:** las solicitudes anteriores traen solo `motivo` (+ `motivoOtro` con «Otro»); se siguen mostrando tal cual
+(`motivosDeTE` las normaliza) y **no se migró ningún dato**. Si una anterior (borrador o devuelta) se edita, la pantalla pide elegir un motivo del catálogo y al guardar se borra `motivoOtro`.
+
+**Dónde se ve.** Detalle de la solicitud (con el motivo de cada empleado cuando hay varios), *Mis solicitudes*, *Por autorizar* (Aut. 1 y Aut. 2), *Por enviar al proveedor* y *Consulta* (también para Nóminas):
+los motivos como etiquetas («Cargo a P.O. 4551099797», «Inventario físico · apoyo a inventario»). Con P.O. o TB aparece «**Requiere firma del Program Manager**» para Aut. 2 y Nóminas (y RH). La consulta tiene filtro
+por motivo. Los Excel de consulta y de horas para RH traen el motivo de cada empleado.
+
+**Formato de nómina** (*Reportes de nómina*): la columna «Descripción Motivo/Razón» lleva el motivo de cada empleado con su detalle («Sáb: …; Dom: …» si cambia en la semana); la columna «P.O./TB», el número que
+le corresponde. Si el área trae algún P.O./TB, la tarjeta del área y el Excel marcan que requiere la firma (2) del Program Manager. La hoja «Resumen» agrega las horas por motivo con su porcentaje y una tabla de horas
+por número de P.O./TB. Los ajustes permiten además **corregir el motivo (y el P.O./TB) de un renglón** (cambio tipo `motivo` en `ajustesNomina`; manda sobre lo de las solicitudes y no las modifica).
+
+**Reglas** (`firestore.rules`): `motivosTE` (lectura de cualquier usuario activo, escritura RH/admin, validada, sin borrado) y, en `tiempoExtra`, `motivos` (lista de hasta 5 mapas con esos campos y nombre ≤ 60),
+al enviar al menos uno con `motivo` = nombre del primero, y `motivoIndex` entero de 0 a 4 en cada empleado. Una petición solo puede evaluar 1000 expresiones y las reglas no recorren listas, así que lo demás
+(formato del P.O./TB, descripción de «Otro», largo de los textos libres) lo valida la app. Pruebas: `tests/motivos-te.test.js`, `tests/firestore.rules.motivos.test.js`,
+`tests/firestore.rules.captura-te.test.js` y `tests/formato-nomina*.test.js`.
+
 ## Ajustes de uso (tipo, rutas, extensión de turno, descargas, ayudas)
 
 - **Estatus**: una sola etiqueta por estatus en todas las pantallas y Excel (`ESTATUS_TE_MAP` / `etiquetaEstatusTE`): Borrador · En autorización (nivel 1) · En autorización (nivel 2) · Devuelta · Autorizada · Confirmada por RH · Cancelada.
@@ -247,7 +279,8 @@ contador lleva `solicitudId` y la regla compara con `get` (antes: borrador) y `g
 folio                 'TE-2026-0001' (se asigna al enviar; no existe en un borrador)
 areaId, areaNombre
 creadoPor (uid), creadoPorNomina, creadoPorNombre
-fechaTE ('AAAA-MM-DD'), motivo, estatus
+fechaTE ('AAAA-MM-DD'), motivo (nombre del primero), motivos [{ motivoId, nombre, numero, comentario, detalle, tipoNumero }], estatus
+   (solicitudes anteriores: solo motivo y, con «Otro», motivoOtro)
 resumen: { totalEmpleados, totalHoras, totalTransporte, totalAlimentos }
 aut1, aut2:  { nomina, nombre, fecha, comentario }      ← se llenan al firmar
 devolucion:  { nivel (1|2|3), nomina, nombre, motivo, fecha }   ← nivel 3 = RH en la recepción
@@ -262,7 +295,7 @@ fechaCreacion, fechaActualizacion   ← serverTimestamp()
 ### `tiempoExtra/{id}/empleados/{nómina}`
 
 `nombre, puesto, horaInicio, horaFin, horas, requiereTransporte, ruta/comunidad/punto` (los mismos campos
-que los pasajeros de rutas) `, requiereAlimentos`.
+que los pasajeros de rutas) `, requiereAlimentos, motivoIndex` (a cuál de los `motivos` de la solicitud corresponde; 0 por defecto).
 
 ### `tiempoExtra/{id}/historial/{autoId}` — solo se crea
 

@@ -9,6 +9,7 @@ import {
   llevaTransporte, pasajerosDeTE, problemasDeEnvio, rangoDePeriodo, resumenRutas, resumenTE, salidasPosteriores, sentidoDe, textoRuta, textoRutas,
   turnoPorFin,
 } from '../src/utils/tiempoExtra.js';
+import { MOTIVOS_INICIALES, motivoVacio } from '../src/utils/motivosTE.js';
 import { construirLibroProveedor } from '../src/utils/libroProveedor.js';
 import { textoRango } from '../src/utils/fechas.js';
 import { AYUDAS, ayudaDePantalla, recorridoDe, textoAyuda } from '../src/utils/ayudas.js';
@@ -133,7 +134,7 @@ describe('rutas distintas (control de costo)', () => {
     expect(datosTE({ empleados: [emp('1')], justificacionRutas: 'sobra este texto aunque sea largo' })).toMatchObject({ rutasDistintas: 1, justificacionRutas: '' });
   });
   describe('sin justificación no se puede enviar', () => {
-    const base = { areaId: 'mantenimiento', fechaTE: '2026-10-20', motivo: 'Producción', comentario: 'Pedido urgente del cliente', hoy: '2026-10-14' };
+    const base = { areaId: 'mantenimiento', fechaTE: '2026-10-20', motivos: [motivoVacio('inventario-fisico')], catalogoMotivos: MOTIVOS_INICIALES, comentario: 'Pedido urgente del cliente', hoy: '2026-10-14' };
     const errores = (p) => problemasDeEnvio({ ...base, ...p }).filter(x => x.nivel === 'error').map(x => x.mensaje);
     it('más de una ruta pide la justificación de 15 caracteres', () => {
       expect(MIN_JUSTIFICACION_RUTAS).toBe(15);
@@ -172,7 +173,7 @@ describe('extensión de turno', () => {
     expect(normal).toMatchObject({ horaEntrada: '', transporteLlegada: true, transporteSalida: true, transporte: true });
   });
   describe('validación', () => {
-    const base = { areaId: 'm', fechaTE: '2026-10-14', motivo: 'Producción', comentario: 'Pedido urgente del cliente', hoy: '2026-10-14', tipo: TIPOS_TE.EXTENSION };
+    const base = { areaId: 'm', fechaTE: '2026-10-14', motivos: [motivoVacio('inventario-fisico')], catalogoMotivos: MOTIVOS_INICIALES, comentario: 'Pedido urgente del cliente', hoy: '2026-10-14', tipo: TIPOS_TE.EXTENSION };
     const errores = (empleados) => problemasDeEnvio({ ...base, empleados }).filter(x => x.nivel === 'error').map(x => x.mensaje);
     const ext = (extra = {}) => emp('1', { horaEntrada: '16:00', horaSalida: '19:00', transporteLlegada: false, ...extra });
     it('se permite capturarla para el mismo día', () => {

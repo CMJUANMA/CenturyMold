@@ -1,11 +1,12 @@
 /**
  * TablaAjustesArea.jsx — «Revisar» un área de Reportes de nómina: la tabla editable (un renglón por empleado, de lunes a domingo, con subtotal y motivo).
- * Nóminas puede quitar a quien no asistió, reemplazarlo por otra persona del padrón y corregir las horas de un día; cada cambio pide un motivo corto.
+ * Nóminas puede quitar a quien no asistió, reemplazarlo por otra persona del padrón, corregir las horas de un día y corregir el motivo del renglón
+ * (con su P.O./TB); cada cambio pide un motivo corto.
  * Nada de esto toca las solicitudes de tiempo extra: los cambios se guardan aparte (ajustesNomina) y la tabla muestra lo autorizado y lo ajustado
  * («9 → 5», con un indicador). «Deshacer ajustes» vuelve a lo autorizado; «Marcar como firmada» bloquea el área y RH puede reabrirla.
  */
 import { useMemo, useState } from 'react';
-import { ArrowLeftRight, Clock, Download, FileCheck2, Lock, Pencil, Undo2, UserMinus } from 'lucide-react';
+import { ArrowLeftRight, Clock, Download, FileCheck2, FileSignature, Lock, Pencil, Tag, Undo2, UserMinus } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 import { useConfirmar } from '../../hooks/useConfirmar';
 import BuscadorEmpleado from '../../components/BuscadorEmpleado';
@@ -15,11 +16,13 @@ import Boton from '../../components/ui/Boton';
 import { Campo, Entrada } from '../../components/ui/Campo';
 import Insignia from '../../components/ui/Insignia';
 import { Fila, Tabla, Td, Th } from '../../components/ui/Tabla';
+import BloqueMotivosTE from '../te/BloqueMotivosTE';
 import { ACCIONES_AJUSTE_NOMINA, guardarAjuste, reabrirAjuste } from '../../utils/ajustesNominaDb';
 import {
-  DIAS_CORTO, FILAS_POR_PAGINA, MAX_MOTIVO_AJUSTE, MIN_MOTIVO_AJUSTE, aplicarCambios, cambioHoras, cambioQuitar, cambioReemplazar, estadoDeArea, filasVigentes,
-  fueAjustada, horasValidas, problemaMotivo, totalesDeFilas, yaEstaEnTabla,
+  DIAS_CORTO, FILAS_POR_PAGINA, MAX_MOTIVO_AJUSTE, MIN_MOTIVO_AJUSTE, aplicarCambios, areaRequierePM, cambioHoras, cambioMotivo, cambioQuitar, cambioReemplazar, estadoDeArea,
+  filasVigentes, fueAjustada, horasValidas, problemaMotivo, totalesDeFilas, yaEstaEnTabla,
 } from '../../utils/formatoNomina';
+import { AVISO_PROGRAM_MANAGER, etiquetaMotivo, motivoVacio, motivosParaGuardar, problemasDeMotivos } from '../../utils/motivosTE';
 
 const ddmm = (ymd) => (ymd ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}` : '');
 
@@ -53,10 +56,11 @@ function ModalCambio({ titulo, subtitulo, onClose, onGuardar, children, valido }
   );
 }
 
-export default function TablaAjustesArea({ abierto, onClose, area, periodo, base, ajuste, usuario, esRH, empleados, nombre, onDescargar, descargando }) {
+export default function TablaAjustesArea({ abierto, onClose, area, periodo, base, ajuste, usuario, esRH, empleados, motivos = [], nombre, onDescargar, descargando }) {
   const toast = useToast();
   const confirmar = useConfirmar();
-  const [dialogo, setDialogo] = useState(null); // { tipo: 'horas'|'reemplazar', fila, dia? }
+  const [dialogo, setDialogo] = useState(null); // { tipo: 'horas'|'reemplazar'|'motivo', fila, dia? }
+  const [motivoNuevo, setMotivoNuevo] = useState(() => [motivoVacio()]);
   const [horas, setHoras] = useState('');
   const [elegido, setElegido] = useState(null);
   const [trabajando, setTrabajando] = useState(false);
@@ -67,6 +71,7 @@ export default function TablaAjustesArea({ abierto, onClose, area, periodo, base
   const totales = totalesDeFilas(filas, periodo);
   const estado = estadoDeArea(ajuste);
   const sinAutorizado = base.length === 0;
+  const requierePM = areaRequierePM(filas, periodo);
 
   const guardar = (nuevos, accion, antes, despues) => guardarAjuste({
     periodo, areaId: area.areaId, cambios: nuevos, filas: aplicarCambios(base, nuevos, periodo), usuario, accion, antes, despues,
@@ -92,14 +97,19 @@ export default function TablaAjustesArea({ abierto, onClose, area, periodo, base
 
   const abrirHoras = (fila, dia) => { setHoras(String(fila.horas[dia] ?? '')); setDialogo({ tipo: 'horas', fila, dia }); };
   const abrirReemplazo = (fila) => { setElegido(null); setDialogo({ tipo: 'reemplazar', fila }); };
+  const abrirMotivo = (fila) => { setMotivoNuevo([motivoVacio()]); setDialogo({ tipo: 'motivo', fila }); };
 
   const guardarDialogo = async (motivo) => {
     const { tipo, fila, dia } = dialogo;
-    const c = tipo === 'horas' ? cambioHoras(fila, dia, Number(horas), motivo) : cambioReemplazar(fila, elegido, motivo);
+    const c = tipo === 'horas' ? cambioHoras(fila, dia, Number(horas), motivo)
+      : tipo === 'motivo' ? cambioMotivo(fila, motivosParaGuardar(motivoNuevo, motivos)[0], motivo) : cambioReemplazar(fila, elegido, motivo);
     const despues = tipo === 'horas'
       ? { tipo, nomina: fila.nomina, dia, antes: c.antes, horas: c.horas, motivo }
-      : { tipo, de: c.de.nomina, por: c.por.nomina, nombre: c.por.nombre, motivo };
-    const hecho = await intentar(() => guardar([...cambios, c], ACCIONES_AJUSTE_NOMINA.ajustar, { cambios: cambios.length }, despues), tipo === 'horas' ? 'Horas corregidas.' : 'Empleado reemplazado.');
+      : tipo === 'motivo'
+        ? { tipo, nomina: fila.nomina, antes: [c.antes, c.antesNumero].filter(Boolean).join(' · '), motivoNuevo: etiquetaMotivo(c.motivoNuevo), motivo }
+        : { tipo, de: c.de.nomina, por: c.por.nomina, nombre: c.por.nombre, motivo };
+    const hecho = await intentar(() => guardar([...cambios, c], ACCIONES_AJUSTE_NOMINA.ajustar, { cambios: cambios.length }, despues),
+      tipo === 'horas' ? 'Horas corregidas.' : tipo === 'motivo' ? 'Motivo corregido.' : 'Empleado reemplazado.');
     if (hecho) setDialogo(null);
   };
 
@@ -133,6 +143,8 @@ export default function TablaAjustesArea({ abierto, onClose, area, periodo, base
   const horasOk = dialogo?.tipo === 'horas' && horasValidas(horas);
   const yaEsta = dialogo?.tipo === 'reemplazar' && !!elegido && yaEstaEnTabla(filas, elegido.nomina);
   const reemplazoOk = dialogo?.tipo === 'reemplazar' && !!elegido && !yaEsta;
+  const problemasMotivo = dialogo?.tipo === 'motivo' ? problemasDeMotivos(motivoNuevo, motivos) : [];
+  const motivoOk = dialogo?.tipo === 'motivo' && problemasMotivo.length === 0;
 
   return (
     <Modal isOpen={abierto} onClose={() => !trabajando && onClose()} title={`Revisar · ${area.nombre}`} maxWidth="max-w-6xl"
@@ -159,6 +171,9 @@ export default function TablaAjustesArea({ abierto, onClose, area, periodo, base
             Quedó bloqueada{ajuste.firmadaPor?.nombre ? ` por ${nombre(ajuste.firmadaPor.nombre)}` : ''}. {esRH ? 'Puedes reabrirla si hay que corregir algo.' : 'Si hay que corregir algo, pide a Recursos Humanos que la reabra.'}
           </Aviso>
         )}
+        {requierePM && !sinAutorizado && (
+          <Aviso tono="aviso" icon={FileSignature} titulo={AVISO_PROGRAM_MANAGER}>Hay P.O. o TB en esta área: el formato necesita la firma (2) del Program Manager responsable de la cuenta de cargo.</Aviso>
+        )}
         {ajuste?.reabiertaPor && !firmada && <Aviso tono="info">Esta área fue reabierta por {nombre(ajuste.reabiertaPor.nombre ?? '')}.</Aviso>}
         {sinAutorizado ? <Aviso tono="aviso">No hay tiempo extra autorizado de esta área en el periodo.</Aviso> : (
           <Tabla etiqueta={`Tiempo extra de ${area.nombre} por día`}>
@@ -166,7 +181,7 @@ export default function TablaAjustesArea({ abierto, onClose, area, periodo, base
               <tr>
                 <Th>#</Th><Th>Nómina</Th><Th>Nombre</Th>
                 {DIAS_CORTO.map((d, i) => <Th key={d} derecha>{d}<span className="block font-normal text-[var(--text-muted)]">{ddmm(periodo.dias[i])}</span></Th>)}
-                <Th derecha>Subtotal</Th><Th>Motivo</Th>{!firmada && <Th><span className="sr-only">Acciones</span></Th>}
+                <Th derecha>Subtotal</Th><Th>Motivo</Th><Th>P.O./TB</Th>{!firmada && <Th><span className="sr-only">Acciones</span></Th>}
               </tr>
             </thead>
             <tbody>
@@ -202,11 +217,16 @@ export default function TablaAjustesArea({ abierto, onClose, area, periodo, base
                   <Td derecha mono className="font-medium">
                     {f.subtotalOriginal !== f.subtotal && !f.quitado ? <><span className="text-[var(--text-muted)] line-through">{f.subtotalOriginal}</span> → {f.subtotal}</> : f.subtotal}
                   </Td>
-                  <Td className="min-w-48 max-w-64 whitespace-normal text-[var(--text-secondary)]">{f.motivo || '—'}</Td>
+                  <Td className="min-w-48 max-w-64 whitespace-normal text-[var(--text-secondary)]">
+                    {f.motivo || '—'}
+                    {f.motivoCorregido && !f.quitado && <span className="mt-0.5 flex items-center gap-1 text-[11px] text-[var(--text-muted)]"><Pencil className="h-3 w-3" aria-hidden="true" />Motivo corregido</span>}
+                  </Td>
+                  <Td mono className="min-w-24 whitespace-normal text-[var(--text-secondary)]">{f.numero || '—'}</Td>
                   {!firmada && (
                     <Td>
                       {!f.quitado && (
                         <span className="flex gap-1">
+                          <Boton tamano="sm" variante="fantasma" icono={Tag} onClick={() => abrirMotivo(f)} disabled={trabajando} aria-label={`Corregir el motivo de ${nombre(f.nombre)}`} title="Corregir el motivo y el P.O./TB">Motivo</Boton>
                           <Boton tamano="sm" variante="fantasma" icono={ArrowLeftRight} onClick={() => abrirReemplazo(f)} disabled={trabajando} aria-label={`Reemplazar a ${nombre(f.nombre)}`} title="Reemplazar por otra persona">Reemplazar</Boton>
                           <Boton tamano="sm" variante="peligro" icono={UserMinus} onClick={() => quitar(f)} disabled={trabajando} aria-label={`Quitar a ${nombre(f.nombre)}`}>Quitar</Boton>
                         </span>
@@ -218,7 +238,7 @@ export default function TablaAjustesArea({ abierto, onClose, area, periodo, base
               <Fila>
                 <Td /><Td /><Td className="font-medium">Total Hrs.</Td>
                 {totales.porDia.map((h, k) => <Td key={k} derecha mono className="font-medium">{h > 0 ? h : ''}</Td>)}
-                <Td derecha mono className="font-medium">{totales.horas}</Td><Td />{!firmada && <Td />}
+                <Td derecha mono className="font-medium">{totales.horas}</Td><Td /><Td />{!firmada && <Td />}
               </Fila>
             </tbody>
           </Tabla>
@@ -234,6 +254,14 @@ export default function TablaAjustesArea({ abierto, onClose, area, periodo, base
           <Campo etiqueta="Horas de ese día" ayuda="De 0 a 24, con a lo más dos decimales. Con 0 el día queda vacío." error={horas !== '' && !horasOk ? 'Escribe un número de horas de 0 a 24.' : null} obligatorio>
             <Entrada type="number" inputMode="decimal" min="0" max="24" step="0.25" value={horas} onChange={e => setHoras(e.target.value)} autoFocus />
           </Campo>
+        </ModalCambio>
+      )}
+
+      {dialogo?.tipo === 'motivo' && (
+        <ModalCambio key={`m-${dialogo.fila.clave}`} titulo="Corregir el motivo del renglón"
+          subtitulo={`${nombre(dialogo.fila.nombre)} · ahora: ${dialogo.fila.motivo || 'sin motivo'}${dialogo.fila.numero ? ` · ${dialogo.fila.numero}` : ''}`}
+          onClose={() => setDialogo(null)} onGuardar={guardarDialogo} valido={motivoOk}>
+          <BloqueMotivosTE unico motivos={motivoNuevo} catalogo={motivos} onChange={setMotivoNuevo} problemas={problemasMotivo.filter(p => p.mensaje && motivoNuevo[0]?.motivoId)} />
         </ModalCambio>
       )}
 

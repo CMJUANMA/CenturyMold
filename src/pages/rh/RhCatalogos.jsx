@@ -1,23 +1,25 @@
 /**
- * RhCatalogos.jsx — "Rutas y puntos de reunión" (/transporte/catalogos): rutas, comunidades y puntos con CRUD y carga masiva
+ * RhCatalogos.jsx — "Catálogos" (/transporte/catalogos): rutas, comunidades y puntos de reunión con CRUD y carga masiva, y los motivos del tiempo extra
  * Acceso: roles rh y admin (esPersonalRH)
- * Un solo botón principal por pestaña («Nueva ruta», «Nueva comunidad», «Nuevo punto»); Importar directorio va en contorno.
+ * Un solo botón principal por pestaña («Nueva ruta», «Nueva comunidad», «Nuevo punto», «Nuevo motivo»); Importar directorio va en contorno.
  */
 import { useState, useEffect, lazy, Suspense } from 'react';
-import { MapPin, Navigation, Upload, Check, Plus, Pencil, Power, Search } from 'lucide-react';
+import { ArrowDown, ArrowUp, ListChecks, MapPin, Navigation, Upload, Check, Plus, Pencil, Power, Search } from 'lucide-react';
 import { collection, doc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { slugify } from '../../utils/comparacionImportacion';
 import { esActivo } from '../../utils/activo';
 import { useRecargarCatalogos } from '../../hooks/useCatalogos';
+import { MAX_NOMBRE_MOTIVO, TIPOS_NUMERO, ordenarMotivos } from '../../utils/motivosTE';
+import { cambiarActivoMotivo, crearMotivo, guardarMotivo, intercambiarOrden, sembrarMotivos } from '../../utils/motivosDb';
 
 // Importación masiva (arrastra exceljs): se descarga solo al abrir el modal
 const ModalImportacion = lazy(() => import('./ModalImportacion'));
 import Modal from '../../components/Modal';
 import Aviso from '../../components/ui/Aviso';
 import Boton from '../../components/ui/Boton';
-import { Campo, Entrada, Selector } from '../../components/ui/Campo';
+import { Campo, Casilla, Entrada, Selector } from '../../components/ui/Campo';
 import EncabezadoPagina from '../../components/ui/EncabezadoPagina';
 import EstadoVacio from '../../components/ui/EstadoVacio';
 import { EsqueletoTabla } from '../../components/ui/Esqueleto';
@@ -32,6 +34,7 @@ const TABS = [
   { id: 'rutas', etiqueta: 'Rutas', icono: Navigation },
   { id: 'comunidades', etiqueta: 'Comunidades', icono: MapPin },
   { id: 'puntos', etiqueta: 'Puntos de reunión', icono: MapPin },
+  { id: 'motivos', etiqueta: 'Motivos', icono: ListChecks },
 ];
 
 // ── Componentes compartidos ───────────────────────────────────────────────
@@ -408,6 +411,122 @@ function TabPuntos({ puntos, comunidades, rutas, reload }) {
   );
 }
 
+// ── Tab Motivos (tiempo extra) ────────────────────────────────────────────
+/** Lo que pide el motivo al capturar la solicitud, en texto */
+const textoPide = (m) => [m.requiereNumero ? `Número de ${TIPOS_NUMERO[m.requiereNumero]}` : '', m.requiereComentario ? 'Descripción del motivo' : ''].filter(Boolean).join(' y ') || '—';
+
+function TabMotivos({ motivos, reload }) {
+  const confirmar = useConfirmar();
+  const toast = useToast();
+  const [modal, setModal] = useState(null); // null | { modo: 'crear'|'editar', motivo? }
+  const [form, setForm] = useState({ nombre: '', requiereNumero: '', requiereComentario: false });
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState('');
+
+  const lista = ordenarMotivos(motivos);
+  const abrirCrear = () => { setForm({ nombre: '', requiereNumero: '', requiereComentario: false }); setError(''); setModal({ modo: 'crear' }); };
+  const abrirEditar = (m) => { setForm({ nombre: m.nombre ?? '', requiereNumero: m.requiereNumero ?? '', requiereComentario: m.requiereComentario === true }); setError(''); setModal({ modo: 'editar', motivo: m }); };
+
+  const handleGuardar = async (e) => {
+    e.preventDefault();
+    const nombre = form.nombre.trim();
+    if (!nombre) { setError('El nombre es obligatorio.'); return; }
+    if (lista.some(m => m.id !== modal.motivo?.id && (m.nombre ?? '').trim().toLowerCase() === nombre.toLowerCase())) { setError('Ya existe un motivo con ese nombre.'); return; }
+    setGuardando(true); setError('');
+    try {
+      const campos = { nombre, requiereNumero: form.requiereNumero || null, requiereComentario: form.requiereComentario };
+      if (modal.modo === 'crear') await crearMotivo(campos, lista);
+      else await guardarMotivo(modal.motivo.id, { ...modal.motivo, ...campos });
+      toast.success(modal.modo === 'crear' ? 'Motivo creado.' : 'Motivo actualizado.');
+      setModal(null); reload();
+    } catch (err) { setError('Error: ' + err.message); }
+    finally { setGuardando(false); }
+  };
+
+  const alternar = async (m) => {
+    const activo = m.activo !== false;
+    if (activo && !await confirmar({
+      titulo: 'Desactivar motivo', textoConfirmar: 'Desactivar', peligroso: true,
+      mensaje: `«${m.nombre}» ya no se podrá elegir en solicitudes nuevas. Las solicitudes que ya lo tienen lo siguen mostrando igual.`,
+    })) return;
+    try { await cambiarActivoMotivo(m.id, !activo); reload(); }
+    catch (err) { toast.error('No se pudo actualizar el motivo: ' + err.message); }
+  };
+
+  const mover = async (i, delta) => {
+    const otro = lista[i + delta];
+    if (!otro) return;
+    try { await intercambiarOrden(lista[i], otro); reload(); }
+    catch (err) { toast.error('No se pudo cambiar el orden: ' + err.message); }
+  };
+
+  const cargarIniciales = async () => {
+    setGuardando(true);
+    try { await sembrarMotivos(); toast.success('Motivos iniciales cargados.'); reload(); }
+    catch (err) { toast.error('No se pudieron cargar los motivos: ' + err.message); }
+    finally { setGuardando(false); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-[var(--text-secondary)]">Los motivos que se eligen al solicitar tiempo extra. Desactivar uno no cambia las solicitudes que ya lo tienen.</p>
+        <div className="flex items-center justify-between gap-4 sm:justify-end">
+          <span className="text-sm text-[var(--text-secondary)]" aria-live="polite">{lista.length} {lista.length === 1 ? 'motivo' : 'motivos'}</span>
+          <Boton variante="primario" icono={Plus} onClick={abrirCrear}>Nuevo motivo</Boton>
+        </div>
+      </div>
+
+      {lista.length === 0
+        ? (
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
+            <EstadoVacio titulo="Aún no hay motivos" texto="Sin motivos nadie puede enviar tiempo extra. Carga los nueve motivos iniciales o crea el primero con «Nuevo motivo»."
+              accion={{ texto: guardando ? 'Cargando…' : 'Cargar motivos iniciales', onClick: cargarIniciales }} />
+          </div>
+        )
+        : (
+          <Tabla etiqueta="Motivos del tiempo extra">
+            <thead>
+              <tr><Th>Orden</Th><Th>Motivo</Th><Th>Pide al solicitar</Th><Th>Estado</Th><Th derecha>Acciones</Th></tr>
+            </thead>
+            <tbody>
+              {lista.map((m, i) => (
+                <Fila key={m.id}>
+                  <Td>
+                    <div className="inline-flex items-center gap-1">
+                      <Boton variante="fantasma" tamano="icono" onClick={() => mover(i, -1)} disabled={i === 0} aria-label={`Subir ${m.nombre}`} title="Subir"><ArrowUp className="h-4 w-4" aria-hidden="true" /></Boton>
+                      <Boton variante="fantasma" tamano="icono" onClick={() => mover(i, 1)} disabled={i === lista.length - 1} aria-label={`Bajar ${m.nombre}`} title="Bajar"><ArrowDown className="h-4 w-4" aria-hidden="true" /></Boton>
+                    </div>
+                  </Td>
+                  <Td className="font-medium">{m.nombre}</Td>
+                  <Td className="text-[var(--text-secondary)]">{textoPide(m)}</Td>
+                  <Td><EstadoActivo activo={m.activo !== false} femenino={false} /></Td>
+                  <Td className="text-right"><AccionesFila nombre={m.nombre} activo={m.activo !== false} onEditar={() => abrirEditar(m)} onAlternar={() => alternar(m)} /></Td>
+                </Fila>
+              ))}
+            </tbody>
+          </Tabla>
+        )}
+
+      {modal && (
+        <ModalForm titulo={modal.modo === 'crear' ? 'Nuevo motivo' : 'Editar motivo'} onClose={() => setModal(null)} onSubmit={handleGuardar}
+          guardando={guardando} error={error} textoGuardar={modal.modo === 'crear' ? 'Crear motivo' : 'Guardar cambios'}>
+          <Campo etiqueta="Nombre del motivo" obligatorio ayuda="Así se ve en las solicitudes y en el formato de nómina.">
+            <Entrada required autoFocus maxLength={MAX_NOMBRE_MOTIVO} value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="Ej. Inventario físico" />
+          </Campo>
+          <Campo etiqueta="¿Qué número pide?" ayuda="Con P.O. o TB, la solicitud pide el número y avisa que necesita la firma del Program Manager.">
+            <Selector value={form.requiereNumero} onChange={e => setForm(f => ({ ...f, requiereNumero: e.target.value }))}>
+              <option value="">Ninguno</option><option value="po">Número de P.O.</option><option value="tb">Número de TB</option>
+            </Selector>
+          </Campo>
+          <Casilla etiqueta="Pide describir el motivo" ayuda="El solicitante debe escribir de qué se trata (al menos 10 caracteres), como en «Otro»."
+            checked={form.requiereComentario} onChange={e => setForm(f => ({ ...f, requiereComentario: e.target.checked }))} />
+        </ModalForm>
+      )}
+    </div>
+  );
+}
+
 // ── Componente principal ──────────────────────────────────────────────────
 export default function RhCatalogos() {
   const { usuario } = useAuth();
@@ -416,6 +535,7 @@ export default function RhCatalogos() {
   const [rutas, setRutas] = useState([]);
   const [comunidades, setComunidades] = useState([]);
   const [puntos, setPuntos] = useState([]);
+  const [motivos, setMotivos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState('');
   const [rev, setRev] = useState(0); // fuerza recarga
@@ -429,8 +549,10 @@ export default function RhCatalogos() {
       getDocs(collection(db, 'rutas')),
       getDocs(collection(db, 'comunidades')),
       getDocs(collection(db, 'puntosReunion')),
+      getDocs(collection(db, 'motivosTE')),
     ])
-      .then(([rutasSnap, comsSnap, ptsSnap]) => {
+      .then(([rutasSnap, comsSnap, ptsSnap, motivosSnap]) => {
+        setMotivos(motivosSnap.docs.map(d => ({ id: d.id, ...d.data() })));
         setRutas(rutasSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.nombre ?? '').localeCompare(b.nombre ?? '')));
         setComunidades(comsSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.nombre ?? '').localeCompare(b.nombre ?? '')));
         setPuntos(ptsSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.clave ?? '').localeCompare(b.clave ?? '')));
@@ -445,9 +567,9 @@ export default function RhCatalogos() {
     <div className="space-y-8">
       <EncabezadoPagina
         antetitulo="Recursos Humanos"
-        titulo="Rutas y puntos de reunión"
-        descripcion="Rutas, comunidades y puntos de reunión del transporte."
-        accion={puedeCargarMasivo ? <Boton id="btn-importar-directorio" icono={Upload} onClick={() => setModalTipo('directorio')}>Importar directorio</Boton> : null}
+        titulo="Catálogos"
+        descripcion="Rutas, comunidades y puntos de reunión del transporte, y los motivos del tiempo extra."
+        accion={puedeCargarMasivo && tabActiva !== 'motivos' ? <Boton id="btn-importar-directorio" icono={Upload} onClick={() => setModalTipo('directorio')}>Importar directorio</Boton> : null}
       />
 
       {errorCarga && <Aviso tono="error" titulo="No se pudieron cargar los catálogos">{errorCarga}. Revisa tu conexión y vuelve a abrir esta pantalla.</Aviso>}
@@ -460,6 +582,7 @@ export default function RhCatalogos() {
             {tabActiva === 'rutas' && <TabRutas rutas={rutas} comunidades={comunidades} puntos={puntos} reload={reload} />}
             {tabActiva === 'comunidades' && <TabComunidades comunidades={comunidades} rutas={rutas} puntos={puntos} reload={reload} />}
             {tabActiva === 'puntos' && <TabPuntos puntos={puntos} comunidades={comunidades} rutas={rutas} reload={reload} />}
+            {tabActiva === 'motivos' && <TabMotivos motivos={motivos} reload={reload} />}
           </>
         )}
       </div>

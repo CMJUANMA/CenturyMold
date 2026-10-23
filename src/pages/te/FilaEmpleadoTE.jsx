@@ -23,7 +23,7 @@ const SEL = 'md:!min-h-9 !py-1.5';
 const etiqueta = 'mb-1 block text-xs font-medium text-[var(--text-muted)] lg:hidden';
 export const COLUMNAS_FILA = 'lg:grid lg:grid-cols-[2rem_minmax(0,2.2fr)_7rem_7rem_4rem_6rem_8rem_2.5rem] lg:items-center lg:gap-3';
 
-export default function FilaEmpleadoTE({ tour, e, tipo = TIPOS_TE.TURNO_EXTRA, rutas, comunidades, puntos, seleccionado, aviso, error, telefono = '', puedeTelefono = false, onTelefono, onSeleccionar, onCambio, onQuitar }) {
+export default function FilaEmpleadoTE({ tour, e, tipo = TIPOS_TE.TURNO_EXTRA, opcionesMotivo = [], rutas, comunidades, puntos, seleccionado, aviso, error, telefono = '', puedeTelefono = false, onTelefono, onSeleccionar, onCambio, onQuitar }) {
   const extension = tipo === TIPOS_TE.EXTENSION;
   const horas = calcularHoras(e.horaEntrada, e.horaSalida);
   const pedirConfirmar = e.transporte && e.necesitaConfirmar && !e.confirmada;
@@ -42,6 +42,15 @@ export default function FilaEmpleadoTE({ tour, e, tipo = TIPOS_TE.TURNO_EXTRA, r
           <p className="truncate text-xs text-[var(--text-secondary)]">
             <span className="font-mono">{e.nomina}</span>{e.puesto ? ` · ${e.puesto}` : ''}
           </p>
+          {opcionesMotivo.length > 1 && (
+            <div className="mt-2">
+              <label htmlFor={`mot-${e.nomina}`} className="mb-1 block text-xs font-medium text-[var(--text-muted)]">Motivo</label>
+              <Selector id={`mot-${e.nomina}`} className={SEL} value={Math.min(e.motivoIndex ?? 0, opcionesMotivo.length - 1)} aria-label={`Motivo de ${e.nombre}`}
+                onChange={ev => cambiar({ motivoIndex: Number(ev.target.value) })}>
+                {opcionesMotivo.map((m, i) => <option key={i} value={i}>{m}</option>)}
+              </Selector>
+            </div>
+          )}
           {aviso && <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-[var(--status-warning-text)]"><AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{aviso}</p>}
         </div>
         <div className="grid grid-cols-6 items-end gap-3 lg:contents">

@@ -35,7 +35,7 @@ import { esActivo, rutaVigente } from '../../utils/activo';
 import { ymd } from '../../utils/fechas';
 import { registrarGuardador } from '../../utils/guardadoAutomatico';
 import {
-  HORAS_ENTRADA_TE, HORAS_SALIDA_TE, MIN_COMENTARIO_TE, MIN_JUSTIFICACION_RUTAS, MAX_MOTIVO_OTRO, MOTIVO_OTRO, MOTIVOS_TE, TIPOS_TE, TIPOS_TE_INFO, aplicarA, conTransporte, datosTE,
+  HORAS_ENTRADA_TE, HORAS_SALIDA_TE, MIN_COMENTARIO_TE, MIN_JUSTIFICACION_RUTAS, TIPOS_TE, TIPOS_TE_INFO, aplicarA, conTransporte, datosTE,
   empleadoDesdePadron, estatusAlEnviar, normalizarTipo, nuevoIdBorrador, problemasDeEnvio, quienDevolvio, resumenRutas, resumenTE, salidasPosteriores, textoRutas,
 } from '../../utils/tiempoExtra';
 import { MAX_PASAJEROS } from '../../utils/solicitudes';
@@ -45,8 +45,13 @@ import { formatoHora12, horasEnTexto12 } from '../../utils/horas';
 import {
   cancelarSolicitud, eliminarBorrador, enviarSolicitud, guardarBorrador, guardarRutasEnPadron, leerOcupados, leerSolicitudTE,
 } from '../../utils/tiempoExtraDb';
+import { etiquetaMotivo, motivoDesdeGuardado, motivoVacio, motivosDeTE, motivosParaGuardar, problemasDeMotivos, reajustarIndice } from '../../utils/motivosTE';
+import BloqueMotivosTE from './BloqueMotivosTE';
 import FilaEmpleadoTE, { COLUMNAS_FILA } from './FilaEmpleadoTE';
 import SelectorEmpleadosTE from './SelectorEmpleadosTE';
+
+/** Para saber si cambió algo en los motivos sin comparar listas: una línea con lo que escribió la persona */
+const firmaMotivos = (lista) => lista.map(m => [m.motivoId, m.numero, m.comentario, m.detalle].join('\u0002')).join('\u0003');
 
 export default function EditorTE() {
   const { id: idParam } = useParams();
@@ -54,7 +59,7 @@ export default function EditorTE() {
   const { usuario } = useAuth();
   const accesos = useAccesos();
   const { areas, cargando: cargandoAreas } = useAreas();
-  const { rutas, comunidades, puntos, empleados: padron, cargando: cargandoCat, parchearEmpleados } = useCatalogos();
+  const { rutas, comunidades, puntos, motivos: catalogoMotivos, empleados: padron, cargando: cargandoCat, parchearEmpleados } = useCatalogos();
   const confirmar = useConfirmar();
   const toast = useToast();
   const avisar = useAvisarTE();
@@ -67,8 +72,8 @@ export default function EditorTE() {
   const [areaId, setAreaId] = useState('');
   const [fechaTE, setFechaTE] = useState('');
   const [tipo, setTipo] = useState(TIPOS_TE.TURNO_EXTRA);
-  const [motivo, setMotivo] = useState('');
-  const [motivoOtro, setMotivoOtro] = useState('');
+  const [motivos, setMotivos] = useState(() => [motivoVacio()]);
+  const [motivoAnterior, setMotivoAnterior] = useState(''); // el motivo de una solicitud anterior al catálogo: solo se muestra, hay que elegir uno del catálogo
   const [comentario, setComentario] = useState('');
   const [justificacionRutas, setJustificacionRutas] = useState('');
   const [empleados, setEmpleados] = useState([]);
@@ -80,7 +85,7 @@ export default function EditorTE() {
   const [ocupados, setOcupados] = useState(() => new Map());
   const [intentoEnvio, setIntentoEnvio] = useState(false);
   const [trabajo, setTrabajo] = useState(null); // { texto, hechos, total }
-  const [bulk, setBulk] = useState({ entrada: '', salida: '' });
+  const [bulk, setBulk] = useState({ entrada: '', salida: '', motivo: '' });
   const [tels, setTels] = useState({}); // nómina → { padron, actual }: teléfono del padrón y el que se está capturando (solo de quienes llevan transporte)
   const telsPedidos = useRef(new Set());
 
@@ -104,7 +109,7 @@ export default function EditorTE() {
   const esAut2 = !!accesos.esAut2;
 
   // Cambios sin guardar de la cabecera (fecha, motivo, comentario…): los empleados se siguen aparte (sucios/eliminados)
-  const firmaCabecera = [areaActual, fechaTE, tipo, motivo, motivoOtro, comentario, justificacionRutas].join('\u0001');
+  const firmaCabecera = [areaActual, fechaTE, tipo, firmaMotivos(motivos), comentario, justificacionRutas].join('\u0001');
   const firmaGuardada = useRef(null);
 
   // Abrir un borrador o una devuelta existente
@@ -119,11 +124,14 @@ export default function EditorTE() {
         return;
       }
       setServidor({ existe: true, estatus: t.estatus, folio: t.folio ?? null, devolucion: t.devolucion ?? null });
-      setAreaId(t.areaId); setFechaTE(t.fechaTE ?? ''); setMotivo(t.motivo ?? ''); setMotivoOtro(t.motivoOtro ?? ''); setComentario(t.comentario ?? '');
+      setAreaId(t.areaId); setFechaTE(t.fechaTE ?? ''); setComentario(t.comentario ?? '');
+      // Con motivos del catálogo se editan tal cual; una solicitud anterior (solo `motivo`) pide elegir uno nuevo y deja ver el que tenía
+      const guardados = Array.isArray(t.motivos) && t.motivos.length ? t.motivos.map(motivoDesdeGuardado) : [motivoVacio()];
+      setMotivos(guardados); setMotivoAnterior(Array.isArray(t.motivos) && t.motivos.length ? '' : motivosDeTE(t).map(m => etiquetaMotivo(m)).join(' / '));
       setTipo(normalizarTipo(t.tipo)); setJustificacionRutas(t.justificacionRutas ?? '');
       setEmpleados(t.empleados);
       enServidor.current = new Set(t.empleados.map(e => e.nomina));
-      firmaGuardada.current = [t.areaId, t.fechaTE ?? '', normalizarTipo(t.tipo), t.motivo ?? '', t.motivoOtro ?? '', t.comentario ?? '', t.justificacionRutas ?? ''].join('\u0001');
+      firmaGuardada.current = [t.areaId, t.fechaTE ?? '', normalizarTipo(t.tipo), firmaMotivos(guardados), t.comentario ?? '', t.justificacionRutas ?? ''].join('\u0001');
       setCargandoDoc(false);
     }).catch(err => { if (vigente) { toast.error('No se pudo abrir la solicitud: ' + err.message); navigate('/tiempo-extra/mis-solicitudes', { replace: true }); } });
     return () => { vigente = false; };
@@ -162,16 +170,32 @@ export default function EditorTE() {
   const infoRutas = useMemo(() => resumenRutas(empleados, (rid) => rutas.find(r => r.id === rid)?.nombre ?? ''), [empleados, rutas]);
   const variasRutas = infoRutas.rutasDistintas > 1;
   const problemas = useMemo(
-    () => problemasDeEnvio({ areaId: areaActual, fechaTE, motivo, motivoOtro, comentario, empleados, hoy, ocupados, tipo, justificacionRutas }),
-    [areaActual, fechaTE, motivo, motivoOtro, comentario, empleados, hoy, ocupados, tipo, justificacionRutas],
+    () => problemasDeEnvio({ areaId: areaActual, fechaTE, motivos, catalogoMotivos, comentario, empleados, hoy, ocupados, tipo, justificacionRutas }),
+    [areaActual, fechaTE, motivos, catalogoMotivos, comentario, empleados, hoy, ocupados, tipo, justificacionRutas],
   );
+  const problemasMotivos = useMemo(() => problemasDeMotivos(motivos, catalogoMotivos), [motivos, catalogoMotivos]);
+  const opcionesMotivo = useMemo(() => motivosParaGuardar(motivos, catalogoMotivos).map((m, i) => etiquetaMotivo(m) || `Motivo ${i + 1} (sin elegir)`), [motivos, catalogoMotivos]);
   const errores = problemas.filter(p => p.nivel === 'error');
   const avisoDe = (nomina) => problemas.find(p => p.nivel === 'aviso' && p.nomina === nomina)?.mensaje;
   const errorDe = (nomina) => (intentoEnvio ? errores.find(p => p.nomina === nomina)?.mensaje : undefined);
   const faltaJustificacion = variasRutas && justificacionRutas.trim().length < MIN_JUSTIFICACION_RUTAS;
 
   const ocupado = !!trabajo;
-  const extras = () => datosTE({ tipo, empleados, justificacionRutas, nombreRuta, motivo, motivoOtro });
+  const extras = () => datosTE({ tipo, empleados, justificacionRutas, nombreRuta, motivos, catalogoMotivos });
+
+  /** Cambia los motivos; si se quitó uno (`quitado` = su posición), los empleados que lo tenían pasan al primero y los siguientes se recorren */
+  const cambiarMotivos = (lista, quitado) => {
+    setMotivos(lista);
+    if (quitado === undefined) return;
+    const afectados = empleados.filter(e => reajustarIndice(e.motivoIndex, quitado) !== (e.motivoIndex ?? 0)).map(e => e.nomina);
+    if (!afectados.length) return;
+    setEmpleados(prev => prev.map(e => (afectados.includes(e.nomina) ? { ...e, motivoIndex: reajustarIndice(e.motivoIndex, quitado) } : e)));
+    setSucios(prev => new Set([...prev, ...afectados]));
+  };
+  const aplicarMotivo = () => {
+    if (bulk.motivo === '') { toast.warning('Elige el motivo para aplicar.'); return; }
+    aplicarMasivo({ motivoIndex: Number(bulk.motivo) });
+  };
 
   // ── Edición ────────────────────────────────────────────────────────────
   const agregar = (lista) => {
@@ -275,7 +299,7 @@ export default function EditorTE() {
   const guardar = async (texto = 'Guardando borrador') => {
     const meta = areas.find(a => a.id === areaActual);
     await guardarBorrador({
-      id, existe, usuario, area: { id: areaActual, nombre: meta?.nombre ?? areaActual }, fechaTE, motivo, comentario, empleados, sucios, eliminados, extras: extras(),
+      id, existe, usuario, area: { id: areaActual, nombre: meta?.nombre ?? areaActual }, fechaTE, comentario, empleados, sucios, eliminados, extras: extras(),
       onProgreso: (hechos, total) => setTrabajo({ texto, hechos, total }),
     });
     enServidor.current = new Set(empleados.map(e => e.nomina));
@@ -290,7 +314,7 @@ export default function EditorTE() {
   // las reglas no admiten el borrador). La función registrada siempre usa lo último que ve la persona.
   const guardarAuto = async () => {
     const cabeceraCambiada = firmaGuardada.current === null
-      ? [fechaTE, motivo, motivoOtro, comentario, justificacionRutas].some(v => String(v).trim())
+      ? [fechaTE, firmaMotivos(motivos), comentario, justificacionRutas].some(v => String(v).trim())
       : firmaCabecera !== firmaGuardada.current;
     const hayCambios = sucios.size > 0 || eliminados.size > 0 || cabeceraCambiada || (!existe && empleados.length > 0);
     if (ocupado || cargandoDoc || !hayCambios || !areaActual || !fechaTE) return false;
@@ -331,7 +355,7 @@ export default function EditorTE() {
     try {
       await guardar('Guardando empleados');
       setTrabajo({ texto: 'Enviando', hechos: 1, total: 1 });
-      const folio = await enviarSolicitud({ id, devuelta: esDevuelta, usuario, estatus, fechaTE, motivo, comentario, empleados, extras: extras() });
+      const folio = await enviarSolicitud({ id, devuelta: esDevuelta, usuario, estatus, fechaTE, comentario, empleados, extras: extras() });
       toast.success(esDevuelta ? `Reenviada (${folio}).` : `Enviada con el folio ${folio}.`);
       await avisar.envio({ folio, estatus, areaId: areaActual, reenviada: esDevuelta });
       navigate('/tiempo-extra/mis-solicitudes', { replace: true });
@@ -379,7 +403,7 @@ export default function EditorTE() {
 
       <Tarjeta titulo="Datos generales" className="" cuerpoClassName="p-5 sm:p-6">
         <section aria-label="Datos generales" data-tour="solicitar-datos">
-          <div className="grid gap-5 sm:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-2">
             <div>
               <Campo etiqueta="Área">
                 {areasCaptura.length > 1 && !idParam ? (
@@ -397,21 +421,12 @@ export default function EditorTE() {
               </Campo>
               <Ayuda clave="solicitar.fecha" />
             </div>
-            <div>
-              <Campo etiqueta="Motivo">
-                <Selector id="te-motivo" value={motivo} onChange={e => { setMotivo(e.target.value); if (e.target.value !== MOTIVO_OTRO) setMotivoOtro(''); }}>
-                  <option value="">Elige el motivo…</option>
-                  {MOTIVOS_TE.map(m => <option key={m} value={m}>{m}</option>)}
-                </Selector>
-              </Campo>
-              <Ayuda clave="solicitar.motivo" />
-              {motivo === MOTIVO_OTRO && (
-                <Campo className="mt-3" etiqueta="¿Cuál?" obligatorio ayuda={`${motivoOtro.length}/${MAX_MOTIVO_OTRO} caracteres`}>
-                  <Entrada id="te-motivo-otro" value={motivoOtro} maxLength={MAX_MOTIVO_OTRO} onChange={e => setMotivoOtro(e.target.value)} placeholder="Escribe el motivo" />
-                </Campo>
-              )}
-            </div>
           </div>
+
+          {motivoAnterior && !motivos[0]?.motivoId && (
+            <Aviso tono="info" className="mt-6" titulo="Esta solicitud se capturó antes del catálogo de motivos">Tenía el motivo «{motivoAnterior}». Elige abajo el motivo del catálogo.</Aviso>
+          )}
+          <BloqueMotivosTE data-tour="solicitar-motivos" motivos={motivos} catalogo={catalogoMotivos} onChange={cambiarMotivos} problemas={intentoEnvio ? problemasMotivos : []} deshabilitado={ocupado} />
 
           <fieldset className="mt-6">
             <legend className="mb-2 text-xs font-medium text-[var(--text-secondary)]">Tipo de tiempo extra</legend>
@@ -457,6 +472,14 @@ export default function EditorTE() {
                 <option value="">{extension ? 'Se quedan hasta…' : 'Salida…'}</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
               </Selector>
               <Boton tamano="sm" onClick={aplicarHorario}>Aplicar horario</Boton>
+              {opcionesMotivo.length > 1 && (
+                <>
+                  <Selector aria-label="Motivo para aplicar" value={bulk.motivo} onChange={e => setBulk(b => ({ ...b, motivo: e.target.value }))} className="!w-auto max-w-64">
+                    <option value="">Motivo…</option>{opcionesMotivo.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                  </Selector>
+                  <Boton id="btn-aplicar-motivo" tamano="sm" onClick={aplicarMotivo}>{seleccion.size ? `Aplicar a los ${seleccion.size} seleccionados` : 'Aplicar a todos'}</Boton>
+                </>
+              )}
               <Boton tamano="sm" onClick={() => aplicarMasivo({ alimentos: true })}>Con alimentos</Boton>
               <Boton tamano="sm" onClick={() => aplicarMasivo({ alimentos: false })}>Sin alimentos</Boton>
               <Boton tamano="sm" onClick={() => aplicarMasivo({ transporteLlegada: !extension, transporteSalida: true })}>Con transporte</Boton>
@@ -490,7 +513,7 @@ export default function EditorTE() {
                 <Ayuda clave="solicitar.transporte" className="!mt-0" />
               </div>
               {empleados.map((e, i) => (
-                <FilaEmpleadoTE key={e.nomina} tour={i === 0 ? 'solicitar-empleado-fila' : undefined} e={e} tipo={tipo} rutas={rutas} comunidades={comunidades} puntos={puntos} seleccionado={seleccion.has(e.nomina)}
+                <FilaEmpleadoTE key={e.nomina} tour={i === 0 ? 'solicitar-empleado-fila' : undefined} e={e} tipo={tipo} opcionesMotivo={opcionesMotivo} rutas={rutas} comunidades={comunidades} puntos={puntos} seleccionado={seleccion.has(e.nomina)}
                   telefono={telefonoDe(e.nomina)} puedeTelefono={puedeTelefono} onTelefono={cambiarTelefono}
                   aviso={avisoDe(e.nomina)} error={errorDe(e.nomina)} onSeleccionar={alternarSeleccion} onCambio={cambiar} onQuitar={quitar} />
               ))}

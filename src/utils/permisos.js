@@ -201,11 +201,11 @@ export const MATRIZ = [
 
   { grupo: 'Transporte', tipo: 'pantalla', id: 'transporteSolicitudes', nombre: 'Solicitudes de transporte (Nóminas: solo ve y descarga)', ruta: RUTAS.transporteSolicitudes, quien: por('verTransporte'), menu: 'rh+nomina' },
   { grupo: 'Reportes de nómina', tipo: 'pantalla', id: 'reportesNomina', nombre: 'Reportes de nómina: formato de autorización de tiempo extra por área y semana', ruta: RUTAS.nominaReportes, quien: por('reportesNomina'), menu: 'rh+nomina' },
-  { grupo: 'Reportes de nómina', tipo: 'accion', id: 'ajustarNomina', nombre: 'Ajustar el formato (quitar, reemplazar, corregir horas) y marcarlo como firmado; los cambios no tocan las solicitudes', quien: por('reportesNomina'), nota: 'Cada cambio pide un motivo y queda en la bitácora' },
+  { grupo: 'Reportes de nómina', tipo: 'accion', id: 'ajustarNomina', nombre: 'Ajustar el formato (quitar, reemplazar, corregir horas o el motivo y P.O./TB de un renglón) y marcarlo como firmado; los cambios no tocan las solicitudes', quien: por('reportesNomina'), nota: 'Cada cambio pide un motivo y queda en la bitácora' },
   { grupo: 'Reportes de nómina', tipo: 'boton', id: 'reabrirNomina', nombre: 'Reabrir un área firmada', quien: rh },
   { grupo: 'Reportes de nómina', tipo: 'boton', id: 'descargarFormatoNomina', nombre: 'Descargar el formato en Excel (un área o todas, con su hoja Resumen)', quien: por('reportesNomina') },
   { grupo: 'Transporte', tipo: 'pantalla', id: 'formatoRutasPagina', nombre: 'Formato de rutas (Excel para el proveedor)', ruta: RUTAS.formatoRutas, quien: por('verTransporte'), menu: 'nomina' },
-  { grupo: 'Transporte', tipo: 'pantalla', id: 'transporteCatalogos', nombre: 'Rutas y puntos de reunión', ruta: RUTAS.transporteCatalogos, quien: por('rh'), menu: 'rh' },
+  { grupo: 'Transporte', tipo: 'pantalla', id: 'transporteCatalogos', nombre: 'Catálogos (rutas, comunidades, puntos de reunión y, en la pestaña Motivos, los motivos del tiempo extra: agregar, editar, ordenar y desactivar)', ruta: RUTAS.transporteCatalogos, quien: por('rh'), menu: 'rh' },
 
   { grupo: 'Personal y estructura', tipo: 'pantalla', id: 'padron', nombre: 'Padrón de empleados (Nóminas: «Personal», solo lectura, con teléfono)', ruta: RUTAS.padron, quien: por('verPersonal'), menu: 'rh+nomina' },
   { grupo: 'Personal y estructura', tipo: 'pantalla', id: 'estructura', nombre: 'Estructura (áreas, puestos, turnos; Nóminas: solo lectura)', ruta: RUTAS.estructura, quien: por('verPersonal'), menu: 'rh+nomina' },

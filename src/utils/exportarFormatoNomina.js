@@ -2,20 +2,21 @@
  * exportarFormatoNomina.js — Excel del FORMATO DE AUTORIZACIÓN DE TIEMPO EXTRA (réplica de la hoja en papel), una hoja por área, lista para imprimir
  * en carta horizontal. Cada área ocupa una página (hasta FILAS_POR_PAGINA empleados); si trae más, continúa en otra página repitiendo el encabezado,
  * y las firmas, las notas y el total van en la última. Con «todas las áreas» se agrega primero la hoja «Resumen» (horas por área, por empleado y por
- * motivo con su porcentaje). Usa las horas ya ajustadas por Nóminas. Sin dependencias del navegador; exceljs se carga con import() desde la pantalla.
+ * motivo con su porcentaje y por número de P.O./TB). Si el área trae P.O. o TB, marca que requiere la firma (2) del Program Manager. Usa las horas ya ajustadas por Nóminas. Sin dependencias del navegador; exceljs se carga con import() desde la pantalla.
  * Los saltos de página son manuales y la escala fija (Excel ignora los saltos manuales cuando se usa «ajustar a»).
  */
 import { bufferSeguro } from './excelSeguro.js';
 import {
-  CASILLAS_AREA, DIAS_LARGO, FIRMAS_FORMATO, FILAS_POR_PAGINA, NOTAS_FORMATO, PIE_FORMATO, TITULO_FORMATO, casillaDeArea, etiquetaPeriodo, filasVigentes, resumenDelPeriodo,
+  areaRequierePM, CASILLAS_AREA, DIAS_LARGO, FIRMAS_FORMATO, FILAS_POR_PAGINA, NOTAS_FORMATO, PIE_FORMATO, TITULO_FORMATO, casillaDeArea, etiquetaPeriodo, filasVigentes, resumenDelPeriodo,
   totalesDeFilas,
 } from './formatoNomina.js';
 
 // Columnas: A Item · B No. Empleado · C Nombre · D…J Lunes…Domingo · K Sub-Total · L P.O./TB · M Descripción
-export const ANCHOS = [6, 11, 33, 8.5, 8.5, 8.5, 8.5, 8.5, 8.5, 8.5, 10, 11, 34];
+export const ANCHOS = [6, 11, 33, 8.5, 8.5, 8.5, 8.5, 8.5, 8.5, 8.5, 10, 14, 31];
 const ESCALA = 80;
 const ALTO_FILA = 21;
-const NEGRO = 'FF000000', GRIS = 'FFD9D9D9', GRIS_CLARO = 'FFF2F2F2', ROJO = 'FFC8102E';
+const NEGRO = 'FF000000', GRIS = 'FFD9D9D9', GRIS_CLARO = 'FFF2F2F2', ROJO = 'FFC8102E', AMARILLO = 'FFFFF2CC';
+export const TEXTO_FIRMA_PM = 'REQUIERE la firma (2) del Program Manager: lleva P.O./TB';
 
 const linea = (estilo = 'thin') => ({ style: estilo, color: { argb: NEGRO } });
 const caja = (estilo) => ({ top: linea(estilo), left: linea(estilo), bottom: linea(estilo), right: linea(estilo) });
@@ -115,16 +116,19 @@ function pie(ws, fila) {
   return fila + 1;
 }
 
-/** Firmas con su línea y etiqueta, y las dos notas del formato; devuelve la fila siguiente */
-function firmasYNotas(ws, fila) {
+/** Firmas con su línea y etiqueta, y las dos notas del formato; devuelve la fila siguiente. Con `requierePM` resalta la firma (2) */
+function firmasYNotas(ws, fila, requierePM = false) {
   ws.getRow(fila).height = 14;
   ws.getRow(fila + 1).height = 38;
-  ws.getRow(fila + 2).height = 30;
+  ws.getRow(fila + 2).height = requierePM ? 42 : 30;
   // Tramos (con una columna vacía entre firmas para que las líneas no se junten)
   const tramos = [['A', 'C'], ['E', 'G'], ['I', 'K'], ['M', 'M']];
   tramos.forEach(([a, b], i) => {
     const rango = a === b ? `${a}${fila + 2}` : `${a}${fila + 2}:${b}${fila + 2}`;
-    const c = celda(ws, rango, FIRMAS_FORMATO[i], { h: 'center', v: 'top', wrap: true, tam: 8, negrita: true });
+    const resaltar = requierePM && i === 1;
+    const c = celda(ws, rango, resaltar ? `${FIRMAS_FORMATO[i]}\nREQUERIDA: lleva P.O./TB` : FIRMAS_FORMATO[i], {
+      h: 'center', v: 'top', wrap: true, tam: 8, negrita: true, ...(resaltar ? { fondo: AMARILLO, color: ROJO } : {}),
+    });
     for (let k = a.charCodeAt(0); k <= b.charCodeAt(0); k++) ws.getCell(`${String.fromCharCode(k)}${fila + 2}`).border = { top: linea('thin') };
     c.border = { top: linea('thin') };
   });
@@ -143,6 +147,7 @@ function firmasYNotas(ws, fila) {
 function hojaArea(wb, nombreHoja, { areaId, filas, periodo, logoId, fecha }) {
   const ws = wb.addWorksheet(nombreHoja);
   const vigentes = filasVigentes(filas);
+  const requierePM = areaRequierePM(filas, periodo);
   const paginas = [];
   for (let i = 0; i < Math.max(vigentes.length, 1); i += FILAS_POR_PAGINA) paginas.push(vigentes.slice(i, i + FILAS_POR_PAGINA));
   const saltos = [];
@@ -155,7 +160,7 @@ function hojaArea(wb, nombreHoja, { areaId, filas, periodo, logoId, fecha }) {
     const total = ultima ? Math.max(pagina.length, FILAS_POR_PAGINA) : pagina.length;
     for (let k = 0; k < total; k++, fila++) {
       const f = pagina[k];
-      ws.getRow(fila).height = ALTO_FILA;
+      ws.getRow(fila).height = f && String(f.numero ?? '').length > 14 ? 34 : ALTO_FILA; // varios números en la semana: caben en dos o tres renglones
       const base = { borde: caja('thin'), tam: 10 };
       celda(ws, `A${fila}`, f ? item++ : '', { ...base, h: 'center' });
       celda(ws, `B${fila}`, f ? f.nomina : '', { ...base, h: 'center' });
@@ -165,7 +170,7 @@ function hojaArea(wb, nombreHoja, { areaId, filas, periodo, logoId, fecha }) {
         celda(ws, `${String.fromCharCode(68 + d)}${fila}`, f && dia && f.horas[dia] > 0 ? f.horas[dia] : '', { ...base, h: 'center' });
       }
       celda(ws, `K${fila}`, f ? f.subtotal : '', { ...base, h: 'center', negrita: true });
-      celda(ws, `L${fila}`, '', base); // P.O./TB: se llenará cuando la solicitud traiga ese dato
+      celda(ws, `L${fila}`, f ? f.numero ?? '' : '', { ...base, h: 'center', wrap: true, tam: 8 }); // P.O./TB del empleado
       celda(ws, `M${fila}`, f ? f.motivo : '', { ...base, wrap: true, tam: 8 });
     }
     if (ultima) {
@@ -174,9 +179,9 @@ function hojaArea(wb, nombreHoja, { areaId, filas, periodo, logoId, fecha }) {
       celda(ws, `A${fila}:C${fila}`, 'Total Hrs.', { negrita: true, h: 'right', fondo: GRIS, borde: caja('thin') });
       t.porDia.forEach((h, d) => celda(ws, `${String.fromCharCode(68 + d)}${fila}`, h > 0 ? h : '', { negrita: true, h: 'center', fondo: GRIS, borde: caja('thin') }));
       celda(ws, `K${fila}`, t.horas, { negrita: true, h: 'center', fondo: GRIS, borde: caja('medium') });
-      celda(ws, `L${fila}:M${fila}`, '', { fondo: GRIS, borde: caja('thin') });
+      celda(ws, `L${fila}:M${fila}`, requierePM ? TEXTO_FIRMA_PM : '', { fondo: requierePM ? AMARILLO : GRIS, borde: caja('thin'), negrita: requierePM, tam: 8, color: requierePM ? ROJO : null, wrap: true });
       fila++;
-      fila = firmasYNotas(ws, fila + 1);
+      fila = firmasYNotas(ws, fila + 1, requierePM);
     }
     fila = pie(ws, fila);
     if (!ultima) { saltos.push(fila - 1); }
@@ -218,6 +223,14 @@ function hojaResumen(wb, areas, periodo, nombre) {
   cabecera(['Motivo', 'Horas', '', '% del total']);
   r.porMotivo.forEach(([m, h, pct]) => renglon([m, h, '', `${pct}%`], { centradas: [1, 3] }));
   renglon(['TOTAL', r.total.horas, '', r.total.horas > 0 ? '100%' : '0%'], { total: true, centradas: [1, 3] });
+
+  if (r.porNumero.length) {
+    fila++;
+    titulo('Horas por número de P.O./TB (requieren firma del Program Manager)');
+    cabecera(['P.O. / TB', 'Horas', 'Áreas', 'Empleados']);
+    r.porNumero.forEach(([n, h, personas, areasTexto]) => renglon([n, h, areasTexto, personas], { centradas: [1, 3] }));
+    renglon(['TOTAL', Math.round(r.porNumero.reduce((a, x) => a + x[1], 0) * 100) / 100, '', ''], { total: true, centradas: [1] });
+  }
   return ws;
 }
 

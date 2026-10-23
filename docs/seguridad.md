@@ -70,7 +70,7 @@ Estado: ✅ corregido y probado · ⏳ pendiente (Blaze o decisión) · ℹ️ i
 ### S-04 · Medio · Solicitudes sin tipos ni topes  ✅
 - **Qué era.** Un cliente modificado podía guardar un comentario de 900 KB, un `resumen` con 999 999 empleados, una lista `desgloseRutas` de miles de elementos, empleados con campos del tipo equivocado o nombres enormes;
   también valores enormes en `rutaId` del padrón (solicitante) o en perfiles y catálogos (RH). Efecto: documentos que rompen pantallas y exportaciones, costo de lecturas, datos falsos en los Excel.
-- **Corrección.** Topes y tipos en solicitudes (fecha `AAAA-MM-DD`, motivo ≤ 60, comentario ≤ 1000, resumen y rutas acotados), empleados de la solicitud (campos del modelo, `horas` 0–48, booleanos, textos cortos), historial, asignaciones, perfiles,
+- **Corrección.** Topes y tipos en solicitudes (fecha `AAAA-MM-DD`, motivo ≤ 60, `motivos` ≤ 5 con sus campos, `motivoIndex` 0–4, comentario ≤ 1000, resumen y rutas acotados), empleados de la solicitud (campos del modelo, `horas` 0–48, booleanos, textos cortos), historial, asignaciones, perfiles,
   áreas, puestos (alias ≤ 50), catálogos de transporte (≤ 25 campos) y el padrón que editan solicitantes. Se aplica en captura, corrección, envío y reenvío (no se escapa por otra transición). Las pruebas nuevas se corrieron también contra las reglas anteriores: 15 de los
   grupos de ataque **pasaban** (es decir, el ataque funcionaba) y ahora fallan, que es lo correcto.
 

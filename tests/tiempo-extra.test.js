@@ -5,6 +5,7 @@ import {
   COMENTARIO_AUT2_PROPIA, datosTE, estatusAlEnviar, folioDe, motivoTexto, nivelEnTexto, nuevoIdBorrador, problemasDeEnvio, resumenTE, transporteCompleto, trozos,
   MIN_MOTIVO_DEVOLUCION, MSG_YA_RESPONDIDA, esPropia, fechaVencida, filtrarSolicitudes, firmaTexto, haceTiempo, masAntiguasPrimero, totalesDe,
 } from '../src/utils/tiempoExtra.js';
+import { MOTIVOS_INICIALES, motivoVacio } from '../src/utils/motivosTE.js';
 
 const emp = (nomina, extra = {}) => ({
   nomina, nombre: `Empleado ${nomina}`, puesto: 'X', turnoNomina: 'A', horaEntrada: '16:00', horaSalida: '0:00', alimentos: false, transporte: true,
@@ -49,7 +50,7 @@ describe('ids, folios y lotes', () => {
 describe('empleado ↔ documento', () => {
   it('el documento solo trae campos permitidos y las horas calculadas', () => {
     const d = empleadoADoc(emp('1', { alimentos: true }));
-    expect(Object.keys(d).sort()).toEqual(['comunidadId', 'horaEntrada', 'horaSalida', 'horas', 'nombre', 'puesto', 'puntoReunionId', 'requiereAlimentos', 'requiereTransporte', 'rutaId', 'transporteLlegada', 'transporteSalida'].sort());
+    expect(Object.keys(d).sort()).toEqual(['comunidadId', 'horaEntrada', 'horaSalida', 'horas', 'motivoIndex', 'nombre', 'puesto', 'puntoReunionId', 'requiereAlimentos', 'requiereTransporte', 'rutaId', 'transporteLlegada', 'transporteSalida'].sort());
     expect(d).toMatchObject({ horas: 8, requiereAlimentos: true, requiereTransporte: true, rutaId: 'r1' });
   });
   it('sin transporte no guarda ruta', () => {
@@ -66,42 +67,70 @@ describe('empleado ↔ documento', () => {
   });
 });
 
-describe('motivo "Otro" (¿Cuál?)', () => {
-  const base = { areaId: 'mantenimiento', fechaTE: '2026-10-20', comentario: 'Pedido urgente del cliente', hoy: '2026-10-14', empleados: [emp('1')] };
+const CAT = MOTIVOS_INICIALES;
+const mot = (motivoId, extra = {}) => ({ ...motivoVacio(motivoId), ...extra });
+
+describe('motivos en la solicitud', () => {
+  const base = { areaId: 'mantenimiento', fechaTE: '2026-10-20', comentario: 'Pedido urgente del cliente', hoy: '2026-10-14', empleados: [emp('1')], catalogoMotivos: CAT };
   const errores = (p) => problemasDeEnvio({ ...base, ...p }).filter(x => x.nivel === 'error').map(x => x.mensaje);
-  it('con Otro, ¿Cuál? es obligatorio: de 3 a 60 caracteres (sin contar espacios de los lados)', () => {
-    expect(errores({ motivo: 'Otro' })).toHaveLength(1);
-    expect(errores({ motivo: 'Otro', motivoOtro: '  ab  ' })).toHaveLength(1);
-    expect(errores({ motivo: 'Otro', motivoOtro: 'abc' })).toEqual([]);
-    expect(errores({ motivo: 'Otro', motivoOtro: 'x'.repeat(60) })).toEqual([]);
-    expect(errores({ motivo: 'Otro', motivoOtro: 'x'.repeat(61) })).toHaveLength(1);
+  it('sin motivo no se envía; con uno del catálogo sí', () => {
+    expect(errores({ motivos: [] })).toContain('Elige el motivo.');
+    expect(errores({ motivos: [mot('')] })).toContain('Elige el motivo.');
+    expect(errores({ motivos: [mot('inventario-fisico')] })).toEqual([]);
   });
-  it('con otro motivo no se pide', () => {
-    expect(errores({ motivo: 'Calidad', motivoOtro: '' })).toEqual([]);
+  it('Otro pide describir el motivo (mínimo 10 caracteres)', () => {
+    expect(errores({ motivos: [mot('otro')] })).toHaveLength(1);
+    expect(errores({ motivos: [mot('otro', { comentario: '  corto  ' })] })).toHaveLength(1);
+    expect(errores({ motivos: [mot('otro', { comentario: 'Visita de cliente' })] })).toEqual([]);
   });
-  it('datosTE guarda motivoOtro recortado solo con Otro; si cambia de motivo se limpia', () => {
-    expect(datosTE({ empleados: [emp('1')], motivo: 'Otro', motivoOtro: '  Visita de cliente ' }).motivoOtro).toBe('Visita de cliente');
-    expect(datosTE({ empleados: [emp('1')], motivo: 'Calidad', motivoOtro: 'Visita de cliente' }).motivoOtro).toBe('');
+  it('datosTE guarda motivos con el nombre copiado y motivo = el del primero', () => {
+    const d = datosTE({ empleados: [emp('1')], catalogoMotivos: CAT, motivos: [mot('cargo-po', { numero: ' 4551099797 ' }), mot('otro', { comentario: ' Visita de cliente ', detalle: ' x ' })] });
+    expect(d.motivo).toBe('Cargo a P.O.');
+    expect(d.motivos).toEqual([
+      { motivoId: 'cargo-po', nombre: 'Cargo a P.O.', numero: '4551099797', comentario: '', detalle: '', tipoNumero: 'po' },
+      { motivoId: 'otro', nombre: 'Otro', numero: '', comentario: 'Visita de cliente', detalle: 'x', tipoNumero: '' },
+    ]);
+    expect(d.motivoOtro).toBeUndefined();
   });
-  it('se muestra como "Otro: lo que escribió"; los demás motivos, tal cual', () => {
+  it('se muestra igual que antes en las solicitudes anteriores (motivo y motivoOtro)', () => {
     expect(motivoTexto({ motivo: 'Otro', motivoOtro: 'Visita de cliente' })).toBe('Otro: Visita de cliente');
     expect(motivoTexto({ motivo: 'Otro' })).toBe('Otro');
     expect(motivoTexto({ motivo: 'Calidad', motivoOtro: 'sobra' })).toBe('Calidad');
     expect(motivoTexto({})).toBe('');
   });
+  it('con motivos nuevos se muestran todos, con número y detalle', () => {
+    expect(motivoTexto({ motivo: 'Inventario físico', motivos: [
+      { nombre: 'Inventario físico', detalle: 'apoyo a inventario' }, { nombre: 'Cargo a P.O.', numero: '4551099797', tipoNumero: 'po' },
+    ] })).toBe('Inventario físico · apoyo a inventario / Cargo a P.O. 4551099797');
+  });
+  it('cada empleado guarda su motivoIndex (0 por defecto, aunque el documento sea anterior)', () => {
+    expect(empleadoADoc(emp('1', { motivoIndex: 2 })).motivoIndex).toBe(2);
+    expect(empleadoADoc(emp('1')).motivoIndex).toBe(0);
+    expect(docAEmpleado('1', empleadoADoc(emp('1', { motivoIndex: 1 }))).motivoIndex).toBe(1);
+    expect(docAEmpleado('1', { nombre: 'ANA' }).motivoIndex).toBe(0);
+  });
+  it('filtrar por motivo: por id, y las anteriores por nombre', () => {
+    const lista = [
+      { id: 'a', motivos: [{ motivoId: 'cargo-po', nombre: 'Cargo a P.O.' }] }, { id: 'b', motivo: 'Inventario físico' },
+      { id: 'c', motivos: [{ motivoId: 'otro', nombre: 'Otro' }, { motivoId: 'cargo-po', nombre: 'Cargo a P.O.' }] },
+    ];
+    expect(filtrarSolicitudes(lista, { motivoId: 'cargo-po' }, CAT).map(t => t.id)).toEqual(['a', 'c']);
+    expect(filtrarSolicitudes(lista, { motivoId: 'inventario-fisico' }, CAT).map(t => t.id)).toEqual(['b']);
+    expect(filtrarSolicitudes(lista, {}, CAT)).toHaveLength(3);
+  });
 });
 
 describe('validaciones de envío', () => {
-  const base = { areaId: 'mantenimiento', fechaTE: '2026-10-20', motivo: 'Producción', comentario: 'Pedido urgente del cliente', hoy: '2026-10-14' };
+  const base = { areaId: 'mantenimiento', fechaTE: '2026-10-20', motivos: [mot('inventario-fisico')], catalogoMotivos: CAT, comentario: 'Pedido urgente del cliente', hoy: '2026-10-14' };
   const errores = (p) => problemasDeEnvio({ ...base, ...p }).filter(x => x.nivel === 'error').map(x => x.mensaje);
 
   it('una solicitud completa no tiene errores', () => {
     expect(errores({ empleados: [emp('1'), emp('2', { transporte: false })] })).toEqual([]);
   });
-  it('fecha de hoy o futura; motivo de la lista; comentario de 10 caracteres', () => {
+  it('fecha de hoy o futura; motivo del catálogo; comentario de 10 caracteres', () => {
     expect(errores({ empleados: [emp('1')], fechaTE: '2026-10-13' })).toContain('La fecha debe ser hoy o futura.');
     expect(errores({ empleados: [emp('1')], fechaTE: '2026-10-14' })).toEqual([]);
-    expect(errores({ empleados: [emp('1')], motivo: 'Fiesta' })).toContain('Elige el motivo.');
+    expect(errores({ empleados: [emp('1')], motivos: [mot('')] })).toContain('Elige el motivo.');
     expect(errores({ empleados: [emp('1')], comentario: 'corto' }).join()).toMatch(/comentario es obligatorio/);
     expect(errores({ empleados: [emp('1')], comentario: '   123456789   ' }).join()).toMatch(/comentario es obligatorio/);
   });
