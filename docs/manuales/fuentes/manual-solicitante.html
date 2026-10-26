@@ -1,0 +1,128 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Manual de Solicitante</title><style>
+  :root { --rojo: #d61110; --texto: #111214; --suave: #4B5058; --borde: #D9DCE0; --fondo: #F6F7F9; }
+  * { box-sizing: border-box; }
+  html { font-family: "Segoe UI", Arial, Helvetica, sans-serif; color: var(--texto); font-size: 10pt; line-height: 1.4; }
+  body { margin: 0; }
+  h1, h2, h3 { line-height: 1.2; margin: 0; }
+  h2 { font-size: 17pt; color: var(--texto); border-bottom: 3px solid var(--rojo); padding-bottom: 4px; margin: 0 0 12px; break-after: avoid; }
+  h3 { font-size: 12pt; margin: 12px 0 5px; color: var(--rojo); break-after: avoid; }
+  section { margin: 0 0 14px; }
+  section.nueva-pagina { break-before: page; }
+  p { margin: 0 0 8px; }
+  ul.lista { margin: 4px 0 10px 18px; padding: 0; } ul.lista li { margin: 2px 0; }
+  .portada { height: 245mm; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 0 12mm; }
+  .portada img { width: 105mm; margin-bottom: 30mm; }
+  .portada .sub { font-size: 12pt; color: var(--suave); letter-spacing: .08em; text-transform: uppercase; }
+  .portada h1 { font-size: 28pt; margin: 6px 0 4px; }
+  .portada .rol { font-size: 24pt; font-weight: 700; color: var(--rojo); margin-bottom: 14mm; }
+  .portada .enlace { font-size: 13pt; margin-bottom: 4mm; }
+  .portada .meta { font-size: 11pt; color: var(--suave); }
+  .portada .quien { max-width: 120mm; margin-top: 14mm; font-size: 11pt; color: var(--suave); }
+  .indice h2 { margin-bottom: 14px; }
+  .indice ol { list-style: none; padding: 0; margin: 0; }
+  .indice li { display: flex; align-items: baseline; gap: 6px; padding: 5px 0; border-bottom: 1px dotted var(--borde); font-size: 11.5pt; }
+  .indice li a { color: var(--texto); text-decoration: none; }
+  .indice li .pag { margin-left: auto; font-weight: 700; color: var(--rojo); }
+  .indice li .num { color: var(--rojo); font-weight: 700; min-width: 20px; }
+  .bloque { break-inside: avoid; margin: 6px 0 10px; }
+  .bloque.largo { break-inside: auto; }
+  figure { margin: 0 0 8px; text-align: center; }
+  figure img { width: 100%; border: 1px solid var(--borde); border-radius: 4px; display: block; }
+  figure.chico img { width: 62%; margin: 0 auto; }
+  .lado { display: flex; gap: 12px; align-items: flex-start; }
+  .lado figure { flex: 0 0 58%; margin: 0; } .lado.chico figure { flex-basis: 46%; }
+  .lado > div { flex: 1; font-size: 9.6pt; line-height: 1.38; } .lado ol.pasos { margin-top: 0; } .lado ol.pasos li { padding-left: 28px; padding-bottom: 4px; }
+  .lado ol.pasos li::before { width: 20px; height: 20px; line-height: 20px; font-size: 9pt; }
+  .fila-celular { display: flex; gap: 12px; align-items: flex-start; }
+  .fila-celular figure { flex: 0 0 5.2cm; margin: 0; } .fila-celular figure img { width: 100%; }
+  ol.pasos { list-style: none; counter-reset: paso; margin: 6px 0 4px; padding: 0; }
+  ol.pasos li { counter-increment: paso; position: relative; padding: 0 0 5px 32px; min-height: 24px; }
+  ol.pasos li::before { content: counter(paso); position: absolute; left: 0; top: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--rojo); color: #fff; font-weight: 700; font-size: 10pt; text-align: center; line-height: 22px; }
+  .nota, .aviso { border-radius: 6px; padding: 8px 12px; margin: 8px 0 12px; border: 1px solid; break-inside: avoid; }
+  .nota { background: #E8F0F8; border-color: #C9DAEC; color: #1d4670; } .nota::before { content: "Consejo · "; font-weight: 700; }
+  .aviso { background: #FBF3E1; border-color: #EBDDB8; color: #6e4700; } .aviso::before { content: "Cuidado · "; font-weight: 700; }
+  table.estatus { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+  table.estatus th { text-align: left; background: var(--fondo); padding: 6px 8px; border: 1px solid var(--borde); }
+  table.estatus td { padding: 7px 8px; border: 1px solid var(--borde); vertical-align: top; }
+  table.estatus tr { break-inside: avoid; }
+  .pastilla { display: inline-block; padding: 2px 9px; border-radius: 999px; border: 1px solid; font-weight: 600; font-size: 9pt; white-space: nowrap; }
+  .pastilla.info { background: #E8F0F8; color: #2A5A8C; border-color: #C9DAEC; } .pastilla.warning { background: #FBF3E1; color: #8A5A00; border-color: #EBDDB8; }
+  .pastilla.success { background: #E8F3EC; color: #1F6B3A; border-color: #CBE3D3; } .pastilla.error { background: #FBEFED; color: #A3281F; border-color: #F0CFCB; }
+  .pastilla.gris { background: #EEF0F2; color: #4B5058; border-color: #D9DCE0; }
+  .pregunta { break-inside: avoid; margin: 0 0 10px; } .pregunta b.q { display: block; color: var(--texto); }
+</style></head><body><div class="indice"><h2>Índice</h2><ol><li><span class="num">1</span><a href="#antes">Antes de empezar</a><span class="pag">2</span></li><li><span class="num">2</span><a href="#primeros-pasos">Primeros pasos</a><span class="pag">2</span></li><li><span class="num">3</span><a href="#mi-cuenta">Mi cuenta: letra grande y tema</a><span class="pag">4</span></li><li><span class="num">4</span><a href="#inicio">Tu pantalla de Inicio</a><span class="pag">4</span></li><li><span class="num">5</span><a href="#solicitar">Pedir tiempo extra</a><span class="pag">4</span></li><li><span class="num">6</span><a href="#seguimiento">Ver cómo va tu solicitud</a><span class="pag">9</span></li><li><span class="num">7</span><a href="#devuelta">Corregir una solicitud devuelta</a><span class="pag">10</span></li><li><span class="num">8</span><a href="#cancelar">Cancelar una solicitud</a><span class="pag">11</span></li><li><span class="num">9</span><a href="#vencidas">Solicitudes vencidas y «Duplicar con otra fecha»</a><span class="pag">12</span></li><li><span class="num">10</span><a href="#celular">Desde el celular</a><span class="pag">13</span></li><li><span class="num">11</span><a href="#estatus">Qué significa cada estatus</a><span class="pag">14</span></li><li><span class="num">12</span><a href="#preguntas">Preguntas frecuentes</a><span class="pag">15</span></li><li><span class="num">13</span><a href="#contacto">¿A quién le pregunto?</a><span class="pag">15</span></li></ol></div><section id="antes" class="nueva-pagina"><h2>1. Antes de empezar</h2><p>El <b>Portal de procesos</b> es el sistema de Century Mold para pedir tiempo extra y transporte. Tú lo usas para <b>pedir tiempo extra de tu área</b> y ver cómo va cada solicitud.</p>
+<p>Así camina una solicitud:</p>
+<ul class="lista"><li><b>Tú</b> la capturas y la envías.</li><li><b>El jefe de tu área</b> (Autorización 1) la revisa y la autoriza o te la devuelve.</li><li><b>Autorización 2</b> da la segunda firma.</li><li><b>Recursos Humanos</b> la confirma y pide el transporte al proveedor.</li></ul>
+<div class="nota">Si la fecha del tiempo extra pasa y la solicitud no terminó de autorizarse, queda <b>Vencida</b>. Por eso conviene enviarla con tiempo.</div></section>
+<section id="primeros-pasos" ><h2>2. Primeros pasos</h2><h3>Entrar al portal</h3>
+<p>Abre <b>https://centurymold-qro.web.app</b> en tu navegador (Chrome, Edge o el de tu celular).</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/01-entrar.png" alt=""></figure><div><ol class="pasos"><li>Escribe tu <b>número de nómina</b>.</li><li>Escribe tu <b>contraseña</b>. El ojito sirve para ver lo que escribes.</li><li>Toca <b>Iniciar sesión</b>.</li><li>Si no la recuerdas, toca <b>¿Olvidaste tu contraseña?</b>.</li></ol></div></div>
+<h3>La primera vez: cambia tu contraseña</h3>
+<p>Con la contraseña que te dieron, el portal te pide crear una <b>contraseña nueva</b>. No podrás usarlo hasta hacerlo.</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/03-cambiar-contrasena.png" alt=""></figure><div><ol class="pasos"><li>Escribe la contraseña nueva. Usa <b>mínimo 8 caracteres, con letras y números</b>.</li><li>Escríbela otra vez para confirmar.</li><li>Toca <b>Guardar y continuar</b>.</li></ol></div></div>
+<div class="aviso">La contraseña nueva debe ser distinta a la que te dieron. No se la prestes a nadie.</div>
+<h3>Si olvidaste tu contraseña</h3>
+<p>Por seguridad, las contraseñas <b>solo se restablecen en persona</b>. Acude al área de <b>Sistemas</b> o a <b>Recursos Humanos</b> con tu identificación. Nunca te pediremos tu contraseña por teléfono, correo ni mensaje.</p>
+<div class="bloque"><figure class="chico"><img src="../capturas/solicitante/02-olvide-contrasena.png" alt=""></figure></div></section>
+<section id="mi-cuenta" ><h2>3. Mi cuenta: letra grande y tema</h2><p>En <b>Mi cuenta</b> puedes dejar el portal como te quede mejor. Los cambios se guardan solos.</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/05-mi-cuenta.png" alt=""></figure><div><ol class="pasos"><li>Elige el tamaño de letra: <b>Grande</b> si te cuesta leer.</li><li>Elige el tema: <b>Claro</b>, <b>Oscuro</b> o <b>Automático</b> (igual que tu equipo).</li><li>Para salir, toca el botón de <b>cerrar sesión</b>, abajo a la izquierda (junto a tu nombre).</li></ol></div></div>
+<p>En esta pantalla también puedes <b>cambiar tu contraseña</b> cuando quieras.</p>
+<div class="nota"><b>Cierre por inactividad.</b> Si pasas <b>30 minutos sin tocar el teclado, el mouse o la pantalla</b>, el portal cierra tu sesión para cuidar la información. Un minuto antes te avisa: toca <b>Seguir aquí</b> para continuar. Lo que no hayas guardado puede perderse: guarda tu borrador seguido.</div></section>
+<section id="inicio" ><h2>4. Tu pantalla de Inicio</h2><p>Al entrar ves tu <b>Inicio</b>: un resumen de tu área.</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/04-inicio.png" alt=""></figure><div><ol class="pasos"><li>Botón <b>Solicitar tiempo extra</b>: para empezar una solicitud nueva.</li><li>Tarjetas con números: <b>Empleados de mi área</b>, <b>En borrador</b>, <b>En autorización</b>, <b>Devueltas</b> y <b>Autorizadas este mes</b>. Si hay <b>Devueltas</b>, la tarjeta se pone amarilla: alguien pide que la corrijas.</li><li><b>Próximos tiempos extra autorizados</b>: los que ya tienen las dos firmas y están por hacerse.</li><li>Cerrar sesión.</li></ol></div></div>
+<p>El menú de la izquierda tiene tres opciones: <b>Inicio</b>, <b>Solicitar tiempo extra</b> y <b>Mis solicitudes</b>.</p></section>
+<section id="solicitar" ><h2>5. Pedir tiempo extra</h2><p>Toca <b>Solicitar tiempo extra</b>. La pantalla tiene tres partes: los <b>datos generales</b>, los <b>empleados</b> y una <b>barra de abajo</b> con el resumen y los botones. Llénalas en este orden.</p>
+<h3>Paso 1 · Datos generales</h3>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/06-formulario-datos.png" alt=""></figure><div><ol class="pasos"><li><b>Área</b>: ya viene la tuya. No se cambia.</li><li><b>Fecha del tiempo extra</b>: el día en que se hará. Puede ser hoy o un día que viene.</li><li><b>Motivo</b>: elige el motivo de la lista.</li><li><b>Detalle</b> (opcional): una frase que explique, por ejemplo «apoyo a inventario».</li></ol></div></div>
+<h3>Tipo de tiempo extra</h3>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/08-tipo-extension.png" alt=""></figure><div><ol class="pasos"><li><b>Turno extra / día extra</b>: el empleado <b>viene a la planta</b> para el tiempo extra.</li><li><b>Extensión de turno</b>: el empleado <b>ya está en la planta</b> y se queda más tiempo. En este tipo no se pide transporte de llegada.</li></ol></div></div>
+<h3>Comentario</h3>
+<p>Escribe <b>por qué se necesita</b> el tiempo extra. Pide <b>mínimo 10 letras</b>. Es lo primero que leen quienes autorizan.</p>
+<h3>Paso 2 · Empleados</h3>
+<p>Toca <b>Agregar empleados</b>. Se abre la lista de empleados <b>de tu área</b>.</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/09-agregar-empleados.png" alt=""></figure><div><ol class="pasos"><li>Busca por <b>nombre o nómina</b>, o filtra por puesto o por ruta.</li><li>Marca la casilla de cada empleado. Puedes marcar varios.</li><li>O toca <b>Seleccionar los visibles</b> para marcar todos los de la lista.</li><li>Toca <b>Agregar</b>.</li></ol></div></div>
+<h3>Paso 3 · Horario, alimentos y transporte</h3>
+<p>Primero usa <b>Aplicar a todos</b> para no capturar uno por uno.</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/10-horario-para-todos.png" alt=""></figure><div><ol class="pasos"><li>Elige la <b>hora de entrada</b>.</li><li>Elige la <b>hora de salida</b>.</li><li>Toca <b>Aplicar horario</b>.</li><li>Toca <b>Con alimentos</b> o <b>Sin alimentos</b>.</li><li>Toca <b>Con transporte</b> o <b>Sin transporte</b>. (Y confirma las rutas con el botón <b>Confirmar las rutas del padrón</b>.)</li></ol></div></div>
+<div class="nota">Marca las casillas de algunos empleados antes de tocar un botón y el cambio se aplica <b>solo a ellos</b>. Si no marcas ninguno, se aplica a todos.</div>
+<p>Después revisa a cada empleado. Si alguien tiene un horario distinto o no necesita transporte, cámbialo en su renglón.</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/11-fila-empleado.png" alt=""></figure><div><ol class="pasos"><li>El nombre y la nómina del empleado.</li><li>Su <b>horario</b>, sus <b>alimentos</b> y su <b>transporte</b> (llegada y salida).</li><li>Su <b>ruta de transporte</b>: ruta, comunidad y punto de reunión. Si ya tiene una guardada, solo confírmala. Puedes escribir su <b>teléfono</b> para que el transporte pueda llamarle.</li></ol></div></div>
+<div class="aviso">El horario de entrada y el de salida <b>no pueden ser la misma hora</b>. Una salida «menor» que la entrada (por ejemplo, de 4:00 p. m. a 12:00 a. m.) significa que termina al día siguiente.</div>
+<h3>Varios motivos, P.O. y TB</h3>
+<p>Si no todos los empleados van por el mismo motivo, toca <b>Agregar otro motivo</b> (hasta 5). Después, en el renglón de cada empleado, elige el que le toca.</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/07-varios-motivos.png" alt=""></figure><div><ol class="pasos"><li>Toca <b>Agregar otro motivo</b>.</li><li>Elige el segundo motivo. Con <b>Cargo a P.O.</b> o <b>Cargo a TB</b>, el portal pide el <b>número</b>. Con <b>Otro</b>, pide que lo describas.</li></ol></div></div>
+<h3>Más de una ruta</h3>
+<p>Cada ruta adicional <b>cuesta dinero</b>. Si tu solicitud usa más de una ruta, el portal te avisa y te pide explicar <b>por qué no basta una sola</b> (mínimo 15 letras).</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/12-mas-de-una-ruta.png" alt=""></figure><div><ol class="pasos"><li>El aviso dice cuántas rutas usa tu solicitud.</li><li>Explica el motivo con claridad. Sin esto no se puede enviar.</li></ol></div></div>
+<div class="nota">Para ahorrar rutas, usa el filtro <b>Todas las rutas</b> al agregar empleados: así juntas a la gente de una misma ruta.</div>
+<h3>Paso 4 · Guardar o enviar</h3>
+<p>La barra de abajo siempre te acompaña.</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/13-guardar-o-enviar.png" alt=""></figure><div><ol class="pasos"><li>El resumen: empleados, horas, con transporte, con alimentos y rutas. Revísalo antes de enviar.</li><li><b>Guardar borrador</b>: guarda lo que llevas para seguir después. No lo ve nadie más.</li><li><b>Enviar a autorización</b>: manda la solicitud al jefe de tu área.</li></ol></div></div>
+<p>Al tocar <b>Enviar a autorización</b>, el portal te muestra un resumen y te pregunta si estás seguro. Toca <b>Enviar</b>. La solicitud recibe su <b>folio</b> (por ejemplo, TE-2026-0012).</p>
+<div class="bloque"><figure class="chico"><img src="../capturas/solicitante/14-confirmar-envio.png" alt=""></figure></div>
+<div class="aviso">Si falta algo, el portal te dice <b>cuántas cosas faltan</b> y las marca. Corrígelas y vuelve a enviar.</div></section>
+<section id="seguimiento" ><h2>6. Ver cómo va tu solicitud</h2><p>En <b>Mis solicitudes</b> están todas las tuyas, separadas por pestañas según su estatus.</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/15-mis-solicitudes.png" alt=""></figure><div><ol class="pasos"><li>Pestaña <b>En autorización</b>: las que esperan una firma.</li><li>Pestaña <b>Devueltas</b>: las que debes corregir. El número rojo avisa que hay pendientes.</li><li>La columna <b>Estatus</b> dice en qué paso va y con quién está.</li><li>En <b>Acciones</b> están los botones de cada solicitud: <b>Ver</b>, <b>Cancelar</b>, <b>Continuar</b>, <b>Corregir y reenviar</b>.</li></ol></div></div>
+<p>Toca <b>Ver</b> para abrir el detalle: estatus, fecha, motivos, empleados con su horario y las firmas.</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/16-detalle.png" alt=""></figure><div><ol class="pasos"><li>Arriba, el <b>estatus</b> y los datos de la solicitud.</li><li>Más abajo, los <b>empleados por horario</b> y la lista de empleados.</li></ol></div></div>
+<p>Al final del detalle está el <b>Historial</b>: quién hizo qué y cuándo. Ahí ves, por ejemplo, quién la autorizó o por qué la devolvieron.</p></section>
+<section id="devuelta" ><h2>7. Corregir una solicitud devuelta</h2><p>Si el jefe de área o Autorización 2 <b>devuelve</b> tu solicitud, te dice el motivo. Corrígela y reenvíala: <b>vuelve a empezar</b> desde la primera firma.</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/20-devuelta.png" alt=""></figure><div><ol class="pasos"><li>En <b>Mis solicitudes</b>, abre la pestaña <b>Devueltas</b> y toca <b>Corregir y reenviar</b>.</li></ol></div></div>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/21-corregir-devuelta.png" alt=""></figure><div><ol class="pasos"><li>Lee el <b>motivo de la devolución</b>. Dice quién la devolvió y qué falta.</li><li>Cambia lo que haga falta y toca <b>Reenviar a autorización</b>.</li><li>Si ya no se necesita, toca <b>Cancelar solicitud</b>.</li></ol></div></div>
+<div class="nota">También puedes tocar <b>Guardar cambios</b> para seguir después, sin reenviar todavía.</div></section>
+<section id="cancelar" ><h2>8. Cancelar una solicitud</h2><p>Puedes cancelar una solicitud que <b>todavía no está autorizada</b>. Si ya está autorizada, pide a Recursos Humanos que la cancele.</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/18-cancelar.png" alt=""></figure><div><ol class="pasos"><li>En la pestaña <b>En autorización</b>, toca <b>Cancelar</b> en la solicitud que quieras.</li></ol></div></div>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/19-cancelar-motivo.png" alt=""></figure><div><ol class="pasos"><li>Escribe el <b>motivo</b> de la cancelación (mínimo 10 letras).</li><li>Confirma. La solicitud pasa a <b>Canceladas</b> y ya no se puede reenviar.</li></ol></div></div>
+<div class="aviso">Un <b>borrador</b> no se cancela: se <b>elimina</b> con el botón <b>Eliminar</b>.</div></section>
+<section id="vencidas" ><h2>9. Solicitudes vencidas y «Duplicar con otra fecha»</h2><p>Una solicitud queda <b>Vencida</b> cuando <b>pasó el día del tiempo extra</b> y todavía no tenía todas las firmas. Ya no se puede autorizar de la forma normal. Aparece en la pestaña <b>Vencidas</b>.</p>
+<p>No la pierdes: puedes <b>copiarla</b> con otra fecha.</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/22-vencidas.png" alt=""></figure><div><ol class="pasos"><li>En la pestaña <b>Vencidas</b>, toca <b>Duplicar con otra fecha</b>.</li></ol></div></div>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/23-duplicar.png" alt=""></figure><div><ol class="pasos"><li>Elige la <b>nueva fecha</b> (de hoy en adelante).</li><li>Toca <b>Crear borrador</b>. Se copian los empleados, sus horarios y su transporte, y los motivos.</li></ol></div></div>
+<p>El borrador nuevo queda en <b>Borradores</b>. Revísalo y envíalo como cualquier solicitud.</p>
+<div class="nota">Si de verdad se trabajó ese día, pídele a <b>Autorización 2</b> que la autorice <b>fuera de tiempo</b>. Eso lo decide ella o él, con un motivo.</div></section>
+<section id="celular" ><h2>10. Desde el celular</h2><p>El portal también funciona en el celular. El menú se abre con el botón de las tres rayas.</p>
+<div class="bloque fila-celular"><figure class=""><img src="../capturas/solicitante/24-celular-inicio.png" alt=""></figure><div><ol class="pasos"><li>Botón del <b>menú</b> (tres rayas): ahí están <b>Inicio</b>, <b>Solicitar tiempo extra</b> y <b>Mis solicitudes</b>.</li><li>Botón <b>Solicitar tiempo extra</b>.</li></ol></div></div>
+<div class="bloque fila-celular"><figure class=""><img src="../capturas/solicitante/26-celular-solicitar.png" alt=""></figure><div><ol class="pasos"><li>La <b>fecha</b>. Más abajo están el motivo, los empleados y todo lo demás, igual que en la computadora.</li><li>Los botones de abajo, para <b>guardar</b> o <b>enviar</b>.</li></ol></div></div></section>
+<section id="estatus" ><h2>11. Qué significa cada estatus</h2><table class="estatus"><thead><tr><th>Estatus</th><th>Qué significa</th><th>Qué haces tú</th></tr></thead><tbody><tr><td><span class="pastilla info">Borrador</span></td><td>La guardaste, pero todavía no la envías. Solo tú la ves.</td><td>Toca <b>Continuar</b> para terminarla y enviarla, o <b>Eliminar</b> si ya no la necesitas.</td></tr><tr><td><span class="pastilla warning">En autorización (nivel 1)</span></td><td>Espera la firma del jefe de tu área (Autorización 1).</td><td>Nada. Puedes <b>Cancelar</b> si ya no se necesita.</td></tr><tr><td><span class="pastilla warning">En autorización (nivel 2)</span></td><td>Ya firmó el jefe de tu área. Espera la segunda firma (Autorización 2).</td><td>Nada. Puedes <b>Cancelar</b> si ya no se necesita.</td></tr><tr><td><span class="pastilla error">Devuelta</span></td><td>Alguien pidió que la corrijas. El motivo viene en la solicitud.</td><td>Toca <b>Corregir y reenviar</b>.</td></tr><tr><td><span class="pastilla success">Autorizada</span></td><td>Ya tiene las dos firmas. Recursos Humanos la confirmará y pedirá el transporte.</td><td>Nada. Si hay un error, pide a Recursos Humanos que la cancele.</td></tr><tr><td><span class="pastilla info">Confirmada por RH</span></td><td>Recursos Humanos ya la confirmó y pidió el transporte al proveedor.</td><td>Nada.</td></tr><tr><td><span class="pastilla gris">Vencida</span></td><td>Pasó el día del tiempo extra sin terminar de autorizarse.</td><td>Toca <b>Duplicar con otra fecha</b>.</td></tr><tr><td><span class="pastilla gris">Cancelada</span></td><td>Se canceló. Ya no se puede usar.</td><td>Si la necesitas, crea una nueva.</td></tr></tbody></table></section>
+<section id="preguntas" ><h2>12. Preguntas frecuentes</h2><div class="pregunta"><b class="q">No me deja enviar. ¿Qué hago?</b>Revisa el aviso rojo: dice cuántas cosas faltan y las marca. Casi siempre falta un horario, un motivo o el comentario (mínimo 10 letras).</div><div class="pregunta"><b class="q">No encuentro a un empleado.</b>Solo salen los empleados <b>de tu área</b>. Si alguien debería estar y no sale, avisa a Recursos Humanos.</div><div class="pregunta"><b class="q">Me equivoqué después de enviar.</b>Si todavía no se autoriza, cancela la solicitud y captura otra. Si ya se autorizó, pide a Recursos Humanos que la cancele.</div><div class="pregunta"><b class="q">¿Puedo pedir tiempo extra para ayer?</b>No. La fecha puede ser hoy o un día que viene.</div><div class="pregunta"><b class="q">Mi solicitud dice «Vencida».</b>Pasó la fecha sin terminar de autorizarse. Usa <b>Duplicar con otra fecha</b>.</div><div class="pregunta"><b class="q">¿Por qué me pide explicar las rutas?</b>Porque cada ruta adicional cuesta. Explica por qué no basta una sola.</div><div class="pregunta"><b class="q">¿Se pierde mi captura si se cierra la sesión?</b>Lo que guardaste como borrador, no. Lo demás sí. Guarda seguido.</div></section>
+<section id="contacto" ><h2>13. ¿A quién le pregunto?</h2><ul class="lista"><li><b>Dudas de una solicitud, empleados o permisos:</b> Recursos Humanos.</li><li><b>No puedes entrar, olvidaste tu contraseña o algo no funciona:</b> Sistemas (en persona, con tu identificación).</li><li><b>Quién debe autorizar tu solicitud:</b> el jefe de tu área.</li></ul></section></body></html>

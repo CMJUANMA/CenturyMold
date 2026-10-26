@@ -1,0 +1,65 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Guía rápida · Pedir tiempo extra</title><style>
+  :root { --rojo: #d61110; --texto: #111214; --suave: #4B5058; --borde: #D9DCE0; --fondo: #F6F7F9; }
+  * { box-sizing: border-box; }
+  html { font-family: "Segoe UI", Arial, Helvetica, sans-serif; color: var(--texto); font-size: 10pt; line-height: 1.4; }
+  body { margin: 0; }
+  h1, h2, h3 { line-height: 1.2; margin: 0; }
+  h2 { font-size: 17pt; color: var(--texto); border-bottom: 3px solid var(--rojo); padding-bottom: 4px; margin: 0 0 12px; break-after: avoid; }
+  h3 { font-size: 12pt; margin: 12px 0 5px; color: var(--rojo); break-after: avoid; }
+  section { margin: 0 0 14px; }
+  section.nueva-pagina { break-before: page; }
+  p { margin: 0 0 8px; }
+  ul.lista { margin: 4px 0 10px 18px; padding: 0; } ul.lista li { margin: 2px 0; }
+  .portada { height: 245mm; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 0 12mm; }
+  .portada img { width: 105mm; margin-bottom: 30mm; }
+  .portada .sub { font-size: 12pt; color: var(--suave); letter-spacing: .08em; text-transform: uppercase; }
+  .portada h1 { font-size: 28pt; margin: 6px 0 4px; }
+  .portada .rol { font-size: 24pt; font-weight: 700; color: var(--rojo); margin-bottom: 14mm; }
+  .portada .enlace { font-size: 13pt; margin-bottom: 4mm; }
+  .portada .meta { font-size: 11pt; color: var(--suave); }
+  .portada .quien { max-width: 120mm; margin-top: 14mm; font-size: 11pt; color: var(--suave); }
+  .indice h2 { margin-bottom: 14px; }
+  .indice ol { list-style: none; padding: 0; margin: 0; }
+  .indice li { display: flex; align-items: baseline; gap: 6px; padding: 5px 0; border-bottom: 1px dotted var(--borde); font-size: 11.5pt; }
+  .indice li a { color: var(--texto); text-decoration: none; }
+  .indice li .pag { margin-left: auto; font-weight: 700; color: var(--rojo); }
+  .indice li .num { color: var(--rojo); font-weight: 700; min-width: 20px; }
+  .bloque { break-inside: avoid; margin: 6px 0 10px; }
+  .bloque.largo { break-inside: auto; }
+  figure { margin: 0 0 8px; text-align: center; }
+  figure img { width: 100%; border: 1px solid var(--borde); border-radius: 4px; display: block; }
+  figure.chico img { width: 62%; margin: 0 auto; }
+  .lado { display: flex; gap: 12px; align-items: flex-start; }
+  .lado figure { flex: 0 0 58%; margin: 0; } .lado.chico figure { flex-basis: 46%; }
+  .lado > div { flex: 1; font-size: 9.6pt; line-height: 1.38; } .lado ol.pasos { margin-top: 0; } .lado ol.pasos li { padding-left: 28px; padding-bottom: 4px; }
+  .lado ol.pasos li::before { width: 20px; height: 20px; line-height: 20px; font-size: 9pt; }
+  .fila-celular { display: flex; gap: 12px; align-items: flex-start; }
+  .fila-celular figure { flex: 0 0 5.2cm; margin: 0; } .fila-celular figure img { width: 100%; }
+  ol.pasos { list-style: none; counter-reset: paso; margin: 6px 0 4px; padding: 0; }
+  ol.pasos li { counter-increment: paso; position: relative; padding: 0 0 5px 32px; min-height: 24px; }
+  ol.pasos li::before { content: counter(paso); position: absolute; left: 0; top: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--rojo); color: #fff; font-weight: 700; font-size: 10pt; text-align: center; line-height: 22px; }
+  .nota, .aviso { border-radius: 6px; padding: 8px 12px; margin: 8px 0 12px; border: 1px solid; break-inside: avoid; }
+  .nota { background: #E8F0F8; border-color: #C9DAEC; color: #1d4670; } .nota::before { content: "Consejo · "; font-weight: 700; }
+  .aviso { background: #FBF3E1; border-color: #EBDDB8; color: #6e4700; } .aviso::before { content: "Cuidado · "; font-weight: 700; }
+  table.estatus { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+  table.estatus th { text-align: left; background: var(--fondo); padding: 6px 8px; border: 1px solid var(--borde); }
+  table.estatus td { padding: 7px 8px; border: 1px solid var(--borde); vertical-align: top; }
+  table.estatus tr { break-inside: avoid; }
+  .pastilla { display: inline-block; padding: 2px 9px; border-radius: 999px; border: 1px solid; font-weight: 600; font-size: 9pt; white-space: nowrap; }
+  .pastilla.info { background: #E8F0F8; color: #2A5A8C; border-color: #C9DAEC; } .pastilla.warning { background: #FBF3E1; color: #8A5A00; border-color: #EBDDB8; }
+  .pastilla.success { background: #E8F3EC; color: #1F6B3A; border-color: #CBE3D3; } .pastilla.error { background: #FBEFED; color: #A3281F; border-color: #F0CFCB; }
+  .pastilla.gris { background: #EEF0F2; color: #4B5058; border-color: #D9DCE0; }
+  .pregunta { break-inside: avoid; margin: 0 0 10px; } .pregunta b.q { display: block; color: var(--texto); }
+
+    html { font-size: 13.5pt; line-height: 1.5; } .guia-cab { display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--rojo); padding-bottom: 8px; margin-bottom: 12px; }
+    .guia-cab img { height: 40px; } .guia-cab h1 { font-size: 24pt; text-align: right; } .guia-cab small { display: block; font-size: 10pt; color: var(--suave); font-weight: 400; }
+    .guia ol { list-style: none; counter-reset: g; padding: 0; margin: 0 0 12px; } .guia ol li { counter-increment: g; position: relative; padding: 8px 0 8px 44px; border-bottom: 1px dotted var(--borde); }
+    .guia ol li::before { content: counter(g); position: absolute; left: 0; top: 4px; width: 28px; height: 28px; border-radius: 50%; background: var(--rojo); color: #fff; font-weight: 700; text-align: center; line-height: 28px; }
+    .guia li b.t { color: var(--rojo); margin-right: 4px; } .recuerda { background: #FBF3E1; border: 1px solid #EBDDB8; border-radius: 8px; padding: 8px 14px; } .recuerda h3 { margin: 0 0 4px; color: #6e4700; }
+    .recuerda ul { margin: 0; padding-left: 18px; } .pie { margin-top: 12px; font-size: 10pt; color: var(--suave); text-align: center; }
+  </style></head><body><div class="guia">
+    <div class="guia-cab"><img src="../../../public/marca/century-mold-original.png" alt="Century Mold"><h1>Guía rápida · Pedir tiempo extra<small>Portal de procesos · centurymold-qro.web.app</small></h1></div>
+    <ol><li><b class="t">Entra.</b> Abre <b>centurymold-qro.web.app</b>. Escribe tu <b>nómina</b> y tu <b>contraseña</b>.</li><li><b class="t">Empieza.</b> Toca <b>Solicitar tiempo extra</b>.</li><li><b class="t">Datos.</b> Elige la <b>fecha</b> (hoy o después) y el <b>motivo</b>. Escribe un <b>comentario</b> (mínimo 10 letras).</li><li><b class="t">Empleados.</b> Toca <b>Agregar empleados</b>, marca a quienes van y toca <b>Agregar</b>.</li><li><b class="t">Horario.</b> Elige <b>entrada</b> y <b>salida</b>, y toca <b>Aplicar horario</b>. Marca <b>alimentos</b> y <b>transporte</b>.</li><li><b class="t">Revisa.</b> Mira el resumen de abajo: empleados, horas, transporte y rutas.</li><li><b class="t">Envía.</b> Toca <b>Enviar a autorización</b> y confirma. Si no terminas, toca <b>Guardar borrador</b>.</li><li><b class="t">Sigue.</b> En <b>Mis solicitudes</b> ves en qué paso va. Si está <b>Devuelta</b>, toca <b>Corregir y reenviar</b>.</li></ol>
+    <div class="recuerda"><h3>Recuerda</h3><ul><li>Envía tu solicitud <b>con tiempo</b>: si pasa la fecha sin firmas, queda <b>Vencida</b> (usa <b>Duplicar con otra fecha</b>).</li><li>Cada <b>ruta adicional</b> cuesta: junta a los empleados de una misma ruta.</li><li><b>Extensión de turno</b>: el empleado ya está en la planta y se queda más tiempo.</li><li>Si pasas <b>30 minutos sin usar</b> el portal, se cierra tu sesión: guarda tu borrador.</li></ul></div>
+    <div class="pie">Dudas de solicitudes: <b>Recursos Humanos</b> · Contraseña o fallas: <b>Sistemas</b> (en persona, con tu identificación)<br>Versión 1.0 · 26 de octubre de 2026</div>
+  </div></body></html>

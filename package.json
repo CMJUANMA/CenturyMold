@@ -13,6 +13,7 @@
     "test:unit": "vitest run tests/importacion-nomina.test.js tests/importacion-areas.test.js tests/puestos.test.js tests/asignaciones.test.js tests/accesos-iniciales.test.js tests/nombres-persona.test.js tests/navegacion.test.js tests/resumen-inicio.test.js tests/tiempo-extra.test.js tests/motivos-te.test.js tests/medianoche-te.test.js tests/recepcion-te.test.js tests/ajustes-uso.test.js tests/funciones.test.js tests/avisos.test.js tests/permisos.test.js tests/restablecer-acceso.test.js tests/excel-seguro.test.js tests/seguridad.test.js tests/recorridos.test.js tests/exportaciones-tipos.test.js tests/cancelacion.test.js tests/modales.test.js tests/sesion.test.js tests/recordatorios-pantalla.test.js tests/telefono.test.js tests/horas.test.js tests/nomina.test.js tests/formato-nomina.test.js tests/formato-nomina-excel.test.js tests/revision-nomina.test.js tests/vencidas-te.test.js tests/fuera-de-tiempo-te.test.js",
     "test": "node scripts/probar.mjs",
     "docs:permisos": "node scripts/generar-permisos.mjs",
+    "manuales": "node scripts/manuales/ejecutar.mjs",
     "capturas:build": "vite build --mode emulador --outDir .tmp/dist-emulador --emptyOutDir"
   },
   "dependencies": {
@@ -33,6 +34,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "firebase-tools": "^15.33.0",
     "oxlint": "^1.81.0",
+    "pdf-lib": "^1.17.1",
     "playwright": "^1.64.1",
     "pngjs": "^7.0.0",
     "tailwindcss": "^4.3.3",

@@ -42,3 +42,4 @@ scripts/salida/
 
 # Temporales de trabajo (se borran al terminar)
 .tmp/
+docs/manuales/fuentes/*-prueba.html
