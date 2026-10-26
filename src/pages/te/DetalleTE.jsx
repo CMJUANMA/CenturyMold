@@ -18,6 +18,7 @@ import { motivosDeTE, motivoTextoEmpleado } from '../../utils/motivosTE';
 import { TEXTO_VENCIDA, calcularHoras, esAutorizadaFueraDeTiempo, esExtension, esVencida, motivoFueraDeTiempo, textoTermina, firmaTexto, quienDevolvio, resumenTE, textoRuta, textoRutas } from '../../utils/tiempoExtra';
 import { leerTransporteDeTE } from '../../utils/tiempoExtraDb';
 import { quienCancelo } from '../../utils/cancelacion';
+import { nombreConAdmin } from '../../utils/modoAdmin';
 
 const fechaHora = (f) => (f?.toDate ? f.toDate().toLocaleString('es-MX') : '');
 
@@ -164,7 +165,7 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
               <li key={h.id} className="relative">
                 <span className="absolute -left-[1.6rem] top-1.5 h-2 w-2 rounded-full bg-[var(--text-secondary)]" aria-hidden="true" />
                 <p className="font-medium text-[var(--text-main)]">{ACCIONES_TE_LABELS[h.accion] ?? h.accion}</p>
-                <p className="text-xs text-[var(--text-secondary)]">{nombre(h.porNombre || h.porNomina)} · {fechaHora(h.fecha)}</p>
+                <p className="text-xs text-[var(--text-secondary)]">{nombreConAdmin(nombre(h.porNombre || h.porNomina), h.admin === true)} · {fechaHora(h.fecha)}</p>
                 {h.comentario && <p className="text-xs text-[var(--text-secondary)]">“{h.comentario}”</p>}
               </li>
             ))}

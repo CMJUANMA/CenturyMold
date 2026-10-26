@@ -49,21 +49,21 @@ export default function ConsultaTE() {
   const { areas, nombres } = useAreas();
   const { rutas, comunidades, puntos, motivos } = useCatalogos({ empleados: false });
   const toast = useToast();
-  const { esRH, esNomina } = useAccesos();
+  const { esRH, esNomina, esAdmin } = useAccesos();
   const descargaResumen = esRH || esNomina;
   const soloNomina = esNomina && !esRH;
   const [params, setParams] = useSearchParams();
   const ahora = useAhora();
   const [filtros, setFiltros] = useState(() => ({
     areaId: '', estatus: ESTATUS_FILTRO_TE.includes(params.get('estatus')) ? params.get('estatus') : '', desde: '', hasta: '', turno: '', solicitante: '', motivoId: '',
-    fueraDeTiempo: params.get('fueraDeTiempo') === '1' ? 'si' : '',
+    fueraDeTiempo: params.get('fueraDeTiempo') === '1' ? 'si' : '', accionAdmin: '',
   })); // ?estatus=... llega desde los indicadores del Inicio; ?fueraDeTiempo=1, desde Reportes de nómina
   const [detalle, setDetalle] = useState(null);
   const [exportando, setExportando] = useState(null); // { hechos, total }
   const formato = useMemo(() => crearFormateadorNombres([]), []);
   const nombreArea = (id) => nombres.get(id) ?? id;
 
-  const filtradas = useMemo(() => filtrarSolicitudes(planta, { ...filtros, fueraDeTiempo: filtros.fueraDeTiempo === 'si', ahora }, motivos).sort((a, b) => esperaDesde(b) - esperaDesde(a)), [planta, filtros, motivos, ahora]);
+  const filtradas = useMemo(() => filtrarSolicitudes(planta, { ...filtros, fueraDeTiempo: filtros.fueraDeTiempo === 'si', accionAdmin: filtros.accionAdmin === 'si', ahora }, motivos).sort((a, b) => esperaDesde(b) - esperaDesde(a)), [planta, filtros, motivos, ahora]);
   const semana = inicioDeSemana(ahora).getTime();
   const mes = iso(inicioDeMes(ahora));
   const pendientes1 = planta.filter(t => t.estatus === 'pendiente_aut1' && !esVencida(t, ahora)).length;
@@ -133,7 +133,7 @@ export default function ConsultaTE() {
 
   if (cargando) return <div className="space-y-8"><EsqueletoPagina bloques={0} /><EsqueletoIndicadores cantidad={3} className="grid gap-4 sm:grid-cols-3" /><EsqueletoTabla filas={5} columnas={7} /></div>;
   const hayFiltros = Object.values(filtros).some(Boolean);
-  const limpiar = () => setFiltros({ areaId: '', estatus: '', desde: '', hasta: '', turno: '', solicitante: '', motivoId: '', fueraDeTiempo: '' });
+  const limpiar = () => setFiltros({ areaId: '', estatus: '', desde: '', hasta: '', turno: '', solicitante: '', motivoId: '', fueraDeTiempo: '', accionAdmin: '' });
   return (
     <div className="space-y-8">
       <EncabezadoPagina
@@ -205,6 +205,13 @@ export default function ConsultaTE() {
               <option value="">Todas</option><option value="si">Solo autorizadas fuera de tiempo</option>
             </Selector>
           </Campo>
+          {esAdmin && (
+            <Campo etiqueta="Acciones de admin">
+              <Selector id="filtro-acciones-admin" value={filtros.accionAdmin} onChange={e => setFiltros(f => ({ ...f, accionAdmin: e.target.value }))}>
+                <option value="">Todas</option><option value="si">Solo con acciones de admin</option>
+              </Selector>
+            </Campo>
+          )}
           <Campo etiqueta="Fecha del tiempo extra, desde"><Entrada type="date" value={filtros.desde} onChange={e => setFiltros(f => ({ ...f, desde: e.target.value }))} /></Campo>
           <Campo etiqueta="Hasta"><Entrada type="date" value={filtros.hasta} min={filtros.desde} onChange={e => setFiltros(f => ({ ...f, hasta: e.target.value }))} /></Campo>
           <Campo etiqueta="Solicitante"><Entrada type="search" value={filtros.solicitante} placeholder="Nombre o nómina" onChange={e => setFiltros(f => ({ ...f, solicitante: e.target.value }))} /></Campo>

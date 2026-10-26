@@ -104,9 +104,11 @@ export default function EditorTE() {
   const area = areas.find(a => a.id === areaActual);
   // El teléfono del empleado lo ven y lo capturan RH y el solicitante de esa área; Aut. 1 y Aut. 2 no (las reglas lo niegan)
   const puedeTelefono = !!accesos.esRH || accesos.areasSolicitante.includes(areaActual);
-  const esAut1DeLaArea = accesos.areasAut1.includes(areaActual);
+  // Modo admin: se envía como una solicitud normal (nivel 1 si el área participa) y las autorizaciones las hace él después, una por una
+  const modoAdmin = !!accesos.modoAdmin;
+  const esAut1DeLaArea = !modoAdmin && accesos.areasAut1.includes(areaActual);
   // Un Aut. 2 vigente autoriza lo que captura (es el nivel más alto): su solicitud queda autorizada al enviarla
-  const esAut2 = !!accesos.esAut2;
+  const esAut2 = !!accesos.esAut2 && !modoAdmin;
 
   // Cambios sin guardar de la cabecera (fecha, motivo, comentario…): los empleados se siguen aparte (sucios/eliminados)
   const firmaCabecera = [areaActual, fechaTE, tipo, firmaMotivos(motivos), comentario, justificacionRutas].join('\u0001');

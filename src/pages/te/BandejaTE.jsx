@@ -107,7 +107,7 @@ export default function BandejaTE() {
     const { id, nivel, solicitud } = detalle;
     setTrabajando(true); ocupadoRef.current = true;
     try {
-      await autorizarSolicitud({ id, usuario, nivel, comoRH: !accesos.esAut2, comentario: texto });
+      await autorizarSolicitud({ id, usuario, nivel, comoRH: !(accesos.reales ?? accesos).esAut2, comentario: texto });
       toast.success(nivel === 1 ? 'Autorizada: pasó a Autorización 2.' : 'Autorizada.');
       await avisar.autorizacion({ nivel, folio: solicitud.folio });
       setDetalle(null);
@@ -170,7 +170,7 @@ La nómina de ${nombreArea(t.areaId)}, semana ${n.semana}, ya está firmada; RH 
     });
     if (!ok) return;
     setTrabajando(true); ocupadoRef.current = true;
-    const r = await autorizarVarias({ tareas: elegidas.map(t => ({ id: t.id, nivel })), usuario, comoRH: !accesos.esAut2 });
+    const r = await autorizarVarias({ tareas: elegidas.map(t => ({ id: t.id, nivel })), usuario, comoRH: !(accesos.reales ?? accesos).esAut2 });
     setSeleccion(s => ({ ...s, [nivel]: new Set() }));
     const folioDe = (id) => elegidas.find(t => t.id === id)?.folio ?? id;
     setResultado({ ok: r.ok.map(folioDe), fallidas: r.fallidas.map(f => ({ folio: folioDe(f.id), motivo: f.motivo })) });

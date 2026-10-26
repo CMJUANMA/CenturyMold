@@ -7,6 +7,7 @@
 import { Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import { FranjaModoAdmin } from '../components/ModoAdminUI';
 import Recordatorios from '../components/Recordatorios';
 import Spinner from '../components/Spinner';
 
@@ -18,6 +19,7 @@ export default function Layout() {
         className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[200] focus:rounded-md focus:bg-[var(--bg-surface)] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-[var(--text-main)]">
         Saltar al contenido
       </a>
+      <FranjaModoAdmin />
       <Navbar />
       <main id="contenido" className="min-h-screen pt-16 lg:ml-72 lg:pt-0">
         <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 sm:pt-8 lg:px-10 lg:pt-10 empty:hidden"><Recordatorios /></div>

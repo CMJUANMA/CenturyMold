@@ -82,6 +82,7 @@ La tabla se **genera** desde `src/utils/permisos.js` (`npm run docs:permisos`); 
 | **Herramientas (admin)** ||||||||
 | Pantalla: Herramientas › Diagnóstico y limpieza | ✔ | — | — | — | — | — | — |
 | Pantalla: Herramientas › Vista previa por rol _(Dentro de Herramientas)_ | ✔ | — | — | — | — | — | — |
+| Botón: Modo admin (interruptor del pie del menú) _(Apagado por defecto; encendido, el admin hace cualquier acción de cualquier rol con su cuenta, con confirmación y marcada «(admin)»)_ | ✔ | — | — | — | — | — | — |
 | Botón: Herramientas › Respaldo completo (JSON) | ✔ | — | — | — | — | — | — |
 | Pantalla: Guía de estilo | ✔ | — | — | — | — | — | — |
 | **Usuarios y accesos** ||||||||

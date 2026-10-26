@@ -6,6 +6,7 @@
 import { collection, doc, getDoc, onSnapshot, query, serverTimestamp, where, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { idAjuste, renglonParaGuardar, semanaDe } from './formatoNomina.js';
+import { confirmarAccionAdmin, marcaAdmin } from './modoAdmin.js';
 
 export const ACCIONES_AJUSTE_NOMINA = { ajustar: 'ajustar_nomina', deshacer: 'deshacer_ajustes_nomina', firmar: 'firmar_nomina', reabrir: 'reabrir_nomina' };
 
@@ -32,7 +33,7 @@ const quien = (usuario) => ({ uid: usuario.uid, nombre: usuario.nombre ?? '' });
 const firma = (usuario) => ({ ...quien(usuario), nomina: String(usuario.nomina ?? ''), fecha: new Date().toISOString() });
 
 function renglonBitacora(usuario, accion, id, antes, despues) {
-  return { accion, entidad: `ajustesNomina/${id}`.slice(0, 120), antes, despues, porUid: usuario.uid, porNombre: usuario.nombre ?? '', fecha: serverTimestamp() };
+  return { accion, entidad: `ajustesNomina/${id}`.slice(0, 120), antes, despues, porUid: usuario.uid, porNombre: usuario.nombre ?? '', fecha: serverTimestamp(), ...marcaAdmin() };
 }
 
 /**
@@ -41,12 +42,13 @@ function renglonBitacora(usuario, accion, id, antes, despues) {
  */
 export async function guardarAjuste({ periodo, areaId, cambios, filas, firmada = false, reabiertaPor = null, usuario, accion, antes = null, despues = null }) {
   const id = idAjuste(periodo, areaId);
+  await confirmarAccionAdmin(firmada ? `Firmar la nómina del área ${areaId}, semana ${periodo.semana ?? periodo.clave}.` : `Guardar los ajustes de nómina del área ${areaId}, semana ${periodo.semana ?? periodo.clave}.`);
   const lote = writeBatch(db);
   lote.set(doc(db, 'ajustesNomina', id), {
     semana: periodo.clave, areaId, desde: periodo.desde, hasta: periodo.hasta,
     cambios, renglones: filas.map(renglonParaGuardar), firmada,
     ...(firmada ? { firmadaPor: firma(usuario) } : { firmadaPor: null }),
-    ...(reabiertaPor ? { reabiertaPor } : {}),
+    ...(reabiertaPor ? { reabiertaPor } : {}), ...marcaAdmin(),
     actualizadoPor: quien(usuario), fechaActualizacion: serverTimestamp(),
   });
   lote.set(doc(collection(db, 'bitacora')), renglonBitacora(usuario, accion, id, antes, despues));
@@ -56,9 +58,10 @@ export async function guardarAjuste({ periodo, areaId, cambios, filas, firmada =
 /** RH reabre un área firmada: solo baja la firma (las reglas no dejan tocar nada más) */
 export async function reabrirAjuste({ periodo, areaId, usuario }) {
   const id = idAjuste(periodo, areaId);
+  await confirmarAccionAdmin(`Reabrir la nómina firmada del área ${areaId}, semana ${periodo.semana ?? periodo.clave}.`);
   const lote = writeBatch(db);
   lote.update(doc(db, 'ajustesNomina', id), {
-    firmada: false, firmadaPor: null, reabiertaPor: firma(usuario), actualizadoPor: quien(usuario), fechaActualizacion: serverTimestamp(),
+    firmada: false, firmadaPor: null, reabiertaPor: firma(usuario), ...marcaAdmin(), actualizadoPor: quien(usuario), fechaActualizacion: serverTimestamp(),
   });
   lote.set(doc(collection(db, 'bitacora')), renglonBitacora(usuario, ACCIONES_AJUSTE_NOMINA.reabrir, id, { firmada: true }, { firmada: false }));
   await lote.commit();
