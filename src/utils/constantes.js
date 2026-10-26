@@ -126,6 +126,8 @@ export const ACCIONES_TE = {
   ENVIADA: 'enviada',
   /** Un Aut. 2 captura y envía su propia solicitud: queda autorizada en el mismo paso (firma de nivel 2 propia) */
   ENVIADA_AUTORIZADA: 'enviada_autorizada',
+  /** Aut. 2 autoriza una vencida (pendiente_aut1 o pendiente_aut2) con motivo; si venía de nivel 1, también firma por Aut. 1 */
+  AUTORIZADA_FUERA_DE_TIEMPO: 'autorizada_fuera_de_tiempo',
 };
 
 export const ACCIONES_TE_LABELS = {
@@ -138,4 +140,5 @@ export const ACCIONES_TE_LABELS = {
   [ACCIONES_TE.RECIBIDA_RH]: 'Confirmada por RH',
   [ACCIONES_TE.ENVIADA]: 'Enviada a autorización',
   [ACCIONES_TE.ENVIADA_AUTORIZADA]: 'Capturada y autorizada por Aut. 2 (nivel 2)',
+  [ACCIONES_TE.AUTORIZADA_FUERA_DE_TIEMPO]: 'Autorizada por Aut. 2, fuera de tiempo',
 };

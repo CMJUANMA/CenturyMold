@@ -56,13 +56,14 @@ export default function ConsultaTE() {
   const ahora = useAhora();
   const [filtros, setFiltros] = useState(() => ({
     areaId: '', estatus: ESTATUS_FILTRO_TE.includes(params.get('estatus')) ? params.get('estatus') : '', desde: '', hasta: '', turno: '', solicitante: '', motivoId: '',
-  })); // ?estatus=... llega desde los indicadores del Inicio
+    fueraDeTiempo: params.get('fueraDeTiempo') === '1' ? 'si' : '',
+  })); // ?estatus=... llega desde los indicadores del Inicio; ?fueraDeTiempo=1, desde Reportes de nómina
   const [detalle, setDetalle] = useState(null);
   const [exportando, setExportando] = useState(null); // { hechos, total }
   const formato = useMemo(() => crearFormateadorNombres([]), []);
   const nombreArea = (id) => nombres.get(id) ?? id;
 
-  const filtradas = useMemo(() => filtrarSolicitudes(planta, { ...filtros, ahora }, motivos).sort((a, b) => esperaDesde(b) - esperaDesde(a)), [planta, filtros, motivos, ahora]);
+  const filtradas = useMemo(() => filtrarSolicitudes(planta, { ...filtros, fueraDeTiempo: filtros.fueraDeTiempo === 'si', ahora }, motivos).sort((a, b) => esperaDesde(b) - esperaDesde(a)), [planta, filtros, motivos, ahora]);
   const semana = inicioDeSemana(ahora).getTime();
   const mes = iso(inicioDeMes(ahora));
   const pendientes1 = planta.filter(t => t.estatus === 'pendiente_aut1' && !esVencida(t, ahora)).length;
@@ -132,7 +133,7 @@ export default function ConsultaTE() {
 
   if (cargando) return <div className="space-y-8"><EsqueletoPagina bloques={0} /><EsqueletoIndicadores cantidad={3} className="grid gap-4 sm:grid-cols-3" /><EsqueletoTabla filas={5} columnas={7} /></div>;
   const hayFiltros = Object.values(filtros).some(Boolean);
-  const limpiar = () => setFiltros({ areaId: '', estatus: '', desde: '', hasta: '', turno: '', solicitante: '', motivoId: '' });
+  const limpiar = () => setFiltros({ areaId: '', estatus: '', desde: '', hasta: '', turno: '', solicitante: '', motivoId: '', fueraDeTiempo: '' });
   return (
     <div className="space-y-8">
       <EncabezadoPagina
@@ -197,6 +198,11 @@ export default function ConsultaTE() {
           <Campo etiqueta="Motivo">
             <Selector id="filtro-motivo" value={filtros.motivoId} onChange={e => setFiltros(f => ({ ...f, motivoId: e.target.value }))}>
               <option value="">Todos</option>{motivos.map(m => <option key={m.id} value={m.id}>{m.nombre}{m.activo === false ? ' (dado de baja)' : ''}</option>)}
+            </Selector>
+          </Campo>
+          <Campo etiqueta="Fuera de tiempo">
+            <Selector id="filtro-fuera-de-tiempo" value={filtros.fueraDeTiempo} onChange={e => setFiltros(f => ({ ...f, fueraDeTiempo: e.target.value }))}>
+              <option value="">Todas</option><option value="si">Solo autorizadas fuera de tiempo</option>
             </Selector>
           </Campo>
           <Campo etiqueta="Fecha del tiempo extra, desde"><Entrada type="date" value={filtros.desde} onChange={e => setFiltros(f => ({ ...f, desde: e.target.value }))} /></Campo>

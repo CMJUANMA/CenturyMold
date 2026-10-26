@@ -368,6 +368,26 @@ export const venceHoy = (t, ahora = new Date()) => !!t?.fechaTE && ['pendiente_a
 /** El estatus que se muestra: 'vencida' en lugar de borrador / pendiente / devuelta cuando venció */
 export const estatusVisible = (t, ahora = new Date()) => (esVencida(t, ahora) ? 'vencida' : t?.estatus);
 
+// ── Autorización fuera de tiempo ──────────────────────────────────────────
+// Solo un Aut. 2 vigente puede autorizar una VENCIDA que estaba en pendiente_aut1 o pendiente_aut2 (las borradores y devueltas vencidas no: nunca se enviaron o el
+// solicitante no las corrigió; esas se duplican con otra fecha). Queda `autorizada` con autorizadaFueraDeTiempo: true y `fueraDeTiempo: { nomina, nombre, fecha, motivo, estatusAnterior }`.
+
+export const MIN_MOTIVO_FUERA_DE_TIEMPO = 10;
+export const MAX_MOTIVO_FUERA_DE_TIEMPO = 500;
+export const ESTATUS_FUERA_DE_TIEMPO = ['pendiente_aut1', 'pendiente_aut2'];
+export const ETIQUETA_FUERA_DE_TIEMPO = 'Autorizada fuera de tiempo';
+/** Comentario de la firma de nivel 1 cuando Aut. 2 autoriza sin que Aut. 1 lo haya hecho (las reglas exigen este texto exacto) */
+export const COMENTARIO_SIN_AUT1 = 'Autorizada por Aut. 2 sin Aut. 1, fuera de tiempo';
+
+/** ¿Aut. 2 puede autorizarla fuera de tiempo? Está vencida y su estatus guardado es pendiente_aut1 o pendiente_aut2 */
+export const puedeAutorizarseFueraDeTiempo = (t, ahora = new Date()) => ESTATUS_FUERA_DE_TIEMPO.includes(t?.estatus) && esVencida(t, ahora);
+
+/** ¿Se autorizó fuera de tiempo? (la marca solo cuenta mientras siga autorizada o confirmada) */
+export const esAutorizadaFueraDeTiempo = (t) => t?.autorizadaFueraDeTiempo === true && ['autorizada', 'procesada'].includes(t?.estatus);
+
+/** Motivo de la autorización fuera de tiempo ('' si no hay) */
+export const motivoFueraDeTiempo = (t) => String(t?.fueraDeTiempo?.motivo ?? '').trim();
+
 /** Autorizada cuya fecha ya pasó y RH aún no la envía al proveedor (sí se autorizó: sus horas cuentan para nómina) */
 export const esFechaPasadaSinEnviar = (t, ahora = new Date()) => t?.estatus === 'autorizada' && !!t?.fechaTE && String(t.fechaTE) < hoyMexico(ahora);
 
@@ -393,9 +413,10 @@ export function turnosDeTE(t) {
 }
 
 /** Filtros de la bandeja y de la consulta: área, estatus, rango de fecha del TE, turno ('1' | '2' | '3'), motivo (id del catálogo) y texto del solicitante */
-export function filtrarSolicitudes(lista, { areaId = '', estatus = '', desde = '', hasta = '', solicitante = '', turno = '', motivoId = '', ahora = new Date() } = {}, catalogoMotivos = []) {
+export function filtrarSolicitudes(lista, { areaId = '', estatus = '', desde = '', hasta = '', solicitante = '', turno = '', motivoId = '', fueraDeTiempo = false, ahora = new Date() } = {}, catalogoMotivos = []) {
   const q = String(solicitante).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
   return lista.filter(t => (!areaId || t.areaId === areaId) && (!estatus || estatusVisible(t, ahora) === estatus) && (!turno || turnosDeTE(t).includes(turno)) && tieneMotivo(t, motivoId, catalogoMotivos)
+    && (!fueraDeTiempo || esAutorizadaFueraDeTiempo(t))
     && (!desde || String(t.fechaTE ?? '') >= desde) && (!hasta || String(t.fechaTE ?? '') <= hasta)
     && (!q || `${t.creadoPorNombre ?? ''} ${t.creadoPorNomina ?? ''}`.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q)));
 }

@@ -15,7 +15,7 @@ import { ACCIONES_TE_LABELS } from '../../utils/constantes';
 import { formatoFecha } from '../../utils/asignaciones';
 import { etiquetaBloque12, horasEnTexto12 } from '../../utils/horas';
 import { motivosDeTE, motivoTextoEmpleado } from '../../utils/motivosTE';
-import { TEXTO_VENCIDA, calcularHoras, esExtension, esVencida, textoTermina, firmaTexto, quienDevolvio, resumenTE, textoRuta, textoRutas } from '../../utils/tiempoExtra';
+import { TEXTO_VENCIDA, calcularHoras, esAutorizadaFueraDeTiempo, esExtension, esVencida, motivoFueraDeTiempo, textoTermina, firmaTexto, quienDevolvio, resumenTE, textoRuta, textoRutas } from '../../utils/tiempoExtra';
 import { leerTransporteDeTE } from '../../utils/tiempoExtraDb';
 import { quienCancelo } from '../../utils/cancelacion';
 
@@ -63,7 +63,12 @@ export default function DetalleTE({ t, historial = [], area, catalogos, formato,
 
   return (
     <div className="space-y-6 text-sm">
-      {vencida && <Aviso tono="info" titulo="Vencida">{TEXTO_VENCIDA}. Ya no se puede autorizar ni devolver; quien la solicitó puede duplicarla con otra fecha.</Aviso>}
+      {vencida && <Aviso tono="info" titulo="Vencida">{TEXTO_VENCIDA}. Ya no se puede autorizar ni devolver de la forma normal; quien la solicitó puede duplicarla con otra fecha{['pendiente_aut1', 'pendiente_aut2'].includes(t.estatus) ? ', o un Aut. 2 puede autorizarla fuera de tiempo' : ''}.</Aviso>}
+      {esAutorizadaFueraDeTiempo(t) && (
+        <Aviso tono="aviso" titulo={`Autorizada fuera de tiempo por ${nombre(t.fueraDeTiempo?.nombre ?? t.aut2?.nombre ?? '')}${t.fueraDeTiempo?.fecha ? ` · ${fechaHora(t.fueraDeTiempo.fecha)}` : ''}`}>
+          {t.fueraDeTiempo?.estatusAnterior === 'pendiente_aut1' ? 'Aut. 2 la autorizó sin que Aut. 1 lo hiciera. ' : ''}Motivo: {motivoFueraDeTiempo(t) || '—'}
+        </Aviso>
+      )}
       {t.estatus === 'devuelta' && t.devolucion && !vencida && (
         <Aviso tono="aviso" titulo={`Devuelta por ${quienDevolvio(t.devolucion.nivel)} · ${nombre(t.devolucion.nombre)}`}>{t.devolucion.motivo}</Aviso>
       )}

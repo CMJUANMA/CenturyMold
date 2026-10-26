@@ -28,7 +28,7 @@ const ESPERADO = {
   nomina: ['inicio', 'miCuenta', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'formatoRutasPagina', 'padron', 'estructura',
     'confirmarRH', 'formatoRutas', 'exportarConsulta', 'descargarPadron', 'reportesNomina', 'nominaRevisar', 'ajustarNomina', 'descargarFormatoNomina', 'cambiarPassword'],
   aut2: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'accesos', 'accesosUsuarios', 'accesosAsignaciones', 'organigrama',
-    'capturarSinTE', 'autorizarLoPropio', 'firmarNivel2', 'exportarConsulta', 'nuevoUsuario', 'editarUsuario', 'darRolRH', 'darRolNomina', 'restablecerPassword', 'asignarAut1',
+    'capturarSinTE', 'autorizarLoPropio', 'firmarNivel2', 'autorizarFueraDeTiempo', 'exportarConsulta', 'nuevoUsuario', 'editarUsuario', 'darRolRH', 'darRolNomina', 'restablecerPassword', 'asignarAut1',
     'historialPersona', 'cambiarPassword'],
   aut1: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'accesos', 'organigrama', 'capturarArea', 'firmarNivel1', 'cambiarPassword'],
   solicitante: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'capturarArea', 'cambiarPassword'],
@@ -75,7 +75,7 @@ describe('combinaciones: la unión de lo que le toca a cada rol', () => {
 describe('Nóminas: ve la planta, confirma lo que va al proveedor y nada más', () => {
   const f = filas(col('nomina').perfil);
   it('NO puede crear, autorizar, devolver, editar ni cancelar tiempo extra', () => {
-    for (const no of ['teNueva', 'teMisSolicitudes', 'teAutorizar', 'capturarArea', 'capturarSinTE', 'autorizarLoPropio', 'firmarNivel1', 'firmarNivel2', 'devolverRH', 'cancelarRH']) {
+    for (const no of ['teNueva', 'teMisSolicitudes', 'teAutorizar', 'capturarArea', 'capturarSinTE', 'autorizarLoPropio', 'firmarNivel1', 'firmarNivel2', 'autorizarFueraDeTiempo', 'devolverRH', 'cancelarRH']) {
       expect(f, no).not.toContain(no);
     }
   });

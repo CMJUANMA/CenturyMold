@@ -9,7 +9,7 @@
  */
 import { fechaLocal, rangoSemana, sumarDias, ymd } from './fechas.js';
 import { horasNominaPor } from '../funciones.js';
-import { ESTATUS_DESCARGA, calcularHoras, esVencida, tramosPorDia } from './tiempoExtra.js';
+import { ESTATUS_DESCARGA, calcularHoras, esAutorizadaFueraDeTiempo, esVencida, tramosPorDia } from './tiempoExtra.js';
 import { etiquetaMotivo, motivoDeEmpleado, textoNumero } from './motivosTE.js';
 
 // ── Constantes del formato en papel (editables aquí) ───────────────────────────────────────────
@@ -438,6 +438,29 @@ export function periodoDeClave(clave) {
   if (semana) return semana;
   const m = /^r(\d{4})(\d{2})(\d{2})-(\d{4})(\d{2})(\d{2})$/.exec(String(clave ?? ''));
   return m ? periodoLibre(`${m[1]}-${m[2]}-${m[3]}`, `${m[4]}-${m[5]}-${m[6]}`) : null;
+}
+
+/** Milisegundos de una fecha de Firestore (Timestamp), ISO o Date; Infinity si aún no tiene hora (la escritura del servidor está en camino) */
+const msDe = (f) => {
+  if (f?.toMillis) return f.toMillis();
+  const ms = f instanceof Date ? f.getTime() : Date.parse(f ?? '');
+  return Number.isNaN(ms) ? Infinity : ms;
+};
+
+/**
+ * Lo que Aut. 2 autorizó FUERA DE TIEMPO en un área y periodo (cuenta normal en la semana de su fecha), para avisar a Nóminas.
+ * `trasFirma`: las que se autorizaron DESPUÉS de que el área se firmó (si no, ya venían en lo que se firmó): sus empleados no están en el formato firmado hasta que RH
+ * lo reabra y Nóminas lo revise otra vez.
+ * @param {object[]} solicitudes  autorizadas de UN área (las de autorizadasDelPeriodo)
+ * @param {object|null} ajuste  ajustesNomina del área
+ * @returns {{ total:number, folios:string[], trasFirma:string[] }}
+ */
+export function fueraDeTiempoDelArea(solicitudes, ajuste) {
+  const lista = solicitudes.filter(esAutorizadaFueraDeTiempo);
+  const firmadaEn = ajuste?.firmada ? msDe(ajuste.firmadaPor?.fecha) : null;
+  const trasFirma = firmadaEn === null ? [] : lista.filter(t => msDe(t.fueraDeTiempo?.fecha) > (firmadaEn === Infinity ? -Infinity : firmadaEn));
+  const folio = (t) => t.folio ?? t.id;
+  return { total: lista.length, folios: lista.map(folio), trasFirma: trasFirma.map(folio) };
 }
 
 /** Estado de un área: 'firmada' · 'ajustada' (hay cambios) · 'sin_revisar' */

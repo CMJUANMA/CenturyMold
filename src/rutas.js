@@ -49,3 +49,5 @@ export const rutaMisSolicitudes = (pestana) => (pestana ? `${RUTAS.teMisSolicitu
 
 /** Consulta de tiempo extra ya filtrada por estatus (lo lee ConsultaTE) */
 export const rutaConsultaTE = (estatus) => (estatus ? `${RUTAS.teConsulta}?estatus=${estatus}` : RUTAS.teConsulta);
+/** Consulta de tiempo extra solo con lo autorizado fuera de tiempo (filtro «Fuera de tiempo») */
+export const rutaConsultaFueraDeTiempo = () => `${RUTAS.teConsulta}?fueraDeTiempo=1`;

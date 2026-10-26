@@ -26,7 +26,7 @@ Pantalla *Reportes de nómina › Formato de tiempo extra* (`/nomina/reportes`):
 - **Qué cuenta:** solo lo autorizado por Aut. 2 (`autorizada` o `procesada`). Las pendientes y devueltas de esa semana solo se avisan (cuántas y de qué áreas).
 - **Ajustes** (corregir las horas de un día, quitar a quien no asistió, reemplazarlo por otra persona del padrón, agregar a alguien que no venía en las solicitudes o corregir el motivo y el P.O./TB de un renglón): se acumulan en la pantalla de revisión y se guardan juntos con **un solo motivo** para todo el guardado; quedan aparte en `ajustesNomina/{año-semana}_{areaId}` (cada cambio con ese motivo) y **nunca modifican ni crean solicitudes**. «Deshacer ajustes» vuelve a lo autorizado.
 - **Marcar como firmada** bloquea el área y la semana; solo RH y admin pueden reabrirla (las reglas lo exigen). Todo queda en la bitácora.
-- **Reglas de Firestore:** `ajustesNomina` lo leen y lo escriben solo Nóminas, RH y admin (hasta 1000 cambios y 300 renglones por documento); nadie lo borra; firmada = bloqueada. Pruebas: `tests/firestore.rules.ajustes-nomina.test.js`.
+- **Reglas de Firestore:** `ajustesNomina` lo leen y lo escriben solo Nóminas, RH y admin (hasta 1000 cambios y 300 renglones por documento); nadie lo borra; firmada = bloqueada. **Excepción:** un Aut. 2 vigente puede LEER un documento por su id (`get`, nunca listar ni escribir) para que, antes de autorizar una vencida fuera de tiempo, la pantalla le avise si esa área y semana ya están firmadas. Pruebas: `tests/firestore.rules.ajustes-nomina.test.js` y `tests/firestore.rules.fuera-de-tiempo.test.js`.
 - **Excel:** réplica del formato en papel (carta horizontal, una hoja por área; con más de 15 empleados continúa en otra página). «Descargar todas las áreas» agrega una primera hoja *Resumen* (horas por área, por empleado y por motivo con su porcentaje, y por número de P.O./TB). Las constantes del formato (casillas de área, mapeo de áreas de la app, firmas, notas y pie `CM-FRH-??` / `REV-00` / `Fecha de Rev: 28 Oct 2021`) están en `src/utils/formatoNomina.js`. La columna *P.O./TB* lleva el número de cada empleado.
 
 ## La matriz
@@ -52,6 +52,7 @@ La tabla se **genera** desde `src/utils/permisos.js` (`npm run docs:permisos`); 
 | Acción: Lo que captura y envía queda autorizado al enviarlo (firma de nivel 2 «Capturada y autorizada por Aut. 2») _(Solo la Aut. 2 vigente, en cualquier área donde pueda capturar. El Aut. 1 y RH no autorizan lo suyo)_ | — | — | — | ✔ | — | — | — |
 | Acción: Autorizar o devolver, nivel 1 _(Solo lo de su área; no lo que él mismo creó)_ | — | — | — | — | ✔ | — | — |
 | Acción: Autorizar o devolver, nivel 2 _(RH firma «como RH»; no lo que él mismo creó)_ | ✔ | ✔ | — | ✔ | — | — | — |
+| Acción: Autorizar fuera de tiempo una solicitud vencida (que estaba en nivel 1 o 2) _(Solo la Aut. 2 vigente, con un motivo de 10+ caracteres y no lo que ella misma creó. RH sin Aut. 2, Aut. 1, solicitante y Nóminas no. Las borradores y devueltas vencidas no: se duplican con otra fecha)_ | — | — | — | ✔ | — | — | — |
 | Botón: Confirmar y generar la solicitud de transporte (Por enviar al proveedor) _(Queda en la bitácora con el nombre de quien confirma)_ | ✔ | ✔ | ✔ | — | — | — | — |
 | Botón: Devolver un tiempo extra autorizado (nivel 3) | ✔ | ✔ | — | — | — | — | — |
 | Botón: Cancelar un tiempo extra autorizado o confirmado | ✔ | ✔ | — | — | — | — | — |
@@ -112,6 +113,11 @@ La tabla se **genera** desde `src/utils/permisos.js` (`npm run docs:permisos`); 
 - **RH sin ser Aut. 2:** su captura (solo áreas que no participan) va a *pendiente_aut2* y la firma un Aut. 2 u otra persona de RH distinta (nadie firma lo que creó).
 - Un Aut. 2 sin ser solicitante ni Aut. 1 de un área solo captura en áreas que no participan (Administrativo); en las demás áreas necesita su asignación de solicitante o Aut. 1.
 
+## Autorizar fuera de tiempo (solo Aut. 2)
+
+- **Quién:** únicamente un **Aut. 2 vigente** (`esAut2()` en las reglas). **No pueden** el Aut. 1, el solicitante, Nóminas, ni RH/admin sin asignación de Aut. 2, ni un Aut. 2 cuya asignación ya venció. Nadie autoriza lo que creó.
+- **Qué:** una solicitud **vencida** que estaba en `pendiente_aut1` o `pendiente_aut2` pasa a `autorizada` con `autorizadaFueraDeTiempo: true` y `fueraDeTiempo { nomina, nombre, fecha, motivo, estatusAnterior }`. Motivo obligatorio de 10 a 500 caracteres. Desde nivel 1 también queda la firma de nivel 1 con «Autorizada por Aut. 2 sin Aut. 1, fuera de tiempo». Las borradores y devueltas vencidas **no** (se duplican con otra fecha).
+- **Reglas:** la transición es la contraria a las de autorizar normales (`pasoElDia` debe ser verdadero), con campos exactos (`soloCambia`), firma y `fueraDeTiempo` a nombre de quien la hace y con la hora del servidor. Historial `autorizada_fuera_de_tiempo` (solo Aut. 2). **Bitácora:** `autorizar_fuera_de_tiempo` sobre `tiempoExtra` (la Aut. 2 solo puede escribir ese tipo; la bitácora la lee RH). Pruebas: `tests/firestore.rules.fuera-de-tiempo.test.js` (lo que sí y lo que no: Aut. 1, solicitante, RH sin Aut. 2 y Nóminas no pueden).
 ## Pendiente de decisión
 
 - Los botones de borrar solicitudes y tiempos extra (`delete` solo admin en las reglas) no existen en la pantalla.

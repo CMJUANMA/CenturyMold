@@ -5,11 +5,11 @@
  * completa RevisarAreaNomina) y «Descargar» (Excel listo para imprimir). Los ajustes viven aparte (ajustesNomina) y nunca modifican las solicitudes.
  */
 import { useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarRange, ChevronLeft, ChevronRight, ClipboardCheck, Download, FileSpreadsheet, Lock } from 'lucide-react';
 import { useAreasNomina } from '../../hooks/useAreasNomina';
 import { useToast } from '../../hooks/useToast';
-import { RUTAS, rutaConsultaTE, rutaRevisarNomina } from '../../rutas';
+import { RUTAS, rutaConsultaFueraDeTiempo, rutaConsultaTE, rutaRevisarNomina } from '../../rutas';
 import AyudaPantalla from '../../components/AyudaPantalla';
 import Aviso from '../../components/ui/Aviso';
 import Boton from '../../components/ui/Boton';
@@ -137,6 +137,13 @@ export default function ReportesNomina() {
                     <div><dt className="text-xs text-[var(--text-muted)]">Empleados</dt><dd className="text-2xl font-medium tabular-nums text-[var(--text-main)]">{a.totales.empleados}</dd></div>
                     <div><dt className="text-xs text-[var(--text-muted)]">Horas totales</dt><dd className="text-2xl font-medium tabular-nums text-[var(--text-main)]">{a.totales.horas}</dd></div>
                   </dl>
+                )}
+                {a.fueraDeTiempo.trasFirma.length > 0 ? (
+                  <Aviso tono="aviso" titulo="Autorizada fuera de tiempo después de firmar">
+                    {a.fueraDeTiempo.trasFirma.join(', ')} no {a.fueraDeTiempo.trasFirma.length === 1 ? 'está' : 'están'} en el formato firmado. RH tiene que reabrir esta área para que la revises otra vez.
+                  </Aviso>
+                ) : a.fueraDeTiempo.total > 0 && (
+                  <p className="text-xs text-[var(--text-secondary)]">{a.fueraDeTiempo.total} {a.fueraDeTiempo.total === 1 ? 'solicitud autorizada' : 'solicitudes autorizadas'} fuera de tiempo ({a.fueraDeTiempo.folios.join(', ')}). <Link className="underline" to={rutaConsultaFueraDeTiempo()}>Ver en la consulta</Link></p>
                 )}
                 <div className="mt-auto flex flex-wrap gap-2">
                   <Boton icono={ClipboardCheck} onClick={() => navegar(rutaRevisarNomina(periodo.clave, a.areaId))} disabled={cargandoDetalle && a.base.length === 0} aria-label={`Revisar ${a.nombre}`}>Revisar</Boton>

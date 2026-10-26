@@ -252,7 +252,7 @@ la medianoche local es a las 06:00 UTC). Las pantallas se actualizan solas cada 
 Autorizada, procesada y cancelada nunca vencen.
 
 **Qué se ve.** Etiqueta gris **«Vencida»** (`BadgeEstatus t={t}`) con el texto «No se autorizó antes de la fecha», en lugar de «En autorización» o «Devuelta».
-- *Por autorizar* (Aut. 1 y Aut. 2): las vencidas salen de la lista principal y de los contadores (`useBandeja`, `usePorAutorizar`) y van en la pestaña **«Vencidas»**, solo consulta (sin Autorizar ni Devolver).
+- *Por autorizar* (Aut. 1 y Aut. 2): las vencidas salen de la lista principal y de los contadores (`useBandeja`, `usePorAutorizar`) y van en la pestaña **«Vencidas»**, solo consulta (sin Autorizar ni Devolver; la Aut. 2 sí puede «Autorizar fuera de tiempo»: ver abajo).
   Las pendientes que vencen **hoy** llevan la etiqueta **«Vence hoy»** y salen primero.
 - *Mis solicitudes*: pestaña **«Vencidas»** (cada solicitud va en una sola pestaña, la de su estatus visible); botón **«Duplicar con otra fecha»** (`duplicarComoBorrador`: copia empleados con su horario y transporte,
   motivos, tipo y comentario en un borrador nuevo con la fecha elegida, de hoy en adelante) y, si era borrador, **Eliminar**.
@@ -267,8 +267,32 @@ Pruebas: `tests/firestore.rules.vencidas.test.js`. (Las demás pruebas de reglas
 `cerrarSinTransporte` pasa la solicitud a `procesada` **sin generar solicitud de transporte**, con `cerradaSinTransporte: true`, su renglón de historial (`recibida_rh`) y de bitácora (`cerrar_sin_transporte`), todo en una
 transacción. Solo con la fecha ya pasada (la regla lo comprueba) y solo RH, admin y Nóminas. **Sus horas siguen contando para nómina**, porque sí se autorizó.
 
+**Aut. 2 puede autorizarlas fuera de tiempo** (sección de abajo); las borradores y devueltas vencidas solo se duplican.
+
 **Reportes de nómina.** Las vencidas **no cuentan** en el formato. Un aviso dice «X solicitudes de esta semana vencieron sin autorizarse» con enlace a la consulta filtrada por «Vencida», para que Nóminas decida si
 agrega a alguien a mano en la revisión. Pruebas: `tests/vencidas-te.test.js` (vence a medianoche, vence hoy, devuelta vencida, borrador vencido, autorizada sin enviar con fecha pasada, contadores y nómina).
+
+### Autorizar fuera de tiempo (solo Aut. 2)
+
+**Quién y cuándo.** Solo un **Aut. 2 vigente**, en *Por autorizar › Vencidas*, sobre las vencidas que estaban en `pendiente_aut1` o `pendiente_aut2` (botón **«Autorizar fuera de tiempo»**, en la fila y en el detalle). `useBandeja` trae para la Aut. 2
+las vencidas de nivel 1 de **toda la planta** (antes solo las de las áreas donde era Aut. 1). Las borradores y devueltas vencidas **no** lo tienen: nunca se enviaron o el solicitante no las corrigió; para esas sigue «Duplicar con otra fecha».
+Nadie autoriza lo que creó.
+
+**Cómo.** El botón (`autorizarFuera` en `BandejaTE`) abre una confirmación con un **motivo obligatorio** (mínimo `MIN_MOTIVO_FUERA_DE_TIEMPO` = 10 caracteres, máximo 500; por ejemplo «Sí se trabajó; el jefe no autorizó a tiempo»).
+Antes lee `ajustesNomina/{semana}_{areaId}` (`nominaFirmadaDe`): si esa semana y área ya están **Firmadas**, la confirmación dice «La nómina de <área>, semana <n>, ya está firmada; RH o Nóminas tendrá que reabrirla».
+`autorizarFueraDeTiempo` (`tiempoExtraDb.js`) hace todo en **una transacción**: relee que siga pendiente y vencida, y deja `estatus: 'autorizada'`, `autorizadaFueraDeTiempo: true`, `fueraDeTiempo { nomina, nombre, fecha, motivo, estatusAnterior }`,
+la firma de nivel 2 (con el motivo como comentario) y, si venía de `pendiente_aut1`, también la de nivel 1 con «Autorizada por Aut. 2 sin Aut. 1, fuera de tiempo»; el historial `autorizada_fuera_de_tiempo` ("Autorizada por Aut. 2, fuera de tiempo", con ese texto y el motivo) y la
+bitácora `autorizar_fuera_de_tiempo`.
+
+**Dónde queda.** Sale de «Vencidas» y aparece donde le toca:
+- *Por enviar al proveedor*: como su fecha ya pasó, cae en **«Fecha pasada – transporte no enviado»** (con «Cerrar sin transporte»): el transporte ya no aplica.
+- *Reportes de nómina*: cuenta **normal** en la semana de su fecha (es una autorizada). La tarjeta del área dice cuántas hay fuera de tiempo, con enlace a la consulta filtrada. Si el área **ya estaba firmada** y se autorizó después de la firma,
+  la tarjeta muestra el aviso «Autorizada fuera de tiempo después de firmar» con los folios (`fueraDeTiempoDelArea`, calculado de las propias solicitudes: no escribe en `ajustesNomina`, que firmado está bloqueado); RH tiene que reabrir el área.
+- *Todas las listas y detalles*: insignia **«Autorizada fuera de tiempo»** (`InsigniasTE`) y, en el detalle, quién, cuándo y el motivo. `esAutorizadaFueraDeTiempo` solo la reconoce mientras siga autorizada o procesada.
+- *Consulta de tiempo extra* (también la de Nóminas): filtro **«Fuera de tiempo»** (`?fueraDeTiempo=1` desde Reportes de nómina).
+
+**Reglas y pruebas.** Solo `esAut2()` puede hacer la transición (con `pasoElDia`, campos exactos y firmas propias); la Aut. 2 puede escribir en la bitácora solo esa acción y leer `ajustesNomina` por id (`get`) para el aviso. Ver `docs/permisos.md`.
+Pruebas: `tests/firestore.rules.fuera-de-tiempo.test.js` y `tests/fuera-de-tiempo-te.test.js`.
 
 ## Revisión de nómina (pantalla completa)
 

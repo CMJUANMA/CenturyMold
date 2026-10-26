@@ -3,7 +3,7 @@
  * (se leen por solicitud y se guardan: cambiar de semana no vuelve a leer lo ya leído), los ajustes de Nóminas en vivo y, por área, sus renglones
  * ya ajustados. Un área sale si tiene tiempo extra autorizado en el periodo o ajustes guardados (por ejemplo, empleados agregados).
  *   const { areas, pendientes, cargando, cargandoDetalle, error } = useAreasNomina(periodo);
- *   area = { areaId, nombre, base (lo autorizado), filas (ajustadas), ajuste, totales, estado }
+ *   area = { areaId, nombre, base (lo autorizado), filas (ajustadas), ajuste, totales, estado, fueraDeTiempo ({ total, folios, trasFirma }: lo autorizado fuera de tiempo) }
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useAjustesNomina } from './useAjustesNomina';
@@ -11,7 +11,7 @@ import { useAhora } from './useAhora';
 import { useAreas } from './useAreas';
 import { useResumenTE } from './useResumenTE';
 import {
-  autorizadasDelPeriodo, estadoDeArea, filasAutorizadas, filasDelArea, pendientesDelPeriodo, totalesDeFilas,
+  autorizadasDelPeriodo, estadoDeArea, fueraDeTiempoDelArea, filasAutorizadas, filasDelArea, pendientesDelPeriodo, totalesDeFilas,
 } from '../utils/formatoNomina';
 import { trozos } from '../utils/tiempoExtra';
 import { leerSolicitudTE } from '../utils/tiempoExtraDb';
@@ -50,7 +50,8 @@ export function useAreasNomina(periodo) {
       const base = periodo ? filasAutorizadas(delArea, periodo) : [];
       const filas = periodo ? filasDelArea({ solicitudes: delArea, periodo, ajuste }) : [];
       const totales = totalesDeFilas(filas, periodo);
-      return { areaId, nombre: nombres.get(areaId) ?? areaId, base, filas, ajuste, totales, estado: estadoDeArea(ajuste) };
+      const fueraDeTiempo = fueraDeTiempoDelArea(autorizadas.filter(t => t.areaId === areaId), ajuste);
+      return { areaId, nombre: nombres.get(areaId) ?? areaId, base, filas, ajuste, totales, estado: estadoDeArea(ajuste), fueraDeTiempo };
     }).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   }, [autorizadas, detalle, ajustes, periodo, nombres]);
 

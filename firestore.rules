@@ -175,7 +175,9 @@ service cloud.firestore {
     match /bitacora/{id} {
       allow read: if esRH() || (esAut2() && resource.data.get('entidad', '') == 'asignacion');
       // Quien la crea queda con su uid Y su nombre reales (no se puede firmar a nombre de otra persona). La Aut. 2 también registra sus descargas.
-      allow create: if (esRH() || (esAut2() && (request.resource.data.entidad in ['asignacion', 'descarga'] || request.resource.data.entidad.matches('usuarios/.*')))
+      // La Aut. 2 también registra su única acción sobre tiempo extra en bitácora: autorizar una vencida fuera de tiempo
+      allow create: if (esRH() || (esAut2() && (request.resource.data.entidad in ['asignacion', 'descarga'] || request.resource.data.entidad.matches('usuarios/.*')
+                                                || (request.resource.data.entidad == 'tiempoExtra' && request.resource.data.accion == 'autorizar_fuera_de_tiempo')))
                         || (esNomina() && accionDeNomina()))
         && request.resource.data.keys().hasOnly(['accion', 'entidad', 'antes', 'despues', 'porUid', 'porNombre', 'fecha'])
         && textoHasta(request.resource.data.accion, 60) && textoHasta(request.resource.data.entidad, 120)
@@ -454,7 +456,9 @@ service cloud.firestore {
     // dos veces lo cuida la pantalla (y el Excel solo imprime lo que hay en `renglones`). Solo Nóminas, RH y admin lo leen y lo escriben; nadie lo borra.
     // Firmada = bloqueada: ya nadie la cambia salvo RH, que solo puede reabrirla (firmada: false). Quien guarda queda con su uid y la hora del servidor.
     match /ajustesNomina/{id} {
-      allow read: if esRH() || esNomina();
+      // La Aut. 2 solo LEE un documento por su id (no lista): antes de autorizar una vencida fuera de tiempo, la pantalla le avisa si esa semana y área ya están firmadas
+      allow get: if esRH() || esNomina() || esAut2();
+      allow list: if esRH() || esNomina();
       allow create: if (esRH() || esNomina()) && ajusteValido(id);
       allow update: if ((esRH() || esNomina()) && resource.data.get('firmada', false) != true && ajusteValido(id))
         || (esRH() && resource.data.get('firmada', false) == true && request.resource.data.firmada == false
@@ -624,6 +628,26 @@ service cloud.firestore {
         && soloCambia(['estatus', 'devolucion', 'fechaActualizacion'])
         && antes().creadoPor != uid() && !pasoElDia(antes().fechaTE)
         && puedeFirmarAut2() && devolucionValida(despues().devolucion, 2);
+
+      // FUERA DE TIEMPO: solo un Aut. 2 VIGENTE (ni RH sin Aut. 2, ni Aut. 1, ni el solicitante, ni Nóminas) autoriza una VENCIDA que estaba en pendiente_aut1 o pendiente_aut2:
+      // pasa a autorizada con autorizadaFueraDeTiempo y fueraDeTiempo { nomina, nombre, fecha, motivo (10 a 500), estatusAnterior }. Desde nivel 1 también queda la firma
+      // de nivel 1 con el texto fijo «Autorizada por Aut. 2 sin Aut. 1, fuera de tiempo». Nadie autoriza lo que creó. Es lo contrario de las dos reglas de autorizar de arriba (!pasoElDia).
+      function fueraDeTiempoValido() {
+        let f = despues().get('fueraDeTiempo', null);
+        return f is map && f.keys().hasOnly(['nomina', 'nombre', 'fecha', 'motivo', 'estatusAnterior'])
+          && f.get('nomina', '') == miNomina() && f.get('nombre', '') == miNombre() && f.get('fecha', null) == request.time
+          && f.get('estatusAnterior', '') == antes().estatus
+          && f.get('motivo', null) is string && f.motivo.trim().size() >= 10 && f.motivo.size() <= 500;
+      }
+      allow update: if antes().estatus in ['pendiente_aut1', 'pendiente_aut2'] && despues().estatus == 'autorizada'
+        && despues().get('autorizadaFueraDeTiempo', false) == true
+        && despues().fechaActualizacion == request.time
+        && pasoElDia(antes().fechaTE) && antes().creadoPor != uid()
+        && (antes().estatus == 'pendiente_aut2'
+            ? soloCambia(['estatus', 'aut2', 'autorizadaFueraDeTiempo', 'fueraDeTiempo', 'fechaActualizacion'])
+            : (soloCambia(['estatus', 'aut1', 'aut2', 'autorizadaFueraDeTiempo', 'fueraDeTiempo', 'fechaActualizacion']) && cambia(['aut1'])
+               && firmaValida(despues().aut1, false) && despues().aut1.get('comentario', '') == 'Autorizada por Aut. 2 sin Aut. 1, fuera de tiempo'))
+        && esAut2() && firmaValida(despues().aut2, false) && fueraDeTiempoValido();
 
       // RH la recibe: autorizada → procesada, con la solicitud de transporte creada en la MISMA operación (getAfter) y apuntando a este
       // tiempo extra; si nadie pidió transporte, no lleva solicitud. Solo RH y admin (la Aut. 2 que no es RH no recibe).
@@ -828,6 +852,9 @@ service cloud.firestore {
               && hAntes().estatus == 'pendiente_aut1' && hDespues().estatus == 'pendiente_aut2')
             || (h().accion == 'autorizada_2' && puedeFirmarAut2()
               && hAntes().estatus == 'pendiente_aut2' && hDespues().estatus == 'autorizada')
+            || (h().accion == 'autorizada_fuera_de_tiempo' && h().nivel == 2 && esAut2()
+              && hAntes().estatus in ['pendiente_aut1', 'pendiente_aut2'] && hDespues().estatus == 'autorizada'
+              && hDespues().get('autorizadaFueraDeTiempo', false) == true)
             || (h().accion == 'devuelta' && hDespues().estatus == 'devuelta'
               && ((h().nivel == 1 && hAntes().estatus == 'pendiente_aut1' && esAut1De(hAntes().areaId))
                   || (h().nivel == 2 && hAntes().estatus == 'pendiente_aut2' && puedeFirmarAut2())

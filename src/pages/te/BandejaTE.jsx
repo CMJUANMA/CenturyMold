@@ -8,7 +8,7 @@
  * Las que vencen HOY llevan «Vence hoy» y salen primero.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlarmClock, CheckCircle2, Undo2 } from 'lucide-react';
+import { AlarmClock, CheckCircle2, ShieldCheck, Undo2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useAccesos } from '../../hooks/useAccesos';
 import { useAreas } from '../../hooks/useAreas';
@@ -37,9 +37,10 @@ import { Fila, Tabla, Td, Th } from '../../components/ui/Tabla';
 import { formatoFecha } from '../../utils/asignaciones';
 import { crearFormateadorNombres } from '../../utils/nombresPersona';
 import {
-  MIN_MOTIVO_DEVOLUCION, MSG_YA_RESPONDIDA, TEXTO_VENCIDA, esPropia, esVencida, esperaDesde, filtrarSolicitudes, haceTiempo, totalesDe, venceHoy,
+  MIN_MOTIVO_DEVOLUCION, MIN_MOTIVO_FUERA_DE_TIEMPO, MSG_YA_RESPONDIDA, TEXTO_VENCIDA, esPropia, esVencida, esperaDesde, filtrarSolicitudes, haceTiempo, puedeAutorizarseFueraDeTiempo, totalesDe, venceHoy,
 } from '../../utils/tiempoExtra';
-import { YaRespondida, autorizarSolicitud, autorizarVarias, devolverSolicitud, leerHistorialTE, leerSolicitudTE } from '../../utils/tiempoExtraDb';
+import { nominaFirmadaDe } from '../../utils/ajustesNominaDb';
+import { YaRespondida, autorizarFueraDeTiempo, autorizarSolicitud, autorizarVarias, devolverSolicitud, leerHistorialTE, leerSolicitudTE } from '../../utils/tiempoExtraDb';
 import DetalleTE from './DetalleTE';
 import AccionCancelarTE from './AccionCancelarTE';
 
@@ -126,6 +127,36 @@ export default function BandejaTE() {
       if (err instanceof YaRespondida) { toast.warning(MSG_YA_RESPONDIDA, 7000); setDetalle(null); } else toast.error('No se pudo devolver: ' + err.message, 8000);
     } finally { setTrabajando(false); setTimeout(() => { ocupadoRef.current = false; }, 1500); }
   };
+
+  // Aut. 2: autoriza una vencida (de nivel 1 o 2) con motivo. Antes avisa si la nómina de esa área y semana ya está firmada; la confirmación lleva el motivo
+  const autorizarFuera = async (t) => {
+    if (trabajando || !puedeAutorizarseFueraDeTiempo(t, new Date(ahora))) return;
+    const sinAut1 = t.estatus === 'pendiente_aut1';
+    let aviso = '';
+    try {
+      const n = await nominaFirmadaDe(t.fechaTE, t.areaId);
+      if (n.firmada) aviso = `
+
+La nómina de ${nombreArea(t.areaId)}, semana ${n.semana}, ya está firmada; RH o Nóminas tendrá que reabrirla. Se le deja un aviso en la tarjeta de esa semana.`;
+    } catch (err) { console.error('Nómina firmada:', err); }
+    const motivo = await confirmar({
+      titulo: `Autorizar ${t.folio ?? 'la solicitud'} fuera de tiempo`,
+      mensaje: `Su fecha (${formatoFecha(`${t.fechaTE}T12:00:00`)}) ya pasó. ${sinAut1 ? 'Todavía no la autorizaba Aut. 1: se autoriza también por Aut. 1 en este mismo paso y el historial lo indica. ' : ''}Quedará autorizada con la etiqueta «Autorizada fuera de tiempo» y tu motivo, y sus horas cuentan para la nómina de su semana.${aviso}`,
+      textoConfirmar: 'Autorizar fuera de tiempo',
+      campo: { etiqueta: 'Motivo (obligatorio)', minLength: MIN_MOTIVO_FUERA_DE_TIEMPO, multilinea: true, placeholder: 'Ej. Sí se trabajó; el jefe no autorizó a tiempo' },
+    });
+    if (!motivo) return;
+    setTrabajando(true); ocupadoRef.current = true;
+    try {
+      await autorizarFueraDeTiempo({ id: t.id, usuario, motivo });
+      toast.success(`${t.folio ?? 'Solicitud'} autorizada fuera de tiempo.`);
+      setDetalle(d => (d?.id === t.id ? null : d));
+    } catch (err) {
+      if (err instanceof YaRespondida) { toast.warning(MSG_YA_RESPONDIDA, 7000); setDetalle(null); }
+      else toast.error(err.code === 'permission-denied' ? 'No se pudo autorizar: solo un Aut. 2 vigente puede, y la solicitud pudo haber cambiado. Actualiza la pantalla.' : `No se pudo autorizar: ${err.message}`, 8000);
+    } finally { setTrabajando(false); setTimeout(() => { ocupadoRef.current = false; }, 1500); }
+  };
+  const puedeFuera = (t) => accesos.esAut2 && !esPropia(t, usuario.uid) && puedeAutorizarseFueraDeTiempo(t, new Date(ahora));
 
   const autorizarSeleccion = async (nivel, items) => {
     const elegidas = items.filter(t => seleccion[nivel].has(t.id) && !esPropia(t, usuario.uid));
@@ -278,7 +309,7 @@ export default function BandejaTE() {
 
       {pestana === 'vencidas' && (
         <section aria-label="Vencidas" className="space-y-4">
-          <p className="text-sm text-[var(--text-secondary)]">Su fecha ya pasó y no se terminaron de autorizar: ya no se pueden autorizar ni devolver. Solo consulta; quien la solicitó puede duplicarla con otra fecha.</p>
+          <p className="text-sm text-[var(--text-secondary)]">Su fecha ya pasó y no se terminaron de autorizar: ya no se pueden autorizar ni devolver de la forma normal. {accesos.esAut2 ? 'Como Aut. 2 puedes autorizarlas fuera de tiempo, con un motivo.' : 'Es solo consulta.'} Quien la solicitó puede duplicarla con otra fecha.</p>
           {vencidas.length === 0 ? (
             <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]"><EstadoVacio texto="No hay solicitudes vencidas." /></div>
           ) : (
@@ -290,7 +321,7 @@ export default function BandejaTE() {
                     <Td mono>{t.folio ?? '—'}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></Td><Td>{nombreArea(t.areaId)}<MotivosTE t={t} className="mt-1" /></Td><Td>{formato.nombre(t.creadoPorNombre)}</Td>
                     <Td className="whitespace-nowrap">{formatoFecha(`${t.fechaTE}T12:00:00`)}</Td><Td derecha>{t.resumen?.totalEmpleados ?? 0}</Td><Td derecha mono>{t.resumen?.totalHoras ?? 0}</Td>
                     <Td><BadgeEstatus t={t} modulo="te" /><p className="mt-1 text-xs text-[var(--text-secondary)]">{TEXTO_VENCIDA} · era de nivel {t.nivel}</p></Td>
-                    <Td className="text-right"><Boton tamano="sm" onClick={() => abrir(t, t.nivel, true)}>Ver</Boton></Td>
+                    <Td className="text-right"><div className="flex justify-end gap-2">{puedeFuera(t) && <Boton tamano="sm" variante="primario" icono={ShieldCheck} disabled={trabajando} onClick={() => autorizarFuera(t)}>Autorizar fuera de tiempo</Boton>}<Boton tamano="sm" onClick={() => abrir(t, t.nivel, true)}>Ver</Boton></div></Td>
                   </Fila>
                 ))}
               </tbody>
@@ -326,7 +357,7 @@ export default function BandejaTE() {
         <Modal isOpen onClose={() => !trabajando && setDetalle(null)} title={detalle.solicitud.folio ?? 'Solicitud'} maxWidth="max-w-4xl" preventCloseOnBackdrop={trabajando}>
           {detalle.cargando ? <EsqueletoTabla filas={3} columnas={4} /> : (
             <DetalleTE t={detalle.solicitud} historial={detalle.historial} area={nombreArea(detalle.solicitud.areaId)} catalogos={{ rutas, comunidades, puntos }} formato={formato}
-              acciones={detalle.soloLectura || esVencida(detalle.solicitud, new Date(ahora)) ? null : esPropia(detalle.solicitud, usuario.uid)
+              acciones={esVencida(detalle.solicitud, new Date(ahora)) ? (puedeFuera(detalle.solicitud) ? <Boton variante="primario" icono={ShieldCheck} disabled={trabajando} onClick={() => autorizarFuera(detalle.solicitud)}>Autorizar fuera de tiempo</Boton> : null) : detalle.soloLectura ? null : esPropia(detalle.solicitud, usuario.uid)
                 ? (
                   <div className="flex w-full flex-wrap items-center justify-between gap-3">
                     <p className="text-sm text-[var(--text-muted)]">No puedes autorizar tu propia solicitud.</p>

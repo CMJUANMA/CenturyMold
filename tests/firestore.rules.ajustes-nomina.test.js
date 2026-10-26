@@ -46,10 +46,11 @@ describe('ajustesNomina: quién lee y escribe', () => {
       await assertSucceeds(getDocs(collection(dbDe(uid), 'ajustesNomina')));
     }
   });
-  it('un usuario sin rol, y ni siquiera la Aut. 2, lee o escribe', async () => {
+  it('un usuario sin rol lee o escribe; la Aut. 2 solo puede LEER un documento por su id (para avisar que la nómina está firmada), nunca listar ni escribir', async () => {
     await sembrarAjuste(ajuste('nom'));
+    await assertFails(getDoc(doc(dbDe('usu'), 'ajustesNomina', ID)));
+    await assertSucceeds(getDoc(doc(dbDe('aut2'), 'ajustesNomina', ID)));
     for (const uid of ['usu', 'aut2']) {
-      await assertFails(getDoc(doc(dbDe(uid), 'ajustesNomina', ID)));
       await assertFails(getDocs(collection(dbDe(uid), 'ajustesNomina')));
       await assertFails(setDoc(doc(dbDe(uid), 'ajustesNomina', 'otro_moldes'), ajuste(uid, { semana: 'otro' })));
       await assertFails(updateDoc(doc(dbDe(uid), 'ajustesNomina', ID), { cambios: [] }));

@@ -152,7 +152,7 @@ export const AYUDAS = {
     autorizar: {
       titulo: 'Cómo autorizar solicitudes',
       pasos: [
-        'Aquí están las solicitudes que esperan tu decisión. Las que "Vencen hoy" salen primero; luego, las más antiguas. Las que ya pasaron de fecha están en la pestaña "Vencidas" (solo consulta).',
+        'Aquí están las solicitudes que esperan tu decisión. Las que "Vencen hoy" salen primero; luego, las más antiguas. Las que ya pasaron de fecha están en la pestaña "Vencidas": solo se consultan, salvo que seas Aut. 2, que puede tocar "Autorizar fuera de tiempo" y escribir el motivo (mínimo 10 letras). Las borradores y devueltas vencidas no se autorizan: se duplican con otra fecha.',
         'Toca "Revisar" para ver los empleados, los horarios, las rutas y los comentarios.',
         'Si todo está bien, toca "Autorizar". Si algo no cuadra, escribe el motivo y toca "Devolver".',
         'Para varias solicitudes a la vez, marca sus casillas y toca "Autorizar seleccionadas".',
@@ -171,7 +171,7 @@ export const AYUDAS = {
       titulo: 'Todas las solicitudes',
       pasos: [
         'Aquí ves todas las solicitudes de tiempo extra enviadas, sin importar su estatus.',
-        'Usa los filtros de área, estatus (incluido "Vencida": su fecha pasó sin autorizarse), fechas, turno y solicitante para encontrar lo que buscas.',
+        'Usa los filtros de área, estatus (incluido "Vencida": su fecha pasó sin autorizarse), "Fuera de tiempo" (las que Aut. 2 autorizó ya vencidas), fechas, turno y solicitante para encontrar lo que buscas.',
         'Toca "Ver" para abrir el detalle de una solicitud, con su historial.',
         'Usa "Descargar resumen de horas extra" para nómina y comedor, o "Exportar consulta" para la lista que ves en pantalla.',
       ],

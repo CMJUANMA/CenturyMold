@@ -189,6 +189,7 @@ export default function RecepcionTE() {
               <li key={t.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface)] px-4 py-3 text-sm">
                 <div className="min-w-0">
                   <p><span className="font-mono font-medium text-[var(--text-main)]">{t.folio}</span> · {nombreArea(t.areaId)} · {fechaLarga(t.fechaTE)}</p>
+                  <InsigniasTE t={t} className="my-1" />
                   <p className="text-xs text-[var(--text-secondary)]">{t.resumen?.totalEmpleados ?? 0} empleados · {t.resumen?.totalHoras ?? 0} h · {t.resumen?.totalTransporte ?? 0} con transporte · {formato.nombre(t.creadoPorNombre)}</p>
                 </div>
                 <div className="flex gap-2">

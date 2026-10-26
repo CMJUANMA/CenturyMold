@@ -14,7 +14,7 @@ import {
 import { db } from '../firebase';
 import {
   ESTATUS_TE_VISIBLES, LOTE_EMPLEADOS, MIN_MOTIVO_CANCELACION_RH, MIN_MOTIVO_DEVOLUCION, MSG_YA_RESPONDIDA, NIVEL_RECEPCION,
-  COMENTARIO_AUT2_PROPIA, MSG_VENCIDA, conteoFechas, datosSolicitudTransporte, esVencida, hoyMexico, nuevoIdBorrador, docAEmpleado, empleadoADoc, folioDe, pasajerosDeTE, resumenTE, trozos,
+  COMENTARIO_AUT2_PROPIA, COMENTARIO_SIN_AUT1, MAX_MOTIVO_FUERA_DE_TIEMPO, MIN_MOTIVO_FUERA_DE_TIEMPO, MSG_VENCIDA, conteoFechas, datosSolicitudTransporte, esVencida, hoyMexico, nuevoIdBorrador, docAEmpleado, empleadoADoc, folioDe, pasajerosDeTE, resumenTE, trozos,
 } from './tiempoExtra';
 import { normalizarEstatus } from './constantes';
 import { comparar } from './orden.js';
@@ -272,6 +272,44 @@ export async function devolverSolicitud({ id, usuario, nivel, motivo }) {
       devolucion: { nivel, nomina: String(usuario.nomina), nombre: usuario.nombre ?? '', motivo: texto, fecha: serverTimestamp() },
     });
     tx.set(doc(collection(db, 'tiempoExtra', id, 'historial')), { ...entradaHistorial(usuario, 'devuelta', texto), nivel });
+  });
+}
+
+/**
+ * Aut. 2 autoriza una VENCIDA que estaba en pendiente_aut1 o pendiente_aut2 (las borradores y devueltas vencidas no: se duplican con otra fecha). Pide un motivo
+ * (de 10 a 500 caracteres). Una transacción: relee el estatus, comprueba que sí venció y deja la solicitud autorizada con autorizadaFueraDeTiempo, su firma de nivel 2,
+ * quién, cuándo y el motivo (fueraDeTiempo), el historial y la bitácora (autorizar_fuera_de_tiempo). Si venía de nivel 1, también queda su firma de nivel 1
+ * (COMENTARIO_SIN_AUT1). Solo un Aut. 2 vigente (las reglas lo exigen; RH sin Aut. 2 no).
+ * @returns {Promise<{ sinAut1: boolean, fechaTE: string, areaId: string }>}
+ */
+export async function autorizarFueraDeTiempo({ id, usuario, motivo }) {
+  const texto = String(motivo ?? '').trim();
+  if (texto.length < MIN_MOTIVO_FUERA_DE_TIEMPO) throw new Error(`El motivo debe tener al menos ${MIN_MOTIVO_FUERA_DE_TIEMPO} caracteres.`);
+  if (texto.length > MAX_MOTIVO_FUERA_DE_TIEMPO) throw new Error(`El motivo puede tener hasta ${MAX_MOTIVO_FUERA_DE_TIEMPO} caracteres.`);
+  const ref = refTE(id);
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    const antes = snap.exists() ? snap.data().estatus : null;
+    if (!['pendiente_aut1', 'pendiente_aut2'].includes(antes)) throw new YaRespondida();
+    const te = snap.data();
+    if (!esVencida(te)) throw new Error('Esta solicitud todavía está a tiempo: se autoriza de la forma normal.');
+    if (te.creadoPor === usuario.uid) throw new Error('No puedes autorizar tu propia solicitud.');
+    const sinAut1 = antes === 'pendiente_aut1';
+    const quien = { nomina: String(usuario.nomina), nombre: usuario.nombre ?? '' };
+    tx.update(ref, {
+      estatus: 'autorizada',
+      ...(sinAut1 ? { aut1: { ...quien, fecha: serverTimestamp(), comentario: COMENTARIO_SIN_AUT1, comoRH: false } } : {}),
+      aut2: { ...quien, fecha: serverTimestamp(), comentario: texto, comoRH: false },
+      autorizadaFueraDeTiempo: true,
+      fueraDeTiempo: { ...quien, fecha: serverTimestamp(), motivo: texto, estatusAnterior: antes },
+      fechaActualizacion: serverTimestamp(),
+    });
+    tx.set(doc(collection(db, 'tiempoExtra', id, 'historial')), {
+      ...entradaHistorial(usuario, 'autorizada_fuera_de_tiempo', `${sinAut1 ? COMENTARIO_SIN_AUT1 : 'Autorizada por Aut. 2, fuera de tiempo'}. Motivo: ${texto}`), nivel: 2,
+    });
+    tx.set(doc(collection(db, 'bitacora')), renglonBitacora(usuario, 'autorizar_fuera_de_tiempo', { estatus: antes, folio: te.folio ?? '' },
+      { estatus: 'autorizada', folio: te.folio ?? '', fechaTE: te.fechaTE ?? '', areaId: te.areaId ?? '', motivo: texto, sinAut1 }));
+    return { sinAut1, fechaTE: te.fechaTE ?? '', areaId: te.areaId ?? '' };
   });
 }
 

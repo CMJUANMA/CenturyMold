@@ -3,9 +3,9 @@
  * bitácora (quién, qué y por qué); nunca se tocan las solicitudes de tiempo extra. Solo Nóminas, RH y admin (firestore.rules); nadie borra.
  * Firmada = bloqueada: las reglas solo dejan a RH reabrirla.
  */
-import { collection, doc, onSnapshot, query, serverTimestamp, where, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, query, serverTimestamp, where, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
-import { idAjuste, renglonParaGuardar } from './formatoNomina.js';
+import { idAjuste, renglonParaGuardar, semanaDe } from './formatoNomina.js';
 
 export const ACCIONES_AJUSTE_NOMINA = { ajustar: 'ajustar_nomina', deshacer: 'deshacer_ajustes_nomina', firmar: 'firmar_nomina', reabrir: 'reabrir_nomina' };
 
@@ -16,6 +16,16 @@ export function escucharAjustes(periodo, onDatos, onError) {
     (snap) => onDatos(new Map(snap.docs.map(d => [d.data().areaId, { id: d.id, ...d.data() }]))),
     onError,
   );
+}
+
+/**
+ * ¿La nómina de esa área y de la semana de `fechaTE` ya está firmada? Lee un solo documento por su id (la Aut. 2 puede leerlo así, no listar: firestore.rules).
+ * @returns {Promise<{ firmada: boolean, semana: number, clave: string }>}
+ */
+export async function nominaFirmadaDe(fechaTE, areaId) {
+  const sem = semanaDe(fechaTE);
+  const snap = await getDoc(doc(db, 'ajustesNomina', idAjuste(sem, areaId)));
+  return { firmada: snap.exists() && snap.data().firmada === true, semana: sem.semana, clave: sem.clave };
 }
 
 const quien = (usuario) => ({ uid: usuario.uid, nombre: usuario.nombre ?? '' });
