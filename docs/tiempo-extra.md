@@ -444,27 +444,14 @@ aplican las reglas. Helpers: `transicionesTE(estatus, quien)` y `estatusInicialT
 - **Transiciones**, **borrar**, **historial**: como antes (ver la tabla). Las consultas de lista deben traer el filtro que las reglas pueden probar.
 - `areasTE`, `config/*` y `accesosTE` ya no tienen reglas (nadie accede a ellas desde la app).
 
-## Modo admin (probar y corregir)
+## El admin
 
-El **admin** puede ver y HACER todo, con su propia cuenta. Hay dos estados:
+El **admin** tiene todos los permisos de todos los roles, siempre: Aut. 2 y, en **todas** las áreas que participan, Aut. 1 y solicitante, además de RH. No hay interruptor, franja, confirmaciones extra ni marcas: sus acciones quedan en el historial y la bitácora con su nombre y su uid, como las de cualquiera. Puede autorizarse a sí mismo lo que capturó (nadie más puede) y lo que envía queda autorizado al enviarse, como cualquier Aut. 2.
 
-- **Apagado** (por defecto; se apaga también al recargar o cerrar sesión): ve las mismas pantallas de RH y sus botones de RH, pero no los de Aut. 1, Aut. 2 ni solicitante de áreas donde no tiene asignación.
-- **Encendido** (interruptor «Modo admin» en el pie del menú, solo para el admin): una **franja fija** arriba dice «Modo admin activo — tus acciones quedan registradas a tu nombre · Apagar». Los accesos del admin pasan a ser Aut. 2 + Aut. 1 + solicitante de **todas** las áreas que participan en tiempo extra (`accesosEnModoAdmin` en `src/utils/modoAdmin.js`, aplicado en `AccesosContext`; los accesos reales quedan en `accesos.reales`). Puede capturar, enviar, autorizar como Aut. 1 o Aut. 2, devolver, cancelar, autorizar fuera de tiempo, confirmar el envío al proveedor, cerrar sin transporte, ajustar y firmar la nómina y reabrir semanas.
-
-**Cada acción pide confirmación** (`confirmarAccionAdmin`: «Autorizar (Aut. 2) la solicitud TE-2026-0007», con aviso de que queda registrada) antes de escribir, y se marca:
-
-| Dónde | Marca |
-|---|---|
-| `tiempoExtra/{id}` | `accionAdmin: true` (acumulativa: nadie más la pone ni la quita) |
-| `tiempoExtra/{id}/historial` | `admin: true`; el detalle muestra «Autorizada (nivel 2) — Nombre (admin)» |
-| `bitacora` | `accionAdmin: true` (el nombre es el real, `porNombre`; «(admin)» se agrega al mostrarlo) |
-| `ajustesNomina/{id}` | `accionAdmin: true` |
-
-Nunca se firma a nombre de otra persona: `porUid`, `nomina` y `nombre` son siempre los del admin. Para pruebas puede autorizar lo que él mismo capturó (los demás no). Lo que captura en modo admin se envía como una solicitud normal (nivel 1 si el área participa, nivel 2 si no) y NO se autoriza solo: cada paso lo hace él, uno por uno.
-
-**Reglas** (`firestore.rules`, dentro de `match /tiempoExtra`): `adminMarcado()` = la solicitud trae `accionAdmin: true` **y** quien escribe es admin (primero se mira la marca, que es barata: el tope de 1000 expresiones por petición está justo en los flujos normales; ver las pruebas de motivos). `soloCambiaTE` deja que solo el admin agregue `accionAdmin`. Las ramas de admin: crear borrador en cualquier área activa, enviar/reenviar (mismas reglas de enviar, con `estatusDeAdmin`), autorizar y devolver en nivel 1 (en lugar de `esAut1De`) y las demás que ya permitían RH (nivel 2, recepción, cerrar sin transporte, nivel 3, cancelar); fuera de tiempo (en lugar de `esAut2`). El historial acepta `admin: true` solo si el padre quedó con `accionAdmin` y quien lo escribe es admin. Nadie más gana permisos: RH, Aut. 1, Aut. 2, solicitante y Nóminas fallan aunque pongan la marca. Pruebas: `tests/firestore.rules.modo-admin.test.js` y `tests/modo-admin.test.js`.
-
-**Revisarlas:** en la consulta de tiempo extra, el filtro **«Acciones de admin»** (solo lo ve el admin) y la insignia «Acción de admin» en las listas. La bitácora no tiene pantalla propia todavía: sus renglones llevan `accionAdmin` para filtrarlos (`where('accionAdmin', '==', true)`).
+- **App:** `accesosDeAdmin` (`src/utils/asignaciones.js`), aplicado en `AccesosContext`, le da `esAut2` y las áreas que participan como `areasAut1` y `areasSolicitante`. Su menú es el de RH, que ya trae todas las secciones por módulo.
+- **Reglas** (`firestore.rules`): `esAdmin()` mira primero el rol (barato para quien no es admin). `asignacionVigente` y `solicitanteOAut1De` devuelven verdadero para el admin, así que `esAut2()`, `esAut1De()`, `esSolicitanteDe()`, `puedeCapturarTE()` y `estatusInicial()` lo tratan como a un Aut. 2 / Aut. 1 / solicitante de cualquier área. La regla de «nadie autoriza ni devuelve lo que creó» se salta con `|| esAdmin()`. Un admin desactivado no hace nada.
+- **Límite de expresiones:** el flujo más justo es *enviar un borrador* con motivos (la regla evalúa el contenido, el contador y el rol). Se midió agregándole expresiones de relleno: aguanta unas 20 a 50 más antes de pasar de 1000. Cualquier regla nueva en ese camino debe ahorrar expresiones en otro lado.
+- **Pruebas:** `tests/firestore.rules.admin-todo.test.js` (el admin puede cada acción de cada rol en cualquier área; los demás roles no ganan nada) y `tests/asignaciones.test.js`.
 
 ## Limitaciones conocidas
 

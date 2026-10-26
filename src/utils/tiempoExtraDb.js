@@ -20,23 +20,11 @@ import { normalizarEstatus } from './constantes';
 import { comparar } from './orden.js';
 import { MIN_MOTIVO_CANCELACION } from './cancelacion.js';
 import { motivoTexto } from './motivosTE.js';
-import { confirmarAccionAdmin, marcaAdmin, marcaAdminHistorial, modoAdminActivo } from './modoAdmin.js';
 
 const refTE = (id) => doc(db, 'tiempoExtra', id);
 
 function entradaHistorial(usuario, accion, comentario = '') {
-  return { accion, nivel: 0, porUid: usuario.uid, porNomina: String(usuario.nomina), porNombre: usuario.nombre ?? '', comentario, fecha: serverTimestamp(), ...marcaAdminHistorial() };
-}
-
-/**
- * MODO ADMIN: antes de escribir, el admin confirma qué va a hacer en esa solicitud (con su folio). Sin el modo, no hace nada.
- * `confirmado`: la acción ya se confirmó en bloque (autorizar o recibir varias).
- */
-async function confirmarComoAdmin(id, frase, confirmado = false) {
-  if (confirmado || !modoAdminActivo()) return;
-  let folio = id;
-  try { folio = (await getDoc(refTE(id))).data()?.folio ?? id; } catch { /* se muestra el id */ }
-  await confirmarAccionAdmin(`${frase} ${folio}.`);
+  return { accion, nivel: 0, porUid: usuario.uid, porNomina: String(usuario.nomina), porNombre: usuario.nombre ?? '', comentario, fecha: serverTimestamp() };
 }
 
 /** Solicitud con sus empleados (para abrirla en el editor o en el detalle) */
@@ -91,11 +79,11 @@ export async function guardarBorrador({ id, existe, usuario, area, fechaTE, moti
   // El primer lote lleva la solicitud (se crea o se actualiza) junto con los primeros empleados
   const primero = writeBatch(db);
   if (existe) {
-    primero.update(refTE(id), { fechaTE, comentario, resumen, ...conMotivoOtro(extras, false), motivo: motivoDe(motivo, extras), ...marcaAdmin(), fechaActualizacion: serverTimestamp() });
+    primero.update(refTE(id), { fechaTE, comentario, resumen, ...conMotivoOtro(extras, false), motivo: motivoDe(motivo, extras), fechaActualizacion: serverTimestamp() });
   } else {
     primero.set(refTE(id), {
       areaId: area.id, areaNombre: area.nombre, creadoPor: usuario.uid, creadoPorNomina: String(usuario.nomina), creadoPorNombre: usuario.nombre ?? '',
-      fechaTE, comentario, estatus: 'borrador', resumen, ...conMotivoOtro(extras, true), motivo: motivoDe(motivo, extras), ...marcaAdmin(), fechaCreacion: serverTimestamp(), fechaActualizacion: serverTimestamp(),
+      fechaTE, comentario, estatus: 'borrador', resumen, ...conMotivoOtro(extras, true), motivo: motivoDe(motivo, extras), fechaCreacion: serverTimestamp(), fechaActualizacion: serverTimestamp(),
     });
   }
   escribirEmpleados(primero, lotesEmp[0] ?? []);
@@ -125,7 +113,6 @@ export async function guardarBorrador({ id, existe, usuario, area, fechaTE, moti
  * @returns {Promise<string>} el folio
  */
 export async function enviarSolicitud({ id, devuelta, usuario, estatus, fechaTE, motivo, comentario, empleados, extras = {} }) {
-  await confirmarComoAdmin(id, devuelta ? 'Reenviar a autorización la solicitud' : 'Enviar a autorización la solicitud');
   const resumen = resumenTE(empleados);
   const contenido = { fechaTE, comentario, resumen, ...conMotivoOtro(extras, false), motivo: motivoDe(motivo, extras) };
   // La bitácora de la solicitud lleva los motivos con los que se envió (hasta 1000 caracteres, el tope de las reglas)
@@ -137,7 +124,7 @@ export async function enviarSolicitud({ id, devuelta, usuario, estatus, fechaTE,
     : entradaHistorial(usuario, accion, extras.motivos?.length ? conMotivos : ''));
   if (devuelta) {
     const b = writeBatch(db);
-    b.update(refTE(id), { ...contenido, estatus, aut1: deleteField(), aut2: autoAut2 ? firmaAut2() : deleteField(), ...marcaAdmin(), fechaActualizacion: serverTimestamp() });
+    b.update(refTE(id), { ...contenido, estatus, aut1: deleteField(), aut2: autoAut2 ? firmaAut2() : deleteField(), fechaActualizacion: serverTimestamp() });
     b.set(doc(collection(db, 'tiempoExtra', id, 'historial')), historial('reenviada'));
     await b.commit();
     return (await getDoc(refTE(id))).data()?.folio ?? '';
@@ -149,7 +136,7 @@ export async function enviarSolicitud({ id, devuelta, usuario, estatus, fechaTE,
     const numero = (c.exists() ? c.data().ultimo : 0) + 1;
     const folio = folioDe(anio, numero);
     if (c.exists()) tx.update(contador, { ultimo: numero, solicitudId: id }); else tx.set(contador, { ultimo: 1, solicitudId: id });
-    tx.update(refTE(id), { ...contenido, estatus, folio, ...(autoAut2 ? { aut2: firmaAut2() } : {}), ...marcaAdmin(), fechaActualizacion: serverTimestamp() });
+    tx.update(refTE(id), { ...contenido, estatus, folio, ...(autoAut2 ? { aut2: firmaAut2() } : {}), fechaActualizacion: serverTimestamp() });
     tx.set(doc(collection(db, 'tiempoExtra', id, 'historial')), historial('enviada'));
     return folio;
   });
@@ -163,10 +150,9 @@ export async function enviarSolicitud({ id, devuelta, usuario, estatus, fechaTE,
 export async function cancelarSolicitud({ id, usuario, motivo }) {
   const texto = String(motivo ?? '').trim();
   if (texto.length < MIN_MOTIVO_CANCELACION) throw new Error(`El motivo de la cancelación debe tener al menos ${MIN_MOTIVO_CANCELACION} caracteres.`);
-  await confirmarComoAdmin(id, 'Cancelar la solicitud');
   const b = writeBatch(db);
   b.update(refTE(id), {
-    estatus: 'cancelada', motivoCancelacion: texto, ...marcaAdmin(), fechaActualizacion: serverTimestamp(),
+    estatus: 'cancelada', motivoCancelacion: texto, fechaActualizacion: serverTimestamp(),
     canceladaPor: { nomina: String(usuario.nomina), nombre: usuario.nombre ?? '', fecha: serverTimestamp(), comoRH: false },
   });
   b.set(doc(collection(db, 'tiempoExtra', id, 'historial')), entradaHistorial(usuario, 'cancelada', texto));
@@ -255,19 +241,18 @@ const ESTATUS_DEL_NIVEL = { 1: 'pendiente_aut1', 2: 'pendiente_aut2', [NIVEL_REC
  * YaRespondida si cambió; guarda la firma { nomina, nombre, fecha, comentario, comoRH } y la entrada del historial.
  * comoRH: firma el nivel 2 por su rol RH/admin sin ser Aut. 2 (para saber si firmó Salvador, Marco o alguien de RH).
  */
-export async function autorizarSolicitud({ id, usuario, nivel, comoRH = false, comentario = '', confirmado = false }) {
-  await confirmarComoAdmin(id, `Autorizar (Aut. ${nivel})`, confirmado);
+export async function autorizarSolicitud({ id, usuario, nivel, comoRH = false, comentario = '' }) {
   const ref = refTE(id);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists() || snap.data().estatus !== ESTATUS_DEL_NIVEL[nivel]) throw new YaRespondida();
     if (esVencida(snap.data())) throw new Error(MSG_VENCIDA);
-    if (snap.data().creadoPor === usuario.uid && !modoAdminActivo()) throw new Error('No puedes autorizar tu propia solicitud.');
+    if (snap.data().creadoPor === usuario.uid && usuario.rol !== 'admin') throw new Error('No puedes autorizar tu propia solicitud.');
     const texto = String(comentario).trim();
     const firma = { nomina: String(usuario.nomina), nombre: usuario.nombre ?? '', fecha: serverTimestamp(), comentario: texto, comoRH: nivel === 2 ? !!comoRH : false };
     tx.update(ref, nivel === 1
-      ? { estatus: 'pendiente_aut2', aut1: firma, ...marcaAdmin(), fechaActualizacion: serverTimestamp() }
-      : { estatus: 'autorizada', aut2: firma, ...marcaAdmin(), fechaActualizacion: serverTimestamp() });
+      ? { estatus: 'pendiente_aut2', aut1: firma, fechaActualizacion: serverTimestamp() }
+      : { estatus: 'autorizada', aut2: firma, fechaActualizacion: serverTimestamp() });
     tx.set(doc(collection(db, 'tiempoExtra', id, 'historial')), { ...entradaHistorial(usuario, nivel === 1 ? 'autorizada_1' : 'autorizada_2', texto), nivel });
   });
 }
@@ -276,15 +261,14 @@ export async function autorizarSolicitud({ id, usuario, nivel, comoRH = false, c
 export async function devolverSolicitud({ id, usuario, nivel, motivo }) {
   const texto = String(motivo).trim();
   if (texto.length < MIN_MOTIVO_DEVOLUCION) throw new Error(`El motivo de la devolución debe tener al menos ${MIN_MOTIVO_DEVOLUCION} caracteres.`);
-  await confirmarComoAdmin(id, `Devolver (nivel ${nivel})`);
   const ref = refTE(id);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists() || snap.data().estatus !== ESTATUS_DEL_NIVEL[nivel]) throw new YaRespondida();
     if (esVencida(snap.data())) throw new Error(MSG_VENCIDA);
-    if (nivel !== NIVEL_RECEPCION && snap.data().creadoPor === usuario.uid && !modoAdminActivo()) throw new Error('No puedes devolver tu propia solicitud.');
+    if (nivel !== NIVEL_RECEPCION && snap.data().creadoPor === usuario.uid && usuario.rol !== 'admin') throw new Error('No puedes devolver tu propia solicitud.');
     tx.update(ref, {
-      estatus: 'devuelta', ...marcaAdmin(), fechaActualizacion: serverTimestamp(),
+      estatus: 'devuelta', fechaActualizacion: serverTimestamp(),
       devolucion: { nivel, nomina: String(usuario.nomina), nombre: usuario.nombre ?? '', motivo: texto, fecha: serverTimestamp() },
     });
     tx.set(doc(collection(db, 'tiempoExtra', id, 'historial')), { ...entradaHistorial(usuario, 'devuelta', texto), nivel });
@@ -302,7 +286,6 @@ export async function autorizarFueraDeTiempo({ id, usuario, motivo }) {
   const texto = String(motivo ?? '').trim();
   if (texto.length < MIN_MOTIVO_FUERA_DE_TIEMPO) throw new Error(`El motivo debe tener al menos ${MIN_MOTIVO_FUERA_DE_TIEMPO} caracteres.`);
   if (texto.length > MAX_MOTIVO_FUERA_DE_TIEMPO) throw new Error(`El motivo puede tener hasta ${MAX_MOTIVO_FUERA_DE_TIEMPO} caracteres.`);
-  await confirmarComoAdmin(id, 'Autorizar fuera de tiempo la solicitud');
   const ref = refTE(id);
   return runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
@@ -310,14 +293,14 @@ export async function autorizarFueraDeTiempo({ id, usuario, motivo }) {
     if (!['pendiente_aut1', 'pendiente_aut2'].includes(antes)) throw new YaRespondida();
     const te = snap.data();
     if (!esVencida(te)) throw new Error('Esta solicitud todavía está a tiempo: se autoriza de la forma normal.');
-    if (te.creadoPor === usuario.uid && !modoAdminActivo()) throw new Error('No puedes autorizar tu propia solicitud.');
+    if (te.creadoPor === usuario.uid && usuario.rol !== 'admin') throw new Error('No puedes autorizar tu propia solicitud.');
     const sinAut1 = antes === 'pendiente_aut1';
     const quien = { nomina: String(usuario.nomina), nombre: usuario.nombre ?? '' };
     tx.update(ref, {
       estatus: 'autorizada',
       ...(sinAut1 ? { aut1: { ...quien, fecha: serverTimestamp(), comentario: COMENTARIO_SIN_AUT1, comoRH: false } } : {}),
       aut2: { ...quien, fecha: serverTimestamp(), comentario: texto, comoRH: false },
-      autorizadaFueraDeTiempo: true, ...marcaAdmin(),
+      autorizadaFueraDeTiempo: true,
       fueraDeTiempo: { ...quien, fecha: serverTimestamp(), motivo: texto, estatusAnterior: antes },
       fechaActualizacion: serverTimestamp(),
     });
@@ -337,10 +320,9 @@ export async function autorizarFueraDeTiempo({ id, usuario, motivo }) {
 export async function autorizarVarias({ tareas, usuario, comoRH, comentario = '' }) {
   const ok = [];
   const fallidas = [];
-  if (modoAdminActivo()) await confirmarAccionAdmin(`Autorizar ${tareas.length === 1 ? 'la solicitud elegida' : `las ${tareas.length} solicitudes elegidas`}.`);
   for (const { id, nivel } of tareas) {
     try {
-      await autorizarSolicitud({ id, usuario, nivel, comoRH, comentario, confirmado: true });
+      await autorizarSolicitud({ id, usuario, nivel, comoRH, comentario });
       ok.push(id);
     } catch (err) {
       fallidas.push({ id, motivo: err instanceof YaRespondida ? MSG_YA_RESPONDIDA : (err.code === 'permission-denied' ? 'Sin permiso (ya no es tu nivel o tu rol venció)' : err.message) });
@@ -355,7 +337,7 @@ const refSolicitud = (id) => doc(db, 'solicitudes', id);
 
 /** Renglón de la bitácora general (solo se crea): cada recepción y cada cancelación posterior dejan el suyo en la misma transacción */
 function renglonBitacora(usuario, accion, antes, despues) {
-  return { accion, entidad: 'tiempoExtra', antes, despues, porUid: usuario.uid, porNombre: usuario.nombre ?? '', fecha: serverTimestamp(), ...marcaAdmin() };
+  return { accion, entidad: 'tiempoExtra', antes, despues, porUid: usuario.uid, porNombre: usuario.nombre ?? '', fecha: serverTimestamp() };
 }
 
 const firmaRH = (usuario, extra = {}) => ({ nomina: String(usuario.nomina), nombre: usuario.nombre ?? '', fecha: serverTimestamp(), ...extra });
@@ -373,8 +355,7 @@ const entradaTransporte = (usuario, accion, comentario) => ({ fecha: new Date().
  * Las reglas exigen además, con getAfter, que la solicitud de transporte y el paso a procesada lleguen en la misma operación.
  * @returns {Promise<{ solicitudTransporteId: string|null, pasajeros: number, fechas: string[] }>}  fechas = los días con viajes (la salida de lo que cruza la medianoche va al día siguiente)
  */
-export async function recibirSolicitud({ id, usuario, confirmado = false }) {
-  await confirmarComoAdmin(id, 'Confirmar el envío al proveedor de la solicitud', confirmado);
+export async function recibirSolicitud({ id, usuario }) {
   const ref = refTE(id);
   const emps = await getDocs(collection(db, 'tiempoExtra', id, 'empleados'));
   const empleados = emps.docs.map(d => docAEmpleado(d.id, d.data()));
@@ -398,7 +379,7 @@ export async function recibirSolicitud({ id, usuario, confirmado = false }) {
     }
     tx.update(ref, {
       estatus: 'procesada', recibidaPor: firmaRH(usuario), fechaRecepcion: serverTimestamp(),
-      ...(solRef ? { solicitudTransporteId: solRef.id } : {}), ...marcaAdmin(), fechaActualizacion: serverTimestamp(),
+      ...(solRef ? { solicitudTransporteId: solRef.id } : {}), fechaActualizacion: serverTimestamp(),
     });
     tx.set(doc(collection(db, 'tiempoExtra', id, 'historial')), {
       ...entradaHistorial(usuario, 'recibida_rh', solRef ? `Transporte solicitado para ${pasajeros.length} empleados.` : 'Sin empleados con transporte.'), nivel: 0,
@@ -415,14 +396,13 @@ export async function recibirSolicitud({ id, usuario, confirmado = false }) {
  * bitácora (`cerrar_sin_transporte`). Una transacción: relee el estatus (aborta si ya no está autorizada) y comprueba que la fecha pasó.
  */
 export async function cerrarSinTransporte({ id, usuario }) {
-  await confirmarComoAdmin(id, 'Cerrar sin transporte la solicitud');
   const ref = refTE(id);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists() || snap.data().estatus !== 'autorizada') throw new YaRespondida();
     const te = snap.data();
     if (!(String(te.fechaTE ?? '') < hoyMexico())) throw new Error('Solo se puede cerrar sin transporte cuando la fecha del tiempo extra ya pasó.');
-    tx.update(ref, { estatus: 'procesada', recibidaPor: firmaRH(usuario), fechaRecepcion: serverTimestamp(), cerradaSinTransporte: true, ...marcaAdmin(), fechaActualizacion: serverTimestamp() });
+    tx.update(ref, { estatus: 'procesada', recibidaPor: firmaRH(usuario), fechaRecepcion: serverTimestamp(), cerradaSinTransporte: true, fechaActualizacion: serverTimestamp() });
     tx.set(doc(collection(db, 'tiempoExtra', id, 'historial')), { ...entradaHistorial(usuario, 'recibida_rh', 'Cerrada sin transporte: la fecha ya pasó y no se envió al proveedor.'), nivel: 0 });
     tx.set(doc(collection(db, 'bitacora')), renglonBitacora(usuario, 'cerrar_sin_transporte', { estatus: 'autorizada', folio: te.folio ?? '' },
       { estatus: 'procesada', folio: te.folio ?? '', fechaTE: te.fechaTE ?? '', pasajeros: te.resumen?.totalTransporte ?? 0 }));
@@ -433,10 +413,9 @@ export async function cerrarSinTransporte({ id, usuario }) {
 export async function recibirVarias({ ids, usuario }) {
   const ok = [];
   const fallidas = [];
-  if (modoAdminActivo()) await confirmarAccionAdmin(`Confirmar el envío al proveedor de ${ids.length === 1 ? 'la solicitud elegida' : `las ${ids.length} solicitudes elegidas`}.`);
   for (const id of ids) {
     try {
-      const r = await recibirSolicitud({ id, usuario, confirmado: true });
+      const r = await recibirSolicitud({ id, usuario });
       ok.push({ id, ...r });
     } catch (err) {
       fallidas.push({ id, motivo: err instanceof YaRespondida ? MSG_YA_RESPONDIDA : (err.code === 'permission-denied' ? 'Sin permiso (solo RH y admin reciben)' : err.message) });
@@ -455,7 +434,6 @@ export async function recibirVarias({ ids, usuario }) {
 export async function cancelarAutorizada({ id, usuario, motivo }) {
   const texto = String(motivo).trim();
   if (texto.length < MIN_MOTIVO_CANCELACION_RH) throw new Error(`El motivo de la cancelación debe tener al menos ${MIN_MOTIVO_CANCELACION_RH} caracteres.`);
-  await confirmarComoAdmin(id, 'Cancelar la solicitud autorizada');
   const ref = refTE(id);
   return runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
@@ -478,7 +456,7 @@ export async function cancelarAutorizada({ id, usuario, motivo }) {
         transporte = 'cancelado';
       }
     }
-    tx.update(ref, { estatus: 'cancelada', motivoCancelacion: texto, canceladaPor: firmaRH(usuario, { comoRH: true }), ...marcaAdmin(), fechaActualizacion: serverTimestamp() });
+    tx.update(ref, { estatus: 'cancelada', motivoCancelacion: texto, canceladaPor: firmaRH(usuario, { comoRH: true }), fechaActualizacion: serverTimestamp() });
     tx.set(doc(collection(db, 'tiempoExtra', id, 'historial')), { ...entradaHistorial(usuario, 'cancelada', texto), nivel: 0 });
     tx.set(doc(collection(db, 'bitacora')), renglonBitacora(usuario, 'cancelar_autorizada', { estatus: antes, folio: te.folio ?? '' },
       { estatus: 'cancelada', folio: te.folio ?? '', motivo: texto, transporte, solicitudTransporteId: transporteId ?? null }));

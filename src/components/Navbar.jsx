@@ -13,7 +13,6 @@ import { User, LogOut, Menu, X } from 'lucide-react';
 import { ICONOS, IconoInicio } from './iconosMenu';
 import { useBloqueoScroll } from '../hooks/useBloqueoScroll';
 import Logo from './Logo';
-import { InterruptorModoAdmin } from './ModoAdminUI';
 import { useAuth } from '../hooks/useAuth';
 import { useAccesos } from '../hooks/useAccesos';
 import { usePendientesRutas, usePorAutorizar, usePorRecibir } from '../hooks/usePendientes';
@@ -51,7 +50,7 @@ export default function Navbar() {
   const transporteAnterior = useTransporteAnterior(usuario?.uid, !esRH && !esNomina && FUNCIONES.transporteSuelto);
   const porAutorizar = usePorAutorizar(usuario, accesos, true).total;
   const porRecibir = usePorRecibir(usuario, true);
-  const descripcion = descripcionRoles(accesos.reales ?? accesos, nombresArea); // con el modo admin encendido, sus roles de verdad (no todas las áreas)
+  const descripcion = descripcionRoles(accesos, nombresArea);
 
   // RH/admin: por secciones (utils/navegacion.js); los demás: menú plano por rol
   const lista = esRH ? itemsMenuRH({ esRH, esAdmin: accesos.esAdmin })
@@ -133,10 +132,8 @@ export default function Navbar() {
           })}
         </nav>
 
-        {/* Pie compacto: nombre en una línea, rol pequeño, y cerrar sesión al lado (el admin, además, el interruptor del modo admin) */}
-        <div className="shrink-0 border-t border-[var(--border-color)] p-2">
-        <InterruptorModoAdmin />
-        <div className="flex items-center gap-1">
+        {/* Pie compacto: nombre en una línea, rol pequeño, y cerrar sesión al lado */}
+        <div className="flex shrink-0 items-center gap-1 border-t border-[var(--border-color)] p-2">
           <NavLink to={RUTAS.miCuenta} onClick={cerrarMenu} title="Mi cuenta"
             className={({ isActive }) =>
               `flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 transition-colors duration-150 lg:min-h-10 ${isActive ? 'bg-[var(--bg-surface-hover)]' : 'hover:bg-[var(--bg-surface-hover)]'}`
@@ -151,7 +148,6 @@ export default function Navbar() {
             className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-md text-[var(--text-secondary)] transition-colors duration-150 hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-main)] lg:h-10 lg:w-10">
             <LogOut className="h-[18px] w-[18px]" aria-hidden="true" />
           </button>
-        </div>
         </div>
       </aside>
     </>

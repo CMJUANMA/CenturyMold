@@ -413,11 +413,10 @@ export function turnosDeTE(t) {
 }
 
 /** Filtros de la bandeja y de la consulta: área, estatus, rango de fecha del TE, turno ('1' | '2' | '3'), motivo (id del catálogo) y texto del solicitante */
-export function filtrarSolicitudes(lista, { areaId = '', estatus = '', desde = '', hasta = '', solicitante = '', turno = '', motivoId = '', fueraDeTiempo = false, accionAdmin = false, ahora = new Date() } = {}, catalogoMotivos = []) {
+export function filtrarSolicitudes(lista, { areaId = '', estatus = '', desde = '', hasta = '', solicitante = '', turno = '', motivoId = '', fueraDeTiempo = false, ahora = new Date() } = {}, catalogoMotivos = []) {
   const q = String(solicitante).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
   return lista.filter(t => (!areaId || t.areaId === areaId) && (!estatus || estatusVisible(t, ahora) === estatus) && (!turno || turnosDeTE(t).includes(turno)) && tieneMotivo(t, motivoId, catalogoMotivos)
     && (!fueraDeTiempo || esAutorizadaFueraDeTiempo(t))
-    && (!accionAdmin || t.accionAdmin === true)
     && (!desde || String(t.fechaTE ?? '') >= desde) && (!hasta || String(t.fechaTE ?? '') <= hasta)
     && (!q || `${t.creadoPorNombre ?? ''} ${t.creadoPorNomina ?? ''}`.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q)));
 }

@@ -113,6 +113,17 @@ export function calcularAccesos(asignaciones, usuario, ahora = new Date()) {
   };
 }
 
+/**
+ * El ADMIN tiene todos los permisos de todos los roles, siempre: Aut. 2 y, en TODAS las áreas que participan en tiempo extra, Aut. 1 y solicitante
+ * (además de RH, que ya incluye). Sin modo especial y sin marcas. Para cualquier otro rol devuelve los accesos tal cual. Es lo mismo que comprueba firestore.rules.
+ * @param {object} accesos  lo que devuelve calcularAccesos
+ * @param {string[]} areasQueParticipan  ids de las áreas activas que participan en tiempo extra
+ */
+export function accesosDeAdmin(accesos, areasQueParticipan = []) {
+  if (!accesos?.esAdmin) return accesos;
+  return { ...accesos, esAut2: true, areasAut1: areasQueParticipan, areasSolicitante: areasQueParticipan };
+}
+
 // ── Quién puede asignar qué ───────────────────────────────────────────────
 
 /** Roles operativos que esta persona puede dar o quitar: admin todos; RH y Aut. 2, solo aut1 y solicitante */

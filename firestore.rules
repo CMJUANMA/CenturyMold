@@ -14,7 +14,9 @@ service cloud.firestore {
     // Rol del SISTEMA (usuarios/{uid}.rol): solo admin, rh o usuario. Los permisos operativos (Aut. 2, Aut. 1, solicitante)
     // son asignaciones por área con vigencia (colección asignaciones); el puesto no da permisos.
     // (esAdmin y esRH leen el perfil una sola vez: el tope de 1000 expresiones por petición es justo y activo() + rol() lo leían dos.)
-    function esAdmin()        { let p = perfil(); return exists(perfilPath()) && p.get('activo', true) != false && p.get('rol', '') == 'admin'; }
+    // ADMIN: tiene TODOS los permisos de todos los roles, siempre (Aut. 2, Aut. 1 y solicitante de todas las áreas, RH y Nóminas), sin modo especial y sin marcas.
+    // Se mira primero el rol (barato para quien no es admin: el tope de 1000 expresiones por petición está justo en el flujo de enviar tiempo extra).
+    function esAdmin()        { let p = perfil(); return p.get('rol', '') == 'admin' && p.get('activo', true) != false; }
     function esRH()           { let p = perfil(); return exists(perfilPath()) && p.get('activo', true) != false && p.get('rol', '') in ['rh', 'admin']; }
     // Nóminas: rol del sistema "nomina". Ve toda la planta (tiempo extra sin borradores, transporte, padrón con teléfono, estructura) y solo
     // ESCRIBE en el paso "Por enviar al proveedor" (confirmar un tiempo extra autorizado y la solicitud de transporte que genera) y en la bitácora
@@ -39,7 +41,8 @@ service cloud.firestore {
     function asignacionVigente(rol, area) {
       let p = perfil();
       let ap = /databases/$(database)/documents/asignaciones/$(p.get('nomina', '') + '_' + rol + '_' + area);
-      return exists(perfilPath()) && p.get('activo', true) != false && area is string && exists(ap) && asigVigente(get(ap).data);
+      // El admin cuenta como Aut. 2, Aut. 1 y solicitante de cualquier área (esAut2, esAut1De y esSolicitanteDe pasan por aquí)
+      return exists(perfilPath()) && p.get('activo', true) != false && (p.get('rol', '') == 'admin' || (area is string && exists(ap) && asigVigente(get(ap).data)));
     }
     function esAut2() { return asignacionVigente('aut2', 'planta'); }
     // Gestiona usuarios (alta, edición, restablecer contraseña, dar o quitar el rol rh): RH, admin y Aut. 2 vigente. Admin siempre cuenta como RH.
@@ -179,8 +182,7 @@ service cloud.firestore {
       allow create: if (esRH() || (esAut2() && (request.resource.data.entidad in ['asignacion', 'descarga'] || request.resource.data.entidad.matches('usuarios/.*')
                                                 || (request.resource.data.entidad == 'tiempoExtra' && request.resource.data.accion == 'autorizar_fuera_de_tiempo')))
                         || (esNomina() && accionDeNomina()))
-        && request.resource.data.keys().hasOnly(['accion', 'entidad', 'antes', 'despues', 'porUid', 'porNombre', 'fecha', 'accionAdmin'])
-        && (request.resource.data.get('accionAdmin', false) != true || esAdmin())
+        && request.resource.data.keys().hasOnly(['accion', 'entidad', 'antes', 'despues', 'porUid', 'porNombre', 'fecha'])
         && textoHasta(request.resource.data.accion, 60) && textoHasta(request.resource.data.entidad, 120)
         && request.resource.data.porUid == request.auth.uid
         && request.resource.data.get('porNombre', '') == miNombre()
@@ -331,8 +333,8 @@ service cloud.firestore {
       let n = p.get('nomina', '');
       let s = /databases/$(database)/documents/asignaciones/$(n + '_solicitante_' + areaId);
       let a = /databases/$(database)/documents/asignaciones/$(n + '_aut1_' + areaId);
-      return exists(perfilPath()) && p.get('activo', true) != false && areaId is string
-        && ((exists(s) && asigVigente(get(s).data)) || (exists(a) && asigVigente(get(a).data)));
+      return exists(perfilPath()) && p.get('activo', true) != false
+        && (p.get('rol', '') == 'admin' || (areaId is string && ((exists(s) && asigVigente(get(s).data)) || (exists(a) && asigVigente(get(a).data)))));
     }
     function puedeCapturarTE(areaId) {
       return areaActiva(areaId) && (get(areaPath(areaId)).data.get('participaTE', false) == true
@@ -465,14 +467,12 @@ service cloud.firestore {
       allow update: if ((esRH() || esNomina()) && resource.data.get('firmada', false) != true && ajusteValido(id))
         || (esRH() && resource.data.get('firmada', false) == true && request.resource.data.firmada == false
             && request.resource.data.semana == resource.data.semana && request.resource.data.areaId == resource.data.areaId
-            && soloCambia(['firmada', 'firmadaPor', 'reabiertaPor', 'actualizadoPor', 'fechaActualizacion', 'accionAdmin'])
-            && (!cambia(['accionAdmin']) || (request.resource.data.accionAdmin == true && esAdmin()))
+            && soloCambia(['firmada', 'firmadaPor', 'reabiertaPor', 'actualizadoPor', 'fechaActualizacion'])
             && request.resource.data.actualizadoPor.uid == request.auth.uid && request.resource.data.fechaActualizacion == request.time);
       allow delete: if false;
       function ajusteValido(id) {
         let d = request.resource.data;
-        return d.keys().hasOnly(['semana', 'areaId', 'desde', 'hasta', 'cambios', 'renglones', 'firmada', 'firmadaPor', 'reabiertaPor', 'actualizadoPor', 'fechaActualizacion', 'accionAdmin'])
-          && (d.get('accionAdmin', false) != true || esAdmin())
+        return d.keys().hasOnly(['semana', 'areaId', 'desde', 'hasta', 'cambios', 'renglones', 'firmada', 'firmadaPor', 'reabiertaPor', 'actualizadoPor', 'fechaActualizacion'])
           && d.keys().hasAll(['semana', 'areaId', 'desde', 'hasta', 'cambios', 'renglones', 'firmada', 'actualizadoPor', 'fechaActualizacion'])
           && textoHasta(d.semana, 30) && textoHasta(d.areaId, 60) && id == d.semana + '_' + d.areaId
           && textoHasta(d.desde, 10) && textoHasta(d.hasta, 10)
@@ -508,16 +508,6 @@ service cloud.firestore {
       function uid() { return request.auth.uid; }
       function antes()   { return resource.data; }
       function despues() { return request.resource.data; }
-      // MODO ADMIN: el admin hace cualquier acción de cualquier rol con su propia cuenta; la solicitud queda marcada con accionAdmin: true (nadie más la puede escribir ni quitar)
-      // y el historial lleva admin: true. Primero se mira la marca (barata) y solo si viene se lee el perfil: el tope de 1000 expresiones por petición está justo en los flujos normales.
-      function adminMarcado() { return despues().get('accionAdmin', false) == true && esAdmin(); }
-      // Como soloCambia, pero deja que el admin agregue accionAdmin: true
-      function soloCambiaTE(campos) {
-        let d = request.resource.data.diff(resource.data).affectedKeys();
-        return d.hasOnly(campos) || (adminMarcado() && d.hasOnly(campos.concat(['accionAdmin'])));
-      }
-      // MODO ADMIN envía lo suyo (borrador o devuelta) en cualquier área activa por las mismas reglas de enviar de abajo: nivel 1 si el área participa, nivel 2 si no, y NUNCA se autoriza solo
-      function estatusDeAdmin(areaId) { return areaActiva(areaId) && despues().estatus == (areaParticipaTE(areaId) ? 'pendiente_aut1' : 'pendiente_aut2'); }
       allow read: if puedeLeerTE(resource.data);
 
       // Tipo de tiempo extra: turno extra (viene a la planta) o extensión de turno (ya está en la planta)
@@ -591,7 +581,7 @@ service cloud.firestore {
         && teId.matches('BR-[A-Za-z0-9]{10,}')
         && despues().keys().hasOnly(['areaId', 'areaNombre', 'creadoPor', 'creadoPorNomina', 'creadoPorNombre',
                                      'fechaTE', 'motivo', 'motivoOtro', 'motivos', 'comentario', 'estatus', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas',
-                                     'fechaCreacion', 'fechaActualizacion', 'accionAdmin'])
+                                     'fechaCreacion', 'fechaActualizacion'])
         && despues().keys().hasAll(['areaId', 'creadoPor', 'creadoPorNomina', 'fechaTE', 'motivo', 'estatus',
                                     'fechaCreacion', 'fechaActualizacion'])
         && despues().estatus == 'borrador'
@@ -599,7 +589,7 @@ service cloud.firestore {
         && despues().creadoPor == uid()
         && despues().creadoPorNomina == miNomina()
         && despues().areaId is string
-        && (despues().keys().hasAny(['accionAdmin']) ? (adminMarcado() && areaActiva(despues().areaId)) : puedeCapturarTE(despues().areaId))
+        && puedeCapturarTE(despues().areaId)
         && contenidoValido() && nombresDeCreacionValidos()
         && despues().fechaCreacion == request.time
         && despues().fechaActualizacion == request.time;
@@ -617,30 +607,30 @@ service cloud.firestore {
       // Aut. 1 vigente de esa área autoriza: pendiente_aut1 → pendiente_aut2. Nadie autoriza lo que creó.
       allow update: if antes().estatus == 'pendiente_aut1' && despues().estatus == 'pendiente_aut2'
         && despues().fechaActualizacion == request.time
-        && soloCambiaTE(['estatus', 'aut1', 'fechaActualizacion'])
-        && (antes().creadoPor != uid() || adminMarcado()) && !pasoElDia(antes().fechaTE)
-        && (adminMarcado() || esAut1De(antes().areaId)) && firmaValida(despues().aut1, false);
+        && soloCambia(['estatus', 'aut1', 'fechaActualizacion'])
+        && (antes().creadoPor != uid() || esAdmin()) && !pasoElDia(antes().fechaTE)
+        && esAut1De(antes().areaId) && firmaValida(despues().aut1, false);
 
       // Aut. 1 devuelve (con motivo): pendiente_aut1 → devuelta
       allow update: if antes().estatus == 'pendiente_aut1' && despues().estatus == 'devuelta'
         && despues().fechaActualizacion == request.time
-        && soloCambiaTE(['estatus', 'devolucion', 'fechaActualizacion'])
-        && (antes().creadoPor != uid() || adminMarcado()) && !pasoElDia(antes().fechaTE)
-        && (adminMarcado() || esAut1De(antes().areaId)) && devolucionValida(despues().devolucion, 1);
+        && soloCambia(['estatus', 'devolucion', 'fechaActualizacion'])
+        && (antes().creadoPor != uid() || esAdmin()) && !pasoElDia(antes().fechaTE)
+        && esAut1De(antes().areaId) && devolucionValida(despues().devolucion, 1);
 
       // Aut. 2 vigente o RH autorizan: pendiente_aut2 → autorizada. Nadie firma lo que creó (lo de RH que no es Aut. 2 lo firma un Aut. 2 u otra
       // persona de RH; lo de un Aut. 2 no pasa por aquí: se autoriza al enviarse, ver "Aut. 2 captura y envía")
       allow update: if antes().estatus == 'pendiente_aut2' && despues().estatus == 'autorizada'
         && despues().fechaActualizacion == request.time
-        && soloCambiaTE(['estatus', 'aut2', 'fechaActualizacion'])
-        && (antes().creadoPor != uid() || adminMarcado()) && !pasoElDia(antes().fechaTE)
+        && soloCambia(['estatus', 'aut2', 'fechaActualizacion'])
+        && (antes().creadoPor != uid() || esAdmin()) && !pasoElDia(antes().fechaTE)
         && puedeFirmarAut2() && firmaValida(despues().aut2, !esAut2());
 
       // ...o devuelven (con motivo): pendiente_aut2 → devuelta
       allow update: if antes().estatus == 'pendiente_aut2' && despues().estatus == 'devuelta'
         && despues().fechaActualizacion == request.time
-        && soloCambiaTE(['estatus', 'devolucion', 'fechaActualizacion'])
-        && (antes().creadoPor != uid() || adminMarcado()) && !pasoElDia(antes().fechaTE)
+        && soloCambia(['estatus', 'devolucion', 'fechaActualizacion'])
+        && (antes().creadoPor != uid() || esAdmin()) && !pasoElDia(antes().fechaTE)
         && puedeFirmarAut2() && devolucionValida(despues().devolucion, 2);
 
       // FUERA DE TIEMPO: solo un Aut. 2 VIGENTE (ni RH sin Aut. 2, ni Aut. 1, ni el solicitante, ni Nóminas) autoriza una VENCIDA que estaba en pendiente_aut1 o pendiente_aut2:
@@ -656,12 +646,12 @@ service cloud.firestore {
       allow update: if antes().estatus in ['pendiente_aut1', 'pendiente_aut2'] && despues().estatus == 'autorizada'
         && despues().get('autorizadaFueraDeTiempo', false) == true
         && despues().fechaActualizacion == request.time
-        && pasoElDia(antes().fechaTE) && (antes().creadoPor != uid() || adminMarcado())
+        && pasoElDia(antes().fechaTE) && (antes().creadoPor != uid() || esAdmin())
         && (antes().estatus == 'pendiente_aut2'
-            ? soloCambiaTE(['estatus', 'aut2', 'autorizadaFueraDeTiempo', 'fueraDeTiempo', 'fechaActualizacion'])
-            : (soloCambiaTE(['estatus', 'aut1', 'aut2', 'autorizadaFueraDeTiempo', 'fueraDeTiempo', 'fechaActualizacion']) && cambia(['aut1'])
+            ? soloCambia(['estatus', 'aut2', 'autorizadaFueraDeTiempo', 'fueraDeTiempo', 'fechaActualizacion'])
+            : (soloCambia(['estatus', 'aut1', 'aut2', 'autorizadaFueraDeTiempo', 'fueraDeTiempo', 'fechaActualizacion']) && cambia(['aut1'])
                && firmaValida(despues().aut1, false) && despues().aut1.get('comentario', '') == 'Autorizada por Aut. 2 sin Aut. 1, fuera de tiempo'))
-        && (adminMarcado() || esAut2()) && firmaValida(despues().aut2, false) && fueraDeTiempoValido();
+        && esAut2() && firmaValida(despues().aut2, false) && fueraDeTiempoValido();
 
       // RH la recibe: autorizada → procesada, con la solicitud de transporte creada en la MISMA operación (getAfter) y apuntando a este
       // tiempo extra; si nadie pidió transporte, no lleva solicitud. Solo RH y admin (la Aut. 2 que no es RH no recibe).
@@ -673,7 +663,7 @@ service cloud.firestore {
       }
       allow update: if antes().estatus == 'autorizada' && despues().estatus == 'procesada'
         && despues().fechaActualizacion == request.time
-        && soloCambiaTE(['estatus', 'recibidaPor', 'fechaRecepcion', 'solicitudTransporteId', 'fechaActualizacion'])
+        && soloCambia(['estatus', 'recibidaPor', 'fechaRecepcion', 'solicitudTransporteId', 'fechaActualizacion'])
         && despues().fechaRecepcion == request.time
         && despues().recibidaPor.keys().hasOnly(['nomina', 'nombre', 'fecha'])
         && despues().recibidaPor.nomina == miNomina() && despues().recibidaPor.fecha == request.time
@@ -687,7 +677,7 @@ service cloud.firestore {
       // con transporte). Es una autorizada de verdad: sus horas siguen contando para nómina. Solo RH, admin y Nóminas; solo con la fecha ya pasada.
       allow update: if antes().estatus == 'autorizada' && despues().estatus == 'procesada'
         && despues().fechaActualizacion == request.time
-        && soloCambiaTE(['estatus', 'recibidaPor', 'fechaRecepcion', 'cerradaSinTransporte', 'fechaActualizacion'])
+        && soloCambia(['estatus', 'recibidaPor', 'fechaRecepcion', 'cerradaSinTransporte', 'fechaActualizacion'])
         && despues().cerradaSinTransporte == true && despues().fechaRecepcion == request.time
         && despues().recibidaPor.keys().hasOnly(['nomina', 'nombre', 'fecha'])
         && despues().recibidaPor.nomina == miNomina() && despues().recibidaPor.fecha == request.time
@@ -698,7 +688,7 @@ service cloud.firestore {
       // RH devuelve en la recepción (con motivo de 10+ caracteres, nivel 3): autorizada → devuelta
       allow update: if antes().estatus == 'autorizada' && despues().estatus == 'devuelta'
         && despues().fechaActualizacion == request.time
-        && soloCambiaTE(['estatus', 'devolucion', 'fechaActualizacion'])
+        && soloCambia(['estatus', 'devolucion', 'fechaActualizacion'])
         && esRH() && devolucionValida(despues().devolucion, 3);
 
       // CANCELAR (siempre con motivo de 10+ caracteres y dejando quién, cuándo y por qué en la solicitud y en el historial):
@@ -711,7 +701,7 @@ service cloud.firestore {
       }
       allow update: if antes().estatus in ['pendiente_aut1', 'pendiente_aut2', 'devuelta', 'autorizada', 'procesada'] && despues().estatus == 'cancelada'
         && despues().fechaActualizacion == request.time
-        && soloCambiaTE(['estatus', 'motivoCancelacion', 'canceladaPor', 'fechaActualizacion'])
+        && soloCambia(['estatus', 'motivoCancelacion', 'canceladaPor', 'fechaActualizacion'])
         && despues().motivoCancelacion is string && despues().motivoCancelacion.trim().size() >= 10 && despues().motivoCancelacion.size() <= 1000
         && despues().canceladaPor.keys().hasOnly(['nomina', 'nombre', 'fecha', 'comoRH'])
         && despues().canceladaPor.nomina == miNomina() && despues().canceladaPor.fecha == request.time
@@ -729,7 +719,7 @@ service cloud.firestore {
       // no confirma. Un borrador no se cancela: se elimina.
       allow update: if antes().estatus in ['pendiente_aut1', 'pendiente_aut2', 'devuelta', 'autorizada'] && despues().estatus == 'cancelada'
         && despues().fechaActualizacion == request.time
-        && soloCambiaTE(['estatus', 'motivoCancelacion', 'canceladaPor', 'fechaActualizacion'])
+        && soloCambia(['estatus', 'motivoCancelacion', 'canceladaPor', 'fechaActualizacion'])
         && despues().motivoCancelacion is string && despues().motivoCancelacion.trim().size() >= 10 && despues().motivoCancelacion.size() <= 1000
         && canceladaPorValida()
         && ((antes().creadoPor == uid() && antes().estatus != 'autorizada')
@@ -740,7 +730,7 @@ service cloud.firestore {
       // (y de un borrador, mientras se arma)
       allow update: if antes().estatus in ['devuelta', 'borrador'] && despues().estatus == antes().estatus
         && despues().fechaActualizacion == request.time
-        && soloCambiaTE(['fechaTE', 'motivo', 'motivoOtro', 'motivos', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'fechaActualizacion'])
+        && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'motivos', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'fechaActualizacion'])
         && tipoValido() && motivoOtroValido() && contenidoValido()
         && antes().creadoPor == uid() && activo();
 
@@ -749,10 +739,11 @@ service cloud.firestore {
       allow update: if antes().estatus == 'borrador' && despues().estatus in ['pendiente_aut1', 'pendiente_aut2']
         && despues().fechaActualizacion == request.time
         && !despues().keys().hasAny(['aut1', 'aut2'])
-        && soloCambiaTE(['fechaTE', 'motivo', 'motivoOtro', 'motivos', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'folio', 'fechaActualizacion'])
+        && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'motivos', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'folio', 'fechaActualizacion'])
         && tipoValido() && rutasJustificadas() && motivoOtroValido() && motivosCompletos() && contenidoValido()
         && antes().creadoPor == uid()
-        && (adminMarcado() ? estatusDeAdmin(antes().areaId) : (puedeCapturarTE(antes().areaId) && despues().estatus == estatusInicial(antes().areaId)))
+        && puedeCapturarTE(antes().areaId)
+        && despues().estatus == estatusInicial(antes().areaId)
         && folioDelContador(despues().folio);
 
       // Aut. 2 captura y envía lo suyo: borrador → autorizada en el mismo paso, con su firma de nivel 2 ("Capturada y autorizada por Aut. 2"),
@@ -760,7 +751,7 @@ service cloud.firestore {
       allow update: if antes().estatus == 'borrador' && despues().estatus == 'autorizada'
         && despues().fechaActualizacion == request.time
         && !despues().keys().hasAny(['aut1'])
-        && soloCambiaTE(['fechaTE', 'motivo', 'motivoOtro', 'motivos', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'folio', 'aut2', 'fechaActualizacion'])
+        && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'motivos', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'folio', 'aut2', 'fechaActualizacion'])
         && tipoValido() && rutasJustificadas() && motivoOtroValido() && motivosCompletos() && contenidoValido()
         && antes().creadoPor == uid()
         && puedeCapturarComoAut2(antes().areaId)
@@ -771,7 +762,7 @@ service cloud.firestore {
       allow update: if antes().estatus == 'devuelta' && despues().estatus == 'autorizada'
         && despues().fechaActualizacion == request.time
         && !despues().keys().hasAny(['aut1'])
-        && soloCambiaTE(['fechaTE', 'motivo', 'motivoOtro', 'motivos', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'aut1', 'aut2', 'fechaActualizacion'])
+        && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'motivos', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'aut1', 'aut2', 'fechaActualizacion'])
         && tipoValido() && rutasJustificadas() && motivoOtroValido() && motivosCompletos() && contenidoValido()
         && antes().creadoPor == uid()
         && puedeCapturarComoAut2(antes().areaId)
@@ -781,10 +772,11 @@ service cloud.firestore {
       allow update: if antes().estatus == 'devuelta' && despues().estatus in ['pendiente_aut1', 'pendiente_aut2']
         && despues().fechaActualizacion == request.time
         && !despues().keys().hasAny(['aut1', 'aut2'])
-        && soloCambiaTE(['fechaTE', 'motivo', 'motivoOtro', 'motivos', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'aut1', 'aut2', 'fechaActualizacion'])
+        && soloCambia(['fechaTE', 'motivo', 'motivoOtro', 'motivos', 'comentario', 'resumen', 'tipo', 'rutasDistintas', 'desgloseRutas', 'justificacionRutas', 'estatus', 'aut1', 'aut2', 'fechaActualizacion'])
         && tipoValido() && rutasJustificadas() && motivoOtroValido() && motivosCompletos() && contenidoValido()
         && antes().creadoPor == uid()
-        && (adminMarcado() ? estatusDeAdmin(antes().areaId) : (puedeCapturarTE(antes().areaId) && despues().estatus == estatusInicial(antes().areaId)));
+        && puedeCapturarTE(antes().areaId)
+        && despues().estatus == estatusInicial(antes().areaId);
 
       // Un borrador propio se elimina (antes se borran sus empleados, en lotes); lo demás solo lo borra el admin
       allow delete: if esAdmin() || (activo() && antes().estatus == 'borrador' && antes().creadoPor == uid());
@@ -842,13 +834,10 @@ service cloud.firestore {
         function hAntes()     { return get(hPadrePath()).data; }
         function hDespues()   { return getAfter(hPadrePath()).data; }
         function h()          { return request.resource.data; }
-        // Entrada del MODO ADMIN: de un admin, y el padre (después de la operación) queda marcado con accionAdmin
-        function hAdmin()     { return hDespues().get('accionAdmin', false) == true && esAdmin(); }
 
         allow read: if puedeLeerTE(hAntes());
         allow create: if activo()
-          && h().keys().hasOnly(['accion', 'nivel', 'porUid', 'porNomina', 'porNombre', 'comentario', 'fecha', 'admin'])
-          && (h().get('admin', false) != true || hAdmin())
+          && h().keys().hasOnly(['accion', 'nivel', 'porUid', 'porNomina', 'porNombre', 'comentario', 'fecha'])
           && h().porUid == uid()
           && h().porNomina == miNomina()
           && h().get('porNombre', '') == miNombre()
@@ -863,15 +852,15 @@ service cloud.firestore {
               && hDespues().estatus in ['pendiente_aut1', 'pendiente_aut2'])
             || (h().accion == 'enviada_autorizada' && h().nivel == 2 && esAut2() && hAntes().creadoPor == uid()
               && hAntes().estatus in ['borrador', 'devuelta'] && hDespues().estatus == 'autorizada')
-            || (h().accion == 'autorizada_1' && ((h().get('admin', false) == true && hAdmin()) || esAut1De(hAntes().areaId))
+            || (h().accion == 'autorizada_1' && esAut1De(hAntes().areaId)
               && hAntes().estatus == 'pendiente_aut1' && hDespues().estatus == 'pendiente_aut2')
             || (h().accion == 'autorizada_2' && puedeFirmarAut2()
               && hAntes().estatus == 'pendiente_aut2' && hDespues().estatus == 'autorizada')
-            || (h().accion == 'autorizada_fuera_de_tiempo' && h().nivel == 2 && ((h().get('admin', false) == true && hAdmin()) || esAut2())
+            || (h().accion == 'autorizada_fuera_de_tiempo' && h().nivel == 2 && esAut2()
               && hAntes().estatus in ['pendiente_aut1', 'pendiente_aut2'] && hDespues().estatus == 'autorizada'
               && hDespues().get('autorizadaFueraDeTiempo', false) == true)
             || (h().accion == 'devuelta' && hDespues().estatus == 'devuelta'
-              && ((h().nivel == 1 && hAntes().estatus == 'pendiente_aut1' && ((h().get('admin', false) == true && hAdmin()) || esAut1De(hAntes().areaId)))
+              && ((h().nivel == 1 && hAntes().estatus == 'pendiente_aut1' && esAut1De(hAntes().areaId))
                   || (h().nivel == 2 && hAntes().estatus == 'pendiente_aut2' && puedeFirmarAut2())
                   || (h().nivel == 3 && hAntes().estatus == 'autorizada' && esRH())))
             || (h().accion == 'cancelada' && hDespues().estatus == 'cancelada'

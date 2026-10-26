@@ -28,9 +28,9 @@ export function accesosDePerfil({ rol = 'usuario', esAut2 = false, areasAut1 = [
     esAdmin: rol === 'admin',
     esRH,
     esNomina,
-    esAut2: !!esAut2,
-    areasAut1,
-    areasSolicitante,
+    esAut2: !!esAut2 || rol === 'admin',
+    areasAut1: rol === 'admin' && !areasAut1.length ? [AREA_EJEMPLO] : areasAut1,
+    areasSolicitante: rol === 'admin' && !areasSolicitante.length ? [AREA_EJEMPLO] : areasSolicitante,
     tieneAcceso: esRH || esNomina || !!esAut2 || areasAut1.length > 0 || areasSolicitante.length > 0,
   };
 }
@@ -218,7 +218,6 @@ export const MATRIZ = [
 
   { grupo: 'Herramientas (admin)', tipo: 'pantalla', id: 'herramientas', nombre: 'Herramientas › Diagnóstico y limpieza', ruta: RUTAS.herramientas, quien: por('admin'), menu: 'rh' },
   { grupo: 'Herramientas (admin)', tipo: 'pantalla', id: 'vistaPrevia', nombre: 'Herramientas › Vista previa por rol', ruta: RUTAS.herramientas, quien: por('admin'), menu: null, nota: 'Dentro de Herramientas' },
-  { grupo: 'Herramientas (admin)', tipo: 'boton', id: 'modoAdmin', nombre: 'Modo admin (interruptor del pie del menú)', quien: soloAdmin, nota: 'Apagado por defecto; encendido, el admin hace cualquier acción de cualquier rol con su cuenta, con confirmación y marcada «(admin)»' },
   { grupo: 'Herramientas (admin)', tipo: 'boton', id: 'respaldoCompleto', nombre: 'Herramientas › Respaldo completo (JSON)', quien: soloAdmin },
   { grupo: 'Herramientas (admin)', tipo: 'pantalla', id: 'guiaEstilo', nombre: 'Guía de estilo', ruta: RUTAS.guiaEstilo, quien: por('admin'), menu: 'rh' },
 

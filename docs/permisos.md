@@ -3,6 +3,7 @@
 Dos capas que **se suman** (unión):
 
 - **Rol del sistema** (`usuarios/{uid}.rol`: `admin`, `rh`, `nomina`, `usuario`): acceso a las pantallas de administración y RH (`admin`, `rh`) o al panel de Nóminas (`nomina`).
+- **El admin tiene TODOS los permisos de todos los roles, siempre** (sin modo especial y sin marcas): Aut. 2, Aut. 1 y solicitante de TODAS las áreas, además de RH y Nóminas. Captura en cualquier área, autoriza y devuelve en cualquier nivel (también lo que él mismo capturó), autoriza fuera de tiempo, autoriza varias, cancela, confirma el envío al proveedor, cierra sin transporte, ajusta, firma y reabre la nómina, y administra usuarios, roles, catálogos y estructura. En el historial y la bitácora queda con su nombre y su uid, como cualquiera. En la app lo calcula `accesosDeAdmin` (`src/utils/asignaciones.js`); en las reglas, `esAdmin()`. Nadie más gana permisos con esto. Pruebas: `tests/firestore.rules.admin-todo.test.js`.
 - **Roles operativos** (Aut. 2, Aut. 1, Solicitante): capturar y autorizar. Se dan en *Usuarios y accesos › Asignaciones*, por nómina, con vigencia.
 
 Una cuenta con rol del sistema `usuario` y una asignación de Aut. 2 solo ve lo de Aut. 2: **no ve nada de RH**. Si esa persona también es de RH, hay que cambiarle el rol del sistema a RH
@@ -47,12 +48,12 @@ La tabla se **genera** desde `src/utils/permisos.js` (`npm run docs:permisos`); 
 | Pantalla: Por autorizar | ✔ | ✔ | — | ✔ | ✔ | — | — |
 | Pantalla: Todas las solicitudes (solo lectura; RH además cancela; para Nóminas es «Tiempo extra», con filtro de turno) | ✔ | ✔ | ✔ | ✔ | — | — | — |
 | Pantalla: Por enviar al proveedor (Nóminas solo confirma; RH además devuelve y cancela) | ✔ | ✔ | ✔ | — | — | — | — |
-| Acción: Capturar y enviar tiempo extra de un área que participa _(Solo en sus áreas. RH no captura en áreas que participan)_ | — | — | — | — | ✔ | ✔ | — |
+| Acción: Capturar y enviar tiempo extra de un área que participa _(Solo en sus áreas. RH no captura en áreas que participan)_ | ✔ | — | — | — | ✔ | ✔ | — |
 | Acción: Capturar tiempo extra de un área que no participa (Administrativo) _(RH la deja en nivel 2 (la firma un Aut. 2 u otra persona de RH); la Aut. 2 la deja autorizada al enviarla)_ | ✔ | ✔ | — | ✔ | — | — | — |
-| Acción: Lo que captura y envía queda autorizado al enviarlo (firma de nivel 2 «Capturada y autorizada por Aut. 2») _(Solo la Aut. 2 vigente, en cualquier área donde pueda capturar. El Aut. 1 y RH no autorizan lo suyo)_ | — | — | — | ✔ | — | — | — |
-| Acción: Autorizar o devolver, nivel 1 _(Solo lo de su área; no lo que él mismo creó)_ | — | — | — | — | ✔ | — | — |
+| Acción: Lo que captura y envía queda autorizado al enviarlo (firma de nivel 2 «Capturada y autorizada por Aut. 2») _(Solo la Aut. 2 vigente, en cualquier área donde pueda capturar. El Aut. 1 y RH no autorizan lo suyo)_ | ✔ | — | — | ✔ | — | — | — |
+| Acción: Autorizar o devolver, nivel 1 _(Solo lo de su área; no lo que él mismo creó)_ | ✔ | — | — | — | ✔ | — | — |
 | Acción: Autorizar o devolver, nivel 2 _(RH firma «como RH»; no lo que él mismo creó)_ | ✔ | ✔ | — | ✔ | — | — | — |
-| Acción: Autorizar fuera de tiempo una solicitud vencida (que estaba en nivel 1 o 2) _(Solo la Aut. 2 vigente, con un motivo de 10+ caracteres y no lo que ella misma creó. RH sin Aut. 2, Aut. 1, solicitante y Nóminas no. Las borradores y devueltas vencidas no: se duplican con otra fecha)_ | — | — | — | ✔ | — | — | — |
+| Acción: Autorizar fuera de tiempo una solicitud vencida (que estaba en nivel 1 o 2) _(Solo la Aut. 2 vigente, con un motivo de 10+ caracteres y no lo que ella misma creó. RH sin Aut. 2, Aut. 1, solicitante y Nóminas no. Las borradores y devueltas vencidas no: se duplican con otra fecha)_ | ✔ | — | — | ✔ | — | — | — |
 | Botón: Confirmar y generar la solicitud de transporte (Por enviar al proveedor) _(Queda en la bitácora con el nombre de quien confirma)_ | ✔ | ✔ | ✔ | — | — | — | — |
 | Botón: Devolver un tiempo extra autorizado (nivel 3) | ✔ | ✔ | — | — | — | — | — |
 | Botón: Cancelar un tiempo extra autorizado o confirmado | ✔ | ✔ | — | — | — | — | — |
@@ -82,7 +83,6 @@ La tabla se **genera** desde `src/utils/permisos.js` (`npm run docs:permisos`); 
 | **Herramientas (admin)** ||||||||
 | Pantalla: Herramientas › Diagnóstico y limpieza | ✔ | — | — | — | — | — | — |
 | Pantalla: Herramientas › Vista previa por rol _(Dentro de Herramientas)_ | ✔ | — | — | — | — | — | — |
-| Botón: Modo admin (interruptor del pie del menú) _(Apagado por defecto; encendido, el admin hace cualquier acción de cualquier rol con su cuenta, con confirmación y marcada «(admin)»)_ | ✔ | — | — | — | — | — | — |
 | Botón: Herramientas › Respaldo completo (JSON) | ✔ | — | — | — | — | — | — |
 | Pantalla: Guía de estilo | ✔ | — | — | — | — | — | — |
 | **Usuarios y accesos** ||||||||

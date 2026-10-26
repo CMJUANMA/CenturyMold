@@ -70,6 +70,8 @@ export default function BandejaTE() {
   const ocupadoRef = useRef(false);
 
   const esAut1 = accesos.areasAut1.length > 0;
+  // Nadie autoriza lo que creó, salvo el admin (tiene todos los permisos de todos los roles)
+  const propiaSinPermiso = (t) => esPropia(t, usuario.uid) && !accesos.esAdmin;
   const firmaNivel2 = accesos.esAut2 || accesos.esRH;
   const secciones = [esAut1 && { nivel: 1, titulo: 'Nivel 1 · Autorización 1', lista: nivel1 }, firmaNivel2 && { nivel: 2, titulo: 'Nivel 2 · Autorización 2', lista: nivel2 }].filter(Boolean);
 
@@ -107,7 +109,7 @@ export default function BandejaTE() {
     const { id, nivel, solicitud } = detalle;
     setTrabajando(true); ocupadoRef.current = true;
     try {
-      await autorizarSolicitud({ id, usuario, nivel, comoRH: !(accesos.reales ?? accesos).esAut2, comentario: texto });
+      await autorizarSolicitud({ id, usuario, nivel, comoRH: !accesos.esAut2, comentario: texto });
       toast.success(nivel === 1 ? 'Autorizada: pasó a Autorización 2.' : 'Autorizada.');
       await avisar.autorizacion({ nivel, folio: solicitud.folio });
       setDetalle(null);
@@ -156,10 +158,10 @@ La nómina de ${nombreArea(t.areaId)}, semana ${n.semana}, ya está firmada; RH 
       else toast.error(err.code === 'permission-denied' ? 'No se pudo autorizar: solo un Aut. 2 vigente puede, y la solicitud pudo haber cambiado. Actualiza la pantalla.' : `No se pudo autorizar: ${err.message}`, 8000);
     } finally { setTrabajando(false); setTimeout(() => { ocupadoRef.current = false; }, 1500); }
   };
-  const puedeFuera = (t) => accesos.esAut2 && !esPropia(t, usuario.uid) && puedeAutorizarseFueraDeTiempo(t, new Date(ahora));
+  const puedeFuera = (t) => accesos.esAut2 && !propiaSinPermiso(t) && puedeAutorizarseFueraDeTiempo(t, new Date(ahora));
 
   const autorizarSeleccion = async (nivel, items) => {
-    const elegidas = items.filter(t => seleccion[nivel].has(t.id) && !esPropia(t, usuario.uid));
+    const elegidas = items.filter(t => seleccion[nivel].has(t.id) && !propiaSinPermiso(t));
     if (!elegidas.length) return;
     const tot = totalesDe(elegidas);
     const hoyVencen = elegidas.filter(t => venceHoy(t, new Date(ahora))).length;
@@ -170,7 +172,7 @@ La nómina de ${nombreArea(t.areaId)}, semana ${n.semana}, ya está firmada; RH 
     });
     if (!ok) return;
     setTrabajando(true); ocupadoRef.current = true;
-    const r = await autorizarVarias({ tareas: elegidas.map(t => ({ id: t.id, nivel })), usuario, comoRH: !(accesos.reales ?? accesos).esAut2 });
+    const r = await autorizarVarias({ tareas: elegidas.map(t => ({ id: t.id, nivel })), usuario, comoRH: !accesos.esAut2 });
     setSeleccion(s => ({ ...s, [nivel]: new Set() }));
     const folioDe = (id) => elegidas.find(t => t.id === id)?.folio ?? id;
     setResultado({ ok: r.ok.map(folioDe), fallidas: r.fallidas.map(f => ({ folio: folioDe(f.id), motivo: f.motivo })) });
@@ -181,7 +183,7 @@ La nómina de ${nombreArea(t.areaId)}, semana ${n.semana}, ya está firmada; RH 
   if (accesos.cargando || cargando) return <div className="space-y-8"><EsqueletoPagina bloques={0} /><EsqueletoTabla filas={4} columnas={8} /></div>;
   const totalPendientes = nivel1.length + nivel2.length;
   // La primera solicitud que se puede revisar (no es mía): ahí apunta el recorrido guiado
-  const primeraRevisable = secciones.flatMap(s => lista(s.nivel)).find(t => !esPropia(t, usuario.uid))?.id;
+  const primeraRevisable = secciones.flatMap(s => lista(s.nivel)).find(t => !propiaSinPermiso(t))?.id;
   const historialArea = delArea.filter(t => t.estatus !== 'pendiente_aut1' && t.estatus !== 'borrador').sort((a, b) => esperaDesde(b) - esperaDesde(a));
 
   return (
@@ -221,7 +223,7 @@ La nómina de ${nombreArea(t.areaId)}, semana ${n.semana}, ya está firmada; RH 
           )}
           {secciones.map(({ nivel, titulo, lista: todas }) => {
             const items = lista(nivel);
-            const firmables = items.filter(t => !esPropia(t, usuario.uid));
+            const firmables = items.filter(t => !propiaSinPermiso(t));
             const marcadas = firmables.filter(t => seleccion[nivel].has(t.id));
             return (
               <section key={nivel} aria-label={titulo} data-tour={nivel === secciones[0].nivel ? 'autorizar-lista' : undefined} className="space-y-4">
@@ -256,7 +258,7 @@ La nómina de ${nombreArea(t.areaId)}, semana ${n.semana}, ya está firmada; RH 
                         </thead>
                         <tbody>
                           {items.map(t => {
-                            const propia = esPropia(t, usuario.uid);
+                            const propia = propiaSinPermiso(t);
                             return (
                               <Fila key={t.id} className={propia ? 'opacity-60' : ''}>
                                 <Td>{!propia && <input type="checkbox" aria-label={`Seleccionar ${t.folio}`} checked={seleccion[nivel].has(t.id)} onChange={() => alternar(nivel, t.id)} className={CASILLA} />}</Td>
@@ -280,7 +282,7 @@ La nómina de ${nombreArea(t.areaId)}, semana ${n.semana}, ya está firmada; RH 
                     </div>
                     <ul className="space-y-3 md:hidden">
                       {items.map(t => {
-                        const propia = esPropia(t, usuario.uid);
+                        const propia = propiaSinPermiso(t);
                         return (
                           <li key={t.id} className={`rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 ${propia ? 'opacity-60' : ''}`}>
                             <div className="flex items-start justify-between gap-3">
@@ -357,7 +359,7 @@ La nómina de ${nombreArea(t.areaId)}, semana ${n.semana}, ya está firmada; RH 
         <Modal isOpen onClose={() => !trabajando && setDetalle(null)} title={detalle.solicitud.folio ?? 'Solicitud'} maxWidth="max-w-4xl" preventCloseOnBackdrop={trabajando}>
           {detalle.cargando ? <EsqueletoTabla filas={3} columnas={4} /> : (
             <DetalleTE t={detalle.solicitud} historial={detalle.historial} area={nombreArea(detalle.solicitud.areaId)} catalogos={{ rutas, comunidades, puntos }} formato={formato}
-              acciones={esVencida(detalle.solicitud, new Date(ahora)) ? (puedeFuera(detalle.solicitud) ? <Boton variante="primario" icono={ShieldCheck} disabled={trabajando} onClick={() => autorizarFuera(detalle.solicitud)}>Autorizar fuera de tiempo</Boton> : null) : detalle.soloLectura ? null : esPropia(detalle.solicitud, usuario.uid)
+              acciones={esVencida(detalle.solicitud, new Date(ahora)) ? (puedeFuera(detalle.solicitud) ? <Boton variante="primario" icono={ShieldCheck} disabled={trabajando} onClick={() => autorizarFuera(detalle.solicitud)}>Autorizar fuera de tiempo</Boton> : null) : detalle.soloLectura ? null : propiaSinPermiso(detalle.solicitud)
                 ? (
                   <div className="flex w-full flex-wrap items-center justify-between gap-3">
                     <p className="text-sm text-[var(--text-muted)]">No puedes autorizar tu propia solicitud.</p>

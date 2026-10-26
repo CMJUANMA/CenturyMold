@@ -43,7 +43,7 @@ export function usePendientesRutas(usuario, accesos, activo = true) {
 
 /**
  * Por autorizar: lo que espera la firma de esta persona como Aut. 1 (pendiente_aut1 de sus áreas) o Aut. 2 (pendiente_aut2).
- * No cuenta lo que creó ella misma ni las vencidas (su fecha ya pasó). Devuelve { aut1, aut2, total }.
+ * No cuenta lo que creó ella misma (el admin sí cuenta lo suyo) ni las vencidas (su fecha ya pasó). Devuelve { aut1, aut2, total }.
  */
 export function usePorAutorizar(usuario, accesos, activo = true) {
   const uid = usuario?.uid;
@@ -60,7 +60,7 @@ export function usePorAutorizar(usuario, accesos, activo = true) {
     const escuchar = (clave, q) => unsubs.push(onSnapshot(
       q,
       snap => {
-        const lista = snap.docs.map(d => d.data()).filter(d => d.creadoPor !== uid);
+        const lista = snap.docs.map(d => d.data()).filter(d => d.creadoPor !== uid || accesos.esAdmin);
         setDocs(c => ({ ...c, [clave]: lista }));
       },
       err => console.error('Por autorizar:', clave, err),

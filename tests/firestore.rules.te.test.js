@@ -111,7 +111,7 @@ async function sembrar() {
 const dbDe = (uid) => env.authenticatedContext(uid).firestore();
 const ts = serverTimestamp;
 // comoRH: true cuando firma el nivel 2 alguien de RH/admin que no es Aut. 2
-const firma = (nomina, extra = {}) => ({ nomina, nombre: `Usuario ${nomina}`, fecha: ts(), comentario: '', comoRH: [N.rh, N.rh2, N.admin].includes(nomina), ...extra });
+const firma = (nomina, extra = {}) => ({ nomina, nombre: `Usuario ${nomina}`, fecha: ts(), comentario: '', comoRH: [N.rh, N.rh2].includes(nomina), ...extra });
 const devolucion = (nivel, nomina, motivo = 'Revisar horas') => ({ nivel, nomina, nombre: `Usuario ${nomina}`, motivo, fecha: ts() });
 
 // Nombres reales del área y de la persona: las reglas no dejan aparentar otra área ni otra persona
@@ -491,10 +491,11 @@ describe('Aut. 1: pendiente_aut1 → pendiente_aut2 o devuelta', () => {
     await assertFails(actualizar('aut1P', 'TE-2026-0001', { estatus: 'pendiente_aut2' })); // sin firma
   });
 
-  it('el Aut. 1 de otra área, el solicitante y el Aut. 2 no autorizan en nivel 1', async () => {
-    for (const uid of ['aut1A', 'solP', 'solP2', 'aut2', 'aut2Sup', 'ajeno', 'rh', 'admin']) {
+  it('el Aut. 1 de otra área, el solicitante y el Aut. 2 no autorizan en nivel 1 (el admin sí)', async () => {
+    for (const uid of ['aut1A', 'solP', 'solP2', 'aut2', 'aut2Sup', 'ajeno', 'rh']) {
       await assertFails(actualizar(uid, 'TE-2026-0001', { estatus: 'pendiente_aut2', aut1: firma(N[uid]) }));
     }
+    await assertSucceeds(actualizar('admin', 'TE-2026-0001', { estatus: 'pendiente_aut2', aut1: firma(N.admin) })); // el admin es Aut. 1 de todas las áreas
   });
 
   it('nadie autoriza lo que creó (aunque sea Aut. 1 del área)', async () => {

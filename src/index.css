@@ -245,8 +245,3 @@
 
 /* Filas de botones de un modal: si no caben en una línea (celular, zoom, letra grande) pasan a la siguiente en vez de salirse por la izquierda */
 .modal-panel .justify-end, .modal-panel .justify-between { flex-wrap: wrap; }
-
-/* Modo admin (components/ModoAdminUI.jsx): la franja fija de 2.25 rem empuja el menú, la barra del celular y el contenido */
-html.modo-admin-activo body { padding-top: 2.25rem; }
-html.modo-admin-activo #menu-lateral { top: 2.25rem; }
-html.modo-admin-activo header.fixed { top: 2.25rem; }

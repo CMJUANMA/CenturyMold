@@ -14,8 +14,8 @@ const rutasDelMenu = (perfil) => menuDePerfil(perfil).filter(i => !i.section).ma
 
 // Lo que cada columna debe ver, escrito A MANO (no sale de la matriz): si alguien cambia un permiso, esta prueba lo avisa.
 const ESPERADO = {
-  admin: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'formatoRutasPagina', 'transporteCatalogos',
-    'padron', 'estructura', 'accesos', 'accesosUsuarios', 'accesosAsignaciones', 'organigrama', 'herramientas', 'vistaPrevia', 'modoAdmin', 'respaldoCompleto', 'guiaEstilo',
+  admin: ['inicio', 'capturarArea', 'firmarNivel1', 'autorizarFueraDeTiempo', 'autorizarLoPropio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'formatoRutasPagina', 'transporteCatalogos',
+    'padron', 'estructura', 'accesos', 'accesosUsuarios', 'accesosAsignaciones', 'organigrama', 'herramientas', 'vistaPrevia', 'respaldoCompleto', 'guiaEstilo',
     'capturarSinTE', 'firmarNivel2', 'confirmarRH', 'devolverRH', 'cancelarRH', 'formatoRutas', 'exportarConsulta', 'descargarPadron', 'editarPadron', 'editarEstructura', 'estructuraInicial',
     'reportesNomina', 'nominaRevisar', 'ajustarNomina', 'reabrirNomina', 'descargarFormatoNomina',
     'nuevoUsuario', 'editarUsuario', 'darRolRH', 'darRolNomina', 'darRolAdmin', 'restablecerPassword', 'asignarAut1', 'asignarAut2', 'historialPersona', 'cargaAsignaciones', 'cambiarPassword'],
@@ -82,7 +82,7 @@ describe('Nóminas: ve la planta, confirma lo que va al proveedor y nada más', 
   it('NO administra usuarios, contraseñas, roles, asignaciones, catálogos ni estructura, ni ve la bitácora o Herramientas', () => {
     for (const no of ['accesos', 'accesosUsuarios', 'accesosAsignaciones', 'organigrama', 'nuevoUsuario', 'editarUsuario', 'darRolRH', 'darRolNomina', 'darRolAdmin',
       'restablecerPassword', 'asignarAut1', 'asignarAut2', 'historialPersona', 'cargaAsignaciones', 'editarPadron', 'editarEstructura', 'estructuraInicial',
-      'transporteCatalogos', 'herramientas', 'vistaPrevia', 'modoAdmin', 'respaldoCompleto', 'guiaEstilo']) {
+      'transporteCatalogos', 'herramientas', 'vistaPrevia', 'respaldoCompleto', 'guiaEstilo']) {
       expect(f, no).not.toContain(no);
     }
   });

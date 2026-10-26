@@ -317,3 +317,17 @@ describe('actualizar nombres y puestos de las asignaciones', () => {
     expect(plan.sinPadron.map(a => a.nomina)).toEqual(['99']);
   });
 });
+
+describe('accesosDeAdmin: el admin tiene todos los permisos de todos los roles, siempre', () => {
+  it('es Aut. 2, Aut. 1 y solicitante de todas las áreas que participan, además de RH', async () => {
+    const { accesosDeAdmin, calcularAccesos } = await import('../src/utils/asignaciones.js');
+    const a = accesosDeAdmin(calcularAccesos([], { rol: 'admin' }), ['moldes', 'produccion']);
+    expect(a).toMatchObject({ esAdmin: true, esRH: true, esAut2: true, areasAut1: ['moldes', 'produccion'], areasSolicitante: ['moldes', 'produccion'] });
+  });
+  it('los demás roles no ganan nada', async () => {
+    const { accesosDeAdmin, calcularAccesos } = await import('../src/utils/asignaciones.js');
+    for (const rol of ['rh', 'nomina', 'usuario']) {
+      expect(accesosDeAdmin(calcularAccesos([], { rol }), ['moldes'])).toMatchObject({ esAut2: false, areasAut1: [], areasSolicitante: [] });
+    }
+  });
+});
