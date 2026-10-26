@@ -18,6 +18,7 @@ import EncabezadoPagina from '../../components/ui/EncabezadoPagina';
 import EstadoVacio from '../../components/ui/EstadoVacio';
 import { Esqueleto } from '../../components/ui/Esqueleto';
 import Insignia from '../../components/ui/Insignia';
+import MenuRenglon from './MenuRenglon';
 import { descargarFormatoAreas } from '../../utils/descargarFormatoNomina';
 import { ymd } from '../../utils/fechas';
 import {
@@ -43,15 +44,16 @@ export default function ReportesNomina() {
   const { areas, pendientes, cargando: cargandoPlanta, cargandoDetalle, error } = useAreasNomina(periodo);
 
   const navegar = useNavigate();
-  const [descargando, setDescargando] = useState(null); // areaId | 'todas'
+  const [descargando, setDescargando] = useState(null); // areaId | 'conTE' | 'todas'
   const conEmpleados = areas.filter(a => filasVigentes(a.filas).length > 0);
 
-  const descargar = async (lista, todas) => {
+  // modo: 'area' (la tarjeta; vacía sale en blanco) · 'conTE' (Resumen + las áreas con al menos un empleado) · 'todas' (Resumen + cada área, las vacías en blanco)
+  const descargar = async (lista, modo = 'area') => {
     if (!periodo || lista.length === 0) return;
-    setDescargando(todas ? 'todas' : lista[0].areaId);
+    setDescargando(modo === 'area' ? lista[0].areaId : modo);
     try {
-      await descargarFormatoAreas({ periodo, areas: lista, todas, nombre });
-      toast.success(todas ? `Excel descargado: ${lista.length} áreas con su hoja Resumen.` : `Excel descargado: ${lista[0].nombre}.`);
+      await descargarFormatoAreas({ periodo, areas: lista, modo, nombre });
+      toast.success(modo === 'area' ? `Excel descargado: ${lista[0].nombre}.` : `Excel descargado: ${lista.length} ${lista.length === 1 ? 'área' : 'áreas'} con su hoja Resumen.`);
     } catch (err) {
       console.error(err);
       toast.error(`No se pudo generar el Excel: ${err.message}`, 10000);
@@ -72,7 +74,13 @@ export default function ReportesNomina() {
         titulo="Formato de autorización de tiempo extra"
         descripcion="Un formato por área y por semana, ya lleno, para recoger las firmas."
         ayuda={<AyudaPantalla id="reportesNomina" listo={!cargandoPlanta} />}
-        accion={<Boton variante="primario" icono={FileSpreadsheet} id="btn-descargar-todas" onClick={() => descargar(conEmpleados, true)} estado={descargando === 'todas' ? 'cargando' : undefined} disabled={conEmpleados.length === 0 || cargandoDetalle}>Descargar todas las áreas</Boton>}
+        accion={(
+          <div className="flex flex-wrap items-center gap-2">
+            <Boton variante="primario" icono={FileSpreadsheet} id="btn-descargar-todas" onClick={() => descargar(conEmpleados, 'conTE')} estado={descargando === 'conTE' ? 'cargando' : undefined} disabled={conEmpleados.length === 0 || cargandoDetalle}>Descargar áreas con tiempo extra</Boton>
+            <MenuRenglon etiqueta="Más opciones de descarga" texto="Más opciones" deshabilitado={areas.length === 0 || cargandoDetalle || !!descargando}
+              acciones={[{ texto: `Descargar todas las áreas (${areas.length})`, icono: FileSpreadsheet, ayuda: 'Resumen y una hoja por cada área; las que no tienen tiempo extra salen en blanco', onClick: () => descargar(areas, 'todas') }]} />
+          </div>
+        )}
       />
 
       <section aria-label="Periodo" className="space-y-3">
@@ -127,12 +135,14 @@ export default function ReportesNomina() {
         ) : (
           <section aria-label="Áreas" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {areas.map(a => (
-              <article key={a.areaId} aria-label={a.nombre} className="flex flex-col gap-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5">
+              <article key={a.areaId} aria-label={a.nombre} data-sin-te={a.sinTE ? 'true' : undefined}
+                className={`flex flex-col gap-4 rounded-lg border p-5 ${a.sinTE ? 'border-dashed border-[var(--border-color)] bg-[var(--bg-surface-secondary)] opacity-75' : 'border-[var(--border-color)] bg-[var(--bg-surface)]'}`}>
                 <header className="flex items-start justify-between gap-3">
                   <h2 className="text-base font-semibold text-[var(--text-main)]">{a.nombre}</h2>
                   <Insignia tono={TONO_ESTADO[a.estado]} icono={a.estado === 'firmada' ? Lock : undefined} sinIcono={a.estado === 'sin_revisar'}>{ESTADOS_AREA[a.estado]}</Insignia>
                 </header>
-                {cargandoDetalle && a.base.length === 0 ? <Esqueleto className="h-12" /> : (
+                {a.sinTE ? <p className="text-sm text-[var(--text-secondary)]">Sin tiempo extra esta semana</p>
+                  : cargandoDetalle && a.base.length === 0 ? <Esqueleto className="h-12" /> : (
                   <dl className="grid grid-cols-2 gap-3">
                     <div><dt className="text-xs text-[var(--text-muted)]">Empleados</dt><dd className="text-2xl font-medium tabular-nums text-[var(--text-main)]">{a.totales.empleados}</dd></div>
                     <div><dt className="text-xs text-[var(--text-muted)]">Horas totales</dt><dd className="text-2xl font-medium tabular-nums text-[var(--text-main)]">{a.totales.horas}</dd></div>
@@ -146,8 +156,8 @@ export default function ReportesNomina() {
                   <p className="text-xs text-[var(--text-secondary)]">{a.fueraDeTiempo.total} {a.fueraDeTiempo.total === 1 ? 'solicitud autorizada' : 'solicitudes autorizadas'} fuera de tiempo ({a.fueraDeTiempo.folios.join(', ')}). <Link className="underline" to={rutaConsultaFueraDeTiempo()}>Ver en la consulta</Link></p>
                 )}
                 <div className="mt-auto flex flex-wrap gap-2">
-                  <Boton icono={ClipboardCheck} onClick={() => navegar(rutaRevisarNomina(periodo.clave, a.areaId))} disabled={cargandoDetalle && a.base.length === 0} aria-label={`Revisar ${a.nombre}`}>Revisar</Boton>
-                  <Boton icono={Download} onClick={() => descargar([a], false)} estado={descargando === a.areaId ? 'cargando' : undefined} disabled={a.totales.empleados === 0 || cargandoDetalle} aria-label={`Descargar ${a.nombre}`}>Descargar</Boton>
+                  <Boton icono={ClipboardCheck} onClick={() => navegar(rutaRevisarNomina(periodo.clave, a.areaId))} disabled={cargandoDetalle && a.base.length === 0 && !a.sinTE} aria-label={`Revisar ${a.nombre}`}>Revisar</Boton>
+                  <Boton icono={Download} onClick={() => descargar([a])} estado={descargando === a.areaId ? 'cargando' : undefined} disabled={cargandoDetalle} aria-label={`Descargar ${a.nombre}`}>Descargar</Boton>
                 </div>
               </article>
             ))}

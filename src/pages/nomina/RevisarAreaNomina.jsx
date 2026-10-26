@@ -361,7 +361,7 @@ export default function RevisarAreaNomina() {
           onClose={() => setDialogo(null)} onAgregar={(c) => { agregarCambio(c); setDialogo(null); toast.info('Empleado agregado. Captura sus horas en la tabla.'); }} />
       )}
       {dialogo?.tipo === 'reemplazar' && (
-        <ModalReemplazar fila={dialogo.fila} empleados={empleadosActivos} nominasEnTabla={nominasEnTabla} nombre={nombre}
+        <ModalReemplazar fila={dialogo.fila} nombresAreas={nombres} empleados={empleadosActivos} nominasEnTabla={nominasEnTabla} nombre={nombre}
           onClose={() => setDialogo(null)} onReemplazar={(c) => { agregarCambio(c); setDialogo(null); }} />
       )}
       {dialogo?.tipo === 'motivo' && (

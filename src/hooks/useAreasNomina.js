@@ -1,9 +1,10 @@
 /**
  * useAreasNomina.js — Lo que necesitan Reportes de nómina y la revisión de un área para un periodo: las solicitudes autorizadas por Aut. 2, sus empleados
  * (se leen por solicitud y se guardan: cambiar de semana no vuelve a leer lo ya leído), los ajustes de Nóminas en vivo y, por área, sus renglones
- * ya ajustados. Un área sale si tiene tiempo extra autorizado en el periodo o ajustes guardados (por ejemplo, empleados agregados).
+ * ya ajustados. Salen TODAS las áreas activas que participan en tiempo extra, aunque no tengan solicitudes (`sinTE`: sin autorizado ni ajustes; van al final), y
+ * cualquier otra área que tenga tiempo extra autorizado en el periodo o ajustes guardados (por ejemplo, empleados agregados).
  *   const { areas, pendientes, cargando, cargandoDetalle, error } = useAreasNomina(periodo);
- *   area = { areaId, nombre, base (lo autorizado), filas (ajustadas), ajuste, totales, estado, fueraDeTiempo ({ total, folios, trasFirma }: lo autorizado fuera de tiempo) }
+ *   area = { areaId, nombre, sinTE, base (lo autorizado), filas (ajustadas), ajuste, totales, estado, fueraDeTiempo ({ total, folios, trasFirma }: lo autorizado fuera de tiempo) }
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useAjustesNomina } from './useAjustesNomina';
@@ -19,7 +20,7 @@ import { leerSolicitudTE } from '../utils/tiempoExtraDb';
 export function useAreasNomina(periodo) {
   const ahora = useAhora();
   const { planta, cargando, error } = useResumenTE();
-  const { nombres } = useAreas();
+  const { nombres, areas: catalogo } = useAreas();
   const { ajustes, error: errorAjustes } = useAjustesNomina(periodo);
   const autorizadas = useMemo(() => (periodo ? autorizadasDelPeriodo(planta, periodo) : []), [planta, periodo]);
   const pendientes = useMemo(() => (periodo ? pendientesDelPeriodo(planta, periodo, nombres, ahora) : { total: 0, porArea: [], vencidas: { total: 0, porArea: [] } }), [planta, periodo, nombres, ahora]);
@@ -43,7 +44,10 @@ export function useAreasNomina(periodo) {
   const cargandoDetalle = faltan.length > 0 && !errorDetalle;
 
   const areas = useMemo(() => {
-    const ids = [...new Set([...autorizadas.map(t => t.areaId), ...[...ajustes.entries()].filter(([, a]) => (a.cambios ?? []).length > 0).map(([id]) => id)])];
+    const conAjustes = [...ajustes.entries()].filter(([, a]) => (a.cambios ?? []).length > 0).map(([id]) => id);
+    const conSolicitudes = new Set(autorizadas.map(t => t.areaId));
+    const participan = catalogo.filter(a => a.participaTE === true && a.activa !== false).map(a => a.id);
+    const ids = [...new Set([...conSolicitudes, ...conAjustes, ...participan])];
     return ids.map(areaId => {
       const delArea = autorizadas.map(t => detalle.get(t.id)).filter(s => s && s.areaId === areaId);
       const ajuste = ajustes.get(areaId) ?? null;
@@ -51,9 +55,9 @@ export function useAreasNomina(periodo) {
       const filas = periodo ? filasDelArea({ solicitudes: delArea, periodo, ajuste }) : [];
       const totales = totalesDeFilas(filas, periodo);
       const fueraDeTiempo = fueraDeTiempoDelArea(autorizadas.filter(t => t.areaId === areaId), ajuste);
-      return { areaId, nombre: nombres.get(areaId) ?? areaId, base, filas, ajuste, totales, estado: estadoDeArea(ajuste), fueraDeTiempo };
-    }).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  }, [autorizadas, detalle, ajustes, periodo, nombres]);
+      return { areaId, nombre: nombres.get(areaId) ?? areaId, base, filas, ajuste, totales, estado: estadoDeArea(ajuste), fueraDeTiempo, sinTE: !conSolicitudes.has(areaId) && !conAjustes.includes(areaId) };
+    }).sort((a, b) => Number(a.sinTE) - Number(b.sinTE) || a.nombre.localeCompare(b.nombre, 'es'));
+  }, [autorizadas, detalle, ajustes, periodo, nombres, catalogo]);
 
   return {
     areas, pendientes, cargando, cargandoDetalle, nombres,

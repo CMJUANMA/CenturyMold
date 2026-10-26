@@ -294,6 +294,19 @@ bitácora `autorizar_fuera_de_tiempo`.
 **Reglas y pruebas.** Solo `esAut2()` puede hacer la transición (con `pasoElDia`, campos exactos y firmas propias); la Aut. 2 puede escribir en la bitácora solo esa acción y leer `ajustesNomina` por id (`get`) para el aviso. Ver `docs/permisos.md`.
 Pruebas: `tests/firestore.rules.fuera-de-tiempo.test.js` y `tests/fuera-de-tiempo-te.test.js`.
 
+## Reportes de nómina: todas las áreas y tres descargas
+
+- **Una tarjeta por cada área activa que participa en tiempo extra** (`useAreasNomina`: catálogo `areas` con `participaTE` y no `activa: false`), aunque no tenga solicitudes esa semana. Las que no tienen nada (sin autorizado ni ajustes guardados, `sinTE`)
+  van al final, atenuadas y con borde punteado, con «Sin tiempo extra esta semana»; **Revisar** (para agregar empleados a mano) y **Descargar** siguen habilitados. En cuanto se guarda un empleado agregado, el área deja de ser `sinTE`: se ve normal con estado «Ajustada».
+- **Descargas** (`descargarFormatoAreas({ modo })`): `area` = el botón de la tarjeta (si el área está vacía sale el formato **en blanco**, con encabezado, días, renglones y firmas); `conTE` = botón principal
+  **«Descargar áreas con tiempo extra»** (Resumen + una hoja por cada área con al menos un empleado, incluso solo agregados a mano); `todas` = menú **«⋯ Más opciones › Descargar todas las áreas»** (Resumen + una hoja por CADA área, las vacías en blanco).
+- **Nombre del archivo** (`nombreArchivoTodas`): «Tiempo extra semana 43 - areas con TE.xlsx» / «Tiempo extra semana 43 - todas las areas.xlsx» (en rango libre, «Tiempo extra 2026-10-19 a 2026-10-23 - …»); el de un área sigue siendo `FormatoTE_Semana43_2026_<Area>.xlsx`.
+- **Bitácora:** cada descarga queda como `descargar_formato_te_nomina` con `modo` (`area`, `conTE` o `todas`), cuántas áreas y el nombre del archivo.
+- **Ventana «Agregar empleado» / «Reemplazar»:** más grande (`Modal grande`, 720 px de ancho y hasta el 80% del alto; en celular, pantalla completa). `BuscadorEmpleado modo="panel"`: la lista ocupa el espacio y muestra unos 8 a 10 empleados con el nombre completo (sin cortar) y,
+  debajo, el puesto y el área; grupos «Empleados de <área>» y «Otras áreas»; flechas y Enter; al elegir, una tarjeta con nómina, nombre, puesto y área y el botón «Cambiar». El mismo buscador, en su modo desplegable, es el de Asignaciones y Usuarios (ahora con el nombre completo, el puesto debajo
+  y flechas/Enter); el selector de empleados de la captura de tiempo extra también muestra el nombre completo, con puesto y ruta debajo.
+- Pruebas: `tests/formato-nomina.test.js` (nombre de archivo) y `tests/formato-nomina-excel.test.js` (hoja en blanco de un área vacía).
+
 ## Revisión de nómina (pantalla completa)
 
 **Dónde:** *Reportes de nómina › Revisar* en la tarjeta de un área abre `/nomina/semana/:anioSemana/:areaId` (`:anioSemana` es la clave del periodo: `2026-42`, o `r20261019-20261023` en un rango libre);

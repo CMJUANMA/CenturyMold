@@ -82,7 +82,7 @@ export const AYUDAS = {
       pasos: [
         'Elige la semana (de lunes a domingo) con las flechas; por defecto es la última completa, o usa un rango de hasta 7 días. Solo cuenta lo que Aut. 2 ya autorizó; si hay solicitudes sin autorizar o devueltas, un aviso te dice cuántas y de qué áreas, y otro avisa cuáles vencieron sin autorizarse (no cuentan; puedes agregar a alguien a mano en "Revisar").',
         'En cada área toca "Revisar": se abre una hoja a pantalla completa. Escribe las horas directo en el día (acepta medios, como 0.5; Tab, Enter y las flechas te mueven como en Excel); con el menú ⋯ de cada renglón reemplazas, quitas o restauras a alguien o cambias su motivo y P.O./TB, y "Agregar empleado" suma a quien no venía en las solicitudes. Los cambios se guardan juntos con "Guardar cambios", que pide un solo motivo, y no modifican la solicitud original.',
-        'Con "Descargar" bajas el formato listo para imprimir en hoja carta; "Descargar todas las áreas" trae además una hoja Resumen para capturar la nómina.',
+        'Salen todas las áreas que participan, aunque no tengan tiempo extra esa semana (van al final, con "Sin tiempo extra esta semana"; con "Revisar" puedes agregar empleados a mano). "Descargar" baja el formato listo para imprimir (en blanco si el área está vacía). "Descargar áreas con tiempo extra" trae la hoja Resumen y las áreas con empleados; en "Más opciones" está "Descargar todas las áreas", con las vacías en blanco.',
         'Cuando ya tengas las firmas, "Marcar como firmada" bloquea esa área. Solo Recursos Humanos puede reabrirla.',
       ],
     },

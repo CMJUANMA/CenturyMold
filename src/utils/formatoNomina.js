@@ -511,6 +511,15 @@ export function resumenDelPeriodo(areas, periodo) {
   return { porArea, porEmpleado, porMotivo, porNumero, total: { empleados, horas } };
 }
 
+/**
+ * Nombre del Excel de varias áreas, según cuál sea: «Tiempo extra semana 43 - areas con TE.xlsx» (solo las que tienen al menos un empleado) o
+ * «Tiempo extra semana 43 - todas las areas.xlsx» (cada área, incluidas las vacías, en blanco).
+ */
+export const MODOS_DESCARGA = { conTE: 'areas con TE', todas: 'todas las areas' };
+export const nombreArchivoTodas = (periodo, modo = 'conTE') => {
+  const cuando = periodo.tipo === 'semana' ? 'semana ' + periodo.semana : periodo.desde + ' a ' + periodo.hasta;
+  return 'Tiempo extra ' + cuando + ' - ' + MODOS_DESCARGA[modo] + '.xlsx';
+};
 export const nombreArchivoFormato = (periodo, areaNombre = '') => {
   const quien = areaNombre ? `_${areaNombre.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '')}` : '_TodasLasAreas';
   const cuando = periodo.tipo === 'semana' ? `Semana${periodo.semana}_${periodo.anio}` : `${periodo.desde}_a_${periodo.hasta}`;

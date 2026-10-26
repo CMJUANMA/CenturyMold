@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CASILLAS_AREA, CASILLA_POR_AREA, aplicarCambios, autorizadasDelPeriodo, cambioHoras, cambioMotivo, cambioQuitar, cambioReemplazar, casillaDeArea, desgloseFila, estadoDeArea, etiquetaPeriodo,
-  filasAutorizadas, filasDelArea, filasVigentes, fueAjustada, horasValidas, idAjuste, motivoDeFila, moverSemana, nombreArchivoFormato, pendientesDelPeriodo, periodoLibre,
+  filasAutorizadas, filasDelArea, filasVigentes, fueAjustada, horasValidas, idAjuste, motivoDeFila, moverSemana, nombreArchivoFormato, nombreArchivoTodas, pendientesDelPeriodo, periodoLibre,
   problemaMotivo, renglonParaGuardar, resumenDelPeriodo, semanaDe, semanaDeClave, totalesDeFilas, ultimaSemanaCompleta, yaEstaEnTabla,
 } from '../src/utils/formatoNomina.js';
 
@@ -266,5 +266,14 @@ describe('motivos por empleado, P.O./TB y corrección del motivo', () => {
       expect(desgloseFila(mixto, s).map(x => [x.nombre, x.horas])).toEqual([['A', 4], ['B', 2]]);
       expect(desgloseFila({ ...mixto, horas: { '2026-10-24': 3 } }, s).map(x => [x.nombre, x.horas])).toEqual([['A', 2], ['B', 1]]);
     });
+  });
+});
+
+describe('nombre del Excel de varias áreas', () => {
+  it('dice cuál descarga es: solo áreas con tiempo extra o todas las áreas', () => {
+    const s = semanaDe('2026-10-21');
+    expect(nombreArchivoTodas(s, 'conTE')).toBe('Tiempo extra semana 43 - areas con TE.xlsx');
+    expect(nombreArchivoTodas(s, 'todas')).toBe('Tiempo extra semana 43 - todas las areas.xlsx');
+    expect(nombreArchivoTodas(periodoLibre('2026-10-21', '2026-10-24'), 'todas')).toBe('Tiempo extra 2026-10-21 a 2026-10-24 - todas las areas.xlsx');
   });
 });

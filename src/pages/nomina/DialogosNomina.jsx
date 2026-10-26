@@ -23,10 +23,15 @@ function Pie({ onClose, onAceptar, valido, texto }) {
   );
 }
 
-function PersonaElegida({ persona, nombre, onCambiar }) {
+/** El empleado elegido: nómina, nombre completo, puesto y área */
+function PersonaElegida({ persona, nombre, areaDe, onCambiar }) {
+  const detalle = [persona.puesto, areaDe?.(persona)].filter(Boolean).join(' · ');
   return (
-    <div className="flex items-center justify-between gap-2 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] px-3 py-2 text-sm">
-      <span>{nombre(persona.nombre)} <span className="font-mono text-xs text-[var(--text-muted)]">{persona.nomina}</span></span>
+    <div className="flex items-start justify-between gap-3 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] px-3 py-2.5 text-sm">
+      <div className="min-w-0">
+        <p className="break-words font-medium text-[var(--text-main)]"><span className="mr-2 font-mono text-xs font-semibold text-[var(--text-secondary)]">{persona.nomina}</span>{nombre(persona.nombre)}</p>
+        {detalle && <p className="mt-0.5 text-xs text-[var(--text-muted)]">{detalle}</p>}
+      </div>
       <Boton tamano="sm" variante="fantasma" onClick={onCambiar}>Cambiar</Boton>
     </div>
   );
@@ -44,6 +49,7 @@ export function ModalAgregarEmpleado({ area, nombresAreas, empleados, motivos, n
   const sugeridos = useMemo(() => (e) => e.areaId === area.areaId, [area.areaId]);
   const deOtraArea = !!elegido && !!elegido.areaId && elegido.areaId !== area.areaId;
   const areaDe = (e) => nombresAreas.get(e?.areaId) ?? e?.areaId ?? 'otra área';
+  const areaTexto = (e) => (e?.areaId ? areaDe(e) : '');
 
   const nominaManual = datos.nomina.trim();
   const problemaManual = manual ? problemaEmpleadoManual(datos) : null;
@@ -62,7 +68,7 @@ export function ModalAgregarEmpleado({ area, nombresAreas, empleados, motivos, n
   };
 
   return (
-    <Modal isOpen onClose={onClose} title="Agregar empleado" maxWidth="max-w-xl"
+    <Modal isOpen onClose={onClose} title="Agregar empleado" maxWidth="max-w-[720px]" grande
       subtitulo={`Solo entra al formato de ${area.nombre}; no crea solicitudes. Las horas se capturan en la tabla.`}
       pie={<Pie onClose={onClose} onAceptar={aceptar} valido={valido} texto="Agregar al formato" />}>
       <div className="space-y-5">
@@ -70,10 +76,10 @@ export function ModalAgregarEmpleado({ area, nombresAreas, empleados, motivos, n
           <div className="space-y-2">
             <span className="block text-xs font-medium text-[var(--text-secondary)]">Empleado</span>
             {elegido ? (
-              <PersonaElegida persona={elegido} nombre={nombre} onCambiar={() => { setElegido(null); setAceptaOtraArea(false); }} />
+              <PersonaElegida persona={elegido} nombre={nombre} areaDe={areaTexto} onCambiar={() => { setElegido(null); setAceptaOtraArea(false); }} />
             ) : (
-              <BuscadorEmpleado empleados={empleados} onSelect={setElegido} excluir={nominasEnTabla} autoFocus sugeridos={sugeridos}
-                etiquetaSugeridos={`Empleados de ${area.nombre}`} placeholder="Buscar por nombre o nómina…" />
+              <BuscadorEmpleado empleados={empleados} onSelect={setElegido} excluir={nominasEnTabla} autoFocus sugeridos={sugeridos} modo="panel" nombreArea={(id) => nombresAreas.get(id) ?? ''}
+                etiquetaSugeridos={`Empleados de ${area.nombre}`} etiquetaOtros="Otras áreas" placeholder="Buscar por nombre o nómina…" />
             )}
             {yaEsta && <p className="text-xs text-[var(--status-error-text)]" role="alert">Esa persona ya está en la tabla de esta área y semana.</p>}
             {deOtraArea && !yaEsta && (
@@ -110,18 +116,18 @@ export function ModalAgregarEmpleado({ area, nombresAreas, empleados, motivos, n
 }
 
 /** Reemplazar a un empleado por otro del padrón: sus horas pasan a quien se elija */
-export function ModalReemplazar({ fila, empleados, nominasEnTabla, nombre, onClose, onReemplazar }) {
+export function ModalReemplazar({ fila, nombresAreas = new Map(), empleados, nominasEnTabla, nombre, onClose, onReemplazar }) {
   const [elegido, setElegido] = useState(null);
   const yaEsta = !!elegido && nominasEnTabla.includes(String(elegido.nomina));
   const valido = !!elegido && !yaEsta;
   return (
-    <Modal isOpen onClose={onClose} title="Reemplazar por otro empleado" maxWidth="max-w-md"
+    <Modal isOpen onClose={onClose} title="Reemplazar por otro empleado" maxWidth="max-w-[720px]" grande
       subtitulo={`Sale ${nombre(fila.nombre)} (${fila.nomina}); sus horas pasan a quien elijas.`}
       pie={<Pie onClose={onClose} onAceptar={() => valido && onReemplazar(cambioReemplazar(fila, elegido, ''))} valido={valido} texto="Reemplazar" />}>
       <div className="space-y-2">
         <span className="block text-xs font-medium text-[var(--text-secondary)]">Empleado que lo reemplaza</span>
-        {elegido ? <PersonaElegida persona={elegido} nombre={nombre} onCambiar={() => setElegido(null)} />
-          : <BuscadorEmpleado empleados={empleados} onSelect={setElegido} excluir={nominasEnTabla} autoFocus placeholder="Buscar por nombre o nómina…" />}
+        {elegido ? <PersonaElegida persona={elegido} nombre={nombre} areaDe={(e) => nombresAreas.get(e?.areaId) ?? ''} onCambiar={() => setElegido(null)} />
+          : <BuscadorEmpleado empleados={empleados} onSelect={setElegido} excluir={nominasEnTabla} autoFocus modo="panel" nombreArea={(id) => nombresAreas.get(id) ?? ''} placeholder="Buscar por nombre o nómina…" />}
         {yaEsta && <p className="text-xs text-[var(--status-error-text)]" role="alert">Esa persona ya está en la tabla.</p>}
       </div>
     </Modal>

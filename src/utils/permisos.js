@@ -205,7 +205,7 @@ export const MATRIZ = [
   { grupo: 'Reportes de nómina', tipo: 'pantalla', id: 'nominaRevisar', nombre: 'Revisar un área de la semana (pantalla completa, edición como hoja de cálculo)', ruta: RUTAS.nominaRevisar, quien: por('reportesNomina'), menu: null, nota: 'Se entra por «Revisar» en la tarjeta del área' },
   { grupo: 'Reportes de nómina', tipo: 'accion', id: 'ajustarNomina', nombre: 'Ajustar el formato (corregir horas, quitar, reemplazar, agregar un empleado que no venía en las solicitudes o corregir el motivo y P.O./TB de un renglón) y marcarlo como firmado; los cambios no tocan las solicitudes', quien: por('reportesNomina'), nota: 'Los cambios se guardan juntos con un solo motivo, que queda en la bitácora' },
   { grupo: 'Reportes de nómina', tipo: 'boton', id: 'reabrirNomina', nombre: 'Reabrir un área firmada', quien: rh },
-  { grupo: 'Reportes de nómina', tipo: 'boton', id: 'descargarFormatoNomina', nombre: 'Descargar el formato en Excel (un área o todas, con su hoja Resumen)', quien: por('reportesNomina') },
+  { grupo: 'Reportes de nómina', tipo: 'boton', id: 'descargarFormatoNomina', nombre: 'Descargar el formato en Excel (un área, las áreas con tiempo extra o todas las áreas, con su hoja Resumen)', quien: por('reportesNomina') },
   { grupo: 'Transporte', tipo: 'pantalla', id: 'formatoRutasPagina', nombre: 'Formato de rutas (Excel para el proveedor)', ruta: RUTAS.formatoRutas, quien: por('verTransporte'), menu: 'nomina' },
   { grupo: 'Transporte', tipo: 'pantalla', id: 'transporteCatalogos', nombre: 'Catálogos (rutas, comunidades, puntos de reunión y, en la pestaña Motivos, los motivos del tiempo extra: agregar, editar, ordenar y desactivar)', ruta: RUTAS.transporteCatalogos, quien: por('rh'), menu: 'rh' },
 

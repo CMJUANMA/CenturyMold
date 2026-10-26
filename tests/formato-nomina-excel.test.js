@@ -175,3 +175,21 @@ describe('P.O./TB en el formato', () => {
     expect(textos(w.getWorksheet('Resumen')).some(x => x.includes('Horas por número'))).toBe(false);
   });
 });
+
+describe('un área sin tiempo extra', () => {
+  const wb = libro([{ areaId: 'moldes', nombre: 'Taller de Moldes', filas: filasDe(2) }, { areaId: 'calidad', nombre: 'Calidad', filas: [] }], { conResumen: true });
+  it('sale como formato en blanco, con encabezado, días, renglones vacíos y firmas para llenarlo a mano', () => {
+    const ws = wb.getWorksheet('Calidad');
+    expect(ws).toBeTruthy();
+    const t = textos(ws);
+    expect(t).toContain(TITULO_FORMATO);
+    expect(t).toContain('☒  Calidad');
+    expect(t).toContain('Lunes');
+    for (const f of FIRMAS_FORMATO) expect(t).toContain(f);
+    expect(t.filter(x => x.startsWith('EMPLEADO'))).toHaveLength(0);
+  });
+  it('la hoja Resumen no cuenta empleados de esa área', () => {
+    expect(wb.worksheets.map(w => w.name)).toEqual(['Resumen', 'Taller de Moldes', 'Calidad']);
+    expect(textos(wb.getWorksheet('Resumen'))).toContain('Calidad');
+  });
+});

@@ -83,9 +83,10 @@ export default function SelectorEmpleadosTE({ empleados, yaAgregados, rutas = []
                   <label className={`flex min-h-11 items-center gap-3 px-4 py-2 text-sm ${ya ? 'opacity-50' : 'cursor-pointer transition-colors duration-150 hover:bg-[var(--bg-surface-hover)]'}`}>
                     <input type="checkbox" disabled={ya} checked={ya || marcados.has(n)} onChange={() => alternar(n)} className={CASILLA} />
                     <span className="w-14 shrink-0 font-mono text-[var(--text-secondary)]">{n}</span>
-                    <span className="min-w-0 flex-1 truncate text-[var(--text-main)]">{e.nombre}</span>
-                    <span className="hidden max-w-[10rem] truncate text-xs text-[var(--text-muted)] sm:block">{e.puesto}</span>
-                    <span className="hidden max-w-[8rem] truncate text-xs text-[var(--text-secondary)] sm:block" title="Ruta guardada en el padrón">{nombreRuta(e.rutaId) || 'Sin ruta'}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block break-words text-[var(--text-main)]">{e.nombre}</span>
+                      <span className="block text-xs text-[var(--text-muted)]">{[e.puesto, nombreRuta(e.rutaId) || 'Sin ruta'].filter(Boolean).join(' · ')}</span>
+                    </span>
                     {ya && <Insignia tono="exito">Ya agregado</Insignia>}
                   </label>
                 </li>
