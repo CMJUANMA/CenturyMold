@@ -6,6 +6,7 @@ import RevisarColecciones from './rh/RevisarColecciones';
 import LimpiezaEstructura from './rh/LimpiezaEstructura';
 import VistaPreviaRol from './rh/VistaPreviaRol';
 import RespaldoDatos from './rh/RespaldoDatos';
+import PrepararProduccion from './rh/PrepararProduccion';
 import Aviso from '../components/ui/Aviso';
 import EncabezadoPagina from '../components/ui/EncabezadoPagina';
 
@@ -16,6 +17,7 @@ export default function Herramientas() {
       <VistaPreviaRol />
       <Aviso tono="aviso">Lee con calma las herramientas de abajo antes de ejecutar algo: algunas escriben en la base de datos.</Aviso>
       <RespaldoDatos />
+      <PrepararProduccion />
       <RevisarColecciones />
       <LimpiezaEstructura />
     </div>

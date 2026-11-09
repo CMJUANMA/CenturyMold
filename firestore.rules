@@ -24,6 +24,13 @@ service cloud.firestore {
     function esNomina()       { let p = perfil(); return exists(perfilPath()) && p.get('activo', true) != false && p.get('rol', '') == 'nomina'; }
     function miNomina()       { return perfil().get('nomina', ''); }
     function miNombre()       { return perfil().get('nombre', ''); }
+    // «Preparar para producción» (Herramientas, solo admin): limpia los datos de prueba. Borrar bitácora, ajustes de nómina, contadores de folio y las
+    // subcolecciones de tiempo extra, y leer los borradores ajenos, SOLO se puede mientras exista limpiezaProduccion/ventana vigente (la abre el admin,
+    // dura como máximo 2 horas y la herramienta la cierra al terminar). Fuera de esa ventana nadie, ni el admin, borra bitácora ni lee borradores ajenos.
+    function ventanaLimpieza() {
+      let v = /databases/$(database)/documents/limpiezaProduccion/ventana;
+      return esAdmin() && exists(v) && get(v).data.hasta > request.time;
+    }
     // Texto con tope de largo (nada de documentos enormes ni de otro tipo de dato)
     function textoHasta(v, max) { return v is string && v.size() <= max; }
 
@@ -175,6 +182,16 @@ service cloud.firestore {
         || (d.entidad == 'tiempoExtra' && d.accion in ['recibir', 'cerrar_sin_transporte'])
         || (d.entidad.matches('ajustesNomina/.*') && d.accion in ['ajustar_nomina', 'deshacer_ajustes_nomina', 'firmar_nomina']);
     }
+    match /limpiezaProduccion/{id} {
+      allow read: if esAdmin();
+      allow create, update: if esAdmin() && id == 'ventana'
+        && request.resource.data.keys().hasOnly(['hasta', 'por', 'porNombre', 'fecha'])
+        && request.resource.data.hasta is timestamp && request.resource.data.hasta > request.time
+        && request.resource.data.hasta <= request.time + duration.value(2, 'h')
+        && request.resource.data.por == request.auth.uid && request.resource.data.get('porNombre', '') == miNombre()
+        && request.resource.data.fecha == request.time;
+      allow delete: if esAdmin();
+    }
     match /bitacora/{id} {
       allow read: if esRH() || (esAut2() && resource.data.get('entidad', '') == 'asignacion');
       // Quien la crea queda con su uid Y su nombre reales (no se puede firmar a nombre de otra persona). La Aut. 2 también registra sus descargas.
@@ -189,7 +206,8 @@ service cloud.firestore {
         && (request.resource.data.get('antes', null) is map || request.resource.data.get('antes', null) == null)
         && (request.resource.data.get('despues', null) is map || request.resource.data.get('despues', null) == null)
         && request.resource.data.fecha == request.time;
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if ventanaLimpieza();
     }
     // Motivos del tiempo extra: { nombre, orden, activo, requiereNumero: null|'po'|'tb', requiereComentario }. Los lee cualquier usuario activo (se eligen al
     // capturar); solo RH y admin los crean y editan. Baja lógica (activo: false): nadie borra, y las solicitudes ya guardan una copia del nombre.
@@ -367,7 +385,8 @@ service cloud.firestore {
     // t = datos de una solicitud de tiempo extra. Un borrador solo lo ve su creador
     function puedeLeerTE(t) {
       return activo() && (t.creadoPor == request.auth.uid
-        || (t.estatus != 'borrador' && (esAut1De(t.areaId) || esAut2() || esRH() || esNomina())));
+        || (t.estatus != 'borrador' && (esAut1De(t.areaId) || esAut2() || esRH() || esNomina()))
+        || ventanaLimpieza());
     }
     // Firma o devolución bien formada: {nomina, nombre, fecha, ...} de quien la hace
     // comoRH: true si firma el nivel 2 por su rol RH/admin (sin ser Aut. 2); así se sabe si firmó la Aut. 2 o alguien de RH
@@ -469,7 +488,7 @@ service cloud.firestore {
             && request.resource.data.semana == resource.data.semana && request.resource.data.areaId == resource.data.areaId
             && soloCambia(['firmada', 'firmadaPor', 'reabiertaPor', 'actualizadoPor', 'fechaActualizacion'])
             && request.resource.data.actualizadoPor.uid == request.auth.uid && request.resource.data.fechaActualizacion == request.time);
-      allow delete: if false;
+      allow delete: if ventanaLimpieza();
       function ajusteValido(id) {
         let d = request.resource.data;
         return d.keys().hasOnly(['semana', 'areaId', 'desde', 'hasta', 'cambios', 'renglones', 'firmada', 'firmadaPor', 'reabiertaPor', 'actualizadoPor', 'fechaActualizacion'])
@@ -498,6 +517,7 @@ service cloud.firestore {
           && int(getAfter(/databases/$(database)/documents/tiempoExtra/$(sid)).data.folio.split('-')[2]) == request.resource.data.ultimo;
       }
       allow read: if activo();
+      allow delete: if ventanaLimpieza();
       allow create: if activo() && id.matches('te-[0-9]{4}')
         && request.resource.data.keys().hasOnly(['ultimo', 'solicitudId']) && request.resource.data.ultimo == 1 && folioLigado();
       allow update: if activo() && id.matches('te-[0-9]{4}')
@@ -824,7 +844,7 @@ service cloud.firestore {
           return padreDespues().get('tipo', 'turno_extra') != 'extension' || request.resource.data.get('transporteLlegada', false) == false;
         }
         allow create, update: if puedeEscribirEmpleado() && formaEmpleado() && llegadaPermitida() && empleadoDelArea(padreDespues().areaId);
-        allow delete: if puedeEscribirEmpleado();
+        allow delete: if puedeEscribirEmpleado() || ventanaLimpieza();
       }
 
       // Bitácora: solo se crea, nunca se edita ni se borra. Cada acción debe acompañar la transición real
@@ -871,7 +891,8 @@ service cloud.firestore {
             || (h().accion == 'recibida_rh' && (esRH() || esNomina())
               && hAntes().estatus == 'autorizada' && hDespues().estatus == 'procesada')
           );
-        allow update, delete: if false;
+        allow update: if false;
+        allow delete: if ventanaLimpieza();
       }
     }
 

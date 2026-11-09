@@ -4,18 +4,14 @@
  */
 import { useState } from 'react';
 import { DatabaseBackup } from 'lucide-react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
 import Aviso from '../../components/ui/Aviso';
 import Boton from '../../components/ui/Boton';
 import { Tarjeta } from '../../components/ui/Tarjeta';
 import { ACCIONES_DESCARGA, registrarDescarga } from '../../utils/bitacoraDb';
-import { ESTATUS_TE_VISIBLES } from '../../utils/tiempoExtra';
-import { COLECCIONES_RESPALDO, SUBCOLECCIONES_RESPALDO, construirRespaldo, nombreRespaldoCompleto } from '../../utils/respaldoCompleto';
-
-const LOTE = 8; // subcolecciones leídas a la vez
+import { construirRespaldo, nombreRespaldoCompleto } from '../../utils/respaldoCompleto';
+import { descargarArchivoJson, leerColeccionesParaRespaldo } from '../../utils/respaldoDb';
 
 export default function RespaldoDatos() {
   const { usuario } = useAuth();
@@ -27,33 +23,9 @@ export default function RespaldoDatos() {
   const respaldar = async () => {
     setError('');
     try {
-      const colecciones = {};
-      for (const nombre of COLECCIONES_RESPALDO) {
-        setProgreso(`Leyendo ${nombre}…`);
-        // Una consulta de tiempo extra debe excluir los borradores (solo los ve su creador): las reglas no dejan pedirlos todos
-        const base = collection(db, nombre);
-        const snap = await getDocs(nombre === 'tiempoExtra' ? query(base, where('estatus', 'in', ESTATUS_TE_VISIBLES)) : base);
-        const docs = snap.docs.map(d => ({ id: d.id, data: d.data(), sub: null }));
-        const subs = SUBCOLECCIONES_RESPALDO[nombre];
-        if (subs) {
-          for (let i = 0; i < docs.length; i += LOTE) {
-            setProgreso(`Leyendo ${nombre} (${Math.min(i + LOTE, docs.length)} de ${docs.length})…`);
-            await Promise.all(docs.slice(i, i + LOTE).map(async (d) => {
-              d.sub = {};
-              for (const s of subs) {
-                const ss = await getDocs(collection(db, nombre, d.id, s));
-                d.sub[s] = ss.docs.map(x => ({ id: x.id, data: x.data() }));
-              }
-            }));
-          }
-        }
-        colecciones[nombre] = docs;
-      }
+      const colecciones = await leerColeccionesParaRespaldo({ onProgreso: setProgreso });
       const respaldo = construirRespaldo({ colecciones, exportadoPor: usuario?.nombre ?? '' });
-      const url = URL.createObjectURL(new Blob([JSON.stringify(respaldo)], { type: 'application/json' }));
-      const a = Object.assign(document.createElement('a'), { href: url, download: nombreRespaldoCompleto() });
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      descargarArchivoJson(respaldo, nombreRespaldoCompleto());
       registrarDescarga(ACCIONES_DESCARGA.respaldoCompleto, { conteo: respaldo.conteo });
       toast.success('Respaldo descargado. Guárdalo en un lugar seguro.');
     } catch (err) {

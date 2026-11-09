@@ -204,6 +204,16 @@ de documentos, p. ej. un número de nómina), no datos de personas. Todo está v
 
 ---
 
+## Preparar para producción (ventana de limpieza)
+
+Herramientas › **Preparar para producción** (solo admin) borra los datos de prueba antes de arrancar. La bitácora es inmutable y los borradores solo los ve su creador, así que el borrado masivo solo lo permiten las reglas mientras exista `limpiezaProduccion/ventana` vigente (`ventanaLimpieza()` en `firestore.rules`):
+
+- La abre solo un admin (documento con `hasta` a máximo 2 horas, su uid y su nombre); la herramienta la crea al empezar el paso 1 (90 minutos) y la cierra al terminar. Si caduca, vuelve a empezar desde el paso 1.
+- Solo con ella vigente el admin puede: borrar `bitacora`, `ajustesNomina`, `contadores` y las subcolecciones de `tiempoExtra` (empleados, historial), y leer los borradores ajenos (necesario para el respaldo completo y para borrarlos). `solicitudes`, `pasajeros` y `usuarios` ya los borraba el admin.
+- Nunca se borran por esta vía: padrón, teléfonos, áreas, puestos, turnos, motivos, catálogos, asignaciones ni accesos (las reglas lo siguen negando y la herramienta ni lo intenta).
+- Paso 1: respaldo JSON completo (borradores incluidos) y lista de lo que se borraría y de las cuentas de Authentication que habrá que borrar a mano en la consola. Paso 2: solo tras escribir BORRAR; deja un renglón «limpieza_produccion» en la bitácora y reinicia el folio (se borra el contador; la siguiente solicitud nace TE-<año>-0001).
+- Pruebas: `tests/limpieza-produccion.test.js` y `tests/firestore.rules.limpieza-produccion.test.js`.
+
 ## Pasos en la consola (tuyos)
 
 Los nombres pueden variar un poco según la versión de la consola (en inglés).
