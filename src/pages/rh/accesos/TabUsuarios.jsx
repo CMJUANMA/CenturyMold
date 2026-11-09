@@ -21,7 +21,7 @@ import { btnPrimary, btnSecondary, btnIcon, inputCls, selectCls, etiquetaCls } f
 
 const rolLabel = (r) => ROL_LABELS[r] ?? `${r} (rol anterior: edítalo para pasarlo a Usuario)`;
 
-export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombresArea, empleados, esAdmin, ahora, precarga = null }) {
+export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombresArea, empleados, esAdmin, ahora, precarga = null, actor = null, areas = [] }) {
   const confirmar = useConfirmar();
   const { usuario: yo } = useAuth();
   const toast = useToast();
@@ -31,6 +31,7 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
   const [lote, setLote] = useState(false);
   const [restablecer, setRestablecer] = useState(null);
   const [modal, setModal] = useState(precarga ? { usuario: null, precarga } : null);
+  const actorCompleto = actor ?? { uid: yo?.uid, nombre: yo?.nombre ?? '', nomina: yo?.nomina ?? '', esAdmin, esRH: false, esAut2: false };
 
   // Quien no es admin (RH, Aut. 2) no se toca a sí mismo ni toca a un admin (las reglas lo rechazan); a un RH o Nóminas solo le cambia el rol
   const puedeEditar = (u) => esAdmin || (u.uid !== yo?.uid && u.rol !== ROLES.ADMIN);
@@ -74,7 +75,8 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
           <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-[var(--text-muted)]" />
           <span>
             <b>Rol del sistema</b> (Usuario, Recursos Humanos o Administrador) = acceso a las pantallas de administración y RH. Lo que cada quien
-            puede capturar y autorizar sale de sus <b>roles operativos</b> (Aut. 2, Aut. 1, Solicitante), que se dan en la pestaña Asignaciones.
+            puede capturar y autorizar sale de sus <b>asignaciones</b> (Aut. 2, Aut. 1, Solicitante): se dan con el lápiz <Pencil className="inline h-3 w-3" aria-hidden="true" /> de editar
+            (sección «Rol y asignaciones»); la pestaña Asignaciones muestra la vista general.
             Si alguien olvidó su contraseña, usa <b>Restablecer contraseña</b> (<KeyRound className="inline h-3 w-3" aria-hidden="true" />) en su fila.
           </span>
         </div>
@@ -114,7 +116,7 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
                 <th className="px-4 py-3">Nómina</th>
                 <th className="px-4 py-3">Nombre</th>
                 <th className="px-4 py-3">Rol del sistema<span className="block font-normal text-[var(--text-muted)]">Pantallas de administración y RH</span></th>
-                <th className="px-4 py-3">Roles operativos<span className="block font-normal text-[var(--text-muted)]">Capturar y autorizar (se dan en Asignaciones)</span></th>
+                <th className="px-4 py-3">Asignaciones<span className="block font-normal text-[var(--text-muted)]">Capturar y autorizar (se dan con el lápiz)</span></th>
                 <th className="px-4 py-3">Estado</th>
                 <th className="px-4 py-3 text-right">Acciones</th>
               </tr>
@@ -139,7 +141,11 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
                           {etiquetaAsignacion(a, nombresArea)}
                         </span>
                       ))}
-                      {vigentesDe(u.nomina).length === 0 && <span className="text-[var(--text-muted)]">—</span>}
+                      {vigentesDe(u.nomina).length === 0 && (u.rol === ROLES.USUARIO
+                        ? <span className="inline-flex items-center gap-1 rounded border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-1.5 py-0.5 text-xs font-semibold text-[var(--status-warning-text)]" title="Con rol «usuario» y sin asignación, solo entra a su Inicio. Dale una asignación con el lápiz.">
+                          <AlertTriangle className="h-3 w-3" aria-hidden="true" />Sin asignación
+                        </span>
+                        : <span className="text-[var(--text-muted)]">—</span>)}
                     </div>
                     {sugiereRolRH(u, vigentesDe(u.nomina)) && (
                       <p className="mt-1 flex items-start gap-1 text-[var(--status-warning-text)]">
@@ -179,9 +185,10 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
 
       {lote && (
         <Suspense fallback={null}>
-          <ModalUsuariosLote abierto actor={{ uid: yo?.uid, nombre: yo?.nombre ?? '', esAdmin }} usuarios={usuarios} empleados={empleados}
+          <ModalUsuariosLote abierto actor={actorCompleto} areas={areas} usuarios={usuarios} empleados={empleados}
             asignaciones={asignaciones} nombresArea={nombresArea} ahora={ahora} onClose={() => setLote(false)}
-            onCreados={(perfiles) => setUsuarios(prev => [...prev, ...perfiles])} />
+            onCreados={(perfiles) => setUsuarios(prev => [...prev, ...perfiles])}
+            onAsignar={(perfil) => setModal({ usuario: perfil, precarga: null })} />
         </Suspense>
       )}
 
@@ -194,7 +201,7 @@ export default function TabUsuarios({ usuarios, setUsuarios, asignaciones, nombr
 
       <ModalUsuario abierto={!!modal} onClose={() => setModal(null)} usuario={modal?.usuario} precarga={modal?.precarga}
         usuarios={usuarios} empleados={empleados} esAdmin={esAdmin} onGuardado={guardado}
-        asignaciones={asignaciones} nombresArea={nombresArea} ahora={ahora} />
+        asignaciones={asignaciones} nombresArea={nombresArea} ahora={ahora} actor={actorCompleto} areas={areas} />
     </div>
   );
 }

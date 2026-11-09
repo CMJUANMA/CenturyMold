@@ -70,6 +70,11 @@ export default function UsuariosYAccesos() {
   const [ahora, setAhora] = useState(() => Date.now());
   const [formAsig, setFormAsig] = useState(null);
   const [crearUsuario, setCrearUsuario] = useState(null);
+  // Abre la edición del usuario de esa nómina (con sus asignaciones); si aún no tiene usuario, el alta con la persona ya elegida
+  const editarUsuarioDe = (nomina, nombre) => {
+    const u = (usuarios ?? []).find(x => String(x.nomina) === String(nomina));
+    setCrearUsuario(u ? { usuario: u } : { nomina: String(nomina), nombre: nombre ?? '' });
+  };
 
   useEffect(() => {
     const t = setInterval(() => setAhora(Date.now()), 60_000);
@@ -121,11 +126,12 @@ export default function UsuariosYAccesos() {
         <>
           {tabActiva === 'usuarios' && (
             <TabUsuarios usuarios={usuarios ?? []} setUsuarios={setUsuarios} asignaciones={asignaciones} nombresArea={nombresArea}
-              empleados={empleados} esAdmin={accesos.esAdmin} ahora={ahora} />
+              empleados={empleados} esAdmin={accesos.esAdmin} ahora={ahora} actor={actor} areas={areas} />
           )}
           {tabActiva === 'asignaciones' && (
             <TabAsignaciones asignaciones={asignaciones} nombresArea={nombresArea} actor={actor} ahora={ahora} onAsignar={abrirAsignar}
-              empleados={empleados} usuarios={usuarios} onCargaTerminada={() => navigate(RUTAS.organigrama)} />
+              empleados={empleados} usuarios={usuarios} onCargaTerminada={() => navigate(RUTAS.organigrama)}
+              onEditarUsuario={leeUsuarios ? editarUsuarioDe : null} onIrAUsuarios={() => navigate(rutaAccesos('usuarios'))} />
           )}
           {tabActiva === 'organigrama' && (
             <TabOrganigrama asignaciones={asignaciones} areas={areas} empleados={empleados} puestos={puestos} usuarios={usuarios} actor={actor}
@@ -139,8 +145,9 @@ export default function UsuariosYAccesos() {
         onGuardado={(texto) => toast.success(`Rol asignado — ${texto}`)}
         onCrearUsuario={accesos.esRH || accesos.esAut2 ? (emp) => setCrearUsuario({ nomina: String(emp.nomina), nombre: emp.nombre ?? '' }) : null} />
 
-      <ModalUsuario abierto={!!crearUsuario} onClose={() => setCrearUsuario(null)} precarga={crearUsuario}
+      <ModalUsuario abierto={!!crearUsuario} onClose={() => setCrearUsuario(null)} usuario={crearUsuario?.usuario ?? null} precarga={crearUsuario?.usuario ? null : crearUsuario}
         usuarios={usuarios ?? []} empleados={empleados} esAdmin={accesos.esAdmin}
+        asignaciones={asignaciones} nombresArea={nombresArea} ahora={ahora} actor={actor} areas={areas}
         onGuardado={(u, { nuevo }) => setUsuarios(prev => (nuevo ? [...(prev ?? []), u] : (prev ?? []).map(x => (x.uid === u.uid ? u : x))))} />
     </div>
   );

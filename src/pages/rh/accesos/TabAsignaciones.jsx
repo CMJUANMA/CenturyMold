@@ -3,7 +3,7 @@
  * y Ver historial. Cada quien solo ve las acciones de los roles que puede dar (admin: todos; RH y Aut. 2: aut1 y solicitante).
  */
 import { useMemo, useState } from 'react';
-import { AlertTriangle, CalendarPlus, CheckCircle2, History, ListChecks, Loader2, Plus, RefreshCw, Search, ShieldOff } from 'lucide-react';
+import { AlertTriangle, CalendarPlus, CheckCircle2, History, Info, ListChecks, Loader2, Plus, RefreshCw, Search, ShieldOff, UserCog } from 'lucide-react';
 import Modal from '../../../components/Modal';
 import { useConfirmar } from '../../../hooks/useConfirmar';
 import { useToast } from '../../../hooks/useToast';
@@ -20,7 +20,7 @@ import { ESTADO_CLS, inputCls, labelCls, selectCls, btnPrimary, btnSecondary, bt
 const ESTADOS = ['vigente', 'programada', 'vencida', 'revocada'];
 const sinAcentos = (t) => String(t ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-export default function TabAsignaciones({ asignaciones, nombresArea, actor, ahora, onAsignar, onCambio, empleados = [], usuarios = null, onCargaTerminada }) {
+export default function TabAsignaciones({ asignaciones, nombresArea, actor, ahora, onAsignar, onCambio, empleados = [], usuarios = null, onCargaTerminada, onEditarUsuario = null, onIrAUsuarios = null }) {
   const confirmar = useConfirmar();
   const toast = useToast();
   const [filtroRol, setFiltroRol] = useState('');
@@ -71,6 +71,16 @@ export default function TabAsignaciones({ asignaciones, nombresArea, actor, ahor
 
   return (
     <div className="space-y-4">
+      {onIrAUsuarios && (
+        <div className="flex items-start gap-2 rounded-md border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+          <span>
+            Vista general de las asignaciones. Para darle o quitarle un rol a una persona es más fácil desde su usuario: en{' '}
+            <button type="button" onClick={onIrAUsuarios} className="font-semibold text-[var(--accent-text)] hover:underline cursor-pointer">Usuarios</button>
+            {' '}usa el lápiz de editar, o el botón <UserCog className="inline h-3 w-3" aria-hidden="true" /> de cada fila de abajo.
+          </span>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-3">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" aria-hidden="true" />
@@ -151,6 +161,9 @@ export default function TabAsignaciones({ asignaciones, nombresArea, actor, ahor
                           <button type="button" onClick={() => setExtender(a)} className={btnIcon} title="Extender (cambiar fecha final)" aria-label="Extender"><CalendarPlus className="h-3.5 w-3.5" /></button>
                           <button type="button" onClick={() => revocar(a)} className={btnIcon} title="Revocar" aria-label="Revocar"><ShieldOff className="h-3.5 w-3.5" /></button>
                         </>
+                      )}
+                      {onEditarUsuario && (
+                        <button type="button" onClick={() => onEditarUsuario(a.nomina, a.nombre)} className={btnIcon} title="Editar el usuario y sus asignaciones" aria-label={`Editar usuario y asignaciones de ${a.nombre}`}><UserCog className="h-3.5 w-3.5" /></button>
                       )}
                       <button type="button" onClick={() => verHistorial(a)} className={btnIcon} title="Ver historial" aria-label="Ver historial"><History className="h-3.5 w-3.5" /></button>
                     </div>

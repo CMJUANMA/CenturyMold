@@ -10,7 +10,7 @@ import { AlertTriangle, CheckCircle2, Loader2, UserPlus, X } from 'lucide-react'
 import Modal from '../../../components/Modal';
 import BuscadorEmpleado from '../../../components/BuscadorEmpleado';
 import {
-  ROL_OP, ROL_OP_LABELS, aIsoLocal, estadoAsignacion, idAsignacion, inicioDelDia, finDelDia, motivoNoPuedeAsignar, rolesAsignables,
+  ROL_OP, ROL_OP_LABELS, aIsoLocal, rolesAsignables, validarNuevaAsignacion,
 } from '../../../utils/asignaciones';
 import { asignarRol } from '../../../utils/asignacionesDb';
 import { inputCls, btnPrimary, btnSecondary, btnIcon, labelCls, etiquetaCls } from './ui';
@@ -41,18 +41,8 @@ function Contenido({ inicial, actor, areas, empleados, usuarios, asignaciones, o
   const guardar = async (e) => {
     e.preventDefault();
     setError('');
-    if (!empleado) return setError('Elige a la persona.');
-    const impedimento = motivoNoPuedeAsignar(actor, { rol, areaId: usaArea ? areaId : null, nominaObjetivo: empleado.nomina }, areas);
-    if (impedimento) return setError(impedimento);
-    if (!desde) return setError('Indica desde cuándo.');
-    if (hasta && finDelDia(hasta) < inicioDelDia(desde)) return setError('"Hasta" no puede ser anterior a "Desde".');
-    if (hasta && !motivo.trim()) return setError('El motivo es obligatorio cuando la asignación es temporal (tiene fecha final).');
-
-    const id = idAsignacion(empleado.nomina, rol, usaArea ? areaId : null);
-    const previa = asignaciones.find(a => a.id === id) ?? null;
-    if (previa && ['vigente', 'programada'].includes(estadoAsignacion(previa))) {
-      return setError('Esa persona ya tiene este rol en esa área. Usa "Extender" o "Revocar" desde la tabla.');
-    }
+    const { error: invalida, ya, previa } = validarNuevaAsignacion({ actor, persona: empleado, rol, areaId, desde, hasta, motivo, areas, asignaciones });
+    if (invalida) return setError(ya ? `${invalida} Usa "Extender" o "Revocar" desde la tabla.` : invalida);
     setGuardando(true);
     try {
       await asignarRol(actor, {

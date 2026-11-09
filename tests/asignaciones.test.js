@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   calcularAccesos, construirOrganigrama, estadoAsignacion, etiquetaAsignacion, finDelDia, formatoCorto, idAsignacion, inicioDelDia,
-  motivoNoPuedeAsignar, nivelDePersona, planActualizarDatos, rolesAsignables, vistaDePersona,
+  motivoNoPuedeAsignar, nivelDePersona, planActualizarDatos, rolesAsignables, validarNuevaAsignacion, vistaDePersona,
 } from '../src/utils/asignaciones.js';
 import { PROPUESTAS_INICIALES, evaluarPropuestas, nombreCoincide } from '../src/utils/cargaInicial.js';
 
@@ -329,5 +329,35 @@ describe('accesosDeAdmin: el admin tiene todos los permisos de todos los roles, 
     for (const rol of ['rh', 'nomina', 'usuario']) {
       expect(accesosDeAdmin(calcularAccesos([], { rol }), ['moldes'])).toMatchObject({ esAut2: false, areasAut1: [], areasSolicitante: [] });
     }
+  });
+});
+
+describe('validarNuevaAsignacion: la regla única de «dar un rol» (Asignaciones y edición del usuario)', () => {
+  const areas = [{ id: 'moldes', nombre: 'Moldes', participaTE: true }, { id: 'administrativo', nombre: 'Administrativo', participaTE: false }];
+  const rh = { esAdmin: false, esRH: true, esAut2: false, nomina: '90' };
+  const admin = { esAdmin: true, esRH: true, esAut2: false, nomina: '1' };
+  const base = { persona: { nomina: '7' }, rol: 'aut1', areaId: 'moldes', desde: '2026-10-13', hasta: '', motivo: '', areas, asignaciones: [], ahora: HOY };
+
+  it('devuelve el id nomina_rol_area y no marca error cuando todo está bien', () => {
+    expect(validarNuevaAsignacion({ ...base, actor: rh })).toEqual({ error: null, id: '7_aut1_moldes', previa: null });
+    expect(validarNuevaAsignacion({ ...base, actor: admin, rol: 'aut2', areaId: '' }).id).toBe('7_aut2_planta');
+  });
+  it('mismo control de quién da qué: RH no da Aut. 2; nadie se asigna a sí mismo salvo admin', () => {
+    expect(validarNuevaAsignacion({ ...base, actor: rh, rol: 'aut2' }).error).toMatch(/permiso/);
+    expect(validarNuevaAsignacion({ ...base, actor: rh, persona: { nomina: '90' } }).error).toMatch(/sí mismo/);
+    expect(validarNuevaAsignacion({ ...base, actor: admin, persona: { nomina: '1' } }).error).toBeNull();
+  });
+  it('pide área que participe, fechas coherentes y motivo si es temporal', () => {
+    expect(validarNuevaAsignacion({ ...base, actor: rh, areaId: '' }).error).toMatch(/área/);
+    expect(validarNuevaAsignacion({ ...base, actor: rh, areaId: 'administrativo' }).error).toMatch(/no participa/);
+    expect(validarNuevaAsignacion({ ...base, actor: rh, hasta: '2026-10-01', motivo: 'x' }).error).toMatch(/anterior/);
+    expect(validarNuevaAsignacion({ ...base, actor: rh, hasta: '2026-10-20' }).error).toMatch(/motivo/i);
+    expect(validarNuevaAsignacion({ ...base, actor: rh, hasta: '2026-10-20', motivo: 'Vacaciones' }).error).toBeNull();
+  });
+  it('si ya la tiene vigente avisa (ya:true); si estaba revocada la vuelve a dar sobre el mismo id', () => {
+    const vigente = validarNuevaAsignacion({ ...base, actor: rh, asignaciones: [asig('7', 'aut1', 'moldes')] });
+    expect(vigente).toMatchObject({ ya: true, error: expect.any(String) });
+    const revocada = asig('7', 'aut1', 'moldes', { activo: false });
+    expect(validarNuevaAsignacion({ ...base, actor: rh, asignaciones: [revocada] })).toMatchObject({ error: null, previa: revocada });
   });
 });

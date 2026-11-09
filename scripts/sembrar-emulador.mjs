@@ -76,7 +76,7 @@ nombresEmp.forEach((nombre, i) => {
 emp.push(['11', 'MALDONADO SALVADOR', 'administrativo', 'operations-director', 'OPERATIONS DIRECTOR'], ['50610', 'MENDOZA ANSELMO', 'moldes', 'jefe-de-moldes', 'JEFE DE MOLDES'],
   ['50532', 'ACOSTA OSCAR', 'moldes', 'moldeador', 'MOLDEADOR'], ['90001', 'ESPINOSA MARCO', 'administrativo', 'administrative-manager', 'ADMINISTRATIVE MANAGER']);
 for (const [nomina, nombre, areaId, puestoId, puesto] of emp) {
-  await guardar(`empleados/${nomina}`, { nomina, nombre, areaId, puestoId, puesto, activo: true, rutaId: 'norte', comunidadId: 'pueblito', puntoReunionId: 'plaza' });
+  await guardar(`empleados/${nomina}`, { nomina, nombre, areaId, puestoId, puesto, activo: true, elegibleTE: !['11', '50610', '90001'].includes(nomina), rutaId: 'norte', comunidadId: 'pueblito', puntoReunionId: 'plaza' });
 }
 
 const asignacion = (nomina, rol, areaId, nombre, puesto, puestoId) => guardar(`asignaciones/${nomina}_${rol}_${rol === 'aut2' ? 'planta' : areaId}`, {

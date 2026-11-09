@@ -11,7 +11,8 @@
  *   usuarios      todos los usuarios (para no repetir nómina)
  *   empleados     padrón (para elegir a la persona en un alta)
  *   esAdmin       el usuario actual es admin
- *   asignaciones, nombresArea, ahora   para mostrar los roles operativos vigentes de quien se edita y avisar si tiene Aut. 2 sin ser de RH
+ *   asignaciones, nombresArea, ahora   las asignaciones en vivo: al editar, la sección «Rol y asignaciones» las lista y deja agregar o quitar
+ *   actor, areas  quien edita ({ uid, nombre, nomina, esAdmin, esRH, esAut2 }) y las áreas, para validar y guardar las asignaciones como en la pantalla Asignaciones
  *   onGuardado    (usuario, { nuevo }) => void
  */
 import { useState } from 'react';
@@ -23,10 +24,11 @@ import { ACCIONES_USUARIO, registrarUsuario } from '../../../utils/bitacoraDb';
 import Modal from '../../../components/Modal';
 import BuscadorEmpleado from '../../../components/BuscadorEmpleado';
 import { ROLES, ROL_LABELS } from '../../../utils/constantes';
-import { esVigente, etiquetaAsignacion } from '../../../utils/asignaciones';
+import { esVigente } from '../../../utils/asignaciones';
 import { sugiereRolRH } from '../../../utils/permisos';
 import { useAuth } from '../../../hooks/useAuth';
 import { useConfirmar } from '../../../hooks/useConfirmar';
+import SeccionAsignaciones from './SeccionAsignaciones';
 import { inputCls, btnPrimary, btnSecondary, btnIcon, labelCls } from './ui';
 
 const formDe = (usuario, precarga) => ({
@@ -42,7 +44,7 @@ export default function ModalUsuario({ abierto, ...resto }) {
   return abierto ? <Contenido {...resto} /> : null;
 }
 
-function Contenido({ onClose, usuario = null, precarga = null, usuarios, empleados, esAdmin, onGuardado, asignaciones = [], nombresArea = new Map(), ahora }) {
+function Contenido({ onClose, usuario = null, precarga = null, usuarios, empleados, esAdmin, onGuardado, asignaciones = [], nombresArea = new Map(), ahora, actor = null, areas = [] }) {
   const edicion = !!usuario;
   const { usuario: yo } = useAuth();
   const confirmar = useConfirmar();
@@ -60,6 +62,11 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
   const soloRol = edicion && !esAdmin && [ROLES.RH, ROLES.NOMINA].includes(usuario.rol);
   const vigentes = edicion ? asignaciones.filter(a => String(a.nomina) === String(usuario.nomina) && esVigente(a, ahora)) : [];
   const avisarRH = edicion && sugiereRolRH({ rol: form.rol, nomina: usuario.nomina }, vigentes);
+  // Persona del padrón (puesto y puestoId se copian a la asignación, como al asignar desde la pantalla Asignaciones)
+  const persona = edicion ? (() => {
+    const e = empleados.find(x => String(x.nomina) === String(usuario.nomina));
+    return { nomina: String(usuario.nomina), nombre: e?.nombre ?? usuario.nombre, puesto: e?.puesto ?? '', puestoId: e?.puestoId ?? '' };
+  })() : null;
 
   const guardar = async (e) => {
     e.preventDefault();
@@ -116,7 +123,7 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
   };
 
   return (
-    <Modal isOpen onClose={onClose} title={edicion ? 'Editar usuario' : 'Nuevo usuario'} maxWidth="max-w-md">
+    <Modal isOpen onClose={onClose} title={edicion ? 'Editar usuario' : 'Nuevo usuario'} maxWidth={edicion && actor ? 'max-w-lg' : 'max-w-md'}>
       <form onSubmit={guardar} className="space-y-4">
         {error && (
           <div className="flex items-start gap-2 rounded-md border border-[var(--status-error-border)] bg-[var(--status-error-bg)] px-3 py-2 text-xs text-[var(--status-error-text)]">
@@ -180,15 +187,14 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
             <input required type="password" minLength={8} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className={inputCls} placeholder="Mínimo 8 caracteres" />
           </div>
         )}
-        {edicion && (
-          <div className="flex items-start gap-2 rounded-md border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-3 py-2 text-xs text-[var(--status-info-text)]">
-            <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            <p>
-              <b>Rol del sistema</b> = acceso a pantallas de administración/RH. <b>Roles operativos</b> (Aut. 2, Aut. 1, Solicitante) = capturar y autorizar;
-              se dan en Asignaciones.
-            </p>
-          </div>
-        )}
+        <h3 className="border-t border-[var(--border-color)] pt-4 text-sm font-semibold text-[var(--text-main)]">Rol y asignaciones</h3>
+        <div className="flex items-start gap-2 rounded-md border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-3 py-2 text-xs text-[var(--status-info-text)]">
+          <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <p>
+            <b>Rol del sistema</b> = acceso a pantallas de administración/RH. <b>Asignaciones</b> (Aut. 2, Aut. 1, Solicitante) = capturar y autorizar.
+            {edicion ? '' : ' Primero se crea el usuario; después, con el lápiz de editar, se le dan sus asignaciones.'}
+          </p>
+        </div>
         <div>
           <label className={labelCls}>Rol del sistema</label>
           <select required value={form.rol} onChange={e => setForm(f => ({ ...f, rol: e.target.value }))} className={inputCls} disabled={opcionesRol.length === 1}>
@@ -198,16 +204,11 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
             {esAdmin
               ? 'Tú das y quitas Recursos Humanos, Nóminas y Administrador.'
               : 'Puedes dar o quitar Recursos Humanos y Nóminas (no el tuyo). Administrador solo lo da y quita un administrador.'}
-            {' '}Aut. 1, Aut. 2 y solicitante se asignan en la pestaña Asignaciones.
+            {' '}Aut. 1, Aut. 2 y solicitante se dan abajo, en Asignaciones.
           </p>
         </div>
-        {edicion && (
-          <div>
-            <span className={labelCls}>Roles operativos vigentes</span>
-            <p className="text-xs text-[var(--text-secondary)]">
-              {vigentes.length ? vigentes.map(a => etiquetaAsignacion(a, nombresArea)).join(' · ') : 'Ninguno por ahora.'}
-            </p>
-          </div>
+        {edicion && actor && (
+          <SeccionAsignaciones persona={persona} asignaciones={asignaciones} areas={areas} actor={actor} nombresArea={nombresArea} ahora={ahora} />
         )}
         {avisarRH && (
           <div role="status" className="flex items-start gap-2 rounded-md border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-xs text-[var(--status-warning-text)]">

@@ -150,6 +150,34 @@ export function motivoNoPuedeAsignar(actor, { rol, areaId, nominaObjetivo }, are
   return null;
 }
 
+/**
+ * Validación común de «dar un rol» (la pantalla Asignaciones y la edición de un usuario usan esta misma): quién puede dar qué, área que
+ * participa, fechas, motivo si es temporal y que no exista ya vigente. Devuelve el id del documento (asignaciones/{nomina}_{rol}_{area})
+ * y la asignación previa (revocada o vencida: se vuelve a dar sobre el mismo id, el historial queda en la bitácora).
+ * @param {object} p
+ * @param {object} p.actor           { esAdmin, esRH, esAut2, nomina }
+ * @param {{ nomina: string }} p.persona
+ * @param {string} p.rol  @param {string|null} p.areaId  @param {string} p.desde  @param {string} p.hasta  @param {string} p.motivo  ('AAAA-MM-DD')
+ * @param {object[]} p.areas         [{ id, nombre, participaTE }]
+ * @param {object[]} p.asignaciones  las que ya existen (para detectar duplicadas)
+ * @returns {{ error: string|null, ya?: boolean, id?: string, previa?: object|null }}
+ */
+export function validarNuevaAsignacion({ actor, persona, rol, areaId, desde, hasta, motivo, areas = [], asignaciones = [], ahora = new Date() }) {
+  if (!persona) return { error: 'Elige a la persona.' };
+  const usaArea = rol !== ROL_OP.AUT2;
+  const impedimento = motivoNoPuedeAsignar(actor, { rol, areaId: usaArea ? areaId : null, nominaObjetivo: persona.nomina }, areas);
+  if (impedimento) return { error: impedimento };
+  if (!desde) return { error: 'Indica desde cuándo.' };
+  if (hasta && finDelDia(hasta) < inicioDelDia(desde)) return { error: '"Hasta" no puede ser anterior a "Desde".' };
+  if (hasta && !String(motivo ?? '').trim()) return { error: 'El motivo es obligatorio cuando la asignación es temporal (tiene fecha final).' };
+  const id = idAsignacion(persona.nomina, rol, usaArea ? areaId : null);
+  const previa = asignaciones.find(a => a.id === id) ?? null;
+  if (previa && [ESTADO_ASIGNACION.VIGENTE, ESTADO_ASIGNACION.PROGRAMADA].includes(estadoAsignacion(previa, ahora))) {
+    return { error: 'Esa persona ya tiene este rol en esa área.', ya: true };
+  }
+  return { error: null, id, previa };
+}
+
 // ── Etiquetas ─────────────────────────────────────────────────────────────
 
 /** "Solicitante · Producción" / "Aut. 1 · Moldes hasta 20/10" / "Aut. 2" */
