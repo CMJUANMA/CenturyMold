@@ -61,6 +61,8 @@ export const CAPACIDADES = {
   verTransporte: (a) => a.esRH || a.esNomina,
   /** Padrón y Estructura: RH y admin los administran; Nóminas los ve en solo lectura (con el teléfono, que manda al proveedor) */
   verPersonal: (a) => a.esRH || a.esNomina,
+  /** Lista del personal elegible para tiempo extra (desde la tarjeta del Inicio): cualquiera con algún acceso; cada quien ve sus áreas */
+  listaPersonal: (a) => a.esRH || a.esNomina || a.esAut2 || a.areasAut1.length > 0 || a.areasSolicitante.length > 0,
   /** Reportes de nómina (formato de autorización de tiempo extra por área y semana): Nóminas, RH y admin */
   reportesNomina: (a) => a.esRH || a.esNomina,
   /** Organigrama: completo (Aut. 2, RH, admin) o de su área (Aut. 1) */
@@ -74,7 +76,7 @@ export const CAPACIDADES = {
 };
 
 /** Las capacidades que dependen de las asignaciones: sus guardias esperan a que lleguen */
-export const DEPENDE_DE_ASIGNACIONES = new Set(['solicitar', 'autorizar', 'consultar', 'organigrama', 'asignar', 'accesos']);
+export const DEPENDE_DE_ASIGNACIONES = new Set(['listaPersonal', 'solicitar', 'autorizar', 'consultar', 'organigrama', 'asignar', 'accesos']);
 
 export const puede = (capacidad, accesos) => CAPACIDADES[capacidad]?.(accesos) === true;
 
@@ -121,6 +123,7 @@ export const RUTAS_PROTEGIDAS = [
   { id: 'transporteCatalogos', ruta: RUTAS.transporteCatalogos, puede: 'rh' },
   { id: 'padron', ruta: RUTAS.padron, puede: 'verPersonal' },
   { id: 'estructura', ruta: RUTAS.estructura, puede: 'verPersonal' },
+  { id: 'personalLista', ruta: RUTAS.personalLista, puede: 'listaPersonal' },
 
   { id: 'accesos', ruta: RUTAS.accesos, puede: 'accesos' },
   { id: 'accesosTab', ruta: `${RUTAS.accesos}/:tab`, puede: 'accesos' },
@@ -211,6 +214,7 @@ export const MATRIZ = [
 
   { grupo: 'Personal y estructura', tipo: 'pantalla', id: 'padron', nombre: 'Padrón de empleados (Nóminas: «Personal», solo lectura, con teléfono)', ruta: RUTAS.padron, quien: por('verPersonal'), menu: 'rh+nomina' },
   { grupo: 'Personal y estructura', tipo: 'pantalla', id: 'estructura', nombre: 'Estructura (áreas, puestos, turnos; Nóminas: solo lectura)', ruta: RUTAS.estructura, quien: por('verPersonal'), menu: 'rh+nomina' },
+  { grupo: 'Personal y estructura', tipo: 'pantalla', id: 'listaPersonal', nombre: 'Lista del personal elegible (desde la tarjeta de personal del Inicio; solo lectura, cada quien ve sus áreas)', ruta: RUTAS.personalLista, quien: por('listaPersonal'), menu: null, nota: 'Se entra por la tarjeta del Inicio' },
   { grupo: 'Personal y estructura', tipo: 'pantalla', id: 'accesos', nombre: 'Usuarios y accesos (cada quien ve solo las pestañas que le tocan)', ruta: RUTAS.accesos, quien: por('accesos'), menu: 'rh', nota: 'En el menú de RH es un ítem; los demás entran por su pestaña' },
   { grupo: 'Personal y estructura', tipo: 'pantalla', id: 'accesosUsuarios', nombre: 'Usuarios y accesos › Usuarios', ruta: rutaAccesos('usuarios'), quien: por('usuarios'), menu: null },
   { grupo: 'Personal y estructura', tipo: 'pantalla', id: 'accesosAsignaciones', nombre: 'Usuarios y accesos › Asignaciones («Asignar roles» en el menú de Aut. 2)', ruta: RUTAS.asignaciones, quien: por('asignar'), menu: 'otros+nomina' },

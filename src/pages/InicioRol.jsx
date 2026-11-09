@@ -13,8 +13,7 @@ import { useResumenTE } from '../hooks/useResumenTE';
 import { usePorAutorizar } from '../hooks/usePendientes';
 import { useAuth } from '../hooks/useAuth';
 import { useSaludo } from '../hooks/useSaludo';
-import { esActivo } from '../utils/activo';
-import { RUTAS, rutaMisSolicitudes } from '../rutas';
+import { RUTAS, rutaListaPersonal, rutaMisSolicitudes } from '../rutas';
 import { contarMisSolicitudes, proximosAutorizados, semanaPorArea, ultimasDelArea } from '../utils/resumenInicio';
 import { formatoFecha } from '../utils/asignaciones';
 import AyudaPantalla from '../components/AyudaPantalla';
@@ -49,7 +48,7 @@ export default function InicioRol() {
   const accesos = useAccesos();
   const { esAut2, areasAut1, areasSolicitante, cargando } = accesos;
   const { areas, nombres } = useAreas();
-  const { empleados, cargando: cargandoEmp } = useCatalogos({ empleados: true });
+  const { empleados, empleadosElegibles, cargando: cargandoEmp } = useCatalogos({ empleados: true });
   const resumen = useResumenTE();
   const porAutorizar = usePorAutorizar(usuario, accesos, true);
   const { saludo, nombre, descripcion } = useSaludo(empleados);
@@ -65,8 +64,8 @@ export default function InicioRol() {
   const [ahora] = useState(() => new Date());
   const mias = contarMisSolicitudes(resumen.propias, ahora);
   const proximos = proximosAutorizados(resumen.propias, ahora);
-  const empleadosDeMiArea = empleados.filter(e => esActivo(e) && misAreas.includes(e.areaId)).length;
-  const empleadosDePlanta = empleados.filter(esActivo).length;
+  const empleadosDeMiArea = empleadosElegibles.filter(e => misAreas.includes(e.areaId)).length;
+  const empleadosDePlanta = empleadosElegibles.length;
   const nombreArea = (id) => nombres.get(id) ?? id;
 
   if (cargando) return <div className="space-y-8"><EsqueletoPagina bloques={0} /><EsqueletoIndicadores cantidad={4} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" /></div>;
@@ -107,7 +106,7 @@ export default function InicioRol() {
             {misAreas.length === 1 ? `Mi área · ${nombreArea(misAreas[0])}` : `Mis áreas · ${misAreas.map(nombreArea).join(', ')}`}
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <Indicador etiqueta="Empleados de mi área" valor={empleadosDeMiArea} cargando={cargandoEmp} icono={Users} ayuda="activos en tu área" />
+            <Indicador etiqueta="Personal de mi área" valor={empleadosDeMiArea} to={rutaListaPersonal(misAreas.length === 1 ? misAreas[0] : '')} verMas="Ver lista" cargando={cargandoEmp} icono={Users} ayuda="elegibles para tiempo extra en tu área" />
             <Indicador etiqueta="En borrador" valor={mias.borrador} to={rutaMisSolicitudes('borrador')} ayuda="Aún no las envías" />
             <Indicador etiqueta="En autorización" valor={mias.enAutorizacion} to={rutaMisSolicitudes('autorizacion')} icono={Clock} ayuda="Esperando firmas" />
             <Indicador etiqueta="Devueltas" valor={mias.devueltas} to={rutaMisSolicitudes('devuelta')} atencion={mias.devueltas > 0} icono={AlertTriangle}
@@ -133,7 +132,7 @@ export default function InicioRol() {
           <h2 className="text-lg font-semibold text-[var(--text-main)]">Planta</h2>
           <div className="grid gap-4 sm:grid-cols-3">
             <Indicador etiqueta="Por autorizar nivel 2" valor={porAutorizar.aut2} to={RUTAS.teAutorizar} atencion={porAutorizar.aut2 > 0} icono={BadgeCheck} ayuda="Esperando tu firma" />
-            <Indicador etiqueta="Empleados de planta" valor={empleadosDePlanta} cargando={cargandoEmp} icono={Users} ayuda="activos" />
+            <Indicador etiqueta="Personal de planta" valor={empleadosDePlanta} to={rutaListaPersonal()} verMas="Ver lista" cargando={cargandoEmp} icono={Users} ayuda="elegibles para tiempo extra" />
             <Indicador etiqueta="Solicitudes de la semana" valor={semanaPorArea(resumen.planta, areas, ahora).reduce((a, x) => a + x.total, 0)} to={RUTAS.teConsulta} ayuda="enviadas esta semana" />
           </div>
           <TablaInicio titulo="Solicitudes de la semana por área"

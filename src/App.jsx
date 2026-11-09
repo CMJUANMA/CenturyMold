@@ -28,6 +28,7 @@ const RecepcionTE = lazy(() => import('./pages/te/RecepcionTE'));
 const FormatoRutasPagina = lazy(() => import('./pages/te/FormatoRutasPagina'));
 const ReportesNomina = lazy(() => import('./pages/nomina/ReportesNomina'));
 const RevisarAreaNomina = lazy(() => import('./pages/nomina/RevisarAreaNomina'));
+const ListaPersonal = lazy(() => import('./pages/personal/ListaPersonal'));
 const Herramientas = lazy(() => import('./pages/Herramientas'));
 const GuiaEstilo = lazy(() => import('./pages/GuiaEstilo'));
 import NuevaSolicitud from './pages/NuevaSolicitud';
@@ -64,6 +65,7 @@ const PANTALLAS = {
   transporteCatalogos: <RhCatalogos />,
   padron: <RhEmpleados />,
   estructura: <Estructura />,
+  personalLista: <ListaPersonal />,
   // Usuarios y accesos: cada pestaña decide qué muestra según los permisos de quien entra
   accesos: <UsuariosYAccesos />,
   accesosTab: <UsuariosYAccesos />,

@@ -12,7 +12,7 @@ import { useAreas } from '../hooks/useAreas';
 import { useCatalogos } from '../hooks/useCatalogos';
 import { useResumenTE } from '../hooks/useResumenTE';
 import { useSaludo } from '../hooks/useSaludo';
-import { RUTAS } from '../rutas';
+import { RUTAS, rutaListaPersonal } from '../rutas';
 import { resumenNomina } from '../utils/resumenInicio';
 import { ESTADOS_AREA, autorizadasDelPeriodo, estadoDeArea, etiquetaPeriodo, ultimaSemanaCompleta } from '../utils/formatoNomina';
 import { ymd } from '../utils/fechas';
@@ -58,7 +58,7 @@ const Seccion = ({ titulo, tour, children }) => (
 export default function InicioNomina() {
   const { planta, cargando, error } = useResumenTE();
   const { nombres } = useAreas();
-  const { empleadosActivos } = useCatalogos();
+  const { empleadosActivos, empleadosElegibles, cargando: cargandoPersonal } = useCatalogos();
   const { saludo, nombre, descripcion } = useSaludo(empleadosActivos);
   const { areasSolicitante, areasAut1, esAut2 } = useAccesos();
   const [ahora] = useState(() => new Date());
@@ -86,10 +86,11 @@ export default function InicioNomina() {
 
       <Seccion titulo="Pendiente de enviar al proveedor" tour={'inicioNomina-pendiente'}>
         {cargando ? <EsqueletoIndicadores cantidad={3} className="grid gap-4 sm:grid-cols-3" /> : (
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Indicador etiqueta="Por enviar al proveedor" valor={porEnviar.total} to={RUTAS.teRecepcion} icono={Inbox} atencion={porEnviar.total > 0} ayuda="autorizadas por confirmar" />
             <Indicador etiqueta="Fechas vencidas" valor={porEnviar.vencidas} to={RUTAS.teRecepcion} icono={CalendarX} atencion={porEnviar.vencidas > 0} ayuda="sin confirmar y con fecha que ya pasó" />
             <Indicador etiqueta="Empleados por enviar" valor={porEnviar.empleados} to={RUTAS.teRecepcion} icono={Users} ayuda="en lo que falta por confirmar" />
+            <Indicador etiqueta="Personal activo" valor={empleadosElegibles.length} to={rutaListaPersonal()} verMas="Ver lista" icono={Users} cargando={cargandoPersonal} ayuda="elegibles para tiempo extra" />
           </div>
         )}
       </Seccion>

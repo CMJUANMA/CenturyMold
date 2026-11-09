@@ -20,7 +20,7 @@ import { useSaludo } from '../hooks/useSaludo';
 import { formatoFecha } from '../utils/asignaciones';
 import { indicadoresRH, proximos7Dias, respaldoVencido, textoUltimoRespaldo } from '../utils/resumenInicio';
 import { leerUltimoRespaldo } from '../utils/bitacoraDb';
-import { RUTAS, rutaConsultaTE } from '../rutas';
+import { RUTAS, rutaConsultaTE, rutaListaPersonal } from '../rutas';
 import AyudaPantalla from '../components/AyudaPantalla';
 import BadgeEstatus from '../components/BadgeEstatus';
 import Aviso from '../components/ui/Aviso';
@@ -55,7 +55,7 @@ const textoDias = (d) => (d === null ? null : d === 0 ? 'La más antigua: de hoy
 export default function InicioRH() {
   const { planta, cargando, error } = useResumenTE();
   const { nombres } = useAreas();
-  const { rutasActivas, empleadosActivos, cargando: cargandoCat } = useCatalogos();
+  const { rutasActivas, empleadosActivos, empleadosElegibles, cargando: cargandoCat } = useCatalogos();
   const { saludo, nombre, descripcion } = useSaludo(empleadosActivos);
   const [ahora] = useState(() => new Date());
   const [transporteMes, setTransporteMes] = useState(null);
@@ -191,7 +191,7 @@ export default function InicioRH() {
       <Seccion titulo="Datos del sistema">
         <div className="grid gap-4 sm:grid-cols-3">
           <Indicador etiqueta="Transporte del mes" valor={transporteMes ?? '—'} to={RUTAS.transporteSolicitudes} icono={Bus} ayuda="solicitudes de transporte registradas" />
-          <Indicador etiqueta="Personal activo" valor={empleadosActivos.length} to={RUTAS.padron} icono={Users} cargando={cargandoCat} ayuda="empleados en el padrón" />
+          <Indicador etiqueta="Personal activo" valor={empleadosElegibles.length} to={rutaListaPersonal()} verMas="Ver lista" icono={Users} cargando={cargandoCat} ayuda="elegibles para tiempo extra" />
           <Indicador etiqueta="Rutas activas" valor={rutasActivas.length} to={RUTAS.transporteCatalogos} icono={MapPin} cargando={cargandoCat} ayuda="en servicio" />
         </div>
       </Seccion>

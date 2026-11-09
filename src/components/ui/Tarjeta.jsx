@@ -25,7 +25,7 @@ export function Tarjeta({ titulo, accion, className = '', cuerpoClassName = 'p-5
  * las cifras de varias tarjetas en una fila queden a la misma altura. La cifra va en IBM Plex Sans con cifras tabulares (la mono es solo
  * para folios, nóminas y horas dentro de tablas).
  */
-export function Indicador({ etiqueta, valor, ayuda, to, atencion = false, icono: Icono, cargando = false, className = '' }) {
+export function Indicador({ etiqueta, valor, ayuda, to, atencion = false, icono: Icono, cargando = false, verMas, className = '' }) {
   const cuerpo = (
     <div className={`flex h-full flex-col rounded-lg border p-5 transition-colors duration-150 ${atencion
       ? 'border-[var(--status-warning-border)] bg-[var(--status-warning-bg)]'
@@ -40,6 +40,7 @@ export function Indicador({ etiqueta, valor, ayuda, to, atencion = false, icono:
           : <p className={`text-3xl font-medium tabular-nums ${atencion ? 'text-[var(--status-warning-text)]' : 'text-[var(--text-main)]'}`}>{valor}</p>}
       </div>
       <p className={`mt-2 min-h-10 line-clamp-2 text-xs ${atencion ? 'text-[var(--status-warning-text)]' : 'text-[var(--text-muted)]'}`}>{ayuda}</p>
+      {verMas && to && <p className="mt-1 text-xs font-medium text-[var(--text-main)]">{verMas} →</p>}
     </div>
   );
   return to ? <Link to={to} className="block h-full rounded-lg">{cuerpo}</Link> : cuerpo;

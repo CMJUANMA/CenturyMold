@@ -72,6 +72,7 @@ La tabla se **genera** desde `src/utils/permisos.js` (`npm run docs:permisos`); 
 | **Personal y estructura** ||||||||
 | Pantalla: Padrón de empleados (Nóminas: «Personal», solo lectura, con teléfono) | ✔ | ✔ | ✔ | — | — | — | — |
 | Pantalla: Estructura (áreas, puestos, turnos; Nóminas: solo lectura) | ✔ | ✔ | ✔ | — | — | — | — |
+| Pantalla: Lista del personal elegible (desde la tarjeta de personal del Inicio; solo lectura, cada quien ve sus áreas) _(Se entra por la tarjeta del Inicio)_ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | — |
 | Pantalla: Usuarios y accesos (cada quien ve solo las pestañas que le tocan) _(En el menú de RH es un ítem; los demás entran por su pestaña)_ | ✔ | ✔ | — | ✔ | ✔ | — | — |
 | Pantalla: Usuarios y accesos › Usuarios | ✔ | ✔ | — | ✔ | — | — | — |
 | Pantalla: Usuarios y accesos › Asignaciones («Asignar roles» en el menú de Aut. 2) | ✔ | ✔ | — | ✔ | — | — | — |

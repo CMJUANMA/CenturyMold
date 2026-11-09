@@ -30,6 +30,7 @@ export const RUTAS = {
   // Personal y estructura
   padron: '/personal/padron',
   estructura: '/personal/estructura',
+  personalLista: '/personal/lista',
   accesos: '/personal/accesos',
   organigrama: '/personal/accesos/organigrama',
   asignaciones: '/personal/accesos/asignaciones',
@@ -40,6 +41,9 @@ export const rutaReportesNomina = (clave) => (clave ? `${RUTAS.nominaReportes}?p
 
 /** La pantalla de revisión de un área en un periodo */
 export const rutaRevisarNomina = (clave, areaId) => `/nomina/semana/${encodeURIComponent(clave)}/${encodeURIComponent(areaId)}`;
+
+/** Lista del personal elegible para tiempo extra (la de la tarjeta del Inicio), ya filtrada por área si se da */
+export const rutaListaPersonal = (areaId) => (areaId ? `${RUTAS.personalLista}?area=${encodeURIComponent(areaId)}` : RUTAS.personalLista);
 
 /** Pestaña de Usuarios y accesos: usuarios · asignaciones · organigrama */
 export const rutaAccesos = (tab) => `${RUTAS.accesos}/${tab}`;
