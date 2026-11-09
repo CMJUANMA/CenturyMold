@@ -4,7 +4,9 @@ import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { EMP_HEADERS, leerElegiblesArchivo, leerEmpleados } from '../src/utils/formatosImportacion.js';
 import { compararEmpleados } from '../src/utils/comparacionImportacion.js';
-import { FILTRO_ELEGIBLE, esElegibleActivo, esElegibleTE, filtrarPorElegibilidad, leerElegible, planElegiblesTE } from '../src/utils/elegibles.js';
+import {
+  CREAR_PUESTO, FILTRO_ELEGIBLE, areaPorDepartamento, construirAltas, eleccionInicial, esElegibleActivo, esElegibleTE, filtrarPorElegibilidad, leerElegible, planElegiblesTE,
+} from '../src/utils/elegibles.js';
 import { areasDeLaLista, filtrarLista, quienVeTelefono } from '../src/utils/listaPersonal.js';
 import { AREAS_INICIALES, PUESTOS_INICIALES } from '../src/utils/estructura.js';
 
@@ -82,7 +84,7 @@ describe('carga del archivo de elegibles (AREA TE manda)', () => {
   const areas = AREAS_INICIALES;
   const puestos = PUESTOS_INICIALES.map(p => ({ id: p.id, areaId: p.areaId }));
   const emp = (nomina, o = {}) => ({ id: nomina, nomina, nombre: `EMPLEADO ${nomina}`, puestoId: 'forklift-operator', puesto: 'FORKLIFT OPERATOR', areaId: 'almacen', activo: true, ...o });
-  const fila = (nomina, areaTE, elegible, filaExcel = 2) => ({ filaExcel, nomina, areaTE, elegible });
+  const fila = (nomina, areaTE, elegible, filaExcel = 2, extra = {}) => ({ filaExcel, nomina, nombre: `NUEVO ${nomina}`, puesto: '', depto: '', areaTE, elegible, ...extra });
 
   it('pone elegibleTE y el área; si AREA TE difiere del puesto la guarda como excepción', () => {
     const p = planElegiblesTE({
@@ -128,8 +130,8 @@ describe('carga del archivo de elegibles (AREA TE manda)', () => {
     const { hoja, filas } = await leerElegiblesArchivo(buf);
     expect(hoja).toBe('Padron TE');
     expect(filas).toEqual([
-      { filaExcel: 2, nomina: '50131', areaTE: 'Almacén', elegible: true },
-      { filaExcel: 3, nomina: '50132', areaTE: '', elegible: false },
+      { filaExcel: 2, nomina: '50131', nombre: 'A', puesto: 'P', depto: 'D', areaTE: 'Almacén', elegible: true },
+      { filaExcel: 3, nomina: '50132', nombre: 'B', puesto: 'P', depto: 'D', areaTE: '', elegible: false },
     ]);
     await expect(leerElegiblesArchivo(await libro([{ nombre: 'Otra', filas: [['X']] }]))).rejects.toThrow(/NOMINA, AREA TE y ELEGIBLE TE/);
   });
@@ -162,5 +164,68 @@ describe('lista del personal desde el Inicio', () => {
     expect(sol.puede({ areaId: 'moldes' })).toBe(false);
     expect(quienVeTelefono(acc({ areasAut1: ['moldes'] })).muestra).toBe(false);
     expect(quienVeTelefono(acc({ esAut2: true })).muestra).toBe(false);
+  });
+});
+
+describe('altas de quienes no están en el padrón', () => {
+  const areas = AREAS_INICIALES;
+  const puestos = PUESTOS_INICIALES.map(p => ({ ...p }));
+  const emp = (nomina, o = {}) => ({ id: nomina, nomina, nombre: `EMPLEADO ${nomina}`, puestoId: 'forklift-operator', puesto: 'FORKLIFT OPERATOR', areaId: 'almacen', activo: true, ...o });
+  const fila = (nomina, o) => ({ filaExcel: 2, nomina, nombre: `NUEVO ${nomina}`, puesto: 'FORKLIFT OPERATOR', depto: '', areaTE: 'Almacén', elegible: true, ...o });
+
+  it('el área propuesta por departamento', () => {
+    const a = (d) => areaPorDepartamento(d, areas)?.id ?? null;
+    expect([a('Mfg. Supervisors'), a('Process'), a('MIS'), a('HR'), a('Supervision'), a('Admin')]).toEqual(['produccion', 'produccion', 'administrativo', 'administrativo', 'administrativo', 'administrativo']);
+    expect([a('Maintenance'), a('Mold Maintenance'), a('Quality'), a('Shipping/Receiving Q'), a('Material Handling QU'), a('Customer Service')]).toEqual(['mantenimiento', 'moldes', 'calidad', 'almacen', 'almacen', 'almacen']);
+    expect(a('Cocina')).toBeNull();
+    expect(a('')).toBeNull();
+  });
+  it('en la vista previa salen como nuevos, cuentan en el total por área y traen su puesto resuelto', () => {
+    const p = planElegiblesTE({
+      filas: [fila('51323', {}), fila('51324', { areaTE: 'Producción', puesto: 'PRODUCTION OPERATER' }), fila('51325', { puesto: 'ROBOT TAMER' })],
+      empleados: [emp('1')], areas, puestos,
+    });
+    expect(p.noEnPadron.map(n => n.nomina)).toEqual(['51323', '51324', '51325']);
+    expect(p.noEnPadron.map(n => n.puestoRes.nivel)).toEqual(['a', 'b', 'c']);
+    expect(Object.fromEntries(p.porArea)).toEqual({ almacen: 2, produccion: 1 });
+    expect(p.conteo.elegibles).toBe(3);
+  });
+  it('un no elegible sin AREA TE propone el área del departamento; sin nombre no se puede dar de alta', () => {
+    const p = planElegiblesTE({
+      filas: [fila('1', { areaTE: '', elegible: false, depto: 'Mold Maintenance' }), fila('2', { areaTE: '', elegible: false, depto: 'Cocina' }), fila('3', { nombre: '' })],
+      empleados: [], areas, puestos,
+    });
+    expect(p.noEnPadron.map(n => [n.nomina, n.areaSugerida, n.areaFija])).toEqual([['1', 'moldes', false], ['2', '', false]]);
+    expect(p.problemas.map(x => x.nomina)).toEqual(['3']);
+    expect(p.conteo.noElegibles).toBe(2);
+  });
+  it('construirAltas: documento completo, activo, con elegibleTE del archivo y sin teléfono ni ruta', () => {
+    const p = planElegiblesTE({ filas: [fila('51323', { nombre: 'VILLARREAL  JUAN', elegible: true })], empleados: [], areas, puestos });
+    const { altas, puestosNuevos, errores } = construirAltas({ nuevos: p.noEnPadron, elecciones: {}, puestos, areas });
+    expect(errores).toEqual([]);
+    expect(puestosNuevos).toEqual([]);
+    expect(altas[0]).toEqual({ id: '51323', datos: expect.objectContaining({
+      nomina: '51323', nombre: 'VILLARREAL JUAN', nombreLower: 'villarreal juan', puesto: 'FORKLIFT OPERATOR', puestoId: 'forklift-operator', areaId: 'almacen',
+      areaExcepcion: null, areaExcepcionMotivo: '', activo: true, elegibleTE: true, rutaId: '', comunidadId: '', puntoReunionId: '',
+    }) });
+    expect('telefono' in altas[0].datos).toBe(false);
+  });
+  it('si el área elegida no es la del puesto se guarda como excepción', () => {
+    const p = planElegiblesTE({ filas: [fila('1', { areaTE: 'Producción' })], empleados: [], areas, puestos }); // forklift es de Almacén
+    const { altas } = construirAltas({ nuevos: p.noEnPadron, elecciones: {}, puestos, areas });
+    expect(altas[0].datos).toMatchObject({ areaId: 'produccion', areaExcepcion: 'produccion', areaExcepcionMotivo: expect.any(String) });
+  });
+  it('puesto inexistente: se propone crearlo (compartido entre quienes lo traen) o se elige uno existente; sin elegir, error', () => {
+    const p = planElegiblesTE({
+      filas: [fila('1', { puesto: 'ROBOT TAMER', areaTE: '', elegible: false, depto: 'Quality' }), fila('2', { puesto: 'robot  tamer', areaTE: '', elegible: false, depto: 'Quality' }), fila('3', { puesto: 'OTRO RARO', areaTE: '', elegible: false, depto: 'MIS' })],
+      empleados: [], areas, puestos,
+    });
+    expect(p.noEnPadron.map(n => eleccionInicial(n).puestoSel)).toEqual([CREAR_PUESTO, CREAR_PUESTO, CREAR_PUESTO]);
+    const r = construirAltas({ nuevos: p.noEnPadron, elecciones: { 3: { areaId: 'administrativo', puestoSel: 'it-analyst' } }, puestos, areas });
+    expect(r.puestosNuevos).toEqual([{ id: 'robot-tamer', nombre: 'ROBOT TAMER', areaId: 'calidad', activo: true, alias: [] }]);
+    expect(r.altas.filter(a => a.datos.puestoId === 'robot-tamer').map(a => a.id)).toEqual(['1', '2']);
+    expect(r.altas.find(a => a.id === '3').datos.puestoId).toBe('it-analyst');
+    const sin = construirAltas({ nuevos: p.noEnPadron, elecciones: { 1: { areaId: 'calidad', puestoSel: '' }, 2: { areaId: '', puestoSel: CREAR_PUESTO } }, puestos, areas });
+    expect(sin.errores.map(e => e.nomina).sort()).toEqual(['1', '2']);
   });
 });

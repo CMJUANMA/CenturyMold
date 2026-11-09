@@ -8,7 +8,8 @@
  * Un documento sin el campo (anterior a esta función, aún sin clasificar) se trata como elegible: solo `elegibleTE: false` oculta a alguien.
  * Así, desplegar la app antes de cargar el archivo de elegibles no vacía las listas.
  */
-import { clavePuesto } from './puestos.js';
+import { clavePuesto, normalizarPuesto, resolverPuesto } from './puestos.js';
+import { idPuestoLibre } from './estructura.js';
 import { esActivo } from './activo.js';
 
 export const esElegibleTE = (e) => !!e && e.elegibleTE !== false;
@@ -38,6 +39,80 @@ export function leerElegible(valor) {
 
 export const etiquetaElegible = (b) => (b ? 'SI' : 'NO');
 
+/**
+ * Área que se propone para alguien que no es elegible y no trae AREA TE, según su departamento de nómina. null si no se reconoce.
+ * Mfg. Supervisors/Process → Producción · MIS/HR/Supervision/Admin → Administrativo · Maintenance → Mantenimiento · Mold Maintenance → Moldes ·
+ * Quality → Calidad · Shipping/Material Handling/Customer Service → Almacén.
+ * @param {string} depto  @param {{ id: string, nombre: string }[]} areas
+ */
+export function areaPorDepartamento(depto, areas) {
+  const d = clavePuesto(depto);
+  if (!d) return null;
+  const nombre = /mold\s*maint/.test(d) ? 'moldes'
+    : /maint/.test(d) ? 'mantenimiento'
+      : /quality|calidad/.test(d) ? 'calidad'
+        : /shipping|receiving|material|customer/.test(d) ? 'almacen'
+          : /mfg|manufact|process|production|produccion/.test(d) ? 'produccion'
+            : /\bmis\b|\bhr\b|supervis|admin|human/.test(d) ? 'administrativo' : '';
+  return nombre ? areas.find(a => clavePuesto(a.nombre) === nombre) ?? null : null;
+}
+
+export const CREAR_PUESTO = '__crear__';
+
+/** Elección inicial de un nuevo: el área propuesta y, del puesto, el que coincide (nivel a o b) o crearlo si no existe */
+export function eleccionInicial(nuevo) {
+  const r = nuevo.puestoRes;
+  return {
+    areaId: nuevo.areaSugerida ?? '',
+    puestoSel: r?.puesto?.id ?? (nuevo.puestoTexto ? CREAR_PUESTO : ''),
+  };
+}
+
+/**
+ * Documentos de las altas con lo que RH eligió en la vista previa. Sin teléfono ni ruta (como cualquier alta). Si el área elegida no es la del
+ * puesto, se guarda como excepción de área (así no se revierte al sincronizar). Los puestos que hay que crear se comparten entre quienes traen el
+ * mismo texto y se crean en el área de la primera persona.
+ * @param {{ nuevos: object[], elecciones: Record<string, { areaId: string, puestoSel: string }>, puestos: object[], areas: object[] }} p
+ * @returns {{ altas: { id: string, datos: object }[], puestosNuevos: { id, nombre, areaId, activo, alias }[], errores: { nomina: string, mensaje: string }[] }}
+ */
+export function construirAltas({ nuevos, elecciones, puestos, areas }) {
+  const porId = new Map(puestos.map(p => [p.id, p]));
+  const ocupados = new Set(puestos.map(p => p.id));
+  const areasPorId = new Map(areas.map(a => [a.id, a]));
+  const creados = new Map(); // clave del texto → puesto nuevo
+  const altas = []; const errores = [];
+  for (const n of nuevos) {
+    const el = elecciones[n.nomina] ?? eleccionInicial(n);
+    if (!areasPorId.has(el.areaId)) { errores.push({ nomina: n.nomina, mensaje: 'Elige el área' }); continue; }
+    let puesto;
+    if (el.puestoSel === CREAR_PUESTO) {
+      const nombre = normalizarPuesto(n.puestoTexto);
+      if (!nombre) { errores.push({ nomina: n.nomina, mensaje: 'Elige el puesto' }); continue; }
+      const clave = clavePuesto(nombre);
+      if (!creados.has(clave)) {
+        const id = idPuestoLibre(nombre, ocupados);
+        ocupados.add(id);
+        creados.set(clave, { id, nombre, areaId: el.areaId, activo: true, alias: [] });
+      }
+      puesto = creados.get(clave);
+    } else {
+      puesto = porId.get(el.puestoSel);
+      if (!puesto) { errores.push({ nomina: n.nomina, mensaje: 'Elige el puesto' }); continue; }
+    }
+    const excepcion = el.areaId !== puesto.areaId ? el.areaId : null;
+    altas.push({
+      id: n.nomina,
+      datos: {
+        nomina: n.nomina, nombre: n.nombre, nombreLower: clavePuesto(n.nombre).toLowerCase(), puesto: puesto.nombre, puestoId: puesto.id,
+        areaId: el.areaId, areaExcepcion: excepcion, areaExcepcionMotivo: excepcion ? MOTIVO_AREA_TE : '',
+        activo: true, elegibleTE: n.elegible === true, rutaId: '', comunidadId: '', puntoReunionId: '',
+        ...(n.depto ? { depto: n.depto } : {}),
+      },
+    });
+  }
+  return { altas, puestosNuevos: [...creados.values()], errores };
+}
+
 // ── Carga del archivo de elegibles (con el área de tiempo extra) ───────────────────────────────
 
 export const MOTIVO_AREA_TE = 'Área de tiempo extra según el padrón de elegibles';
@@ -49,7 +124,9 @@ export const MOTIVO_AREA_TE = 'Área de tiempo extra según el padrón de elegib
  * (no se desactivan: pueden ser bajas, se reportan).
  *
  * @param {object} p
- * @param {{ filaExcel?: number, nomina: string, areaTE: string, elegible: boolean|null|undefined }[]} p.filas
+ * Las nóminas del archivo que NO están en el padrón no se ignoran: salen en `noEnPadron` con sus datos (nombre, puesto, departamento, área
+ * propuesta y resolución del puesto) para darlas de alta (ver construirAltas).
+ * @param {{ filaExcel?: number, nomina: string, nombre?: string, puesto?: string, depto?: string, areaTE: string, elegible: boolean|null|undefined }[]} p.filas
  * @param {object[]} p.empleados  documentos del padrón [{ id, nomina, nombre, areaId, puestoId, ... }]
  * @param {{ id: string, nombre: string }[]} p.areas
  * @param {{ id: string, areaId: string }[]} p.puestos
@@ -75,7 +152,20 @@ export function planElegiblesTE({ filas, empleados, areas, puestos }) {
     vistas.add(nomina);
     if (f.elegible !== true && f.elegible !== false) { problemas.push({ filaExcel: f.filaExcel, nomina, mensaje: 'ELEGIBLE TE debe ser SI o NO' }); continue; }
     const e = porNomina.get(nomina);
-    if (!e) { noEnPadron.push({ nomina, areaTE: f.areaTE ?? '', elegible: f.elegible, filaExcel: f.filaExcel }); continue; }
+    if (!e) {
+      const nombre = String(f.nombre ?? '').trim().replace(/\s+/g, ' ');
+      if (!nombre) { problemas.push({ filaExcel: f.filaExcel, nomina, mensaje: 'No está en el padrón y la fila no trae NOMBRE: no se puede dar de alta' }); continue; }
+      const areaArchivo = areaPorClave.get(clavePuesto(f.areaTE));
+      if (f.elegible && !areaArchivo) { problemas.push({ filaExcel: f.filaExcel, nomina, mensaje: `AREA TE «${f.areaTE ?? ''}» no existe en el catálogo de áreas` }); continue; }
+      const sugerida = areaArchivo ?? areaPorDepartamento(f.depto, areas);
+      noEnPadron.push({
+        nomina, nombre, puestoTexto: String(f.puesto ?? '').trim(), depto: String(f.depto ?? '').trim(), areaTE: f.areaTE ?? '', elegible: f.elegible, filaExcel: f.filaExcel,
+        areaSugerida: sugerida?.id ?? '', areaFija: f.elegible,
+        puestoRes: resolverPuesto(f.puesto, puestos.filter(p => p.nombre)),
+      });
+      if (f.elegible) { elegibles++; porArea.set(areaArchivo.id, (porArea.get(areaArchivo.id) ?? 0) + 1); } else noElegibles++;
+      continue;
+    }
 
     const datos = {};
     const areaAntes = e.areaId ?? '';

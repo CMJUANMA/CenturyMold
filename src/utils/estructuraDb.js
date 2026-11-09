@@ -23,15 +23,16 @@ export async function leerColeccion(nombre, toast) {
   }
 }
 
-/** Ejecuta las operaciones en lotes de 500; si un lote falla, dice cuántas ya se guardaron */
-export async function ejecutarEnLotes(ops) {
+/** Ejecuta las operaciones en lotes de 500; si un lote falla, dice cuántas ya se guardaron. `onProgreso(hechas, total)` avisa tras cada lote */
+export async function ejecutarEnLotes(ops, onProgreso = null, tamano = 500) {
   let guardadas = 0;
   try {
-    for (let i = 0; i < ops.length; i += 500) {
+    for (let i = 0; i < ops.length; i += tamano) {
       const batch = writeBatch(db);
-      ops.slice(i, i + 500).forEach(op => op(batch));
+      ops.slice(i, i + tamano).forEach(op => op(batch));
       await batch.commit();
-      guardadas = Math.min(i + 500, ops.length);
+      guardadas = Math.min(i + tamano, ops.length);
+      onProgreso?.(guardadas, ops.length);
     }
   } catch (err) {
     console.error('Error al guardar en lotes:', err.code, err);

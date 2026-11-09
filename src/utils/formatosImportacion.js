@@ -672,7 +672,7 @@ export async function leerEmpleados(buffer, puntosReunionMap) {
 /**
  * Lee el archivo «padrón de elegibles TE»: la primera hoja con las columnas NOMINA, AREA TE y ELEGIBLE TE (en cualquier orden y con otras
  * columnas de por medio; los encabezados se comparan sin acentos ni mayúsculas). Hojas como «Resumen» sin esas columnas se ignoran.
- * @returns {Promise<{ hoja: string, filas: { filaExcel: number, nomina: string, areaTE: string, elegible: boolean|null|undefined }[] }>}
+ * @returns {Promise<{ hoja: string, filas: { filaExcel: number, nomina: string, nombre: string, puesto: string, depto: string, areaTE: string, elegible: boolean|null|undefined }[] }>}
  */
 export async function leerElegiblesArchivo(buffer) {
   const wb = await cargarLibro(buffer);
@@ -687,7 +687,9 @@ export async function leerElegiblesArchivo(buffer) {
       const areaTE = limpiarTexto(textoCelda(row.getCell(cols.get('AREA TE'))));
       const crudo = textoCelda(row.getCell(cols.get('ELEGIBLE TE')));
       if (!nomina && !areaTE && norm(crudo) === '') continue;
-      filas.push({ filaExcel: n, nomina, areaTE, elegible: leerElegible(crudo) ?? undefined });
+      // NOMBRE, PUESTO y DEPTO NOMINA son opcionales: sirven para dar de alta a quien no está en el padrón
+      const opc = (h) => (cols.has(h) ? limpiarTexto(textoCelda(row.getCell(cols.get(h)))) : '');
+      filas.push({ filaExcel: n, nomina, nombre: opc('NOMBRE'), puesto: opc('PUESTO'), depto: opc('DEPTO NOMINA'), areaTE, elegible: leerElegible(crudo) ?? undefined });
     }
     return { hoja: ws.name, filas };
   }
