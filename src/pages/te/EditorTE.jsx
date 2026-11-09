@@ -31,7 +31,8 @@ import { EsqueletoPagina } from '../../components/ui/Esqueleto';
 import { CASILLA } from '../../components/ui/estilos';
 import Insignia from '../../components/ui/Insignia';
 import { Tarjeta } from '../../components/ui/Tarjeta';
-import { esActivo, rutaVigente } from '../../utils/activo';
+import { rutaVigente } from '../../utils/activo';
+import { esElegibleActivo } from '../../utils/elegibles';
 import { ymd } from '../../utils/fechas';
 import { registrarGuardador } from '../../utils/guardadoAutomatico';
 import {
@@ -164,7 +165,7 @@ export default function EditorTE() {
   }, [fechaTE, areaActual, usuario?.uid, esAut1DeLaArea, id]);
 
   const nombreRuta = (rid) => rutas.find(r => r.id === rid)?.nombre ?? '';
-  const empleadosArea = useMemo(() => padron.filter(e => esActivo(e) && e.areaId === areaActual), [padron, areaActual]);
+  const empleadosArea = useMemo(() => padron.filter(e => esElegibleActivo(e) && e.areaId === areaActual), [padron, areaActual]);
   const yaAgregados = useMemo(() => new Set(empleados.map(e => e.nomina)), [empleados]);
   const resumen = useMemo(() => resumenTE(empleados), [empleados]);
   const infoRutas = useMemo(() => resumenRutas(empleados, (rid) => rutas.find(r => r.id === rid)?.nombre ?? ''), [empleados, rutas]);

@@ -49,7 +49,7 @@ const existente = { id: '7219', nomina: '7219', nombre: 'PEREZ JUAN', puesto: 'P
 
 describe('importación: columna TELÉFONO', () => {
   it('la plantilla trae TELÉFONO como columna opcional', async () => {
-    expect(EMP_HEADERS).toEqual(['NOMINA', 'NOMBRE', 'PUESTO', 'CLAVE PARADA', 'TELÉFONO']);
+    expect(EMP_HEADERS.slice(0, 5)).toEqual(['NOMINA', 'NOMBRE', 'PUESTO', 'CLAVE PARADA', 'TELÉFONO']);
     const wb = construirFormatoEmpleados([]);
     const ws = wb.getWorksheet(HOJA_EMP);
     expect(ws.getRow(1).getCell(5).value).toBe('TELÉFONO');

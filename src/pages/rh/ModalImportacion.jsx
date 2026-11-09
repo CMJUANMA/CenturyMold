@@ -45,6 +45,7 @@ const EMP_COLS_INFO = [
   { letra: 'C', nombre: 'PUESTO',       obligatorio: true,  ejemplo: 'PRODUCTION OPERATOR' },
   { letra: 'D', nombre: 'CLAVE PARADA', obligatorio: false, ejemplo: 'SN01' },
   { letra: 'E', nombre: 'TELÉFONO',     obligatorio: false, ejemplo: '4421234567' },
+  { letra: 'F', nombre: 'ELEGIBLE TE',  obligatorio: false, ejemplo: 'SI' },
 ];
 const NOMINA_COLS_INFO = [
   { campo: 'numero_i', destino: 'Nómina (texto)' },

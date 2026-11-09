@@ -23,6 +23,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useAccesos } from '../hooks/useAccesos';
 import { CatalogosContext } from './catalogosStore';
 import { esActivo } from '../utils/activo';
+import { esElegibleActivo } from '../utils/elegibles';
 import { ordenarMotivos } from '../utils/motivosTE';
 
 
@@ -157,6 +158,8 @@ export function CatalogosProvider({ children }) {
     comunidadesActivas: vigentes.comunidades.filter(esActivo),
     puntosActivos: vigentes.puntos.filter(esActivo),
     empleadosActivos: vigentes.empleados.filter(esActivo),
+    /** Activos Y elegibles para tiempo extra: lo único que ofrecen las listas de captura, los reemplazos y los contadores del Inicio */
+    empleadosElegibles: vigentes.empleados.filter(esElegibleActivo),
     uid, listoG, cargandoG, errorG, registrar, recargar, parchearEmpleados,
   }), [vigentes, uid, listoG, cargandoG, errorG, registrar, recargar, parchearEmpleados]);
 

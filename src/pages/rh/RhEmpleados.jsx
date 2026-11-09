@@ -25,16 +25,18 @@ import { ejecutarEnLotes, leerColeccion, opBitacora } from '../../utils/estructu
 import { esActivo, opcionesVigentes } from '../../utils/activo';
 import { leerTodosLosTelefonos, opTelefono } from '../../utils/contactosDb';
 import { estadoTelefono, formatoTelefono, soloDigitosTelefono } from '../../utils/telefono';
+import { FILTRO_ELEGIBLE, esElegibleTE, filtrarPorElegibilidad } from '../../utils/elegibles';
 
 // Importación masiva (arrastra exceljs): se descarga solo al abrir el modal
 const ModalImportacion = lazy(() => import('./ModalImportacion'));
+const ModalElegiblesTE = lazy(() => import('./ModalElegiblesTE'));
 
 /** Nombre para un <option>, marcando si ya está inactivo (se conserva el valor guardado) */
 const etiqueta = (x) => (esActivo(x) ? x.nombre : `${x.nombre} (inactivo)`);
 
 const formVacio = {
   nomina: '', nombre: '', puesto: '', puestoId: '', rutaId: '', comunidadId: '', puntoReunionId: '', activo: true,
-  areaExcepcion: '', areaExcepcionMotivo: '', telefono: '',
+  areaExcepcion: '', areaExcepcionMotivo: '', telefono: '', elegibleTE: true,
 };
 const AYUDA_RUTA = 'Si no la asigna, se pedirá al solicitar transporte';
 
@@ -52,6 +54,8 @@ export default function RhEmpleados() {
   const [puestos, setPuestos] = useState([]);
   const [telefonos, setTelefonos] = useState(() => new Map()); // nómina → teléfono (empleadosContacto; solo RH lo lee)
   const [filtroEstado, setFiltroEstado] = useState('todos');
+  const [filtroElegible, setFiltroElegible] = useState(FILTRO_ELEGIBLE.TODOS);
+  const [cargandoElegibles, setCargandoElegibles] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [rev, setRev] = useState(0); // fuerza recarga (tras importar)
   const [importando, setImportando] = useState(false);
@@ -101,7 +105,7 @@ export default function RhEmpleados() {
     } finally { setExportando(false); }
   };
 
-  const filtrados = empleados.filter(e => {
+  const filtrados = filtrarPorElegibilidad(empleados, filtroElegible).filter(e => {
     const q = busqueda.toLowerCase();
     if (filtroEstado === 'activos' && e.activo === false) return false;
     if (filtroEstado === 'inactivos' && e.activo !== false) return false;
@@ -115,7 +119,7 @@ export default function RhEmpleados() {
   };
   const abrirEditar = (emp) => {
     setForm({
-      ...formVacio, ...emp, puestoId: emp.puestoId ?? '',
+      ...formVacio, ...emp, puestoId: emp.puestoId ?? '', elegibleTE: esElegibleTE(emp),
       areaExcepcion: emp.areaExcepcion ?? '', areaExcepcionMotivo: emp.areaExcepcionMotivo ?? '', telefono: telefonos.get(emp.nomina) ?? '',
     });
     setFormError('');
@@ -153,6 +157,7 @@ export default function RhEmpleados() {
         comunidadId: form.comunidadId || '',
         puntoReunionId: form.puntoReunionId || '',
         activo: form.activo !== false,
+        elegibleTE: form.elegibleTE !== false,
       };
       const excepcion = form.areaExcepcion || null;
       const motivo = excepcion ? form.areaExcepcionMotivo.trim() : '';
@@ -181,6 +186,9 @@ export default function RhEmpleados() {
           antes: { areaExcepcion: original.areaExcepcion ?? null, motivo: original.areaExcepcionMotivo ?? '' },
           despues: { areaExcepcion: excepcion, motivo, areaId: data.areaId },
         }, usuario));
+      }
+      if (modal.modo === 'editar' && esElegibleTE(original) !== (form.elegibleTE !== false)) {
+        ops.push(opBitacora({ accion: 'empleado_elegible_te', entidad: `empleados/${nomina}`, antes: { elegibleTE: esElegibleTE(original) }, despues: { elegibleTE: form.elegibleTE !== false } }, usuario));
       }
       // Teléfono (colección aparte: solo RH, admin y el solicitante del área lo ven). Solo se escribe si cambió
       if (telefono !== (telefonos.get(nomina) ?? '')) ops.push(opTelefono(nomina, telefono));
@@ -236,6 +244,7 @@ export default function RhEmpleados() {
         accion={(
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
             <Boton id="btn-exportar-padron" icono={Download} estado={exportando ? 'cargando' : undefined} onClick={exportarPadron}>Exportar padrón (respaldo)</Boton>
+            {!soloLectura && <Boton id="btn-elegibles-te" onClick={() => setCargandoElegibles(true)}>Cargar elegibles TE</Boton>}
             {!soloLectura && <Boton id="btn-importar-empleados" icono={Upload} onClick={() => setImportando(true)}>Importar empleados</Boton>}
             {!soloLectura && <Boton variante="primario" icono={Plus} onClick={abrirCrear}>Nuevo empleado</Boton>}
           </div>
@@ -248,6 +257,12 @@ export default function RhEmpleados() {
         </Suspense>
       )}
 
+      {cargandoElegibles && (
+        <Suspense fallback={null}>
+          <ModalElegiblesTE empleados={empleados} areas={areas} puestos={puestos} onClose={() => setCargandoElegibles(false)} onAplicado={() => { setCargandoElegibles(false); recargar(); }} />
+        </Suspense>
+      )}
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" aria-hidden="true" />
@@ -256,13 +271,16 @@ export default function RhEmpleados() {
         <Selector value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} aria-label="Estado" className="sm:w-44">
           <option value="todos">Todos</option><option value="activos">Activos</option><option value="inactivos">Inactivos</option>
         </Selector>
+        <Selector value={filtroElegible} onChange={e => setFiltroElegible(e.target.value)} aria-label="Elegibilidad para tiempo extra" className="sm:w-48">
+          <option value={FILTRO_ELEGIBLE.TODOS}>Elegibles y no elegibles</option><option value={FILTRO_ELEGIBLE.ELEGIBLES}>Elegibles</option><option value={FILTRO_ELEGIBLE.NO_ELEGIBLES}>No elegibles</option>
+        </Selector>
         <span className="text-sm text-[var(--text-secondary)]" aria-live="polite">{filtrados.length} {filtrados.length === 1 ? 'empleado' : 'empleados'}</span>
       </div>
 
       {cargando ? <EsqueletoTabla filas={6} columnas={6} /> : filtrados.length === 0 ? (
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
-          <EstadoVacio titulo="Sin empleados" texto={busqueda || filtroEstado !== 'todos' ? 'Ningún empleado coincide con la búsqueda.' : 'Aún no hay empleados en el padrón. Agrega uno o impórtalos desde un Excel.'}
-            accion={busqueda || filtroEstado !== 'todos' ? { texto: 'Limpiar búsqueda', onClick: () => { setBusqueda(''); setFiltroEstado('todos'); } } : undefined} />
+          <EstadoVacio titulo="Sin empleados" texto={busqueda || filtroEstado !== 'todos' || filtroElegible !== FILTRO_ELEGIBLE.TODOS ? 'Ningún empleado coincide con la búsqueda.' : 'Aún no hay empleados en el padrón. Agrega uno o impórtalos desde un Excel.'}
+            accion={busqueda || filtroEstado !== 'todos' || filtroElegible !== FILTRO_ELEGIBLE.TODOS ? { texto: 'Limpiar búsqueda', onClick: () => { setBusqueda(''); setFiltroEstado('todos'); setFiltroElegible(FILTRO_ELEGIBLE.TODOS); } } : undefined} />
         </div>
       ) : (
         <Tabla etiqueta="Padrón de empleados">
@@ -273,7 +291,7 @@ export default function RhEmpleados() {
             {filtrados.map(emp => (
               <Fila key={emp.nomina}>
                 <Td mono>{emp.nomina}</Td>
-                <Td>{emp.nombre}</Td>
+                <Td>{emp.nombre}{!esElegibleTE(emp) && <span className="ml-1.5" title="No aparece en las listas para capturar tiempo extra"><Insignia>No elegible TE</Insignia></span>}</Td>
                 <Td className="text-[var(--text-secondary)]">{emp.puesto || '—'}</Td>
                 <Td className="text-[var(--text-secondary)]">{nombreRuta(emp.rutaId)}</Td>
                 <Td className="text-[var(--text-secondary)]">
@@ -368,6 +386,9 @@ export default function RhEmpleados() {
               </Campo>
             )}
           </div>
+
+          <Casilla etiqueta="Elegible para tiempo extra" checked={form.elegibleTE !== false} onChange={e => setForm(f => ({ ...f, elegibleTE: e.target.checked }))} />
+          <p className="-mt-2 text-xs text-[var(--text-muted)]">Si no está marcada (supervisores, jefes, administrativos), la persona no aparece al capturar tiempo extra; sigue en el padrón, en usuarios y en el organigrama.</p>
 
           {modal?.modo === 'editar' && (
             <Casilla etiqueta="Empleado activo" checked={form.activo !== false} onChange={e => setForm(f => ({ ...f, activo: e.target.checked }))} />

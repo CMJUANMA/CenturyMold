@@ -4,12 +4,13 @@
  * Sin dependencias del navegador en construirRespaldoPadron (se prueba en Node).
  */
 import { esActivo } from './activo.js';
+import { esElegibleTE } from './elegibles.js';
 import { agregarHojaReporte, nuevoLibro } from './formatosImportacion.js';
 import { bufferSeguro } from './excelSeguro.js';
 
 export const ENCABEZADOS_RESPALDO = [
   'nomina', 'nombre', 'puesto', 'puestoId', 'areaId', 'area', 'areaExcepcion', 'areaExcepcionMotivo',
-  'ruta', 'comunidad', 'punto', 'turnoNomina', 'depto', 'descDepto', 'nivel', 'fechaAlta', 'activo',
+  'ruta', 'comunidad', 'punto', 'turnoNomina', 'depto', 'descDepto', 'nivel', 'fechaAlta', 'activo', 'elegibleTE',
 ];
 
 /** Nombre del archivo: Respaldo_Padron_AAAA-MM-DD_HHmm.xlsx (hora local) */
@@ -28,7 +29,7 @@ export function construirRespaldoPadron({ empleados, areas = [], rutas = [], com
       txt(e.nomina ?? e.id), txt(e.nombre), txt(e.puesto), txt(e.puestoId), txt(e.areaId), nombre(areas, e.areaId),
       txt(e.areaExcepcion), txt(e.areaExcepcionMotivo),
       nombre(rutas, e.rutaId), nombre(comunidades, e.comunidadId), nombre(puntos, e.puntoReunionId),
-      txt(e.turnoNomina), txt(e.depto), txt(e.descDepto), txt(e.nivel), txt(e.fechaAlta), esActivo(e) ? 'Sí' : 'No',
+      txt(e.turnoNomina), txt(e.depto), txt(e.descDepto), txt(e.nivel), txt(e.fechaAlta), esActivo(e) ? 'Sí' : 'No', esElegibleTE(e) ? 'Sí' : 'No',
     ]);
   const wb = nuevoLibro();
   agregarHojaReporte(wb, 'Padron', ENCABEZADOS_RESPALDO, filas);

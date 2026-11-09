@@ -91,7 +91,7 @@ export default function RevisarAreaNomina() {
   const confirmar = useConfirmar();
   const { usuario } = useAuth();
   const { esRH } = useAccesos();
-  const { empleadosActivos, motivos } = useCatalogos();
+  const { empleadosElegibles, motivos } = useCatalogos();
   // En la hoja el nombre va como en el padrón (APELLIDOS NOMBRES, mayúsculas); el Excel usa el nombre formateado, como siempre
   const formato = useMemo(() => crearFormateadorNombres([]), []);
   const nombre = useCallback((x) => String(x ?? ''), []);
@@ -357,11 +357,11 @@ export default function RevisarAreaNomina() {
       </footer>
 
       {dialogo?.tipo === 'agregar' && (
-        <ModalAgregarEmpleado area={area} nombresAreas={nombres} empleados={empleadosActivos} motivos={motivos} nominasEnTabla={nominasEnTabla} nombre={nombre}
+        <ModalAgregarEmpleado area={area} nombresAreas={nombres} empleados={empleadosElegibles} motivos={motivos} nominasEnTabla={nominasEnTabla} nombre={nombre}
           onClose={() => setDialogo(null)} onAgregar={(c) => { agregarCambio(c); setDialogo(null); toast.info('Empleado agregado. Captura sus horas en la tabla.'); }} />
       )}
       {dialogo?.tipo === 'reemplazar' && (
-        <ModalReemplazar fila={dialogo.fila} nombresAreas={nombres} empleados={empleadosActivos} nominasEnTabla={nominasEnTabla} nombre={nombre}
+        <ModalReemplazar fila={dialogo.fila} nombresAreas={nombres} empleados={empleadosElegibles} nominasEnTabla={nominasEnTabla} nombre={nombre}
           onClose={() => setDialogo(null)} onReemplazar={(c) => { agregarCambio(c); setDialogo(null); }} />
       )}
       {dialogo?.tipo === 'motivo' && (

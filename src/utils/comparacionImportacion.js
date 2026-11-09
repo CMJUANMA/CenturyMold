@@ -9,6 +9,7 @@
  */
 import { esActivo } from './activo.js';
 import { clavePuesto } from './puestos.js';
+import { esElegibleTE, etiquetaElegible } from './elegibles.js';
 import { construirResolucion } from './resolucionPuestos.js';
 
 export const MODOS = { AGREGAR: 'agregar', SINCRONIZAR: 'sincronizar' };
@@ -146,6 +147,15 @@ export function compararEmpleados(filas, empleados, {
       if (ex) cambios.push({ campo: 'AREA', antes: nombreArea(areaAnteriorId) || VACIO, despues: nombreArea(areaId) || VACIO });
       datos.areaId = areaId;
     }
+
+    // ELEGIBLE TE: solo si el archivo trae SI o NO (vacía = no cambia). Un empleado nuevo sin valor queda como elegible
+    const elegible = fila.datos['ELEGIBLE TE'];
+    if (typeof elegible === 'boolean') {
+      if (!ex || esElegibleTE(ex) !== elegible || ex.elegibleTE === undefined) {
+        if (ex && esElegibleTE(ex) !== elegible) cambios.push({ campo: 'ELEGIBLE TE', antes: etiquetaElegible(esElegibleTE(ex)), despues: etiquetaElegible(elegible) });
+        datos.elegibleTE = elegible;
+      }
+    } else if (!ex) datos.elegibleTE = true;
 
     // Reporte de nómina: datos informativos. Una celda vacía NO sobrescribe lo que el empleado ya tiene
     if (fila.extra) {
