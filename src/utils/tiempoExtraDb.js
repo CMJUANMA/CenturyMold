@@ -105,16 +105,17 @@ export async function guardarBorrador({ id, existe, usuario, area, fechaTE, moti
 }
 
 /**
- * Envía a autorización.
+ * Envía a autorización (el contenido ya está guardado en el borrador: aquí solo cambian estatus, folio, firmas e historial).
  *  - Borrador: en UNA transacción, toma el siguiente folio del año (contador), pone el estatus, el resumen y la entrada 'enviada'.
  *  - Devuelta: conserva su folio, quita las firmas anteriores y vuelve a empezar; entrada 'reenviada'.
  *  - Aut. 2 (estatus 'autorizada'): se autoriza lo que él mismo captura; el mismo paso escribe su firma aut2 ("Capturada y autorizada por Aut. 2")
  *    y una sola entrada del historial ('enviada_autorizada', nivel 2).
  * @returns {Promise<string>} el folio
  */
-export async function enviarSolicitud({ id, devuelta, usuario, estatus, fechaTE, motivo, comentario, empleados, extras = {} }) {
-  const resumen = resumenTE(empleados);
-  const contenido = { fechaTE, comentario, resumen, ...conMotivoOtro(extras, false), motivo: motivoDe(motivo, extras) };
+export async function enviarSolicitud({ id, devuelta, usuario, estatus, extras = {} }) {
+  // Enviar NO reescribe el contenido (fecha, motivos, resumen, rutas…): ya quedó guardado y validado en el borrador (la pantalla guarda justo antes de enviar,
+  // ver guardarBorrador) y las reglas exigen que no cambie al enviar, para que el envío gaste pocas de las 1000 expresiones que permite cada petición.
+  // Aquí solo van el estatus, el folio, las firmas y el historial. `extras` solo sirve para dejar los motivos en el historial.
   // La bitácora de la solicitud lleva los motivos con los que se envió (hasta 1000 caracteres, el tope de las reglas)
   const conMotivos = `Motivos: ${motivoTexto(extras)}`.slice(0, 1000);
   const autoAut2 = estatus === 'autorizada';
@@ -124,7 +125,7 @@ export async function enviarSolicitud({ id, devuelta, usuario, estatus, fechaTE,
     : entradaHistorial(usuario, accion, extras.motivos?.length ? conMotivos : ''));
   if (devuelta) {
     const b = writeBatch(db);
-    b.update(refTE(id), { ...contenido, estatus, aut1: deleteField(), aut2: autoAut2 ? firmaAut2() : deleteField(), fechaActualizacion: serverTimestamp() });
+    b.update(refTE(id), { estatus, aut1: deleteField(), aut2: autoAut2 ? firmaAut2() : deleteField(), fechaActualizacion: serverTimestamp() });
     b.set(doc(collection(db, 'tiempoExtra', id, 'historial')), historial('reenviada'));
     await b.commit();
     return (await getDoc(refTE(id))).data()?.folio ?? '';
@@ -136,7 +137,7 @@ export async function enviarSolicitud({ id, devuelta, usuario, estatus, fechaTE,
     const numero = (c.exists() ? c.data().ultimo : 0) + 1;
     const folio = folioDe(anio, numero);
     if (c.exists()) tx.update(contador, { ultimo: numero, solicitudId: id }); else tx.set(contador, { ultimo: 1, solicitudId: id });
-    tx.update(refTE(id), { ...contenido, estatus, folio, ...(autoAut2 ? { aut2: firmaAut2() } : {}), fechaActualizacion: serverTimestamp() });
+    tx.update(refTE(id), { estatus, folio, ...(autoAut2 ? { aut2: firmaAut2() } : {}), fechaActualizacion: serverTimestamp() });
     tx.set(doc(collection(db, 'tiempoExtra', id, 'historial')), historial('enviada'));
     return folio;
   });

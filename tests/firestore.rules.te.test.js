@@ -157,14 +157,14 @@ function agregarEmpleados(uid, id, nominas, cambiosPadre = null) {
 }
 
 /**
- * "Enviar a autorización": en un lote, el borrador recibe su folio, el estatus y el resumen; el contador del año sube 1;
+ * "Enviar a autorización": en un lote, el borrador recibe su folio y el estatus (el contenido y el resumen ya estaban guardados y no cambian); el contador del año sube 1;
  * y queda la entrada 'enviada' del historial. (La pantalla lo hace en una transacción.)
  */
 function enviar(uid, id, { estatus = 'pendiente_aut1', folio = FOLIO, contador = 13, anio = ANIO, extra = {}, sinContador = false } = {}) {
   const db = dbDe(uid);
   const b = writeBatch(db);
   b.update(doc(db, 'tiempoExtra', id), {
-    estatus, folio, resumen: { totalEmpleados: 2, totalHoras: 18, totalTransporte: 2, totalAlimentos: 2 }, fechaActualizacion: ts(), ...extra,
+    estatus, folio, fechaActualizacion: ts(), ...extra,
   });
   if (!sinContador) b.update(doc(db, 'contadores', `te-${anio}`), { ultimo: contador, solicitudId: id });
   const h = historial(db, id, { uid, accion: 'enviada' });
@@ -963,10 +963,18 @@ describe('borrador: se arma en lotes y se envía a autorización', () => {
     for (const uid of ['solP2', 'aut1P', 'aut2', 'rh', 'admin']) await assertFails(actualizar(uid, BR, { motivo: 'X' }));
   });
 
-  it('"Enviar a autorización": pasa a pendiente_aut1 con folio, resumen calculado y su bitácora; ya lo ve el Aut. 1', async () => {
+  it('"Enviar a autorización": pasa a pendiente_aut1 con folio y su bitácora; ya lo ve el Aut. 1', async () => {
     await crearBorrador('solP', 'produccion', { nominas: nominas(700, 3) });
     await assertSucceeds(enviar('solP', BR));
     await assertSucceeds(getDoc(doc(dbDe('aut1P'), 'tiempoExtra', BR)));
+  });
+  it('al enviar el contenido ya guardado no puede cambiar (ni el resumen, ni los motivos, ni la fecha): se corrige guardando el borrador', async () => {
+    await crearBorrador('solP', 'produccion');
+    await assertFails(enviar('solP', BR, { extra: { resumen: { totalEmpleados: 2, totalHoras: 18, totalTransporte: 2, totalAlimentos: 2 } } }));
+    await assertFails(enviar('solP', BR, { extra: { fechaTE: '2099-12-31' } }));
+    await assertFails(enviar('solP', BR, { extra: { motivo: 'Otro motivo', motivos: [{ motivoId: 'x', nombre: 'Otro motivo', numero: '', comentario: '', detalle: '', tipoNumero: '' }] } }));
+    await assertFails(enviar('solP', BR, { extra: { comentario: 'Cambiado al enviar' } }));
+    await assertSucceeds(enviar('solP', BR));
   });
   it('un último lote de empleados puede viajar junto con el envío (con folio y contador)', async () => {
     await crearBorrador('solP', 'produccion');

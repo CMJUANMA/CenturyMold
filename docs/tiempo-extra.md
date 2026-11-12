@@ -142,8 +142,10 @@ escriben en **lotes de 10**. Por eso TODA solicitud nace como **borrador**:
    Las reglas validan cada empleado: está en el padrón con la misma `areaId` y trae solo los campos del modelo
    (`nombre, puesto, horaEntrada, horaSalida, horas, requiereAlimentos, requiereTransporte, rutaId, comunidadId, puntoReunionId`).
 3. **Enviar a autorización** (`enviarSolicitud`): en **una transacción** toma el siguiente número del contador `contadores/te-AAAA`, pone el folio
-   `TE-AAAA-NNNN`, el estatus (`pendiente_aut1`, o `pendiente_aut2` si es el Aut. 1 de esa área o el área no participa), el resumen calculado y la entrada
-   `enviada` del historial. Las reglas exigen que el folio sea exactamente el número que deja el contador (que sube 1) y del año en curso.
+   `TE-AAAA-NNNN`, el estatus (`pendiente_aut1`, o `pendiente_aut2` si es el Aut. 1 de esa área o el área no participa) y la entrada `enviada` del historial.
+   **El contenido (fecha, motivos, resumen, rutas…) no se reescribe al enviar:** ya quedó guardado y validado en el borrador (la pantalla guarda justo antes de enviar) y las reglas
+   exigen que no cambie (`soloCambia(['estatus', 'folio', 'fechaActualizacion'])`); lo único que se revisa al enviar es que las rutas estén justificadas y los motivos completos.
+   Las reglas exigen que el folio sea exactamente el número que deja el contador (que sube 1) y del año en curso.
 4. **Devuelta → corregir y reenviar**: se edita igual (contenido y empleados); al reenviar **conserva su folio**, se quitan `aut1`/`aut2` y vuelve a empezar en Aut. 1
    (o en Aut. 2 si quien reenvía es su Aut. 1); entrada `reenviada`.
 5. **Cancelar** una pendiente o devuelta exige **motivo** (`motivoCancelacion`, mínimo 3 caracteres; queda también en el historial). Un **borrador no se cancela: se elimina**
@@ -450,7 +452,7 @@ El **admin** tiene todos los permisos de todos los roles, siempre: Aut. 2 y, en 
 
 - **App:** `accesosDeAdmin` (`src/utils/asignaciones.js`), aplicado en `AccesosContext`, le da `esAut2` y las áreas que participan como `areasAut1` y `areasSolicitante`. Su menú es el de RH, que ya trae todas las secciones por módulo.
 - **Reglas** (`firestore.rules`): `esAdmin()` mira primero el rol (barato para quien no es admin). `asignacionVigente` y `solicitanteOAut1De` devuelven verdadero para el admin, así que `esAut2()`, `esAut1De()`, `esSolicitanteDe()`, `puedeCapturarTE()` y `estatusInicial()` lo tratan como a un Aut. 2 / Aut. 1 / solicitante de cualquier área. La regla de «nadie autoriza ni devuelve lo que creó» se salta con `|| esAdmin()`. Un admin desactivado no hace nada.
-- **Límite de expresiones:** el flujo más justo es *enviar un borrador* con motivos (la regla evalúa el contenido, el contador y el rol). Se midió agregándole expresiones de relleno: aguanta unas 20 a 50 más antes de pasar de 1000. Cualquier regla nueva en ese camino debe ahorrar expresiones en otro lado.
+- **Límite de expresiones:** el flujo más pesado es *enviar* (ver `docs/margen-expresiones.md`, que se regenera con `npm run test:margen` y falla si algún camino baja de 150 expresiones libres). Enviar valida el rol, el área y las asignaciones UNA vez (`envioNormal` / `envioComoAut2`, con `let`) y no revisa el contenido, que ya se validó al guardar el borrador.
 - **Pruebas:** `tests/firestore.rules.admin-todo.test.js` (el admin puede cada acción de cada rol en cualquier área; los demás roles no ganan nada) y `tests/asignaciones.test.js`.
 
 ## Limitaciones conocidas

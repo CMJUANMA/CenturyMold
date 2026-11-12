@@ -160,6 +160,8 @@ describe('devuelta: corregir y reenviar', () => {
       });
     });
     const { db, m } = await comoUsuario('solP');
+    // (la pantalla guarda la corrección antes de reenviar; reenviar ya no reescribe el contenido)
+    await m.guardarBorrador(base('TE-2026-0004', { existe: true, fechaTE: '2099-12-02', motivo: 'Calidad', comentario: 'Corregido el horario', empleados: empleados(2), sucios: new Set() }));
     const folio = await m.enviarSolicitud({ id: 'TE-2026-0004', devuelta: true, usuario: USUARIOS.solP, estatus: 'pendiente_aut1', fechaTE: '2099-12-02', motivo: 'Calidad', comentario: 'Corregido el horario', empleados: empleados(2) });
     expect(folio).toBe('TE-2026-0004');
     const t = (await getDoc(doc(db, 'tiempoExtra', 'TE-2026-0004'))).data();
@@ -516,9 +518,12 @@ describe('motivos del catálogo en las reglas (varios por solicitud, P.O./TB y m
   });
   it('no se envía sin motivos, ni con un motivo que no es el del primero', async () => {
     const { m } = await comoUsuario('solP');
+    // (lo que se envía es lo guardado en el borrador: se prueba guardando cada versión y enviando)
     await guardarCon(m, 'BR-AAAAAAAAAA', extrasDe([mot('')]));
     await expect(m.enviarSolicitud(envio('BR-AAAAAAAAAA', { extras: extrasDe([mot('')]) }))).rejects.toThrow();
-    await expect(m.enviarSolicitud(envio('BR-AAAAAAAAAA', { extras: { ...extrasDe(dos), motivo: 'Otro nombre' } }))).rejects.toThrow();
+    await guardarCon(m, 'BR-AAAAAAAAAA', { ...extrasDe(dos), motivo: 'Otro nombre' }, lista, { existe: true });
+    await expect(m.enviarSolicitud(envio('BR-AAAAAAAAAA'))).rejects.toThrow();
+    await guardarCon(m, 'BR-AAAAAAAAAA', extrasDe(dos), lista, { existe: true });
     await m.enviarSolicitud(envio('BR-AAAAAAAAAA'));
   });
   it('el motivoIndex de un empleado es un entero de 0 a 4', async () => {

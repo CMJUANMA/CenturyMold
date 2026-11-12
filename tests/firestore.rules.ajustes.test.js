@@ -152,16 +152,19 @@ describe('tipo de tiempo extra, rutas y transporte de llegada/salida', () => {
       await crear();
       await assertSucceeds(enviar());
     });
-    it('con más de una ruta, sin justificación, no se envía', async () => {
+    it('con más de una ruta, sin justificación (guardada en el borrador), no se envía; la justificación no se puede agregar al enviar', async () => {
       await crear(varias);
       await assertFails(enviar());
-      await assertFails(enviar({ justificacionRutas: '' }));
-      await assertFails(enviar({ justificacionRutas: 'corto' }));
-      await assertFails(enviar({ justificacionRutas: '               ' }));
+      await assertFails(enviar({ justificacionRutas: 'Viven en zonas muy distintas' })); // el contenido no cambia al enviar: se guarda antes en el borrador
+      for (const justificacionRutas of ['', 'corto', '               ']) {
+        await env.clearFirestore(); await sembrar();
+        await crear({ ...varias, justificacionRutas });
+        await assertFails(enviar());
+      }
     });
     it('con la justificación de 15 caracteres sí', async () => {
-      await crear(varias);
-      await assertSucceeds(enviar({ justificacionRutas: 'Viven en zonas muy distintas' }));
+      await crear({ ...varias, justificacionRutas: 'Viven en zonas muy distintas' });
+      await assertSucceeds(enviar());
     });
     it('el borrador con varias rutas se puede guardar sin justificar (todavía no se envía)', async () => {
       await assertSucceeds(crear(varias));

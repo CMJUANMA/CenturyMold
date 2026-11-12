@@ -87,7 +87,7 @@ function enviar(uid, id, estatus) {
   const propia = estatus === 'autorizada';
   b.set(doc(db, 'contadores', `te-${anio}`), { ultimo: 1, solicitudId: id });
   b.update(doc(db, 'tiempoExtra', id), {
-    estatus, folio: `TE-${anio}-0001`, resumen: { totalEmpleados: 1, totalHoras: 8, totalTransporte: 0, totalAlimentos: 0 },
+    estatus, folio: `TE-${anio}-0001`,
     ...(propia ? { aut2: { ...quien(uid), comentario: 'Capturada y autorizada por Aut. 2', comoRH: false } } : {}), fechaActualizacion: ts(),
   });
   b.set(doc(collection(db, 'tiempoExtra', id, 'historial')), propia ? entrada(uid, 'enviada_autorizada', 2) : entrada(uid, 'enviada', 0));

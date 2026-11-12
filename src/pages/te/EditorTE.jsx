@@ -134,7 +134,7 @@ export default function EditorTE() {
       enServidor.current = new Set(t.empleados.map(e => e.nomina));
       firmaGuardada.current = [t.areaId, t.fechaTE ?? '', normalizarTipo(t.tipo), firmaMotivos(guardados), t.comentario ?? '', t.justificacionRutas ?? ''].join('\u0001');
       setCargandoDoc(false);
-    }).catch(err => { if (vigente) { toast.error('No se pudo abrir la solicitud: ' + err.message); navigate('/tiempo-extra/mis-solicitudes', { replace: true }); } });
+    }).catch(err => { if (vigente) { toast.error('No se pudo abrir la solicitud. Intenta de nuevo o avisa a Sistemas.', 10000, err.message); navigate('/tiempo-extra/mis-solicitudes', { replace: true }); } });
     return () => { vigente = false; };
   }, [idParam, usuario?.uid, navigate, toast]);
 
@@ -333,7 +333,7 @@ export default function EditorTE() {
       await guardar();
       toast.success('Borrador guardado. Puedes salir y continuar después.');
       if (!idParam) navigate(`/tiempo-extra/${id}/editar`, { replace: true });
-    } catch (err) { console.error(err); toast.error('No se pudo guardar: ' + err.message); }
+    } catch (err) { console.error(err); toast.error('No se pudo guardar el borrador. Intenta de nuevo o avisa a Sistemas.', 10000, err.message); }
     finally { setTrabajo(null); }
   };
 
@@ -353,21 +353,28 @@ export default function EditorTE() {
     });
     if (!ok) return;
     setTrabajo({ texto: 'Guardando empleados', hechos: 0, total: 1 });
+    let guardado = false; // para decir la verdad en el aviso: ¿el borrador ya quedó guardado cuando falló?
     try {
       await guardar('Guardando empleados');
+      guardado = true;
       setTrabajo({ texto: 'Enviando', hechos: 1, total: 1 });
-      const folio = await enviarSolicitud({ id, devuelta: esDevuelta, usuario, estatus, fechaTE, comentario, empleados, extras: extras() });
+      const folio = await enviarSolicitud({ id, devuelta: esDevuelta, usuario, estatus, extras: extras() });
       toast.success(esDevuelta ? `Reenviada (${folio}).` : `Enviada con el folio ${folio}.`);
       await avisar.envio({ folio, estatus, areaId: areaActual, reenviada: esDevuelta });
       navigate('/tiempo-extra/mis-solicitudes', { replace: true });
-    } catch (err) { console.error(err); toast.error('No se pudo enviar: ' + err.message, 8000); setTrabajo(null); }
+    } catch (err) {
+      console.error(err);
+      // Mensaje corto y claro; el texto técnico queda escondido en «Ver detalle» (nunca una ventana larga)
+      toast.error(guardado ? 'No se pudo enviar. Tu borrador está guardado; intenta de nuevo o avisa a Sistemas.' : 'No se pudo enviar. Intenta de nuevo o avisa a Sistemas.', 12000, err.message);
+      setTrabajo(null);
+    }
   };
 
   const eliminarClick = async () => {
     if (!await confirmar({ titulo: 'Eliminar borrador', mensaje: 'Se borrará el borrador y sus empleados. No se puede deshacer.', textoConfirmar: 'Eliminar', peligroso: true })) return;
     setTrabajo({ texto: 'Eliminando borrador', hechos: 0, total: 1 });
     try { await eliminarBorrador(id); toast.success('Borrador eliminado.'); navigate('/tiempo-extra/mis-solicitudes', { replace: true }); }
-    catch (err) { toast.error('No se pudo eliminar: ' + err.message); setTrabajo(null); }
+    catch (err) { toast.error('No se pudo eliminar el borrador. Intenta de nuevo o avisa a Sistemas.', 10000, err.message); setTrabajo(null); }
   };
   const cancelarClick = async () => {
     const motivoCancelacion = await confirmar({
@@ -376,7 +383,7 @@ export default function EditorTE() {
     });
     if (!motivoCancelacion) return;
     try { await cancelarSolicitud({ id, usuario, motivo: motivoCancelacion }); toast.success('Solicitud cancelada.'); navigate('/tiempo-extra/mis-solicitudes', { replace: true }); }
-    catch (err) { toast.error('No se pudo cancelar: ' + err.message); }
+    catch (err) { toast.error('No se pudo cancelar la solicitud. Intenta de nuevo o avisa a Sistemas.', 10000, err.message); }
   };
 
   if (accesos.cargando || cargandoAreas || cargandoCat || cargandoDoc) return <EsqueletoPagina />;
