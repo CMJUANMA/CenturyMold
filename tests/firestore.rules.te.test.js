@@ -749,12 +749,14 @@ describe('subcolección empleados', () => {
     await assertSucceeds(deleteDoc(doc(db, ...emp('TE-2026-0004', '600'))));
   });
 
-  it('puede corregir empleados y reenviar en el mismo lote', async () => {
+  it('corrige empleados SIN cambiar de estatus; reenviar en el mismo lote se rechaza (se guarda primero y luego se reenvía)', async () => {
     const db = dbDe('solP');
     const b = writeBatch(db);
     b.set(doc(db, ...emp('TE-2026-0004')), { nombre: 'Nuevo', puesto: 'OPERADOR', horas: 3 });
     b.update(doc(db, 'tiempoExtra', 'TE-2026-0004'), { estatus: 'pendiente_aut1', fechaActualizacion: ts() });
-    await assertSucceeds(b.commit());
+    await assertFails(b.commit());
+    await assertSucceeds(setDoc(doc(db, ...emp('TE-2026-0004')), { nombre: 'Nuevo', puesto: 'OPERADOR', horas: 3 }));
+    await assertSucceeds(updateDoc(doc(db, 'tiempoExtra', 'TE-2026-0004'), { estatus: 'pendiente_aut1', fechaActualizacion: ts() }));
   });
 
   it('no los modifica fuera de devuelta (pendiente, autorizada, cancelada)', async () => {

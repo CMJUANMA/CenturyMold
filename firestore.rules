@@ -866,9 +866,9 @@ service cloud.firestore {
           && (
             // el borrador se crea y se le agregan empleados en el mismo lote
             (!exists(padrePath()) && padreDespues().estatus == 'borrador')
-            // corrección o armado: padre devuelta o borrador; puede reenviarse/enviarse en el mismo lote
-            || (padreAntes().estatus in ['devuelta', 'borrador']
-                && padreDespues().estatus in [padreAntes().estatus, 'pendiente_aut1', 'pendiente_aut2', 'autorizada'])
+            // corrección o armado: padre devuelta o borrador y SIN cambiar de estatus en ese lote. Enviar o reenviar no toca empleados: se guardan antes (la pantalla
+            // guarda y luego envía), así lo enviado es exactamente lo guardado y validado
+            || (padreAntes().estatus in ['devuelta', 'borrador'] && padreDespues().estatus == padreAntes().estatus)
           );
         }
         // En una extensión de turno el empleado ya está en la planta: no lleva transporte de llegada

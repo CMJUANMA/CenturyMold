@@ -3,7 +3,7 @@
 // Ejecutar con: npm run test:rules  (requiere Java 11+)
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { collection, doc, getDoc, getDocs, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { collection, deleteField, doc, getDoc, getDocs, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { ANIO, ESCENARIOS, USUARIOS, comoUsuario, extrasTE, listaEmpleados, montar, sembrarBase, sembrarTE } from './helpers/envio-te.js';
 
 let env;
@@ -96,5 +96,113 @@ describe('la seguridad sigue en pie', () => {
     const { db } = await comoUsuario(env, 'solP');
     const { setDoc } = await import('firebase/firestore');
     await expect(setDoc(doc(db, 'contadores', `te-${ANIO}`), { ultimo: 13, solicitudId: 'BR-AAAAAAAAAA' })).rejects.toThrow();
+  });
+});
+
+// ── Enviar y reenviar solo cambian el estatus; el contenido solo se guarda validado ───────────────────────────────────────────────────────────────
+describe('enviar y reenviar: la escritura solo puede tocar estatus, folio, firmas y fechas', () => {
+  const hist = (accion) => ({ accion, nivel: 0, porUid: 'solP', porNomina: USUARIOS.solP.nomina, porNombre: USUARIOS.solP.nombre, comentario: '', fecha: serverTimestamp() });
+  const empDe = (n) => ({ nombre: `OPERADOR ${n}`, puesto: 'OPERADOR', horaEntrada: '7:00', horaSalida: '16:00', horas: 9, requiereAlimentos: true, requiereTransporte: true, transporteLlegada: true, transporteSalida: true, rutaId: 'norte', comunidadId: 'c', puntoReunionId: 'p', motivoIndex: 0 });
+  const ref = (db, ...ruta) => doc(db, ...ruta);
+
+  /** Un envío (borrador) o reenvío (devuelta) como lo manda la app, más lo que se le quiera colar en el mismo lote */
+  const lote = async ({ devuelta, cambios = {}, extra = () => {} }) => {
+    const { db } = await comoUsuario(env, 'solP');
+    const b = writeBatch(db);
+    if (devuelta) {
+      b.update(ref(db, 'tiempoExtra', 'TE-2026-0004'), { estatus: 'pendiente_aut1', aut1: deleteField(), aut2: deleteField(), fechaActualizacion: serverTimestamp(), ...cambios });
+      b.set(doc(collection(db, 'tiempoExtra', 'TE-2026-0004', 'historial')), hist('reenviada'));
+    } else {
+      b.update(ref(db, 'tiempoExtra', 'BR-AAAAAAAAAA'), { estatus: 'pendiente_aut1', folio: `TE-${ANIO}-0013`, fechaActualizacion: serverTimestamp(), ...cambios });
+      b.update(ref(db, 'contadores', `te-${ANIO}`), { ultimo: 13, solicitudId: 'BR-AAAAAAAAAA' });
+      b.set(doc(collection(db, 'tiempoExtra', 'BR-AAAAAAAAAA', 'historial')), hist('enviada'));
+    }
+    extra(b, db, devuelta ? 'TE-2026-0004' : 'BR-AAAAAAAAAA');
+    return b.commit();
+  };
+  const preparar = (devuelta) => (devuelta
+    ? sembrarTE(env, { id: 'TE-2026-0004', estatus: 'devuelta', extra: { folio: 'TE-2026-0004', aut1: { nomina: '50610', nombre: 'x', fecha: new Date(), comentario: '', comoRH: false }, devolucion: { nivel: 2, nomina: '11', nombre: 'x', motivo: 'Faltan horas del turno', fecha: new Date() } } })
+    : sembrarTE(env, { id: 'BR-AAAAAAAAAA', estatus: 'borrador' }));
+
+  for (const devuelta of [false, true]) {
+    const nombre = devuelta ? 'reenviar' : 'enviar';
+    it(`${nombre}: el lote limpio pasa`, async () => {
+      await preparar(devuelta);
+      await lote({ devuelta });
+    });
+    it(`${nombre}: cualquier campo de contenido de la solicitud en el mismo lote se rechaza`, async () => {
+      for (const cambios of [
+        { fechaTE: '2099-12-31' }, { comentario: 'Cambiado al enviar' }, { motivo: 'Otro' }, { tipo: 'extension' }, { justificacionRutas: 'Una justificación nueva larga' },
+        { motivos: [{ motivoId: 'x', nombre: 'x', numero: '', comentario: '', detalle: '', tipoNumero: '' }] }, { resumen: { totalEmpleados: 1, totalHoras: 1, totalTransporte: 0, totalAlimentos: 0, porBloque: {} } },
+        { rutasDistintas: 1, desgloseRutas: [] }, { areaId: 'almacen' }, { creadoPor: 'otro' }, { areaNombre: 'Otra' }, { aut2: { nomina: '1' } }, { devolucion: { nivel: 1, nomina: '1', nombre: 'x', motivo: 'Falta algo importante', fecha: new Date() } },
+      ]) {
+        await sembrarBase(env); await preparar(devuelta);
+        await expect(lote({ devuelta, cambios }), JSON.stringify(Object.keys(cambios))).rejects.toThrow();
+      }
+    });
+    it(`${nombre}: agregar, cambiar o quitar empleados (horas, transporte, motivo) en el mismo lote se rechaza`, async () => {
+      for (const extra of [
+        (b, db, id) => b.set(ref(db, 'tiempoExtra', id, 'empleados', '710'), empDe('710')),
+        (b, db, id) => b.set(ref(db, 'tiempoExtra', id, 'empleados', '700'), { ...empDe('700'), horas: 20, horaSalida: '5:00' }),
+        (b, db, id) => b.set(ref(db, 'tiempoExtra', id, 'empleados', '700'), { ...empDe('700'), requiereTransporte: false, transporteLlegada: false, transporteSalida: false, rutaId: '', comunidadId: '', puntoReunionId: '' }),
+        (b, db, id) => b.set(ref(db, 'tiempoExtra', id, 'empleados', '700'), { ...empDe('700'), motivoIndex: 1 }),
+        (b, db, id) => b.delete(ref(db, 'tiempoExtra', id, 'empleados', '700')),
+      ]) {
+        await sembrarBase(env); await preparar(devuelta);
+        await expect(lote({ devuelta, extra })).rejects.toThrow();
+      }
+    });
+  }
+
+  it('lo mismo para una Aut. 2 que captura y envía lo suyo (queda autorizada)', async () => {
+    await sembrarTE(env, { id: 'BR-AAAAAAAAAA', estatus: 'borrador', creador: 'aut2s' });
+    const { db } = await comoUsuario(env, 'aut2s');
+    const armar = (extra) => {
+      const b = writeBatch(db);
+      b.update(ref(db, 'tiempoExtra', 'BR-AAAAAAAAAA'), {
+        estatus: 'autorizada', folio: `TE-${ANIO}-0013`, fechaActualizacion: serverTimestamp(),
+        aut2: { nomina: USUARIOS.aut2s.nomina, nombre: USUARIOS.aut2s.nombre, fecha: serverTimestamp(), comentario: 'Capturada y autorizada por Aut. 2', comoRH: false },
+      });
+      b.update(ref(db, 'contadores', `te-${ANIO}`), { ultimo: 13, solicitudId: 'BR-AAAAAAAAAA' });
+      b.set(doc(collection(db, 'tiempoExtra', 'BR-AAAAAAAAAA', 'historial')), { ...hist('enviada_autorizada'), nivel: 2, porUid: 'aut2s', porNomina: USUARIOS.aut2s.nomina, porNombre: USUARIOS.aut2s.nombre });
+      extra?.(b);
+      return b.commit();
+    };
+    await expect(armar((b) => b.set(ref(db, 'tiempoExtra', 'BR-AAAAAAAAAA', 'empleados', '700'), { ...empDe('700'), horas: 20 }))).rejects.toThrow();
+    await armar();
+  });
+});
+
+describe('el contenido del borrador solo se guarda validado', () => {
+  const guardar = async (cambios, empleados = null) => {
+    await sembrarBase(env);
+    await sembrarTE(env, { id: 'BR-AAAAAAAAAA', estatus: 'borrador' });
+    const { db } = await comoUsuario(env, 'solP');
+    const b = writeBatch(db);
+    b.update(doc(db, 'tiempoExtra', 'BR-AAAAAAAAAA'), { fechaActualizacion: serverTimestamp(), ...cambios });
+    for (const [n, e] of Object.entries(empleados ?? {})) b.set(doc(db, 'tiempoExtra', 'BR-AAAAAAAAAA', 'empleados', n), e);
+    return b.commit();
+  };
+  const emp = { nombre: 'OPERADOR 700', puesto: 'OPERADOR', horaEntrada: '7:00', horaSalida: '16:00', horas: 9, requiereAlimentos: true, requiereTransporte: false, transporteLlegada: false, transporteSalida: false, rutaId: '', comunidadId: '', puntoReunionId: '', motivoIndex: 0 };
+
+  it('un guardado válido pasa', async () => { await guardar({ comentario: 'Otro comentario válido', fechaTE: '2099-12-05' }, { 700: emp }); });
+  it('rechaza fecha mal formada, textos enormes, resumen fuera de tope y más de 5 motivos', async () => {
+    const motivo = { motivoId: 'x', nombre: 'x', numero: '', comentario: '', detalle: '', tipoNumero: '' };
+    for (const cambios of [
+      { fechaTE: '12/05/2099' }, { fechaTE: 'mañana' }, { comentario: 'x'.repeat(1001) }, { justificacionRutas: 'x'.repeat(1001) }, { motivo: 'x'.repeat(61) },
+      { resumen: { totalEmpleados: 151, totalHoras: 1, totalTransporte: 0, totalAlimentos: 0, porBloque: {} } }, { resumen: { totalEmpleados: 1, totalHoras: 99999, totalTransporte: 0, totalAlimentos: 0, porBloque: {} } },
+      { motivos: Array.from({ length: 6 }, () => motivo) }, { motivos: [{ ...motivo, extra: 1 }] }, { motivos: [{ ...motivo, nombre: 'x'.repeat(61) }] }, { tipo: 'turno_loco' },
+      { estatus: 'autorizada' }, { folio: `TE-${ANIO}-0099` }, { creadoPor: 'otro' }, { areaId: 'almacen' },
+    ]) await expect(guardar(cambios), JSON.stringify(Object.keys(cambios))).rejects.toThrow();
+  });
+  it('rechaza empleados mal formados: horas fuera de rango, campos de más, motivoIndex inválido o de otra área', async () => {
+    for (const e of [{ ...emp, horas: 49 }, { ...emp, extra: 'x' }, { ...emp, motivoIndex: 5 }, { ...emp, nombre: 'x'.repeat(121) }, { ...emp, requiereAlimentos: 'si' }]) await expect(guardar({}, { 700: e })).rejects.toThrow();
+    await expect((async () => {
+      await sembrarBase(env);
+      await sembrarTE(env, { id: 'BR-AAAAAAAAAA', estatus: 'borrador' });
+      await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'empleados', '801'), { nombre: 'AJENO', nomina: '801', areaId: 'calidad' }); });
+      const { db } = await comoUsuario(env, 'solP');
+      await setDoc(doc(db, 'tiempoExtra', 'BR-AAAAAAAAAA', 'empleados', '801'), emp);
+    })()).rejects.toThrow();
   });
 });
