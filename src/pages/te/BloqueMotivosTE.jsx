@@ -14,7 +14,11 @@ import {
 } from '../../utils/motivosTE';
 
 /** `unico`: un solo motivo sin lista (la corrección de un renglón en Reportes de nómina): sin «Agregar otro motivo» ni «Quitar» */
-export default function BloqueMotivosTE({ motivos, catalogo, onChange, problemas = [], deshabilitado = false, unico = false, ...resto }) {
+/**
+ * `asignacion` (solo el editor de tiempo extra): { empleados, seleccionados, cuentas, onAsignar(indice, 'todos' | 'seleccionados') }. Con varios motivos, cada uno
+ * muestra cuántos empleados lo llevan y los botones «Asignar a todos» y «Asignar a seleccionados» (las casillas están en la lista de empleados).
+ */
+export default function BloqueMotivosTE({ motivos, catalogo, onChange, problemas = [], deshabilitado = false, unico = false, asignacion = null, ...resto }) {
   const cambiar = (i, parche) => onChange(motivos.map((m, k) => (k === i ? { ...m, ...parche } : m)));
   const elegir = (i, motivoId) => {
     // Al cambiar de motivo se limpia lo que ya no aplica (número y descripción), no el detalle
@@ -26,6 +30,12 @@ export default function BloqueMotivosTE({ motivos, catalogo, onChange, problemas
   return (
     <fieldset className={unico ? '' : 'mt-6'} disabled={deshabilitado} {...resto}>
       <legend className={unico ? 'sr-only' : 'mb-2 text-xs font-medium text-[var(--text-secondary)]'}>Motivos <span className="text-[var(--accent-text)]" aria-hidden="true">*</span></legend>
+      {asignacion && motivos.length > 1 && (
+        <p className="mb-3 rounded-md bg-[var(--status-info-bg)] px-3 py-2 text-xs text-[var(--status-info-text)]">
+          Con varios motivos, <b className="font-semibold">cada empleado lleva uno solo</b>; todos empiezan con el Motivo 1. Para cambiarlo: marca las casillas de los empleados en la lista
+          de abajo y toca <b className="font-semibold">«Asignar a seleccionados»</b> en el motivo que les toca, o <b className="font-semibold">«Asignar a todos»</b>. También puedes elegirlo en la fila de cada empleado.
+        </p>
+      )}
       <div className="space-y-3">
         {motivos.map((m, i) => {
           const r = reglasDeMotivo(m, catalogo);
@@ -65,6 +75,14 @@ export default function BloqueMotivosTE({ motivos, catalogo, onChange, problemas
                     onChange={e => cambiar(i, { detalle: e.target.value })} placeholder="Ej. apoyo a inventario, movimiento de máquina Krauss Maffei 750" />
                 </Campo>
               </div>
+              {asignacion && motivos.length > 1 && asignacion.empleados > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] pt-3" role="group" aria-label={`Asignar el motivo ${i + 1} a los empleados`}>
+                  <span className="mr-1 text-xs text-[var(--text-secondary)]">Lo llevan <b className="font-semibold text-[var(--text-main)]">{asignacion.cuentas[i] ?? 0}</b> de {asignacion.empleados} empleados</span>
+                  <Boton id={`btn-motivo-todos-${i}`} tamano="sm" disabled={!m.motivoId} onClick={() => asignacion.onAsignar(i, 'todos')}>Asignar a todos</Boton>
+                  <Boton id={`btn-motivo-seleccionados-${i}`} tamano="sm" disabled={!m.motivoId} onClick={() => asignacion.onAsignar(i, 'seleccionados')}
+                    title="Marca antes las casillas de los empleados en la lista de abajo">Asignar a seleccionados ({asignacion.seleccionados})</Boton>
+                </div>
+              )}
               {(propios.length > 0 || (i > 0 && !unico)) && (
                 <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
                   <ul className="min-w-0 flex-1 space-y-1" aria-live="polite">

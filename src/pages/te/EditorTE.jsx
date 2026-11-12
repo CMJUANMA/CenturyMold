@@ -32,8 +32,9 @@ import { CASILLA } from '../../components/ui/estilos';
 import Insignia from '../../components/ui/Insignia';
 import { Tarjeta } from '../../components/ui/Tarjeta';
 import { rutaVigente } from '../../utils/activo';
-import { esElegibleActivo } from '../../utils/elegibles';
-import { ymd } from '../../utils/fechas';
+import { empleadosParaCapturar } from '../../utils/empleadosCaptura';
+import { fechaConDia, manana, proximoSabado, ymd } from '../../utils/fechas';
+import { useNominasConRol } from '../../hooks/useNominasConRol';
 import { registrarGuardador } from '../../utils/guardadoAutomatico';
 import {
   HORAS_ENTRADA_TE, HORAS_SALIDA_TE, MIN_COMENTARIO_TE, MIN_JUSTIFICACION_RUTAS, TIPOS_TE, TIPOS_TE_INFO, aplicarA, conTransporte, datosTE,
@@ -86,7 +87,7 @@ export default function EditorTE() {
   const [ocupados, setOcupados] = useState(() => new Map());
   const [intentoEnvio, setIntentoEnvio] = useState(false);
   const [trabajo, setTrabajo] = useState(null); // { texto, hechos, total }
-  const [bulk, setBulk] = useState({ entrada: '', salida: '', motivo: '' });
+  const [bulk, setBulk] = useState({ entrada: '', salida: '' });
   const [tels, setTels] = useState({}); // nómina → { padron, actual }: teléfono del padrón y el que se está capturando (solo de quienes llevan transporte)
   const telsPedidos = useRef(new Set());
 
@@ -165,7 +166,9 @@ export default function EditorTE() {
   }, [fechaTE, areaActual, usuario?.uid, esAut1DeLaArea, id]);
 
   const nombreRuta = (rid) => rutas.find(r => r.id === rid)?.nombre ?? '';
-  const empleadosArea = useMemo(() => padron.filter(e => esElegibleActivo(e) && e.areaId === areaActual), [padron, areaActual]);
+  // A quién se le puede pedir tiempo extra: elegibles activos del área, nunca quien captura ni quien tiene un rol (Aut. 2, Aut. 1 o solicitante)
+  const conRol = useNominasConRol(areaActual);
+  const empleadosArea = useMemo(() => empleadosParaCapturar(padron, areaActual, { nominaPropia: usuario?.nomina, conRol }), [padron, areaActual, usuario?.nomina, conRol]);
   const yaAgregados = useMemo(() => new Set(empleados.map(e => e.nomina)), [empleados]);
   const resumen = useMemo(() => resumenTE(empleados), [empleados]);
   const infoRutas = useMemo(() => resumenRutas(empleados, (rid) => rutas.find(r => r.id === rid)?.nombre ?? ''), [empleados, rutas]);
@@ -193,10 +196,21 @@ export default function EditorTE() {
     setEmpleados(prev => prev.map(e => (afectados.includes(e.nomina) ? { ...e, motivoIndex: reajustarIndice(e.motivoIndex, quitado) } : e)));
     setSucios(prev => new Set([...prev, ...afectados]));
   };
-  const aplicarMotivo = () => {
-    if (bulk.motivo === '') { toast.warning('Elige el motivo para aplicar.'); return; }
-    aplicarMasivo({ motivoIndex: Number(bulk.motivo) });
+  /** «Asignar a todos» / «Asignar a seleccionados» desde la tarjeta de cada motivo: cada empleado lleva UN motivo (su `motivoIndex`) */
+  const asignarMotivo = (indice, modo) => {
+    const objetivo = modo === 'seleccionados' ? seleccion : null;
+    if (modo === 'seleccionados' && seleccion.size === 0) { toast.warning('Primero marca las casillas de los empleados (en la lista de abajo) a los que les toca este motivo.'); return; }
+    const nominas = objetivo ? [...objetivo] : empleados.map(e => e.nomina);
+    setEmpleados(prev => aplicarA(prev, objetivo, { motivoIndex: indice }));
+    setSucios(prev => new Set([...prev, ...nominas]));
+    toast.success(`${nominas.length} ${nominas.length === 1 ? 'empleado lleva' : 'empleados llevan'} «${opcionesMotivo[indice] ?? `Motivo ${indice + 1}`}».`);
   };
+  // Cuántos empleados lleva cada motivo (un índice que ya no existe cuenta como el primero)
+  const cuentaPorMotivo = useMemo(() => {
+    const cuentas = motivos.map(() => 0);
+    for (const e of empleados) cuentas[Math.min(e.motivoIndex ?? 0, motivos.length - 1)]++;
+    return cuentas;
+  }, [empleados, motivos]);
 
   // ── Edición ────────────────────────────────────────────────────────────
   const agregar = (lista) => {
@@ -331,7 +345,7 @@ export default function EditorTE() {
     setTrabajo({ texto: 'Guardando borrador', hechos: 0, total: 1 });
     try {
       await guardar();
-      toast.success('Borrador guardado. Puedes salir y continuar después.');
+      toast.success('Borrador guardado. Puedes salir y continuar después.', 10000, { accion: { texto: 'Ir a Mis solicitudes', onClick: () => navigate('/tiempo-extra/mis-solicitudes') } });
       if (!idParam) navigate(`/tiempo-extra/${id}/editar`, { replace: true });
     } catch (err) { console.error(err); toast.error('No se pudo guardar el borrador. Intenta de nuevo o avisa a Sistemas.', 10000, err.message); }
     finally { setTrabajo(null); }
@@ -347,7 +361,7 @@ export default function EditorTE() {
       mensaje: `${resumen.totalEmpleados} empleados · ${resumen.totalHoras} h en total · ${resumen.totalTransporte} con transporte · ${resumen.totalAlimentos} con alimentos`
         + `${infoRutas.rutasDistintas ? ` · ${infoRutas.rutasDistintas} ${infoRutas.rutasDistintas === 1 ? 'ruta' : 'rutas'}` : ''}. `
         + `Va a ${destino}. ${esDevuelta ? 'Vuelve a empezar su autorización.' : 'Se le asignará su folio.'} El transporte se solicitará automáticamente a RH al quedar autorizada.`
-        + (sinTelefono ? ` ${sinTelefono} con transporte ${sinTelefono === 1 ? 'no tiene' : 'no tienen'} teléfono: el transporte no podrá llamarles.` : '')
+        + (sinTelefono ? ` Aviso, no impide enviar: ${sinTelefono} con transporte ${sinTelefono === 1 ? 'no tiene' : 'no tienen'} teléfono (es opcional); el transporte no podrá llamar${sinTelefono === 1 ? 'le' : 'les'}.` : '')
         + (esAut2 ? ' Como eres Autorización 2, al enviarla quedará autorizada.' : ''),
       textoConfirmar: esDevuelta ? 'Reenviar' : 'Enviar',
     });
@@ -427,6 +441,11 @@ export default function EditorTE() {
               <Campo etiqueta="Fecha del tiempo extra">
                 <Entrada id="te-fecha" type="date" min={hoy} value={fechaTE} onChange={e => setFechaTE(e.target.value)} />
               </Campo>
+              <div className="mt-2 flex flex-wrap items-center gap-2" role="group" aria-label="Atajos de fecha">
+                <Boton id="btn-fecha-manana" tamano="sm" onClick={() => setFechaTE(manana(hoy))} disabled={ocupado}>Mañana</Boton>
+                <Boton id="btn-fecha-sabado" tamano="sm" onClick={() => setFechaTE(proximoSabado(hoy))} disabled={ocupado}>Próximo sábado</Boton>
+                {fechaTE && <span className="text-xs text-[var(--text-secondary)]" aria-live="polite">{fechaConDia(fechaTE)}</span>}
+              </div>
               <Ayuda clave="solicitar.fecha" />
             </div>
           </div>
@@ -434,7 +453,8 @@ export default function EditorTE() {
           {motivoAnterior && !motivos[0]?.motivoId && (
             <Aviso tono="info" className="mt-6" titulo="Esta solicitud se capturó antes del catálogo de motivos">Tenía el motivo «{motivoAnterior}». Elige abajo el motivo del catálogo.</Aviso>
           )}
-          <BloqueMotivosTE data-tour="solicitar-motivos" motivos={motivos} catalogo={catalogoMotivos} onChange={cambiarMotivos} problemas={intentoEnvio ? problemasMotivos : []} deshabilitado={ocupado} />
+          <BloqueMotivosTE data-tour="solicitar-motivos" motivos={motivos} catalogo={catalogoMotivos} onChange={cambiarMotivos} problemas={intentoEnvio ? problemasMotivos : []} deshabilitado={ocupado}
+            asignacion={{ empleados: empleados.length, seleccionados: seleccion.size, cuentas: cuentaPorMotivo, onAsignar: asignarMotivo }} />
 
           <fieldset className="mt-6">
             <legend className="mb-2 text-xs font-medium text-[var(--text-secondary)]">Tipo de tiempo extra</legend>
@@ -480,14 +500,6 @@ export default function EditorTE() {
                 <option value="">{extension ? 'Se quedan hasta…' : 'Salida…'}</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
               </Selector>
               <Boton tamano="sm" onClick={aplicarHorario}>Aplicar horario</Boton>
-              {opcionesMotivo.length > 1 && (
-                <>
-                  <Selector aria-label="Motivo para aplicar" value={bulk.motivo} onChange={e => setBulk(b => ({ ...b, motivo: e.target.value }))} className="!w-auto max-w-64">
-                    <option value="">Motivo…</option>{opcionesMotivo.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                  </Selector>
-                  <Boton id="btn-aplicar-motivo" tamano="sm" onClick={aplicarMotivo}>{seleccion.size ? `Aplicar a los ${seleccion.size} seleccionados` : 'Aplicar a todos'}</Boton>
-                </>
-              )}
               <Boton tamano="sm" onClick={() => aplicarMasivo({ alimentos: true })}>Con alimentos</Boton>
               <Boton tamano="sm" onClick={() => aplicarMasivo({ alimentos: false })}>Sin alimentos</Boton>
               <Boton tamano="sm" onClick={() => aplicarMasivo({ transporteLlegada: !extension, transporteSalida: true })}>Con transporte</Boton>
@@ -536,7 +548,7 @@ export default function EditorTE() {
         <section aria-label="Rutas">
           {variasRutas ? (
             <Aviso tono="aviso" titulo={textoRutas(infoRutas.desglose)} icon={Route}>
-              <p>Cada ruta adicional representa un costo extra. Los autorizadores decidirán si se aprueba.</p>
+              <p><b className="font-semibold">Aviso: sí impide enviar hasta que lo justifiques.</b> Las rutas salen del padrón: cada empleado trae la suya registrada, no las elegiste tú. Cada ruta adicional cuesta, por eso se pide explicar por qué no basta una sola. Si algunos pueden usar la misma ruta, cámbiasela en su fila. Los autorizadores decidirán si se aprueba.</p>
               <Campo className="mt-3" etiqueta="¿Por qué se necesita más de una ruta?" obligatorio ayuda={`Al menos ${MIN_JUSTIFICACION_RUTAS} caracteres (llevas ${justificacionRutas.trim().length}).`}
                 error={intentoEnvio && faltaJustificacion ? 'Explica por qué no basta una sola ruta.' : undefined}>
                 <AreaTexto id="te-justificacion-rutas" rows={2} value={justificacionRutas} onChange={e => setJustificacionRutas(e.target.value)} placeholder="Explica por qué no basta una sola ruta…" />

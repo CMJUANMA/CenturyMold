@@ -125,8 +125,8 @@ export default function FilaEmpleadoTE({ tour, e, fechaTE = '', tipo = TIPOS_TE.
               <label htmlFor={`tel-${e.nomina}`} className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">Teléfono (para que el transporte pueda llamar)</label>
               <Entrada id={`tel-${e.nomina}`} type="tel" inputMode="tel" autoComplete="off" className={SEL} value={telefono} placeholder="10 dígitos" invalido={estadoTel === 'incompleto'}
                 onChange={ev => onTelefono(e.nomina, ev.target.value)} aria-label={`Teléfono de ${e.nombre}`} aria-describedby={estadoTel === 'valido' ? undefined : `tel-aviso-${e.nomina}`} />
-              {estadoTel === 'vacio' && <p id={`tel-aviso-${e.nomina}`} className="mt-1 text-xs text-[var(--status-warning-text)]">Sin teléfono: el transporte no podrá llamarle. Puedes enviar la solicitud así.</p>}
-              {estadoTel === 'incompleto' && <p id={`tel-aviso-${e.nomina}`} className="mt-1 text-xs text-[var(--status-warning-text)]">El teléfono debe tener 10 dígitos; mientras no, no se guardará. Puedes enviar la solicitud así.</p>}
+              {estadoTel === 'vacio' && <p id={`tel-aviso-${e.nomina}`} className="mt-1 text-xs text-[var(--status-warning-text)]">Sin teléfono (es opcional, no impide enviar): el transporte no podrá llamarle.</p>}
+              {estadoTel === 'incompleto' && <p id={`tel-aviso-${e.nomina}`} className="mt-1 text-xs text-[var(--status-warning-text)]">El teléfono debe tener 10 dígitos; mientras no, no se guardará. No impide enviar la solicitud.</p>}
               {estadoTel === 'valido' && <p className="mt-1 text-xs text-[var(--text-muted)]">Se guarda en el padrón al guardar o enviar.</p>}
             </div>
           )}

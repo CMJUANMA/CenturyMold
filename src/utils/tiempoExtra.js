@@ -271,7 +271,7 @@ export function problemasDeEnvio({ areaId, fechaTE, motivos = [], catalogoMotivo
   }
   for (const e of empleados) {
     const otra = ocupados.get(e.nomina);
-    if (otra) p.push({ nivel: 'aviso', mensaje: `${e.nombre} ya tiene otro tiempo extra ese día (${otra.folio ?? 'borrador'}).`, nomina: e.nomina });
+    if (otra) p.push({ nivel: 'aviso', mensaje: `Aviso, no impide enviar: ${e.nombre} (${e.nomina}) ya tiene otro tiempo extra ese día (${otra.folio ?? 'borrador'}).`, nomina: e.nomina });
   }
   return p;
 }

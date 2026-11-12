@@ -107,9 +107,11 @@ const EMPLEADOS = [
   ['8010', USUARIOS.aut2[1], 'administrativo', 'gerente-de-operaciones', 'norte'], ['8001', USUARIOS.rh[1], 'administrativo', 'analista-rh', 'norte'],
   ['8002', USUARIOS.nomina[1], 'administrativo', 'analista-nomina', 'norte'], ['8000', USUARIOS.admin[1], 'administrativo', 'sistemas', 'norte'], ['8099', USUARIOS.nuevo[1], 'administrativo', 'analista-rh', 'sur'],
 ];
+// Supervisores, jefes y administrativos NO son elegibles para tiempo extra (igual que en el padrón real): siguen en el padrón, con usuario y roles, pero no salen en las listas de captura
+const NO_ELEGIBLES = new Set(['8000', '8001', '8002', '8010', '8020', '8021', '8099']);
 const empleado = Object.fromEntries(EMPLEADOS.map(([nomina, nombre, areaId, puestoId, ruta]) => [nomina, { nomina, nombre, puesto: puestoNombre[puestoId], ruta }]));
 for (const [nomina, nombre, areaId, puestoId, ruta] of EMPLEADOS) {
-  await guardar(`empleados/${nomina}`, { nomina, nombre, areaId, puestoId, puesto: puestoNombre[puestoId], activo: true, ...RUTAS[ruta] });
+  await guardar(`empleados/${nomina}`, { nomina, nombre, areaId, puestoId, puesto: puestoNombre[puestoId], activo: true, elegibleTE: !NO_ELEGIBLES.has(nomina), ...RUTAS[ruta] });
 }
 
 // Roles operativos
