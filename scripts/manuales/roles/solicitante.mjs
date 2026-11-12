@@ -122,7 +122,7 @@ export async function solicitante({ abrir, ir, BASE, CELULAR }) {
     ], { recorte: LADO });
   });
   await intentar('más de una ruta', async () => {
-    const just = page.getByPlaceholder(/Explica por qué no basta una sola ruta/);
+    const just = page.getByPlaceholder(/los empleados viven en comunidades distintas/i);
     await just.scrollIntoViewIfNeeded();
     await just.fill('Dos empleados viven en la Ruta Sur y no hay otra forma de traerlos');
     await page.evaluate(() => window.scrollBy(0, 200)); await page.waitForTimeout(300);
