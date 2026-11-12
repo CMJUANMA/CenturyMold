@@ -127,7 +127,7 @@ export default function ConsultaTE() {
       const { descargarConsulta } = await import('../../utils/exportarConsultaTE');
       await descargarConsulta({ solicitudes: completas, nombresArea: nombres, catalogos: { rutas, comunidades, puntos }, nombre: (x) => formato.nombre(x) });
       registrarDescarga(ACCIONES_DESCARGA.consultaTE, { solicitudes: completas.length });
-      toast.success(`Excel descargado: ${completas.length} solicitudes.`);
+      toast.success(`Se descargó el Excel: ${completas.length} solicitudes. Búscalo en la carpeta de descargas.`, 10000);
     } catch (err) { console.error(err); toast.error(`No se pudo generar el Excel: ${err.message}`, 10000); } finally { setExportando(null); }
   };
 

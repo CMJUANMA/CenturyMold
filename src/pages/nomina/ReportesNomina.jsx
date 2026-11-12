@@ -53,7 +53,7 @@ export default function ReportesNomina() {
     setDescargando(modo === 'area' ? lista[0].areaId : modo);
     try {
       await descargarFormatoAreas({ periodo, areas: lista, modo, nombre });
-      toast.success(modo === 'area' ? `Excel descargado: ${lista[0].nombre}.` : `Excel descargado: ${lista.length} ${lista.length === 1 ? 'área' : 'áreas'} con su hoja Resumen.`);
+      toast.success((modo === 'area' ? `Se descargó el Excel de ${lista[0].nombre}.` : `Se descargó el Excel de ${lista.length} ${lista.length === 1 ? 'área' : 'áreas'} con su hoja Resumen.`) + ' Búscalo en la carpeta de descargas.', 10000);
     } catch (err) {
       console.error(err);
       toast.error(`No se pudo generar el Excel: ${err.message}`, 10000);

@@ -16,7 +16,7 @@ import { useAreas } from '../hooks/useAreas';
 import { useCatalogos } from '../hooks/useCatalogos';
 import { useToast } from '../hooks/useToast';
 import { ESTATUS_SOLICITUD } from '../utils/constantes';
-import { sumarDias } from '../utils/fechas';
+import { fechaConDia, sumarDias } from '../utils/fechas';
 import { exportarSolicitudes } from '../utils/exportarSolicitudes';
 import { ACCIONES_DESCARGA, registrarDescarga } from '../utils/bitacoraDb';
 import Ayuda from './Ayuda';
@@ -46,6 +46,7 @@ export default function BotonFormatoRutas({ id = 'btn-formato-rutas' }) {
   const [abierto, setAbierto] = useState(false);
   const [exportando, setExportando] = useState(false);
   const [errorDescarga, setErrorDescarga] = useState('');
+  const [hecho, setHecho] = useState(null); // { archivo, solicitudes, pasajeros } tras descargar: se queda a la vista (el aviso flotante se va solo)
   const { hoy, manana } = useMemo(fechasLocales, []);
   const [tipoFecha, setTipoFecha] = useState('manana');
   const [esRango, setEsRango] = useState(false);
@@ -99,9 +100,9 @@ export default function BotonFormatoRutas({ id = 'btn-formato-rutas' }) {
         }));
         conPasajeros.push(...tanda);
       }
-      await exportarSolicitudes(conPasajeros, catalogos, toast, `Transporte_${sufijo}.xlsx`, { desde: rangoDesde, hasta: rangoHasta });
+      const pasajeros = await exportarSolicitudes(conPasajeros, catalogos, toast, `Transporte_${sufijo}.xlsx`, { desde: rangoDesde, hasta: rangoHasta });
       registrarDescarga(ACCIONES_DESCARGA.formatoRutas, { archivo: `Transporte_${sufijo}.xlsx`, solicitudes: conPasajeros.length });
-      setAbierto(false);
+      setHecho({ archivo: `Transporte_${sufijo}.xlsx`, solicitudes: conPasajeros.length, pasajeros });
     } catch (err) {
       console.error(err);
       // Se queda en el panel, con el motivo a la vista (un aviso que se va solo se podía no ver)
@@ -114,15 +115,21 @@ export default function BotonFormatoRutas({ id = 'btn-formato-rutas' }) {
 
   return (
     <div className="max-w-xs">
-      <Boton id={id} icono={FileDown} onClick={() => setAbierto(true)}>Formato de rutas (proveedor)</Boton>
+      <Boton id={id} icono={FileDown} onClick={() => { setHecho(null); setErrorDescarga(''); setAbierto(true); }}>Formato de rutas (proveedor)</Boton>
       <Ayuda clave="descarga.formatoRutas" />
 
       <Modal isOpen={abierto} onClose={() => setAbierto(false)} title="Formato de rutas (proveedor)" maxWidth="max-w-md">
         <div className="space-y-6">
           <p className="text-sm text-[var(--text-secondary)]">Excel para el proveedor de transporte: solo los empleados que llevan transporte.</p>
+          {hecho && (
+            <Aviso tono="exito" titulo="Se descargó el archivo">
+              <p><span className="font-mono">{hecho.archivo}</span> · {hecho.solicitudes} {hecho.solicitudes === 1 ? 'solicitud' : 'solicitudes'}, {hecho.pasajeros} pasajeros.</p>
+              <p className="mt-0.5 text-xs">Búscalo en la carpeta de descargas de tu navegador.</p>
+            </Aviso>
+          )}
 
           <fieldset className="space-y-2">
-            <legend className="mb-1 text-xs font-medium text-[var(--text-secondary)]">Fecha de servicio</legend>
+            <legend className="mb-1 text-xs font-medium text-[var(--text-secondary)]">Fecha de servicio{valido ? `: ${rangoDesde === rangoHasta ? fechaConDia(rangoDesde) : `del ${fechaConDia(rangoDesde)} al ${fechaConDia(rangoHasta)}`}` : ''}</legend>
             <div className="flex flex-wrap gap-x-6">
               {[['hoy', 'Hoy'], ['manana', 'Mañana'], ['elegir', 'Elegir fecha']].map(([v, texto]) => (
                 <OpcionRadio key={v} name="rFechaFormato" etiqueta={texto} checked={tipoFecha === v} onChange={() => setTipoFecha(v)} />
@@ -174,9 +181,9 @@ export default function BotonFormatoRutas({ id = 'btn-formato-rutas' }) {
           </div>
 
           <div className="flex flex-col-reverse gap-2 border-t border-[var(--border-color)] pt-4 sm:flex-row sm:justify-end">
-            <Boton onClick={() => setAbierto(false)}>Cancelar</Boton>
-            <Boton variante="primario" icono={FileDown} estado={exportando ? 'cargando' : undefined} onClick={descargar} disabled={paraExportar.length === 0 || cargando || exportando}>
-              {exportando ? 'Generando…' : 'Descargar Excel'}
+            <Boton onClick={() => setAbierto(false)}>{hecho ? 'Cerrar' : 'Cancelar'}</Boton>
+            <Boton variante={hecho ? 'contorno' : 'primario'} icono={FileDown} estado={exportando ? 'cargando' : undefined} onClick={descargar} disabled={paraExportar.length === 0 || cargando || exportando}>
+              {exportando ? 'Generando…' : hecho ? 'Descargar otra vez' : 'Descargar Excel'}
             </Boton>
           </div>
         </div>

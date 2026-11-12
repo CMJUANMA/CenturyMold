@@ -56,6 +56,6 @@ export async function exportarSolicitudes(solicitudesExport, catalogos, toast, f
 
   let tot = 0;
   for (const s of solicitudesExport) tot += (s.pasajeros || []).length;
-  toast.success(`Archivo "${fileName}" generado con ${tot} pasajeros.`);
+  toast.success(`Se descargó "${fileName}" (${tot} pasajeros). Búscalo en la carpeta de descargas.`, 10000);
   return tot;
 }

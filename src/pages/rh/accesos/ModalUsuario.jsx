@@ -14,12 +14,16 @@
  *   asignaciones, nombresArea, ahora   las asignaciones en vivo: al editar, la sección «Rol y asignaciones» las lista y deja agregar o quitar
  *   actor, areas  quien edita ({ uid, nombre, nomina, esAdmin, esRH, esAut2 }) y las áreas, para validar y guardar las asignaciones como en la pantalla Asignaciones
  *   onGuardado    (usuario, { nuevo }) => void
+ *
+ * Alta: la contraseña temporal CM-XXXX-XXXX se genera sola (igual que en «Restablecer contraseña»); al crear el usuario se muestra UNA sola vez, con
+ * botón de copiar y el aviso de entregarla en persona. Nunca se guarda ni se registra: al cerrar la ventana se pierde.
  */
 import { useState } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
-import { CheckCircle2, AlertTriangle, Info, Loader2, X } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Copy, Info, Loader2, ShieldAlert, X } from 'lucide-react';
 import { db } from '../../../firebase';
 import { crearCuentaUsuario, mensajeErrorAlta } from '../../../utils/usuariosDb';
+import { generarPassword } from '../../../utils/passwordTemporal';
 import { ACCIONES_USUARIO, registrarUsuario } from '../../../utils/bitacoraDb';
 import Modal from '../../../components/Modal';
 import BuscadorEmpleado from '../../../components/BuscadorEmpleado';
@@ -28,13 +32,14 @@ import { esVigente } from '../../../utils/asignaciones';
 import { sugiereRolRH } from '../../../utils/permisos';
 import { useAuth } from '../../../hooks/useAuth';
 import { useConfirmar } from '../../../hooks/useConfirmar';
+import { useToast } from '../../../hooks/useToast';
+import Boton from '../../../components/ui/Boton';
 import SeccionAsignaciones from './SeccionAsignaciones';
 import { inputCls, btnPrimary, btnSecondary, btnIcon, labelCls } from './ui';
 
 const formDe = (usuario, precarga) => ({
   nomina: usuario?.nomina ?? precarga?.nomina ?? '',
   nombre: usuario?.nombre ?? precarga?.nombre ?? '',
-  password: '',
   // Un rol viejo (superintendente/autorizador) se corrige a "usuario" al guardar
   rol: [ROLES.ADMIN, ROLES.RH, ROLES.NOMINA].includes(usuario?.rol) ? usuario.rol : ROLES.USUARIO,
 });
@@ -53,6 +58,9 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
   const [exito, setExito] = useState('');
+  const [creada, setCreada] = useState(null); // { nomina, nombre, password } tras crear el usuario: se muestra una sola vez
+  const [copiada, setCopiada] = useState(false);
+  const toast = useToast();
 
   // Admin: todos. RH y Aut. 2: usuario, RH o Nóminas al editar; solo usuario al crear (las reglas lo exigen). Nadie se da Nóminas a sí mismo.
   const esYo = edicion && usuario.uid === yo?.uid;
@@ -72,10 +80,9 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
     e.preventDefault();
     setError(''); setExito('');
     if (!edicion) {
-      if (!form.nomina.trim() || !form.nombre.trim() || !form.password) {
+      if (!form.nomina.trim() || !form.nombre.trim()) {
         setError(form.nomina.trim() ? 'Todos los campos son obligatorios.' : 'Elige a la persona del padrón (o captura la nómina a mano).'); return;
       }
-      if (form.password.length < 8) { setError('La contraseña temporal debe tener al menos 8 caracteres.'); return; }
     } else if (!form.nombre.trim()) { setError('El nombre es obligatorio.'); return; }
 
     setGuardando(true);
@@ -109,11 +116,16 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
         onGuardado({ ...usuario, nombre: soloRol ? usuario.nombre : form.nombre.trim(), rol: form.rol }, { nuevo: false });
         setExito('Usuario actualizado correctamente.');
       } else {
-        const { uid, perfil } = await crearCuentaUsuario({ nomina: form.nomina, nombre: form.nombre, rol: form.rol, password: form.password });
+        const password = generarPassword();
+        const { uid, perfil } = await crearCuentaUsuario({ nomina: form.nomina, nombre: form.nombre, rol: form.rol, password });
         registrarUsuario(ACCIONES_USUARIO.crear, { uid, ...perfil });
         onGuardado({ uid, ...perfil }, { nuevo: true });
-        setExito('Usuario creado correctamente.');
+        toast.success(`Usuario ${perfil.nombre} creado (nómina ${perfil.nomina}).`);
+        setCreada({ nomina: String(perfil.nomina), nombre: perfil.nombre, password });
+        return;
       }
+      toast.success('Usuario actualizado correctamente.');
+      setExito('Usuario actualizado correctamente.');
       setTimeout(onClose, 900);
     } catch (err) {
       setError(mensajeErrorAlta(err, form.nomina, usuarios));
@@ -121,6 +133,46 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
       setGuardando(false);
     }
   };
+
+  const cerrarCreada = async () => {
+    if (!copiada) {
+      const ok = await confirmar({
+        titulo: 'Cerrar sin copiar la contraseña',
+        mensaje: 'La contraseña temporal no se puede volver a ver. ¿Ya la anotaste o la entregaste?',
+        textoConfirmar: 'Ya la entregué, cerrar', peligroso: true,
+      });
+      if (!ok) return;
+    }
+    onClose();
+  };
+  const copiar = async () => {
+    try { await navigator.clipboard.writeText(creada.password); setCopiada(true); toast.success('Contraseña copiada'); }
+    catch { toast.error('No se pudo copiar. Selecciónala y cópiala a mano.'); }
+  };
+
+  if (creada) {
+    return (
+      <Modal isOpen onClose={cerrarCreada} title={`Usuario creado · ${creada.nombre}`} maxWidth="max-w-lg" preventCloseOnBackdrop>
+        <div className="space-y-4">
+          <div role="alert" className="rounded-lg border-2 border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-4 text-[var(--status-warning-text)]">
+            <p className="flex items-center gap-2 text-base font-semibold"><ShieldAlert className="h-5 w-5 shrink-0" aria-hidden="true" />Contraseña temporal de {creada.nombre}</p>
+            <p className="mt-3 select-all break-all rounded-md bg-[var(--bg-surface)] px-4 py-3 text-center font-mono text-2xl font-semibold tracking-wider text-[var(--text-main)]">{creada.password}</p>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <Boton id="btn-copiar-password" variante="primario" icono={Copy} onClick={copiar}>Copiar contraseña</Boton>
+            </div>
+            <p className="mt-3 text-sm font-semibold">Se muestra una sola vez. Entrégala en persona; no la mandes por teléfono, correo ni mensaje.</p>
+          </div>
+          <p className="text-sm text-[var(--text-secondary)]">
+            Usuario: <span className="font-mono font-semibold">{creada.nomina}</span>. Al entrar por primera vez, el sistema le pedirá crear una contraseña propia.
+            Si va a autorizar o solicitar tiempo extra, dale su asignación con el lápiz de editar (Aut. 1, Aut. 2 o solicitante).
+          </p>
+          <div className="flex justify-end border-t border-[var(--border-color)] pt-3">
+            <Boton id="btn-cerrar-usuario-creado" variante="primario" onClick={cerrarCreada}>Cerrar</Boton>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal isOpen onClose={onClose} title={edicion ? 'Editar usuario' : 'Nuevo usuario'} maxWidth={edicion && actor ? 'max-w-lg' : 'max-w-md'}>
@@ -182,10 +234,9 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
           </div>
         )}
         {!edicion && (
-          <div>
-            <label className={labelCls}>Contraseña temporal</label>
-            <input required type="password" minLength={8} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className={inputCls} placeholder="Mínimo 8 caracteres" />
-          </div>
+          <p className="rounded-md bg-[var(--bg-surface-secondary)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+            La contraseña temporal se genera sola al crear el usuario y se muestra una sola vez para que se la entregues en persona.
+          </p>
         )}
         <h3 className="border-t border-[var(--border-color)] pt-4 text-sm font-semibold text-[var(--text-main)]">Rol y asignaciones</h3>
         <div className="flex items-start gap-2 rounded-md border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-3 py-2 text-xs text-[var(--status-info-text)]">
@@ -200,6 +251,11 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
           <select required value={form.rol} onChange={e => setForm(f => ({ ...f, rol: e.target.value }))} className={inputCls} disabled={opcionesRol.length === 1}>
             {opcionesRol.map(r => <option key={r} value={r}>{ROL_LABELS[r]}</option>)}
           </select>
+          {opcionesRol.length === 1 && (
+            <p className="mt-1 text-xs text-[var(--text-secondary)]">
+              {edicion ? 'No hay otro rol que puedas darle desde aquí.' : 'Un usuario nuevo se crea con el rol «Usuario». Recursos Humanos o Nóminas se dan después, al editarlo.'}
+            </p>
+          )}
           <p className="mt-1 text-xs text-[var(--text-muted)]">
             {esAdmin
               ? 'Tú das y quitas Recursos Humanos, Nóminas y Administrador.'
@@ -207,6 +263,9 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
             {' '}Aut. 1, Aut. 2 y solicitante se dan abajo, en Asignaciones.
           </p>
         </div>
+        {edicion && actor && (
+          <p className="-mb-2 text-xs text-[var(--text-muted)]">Las asignaciones se guardan al instante, cada una por separado; «Guardar nombre y rol» solo guarda el nombre y el rol del sistema.</p>
+        )}
         {edicion && actor && (
           <SeccionAsignaciones persona={persona} asignaciones={asignaciones} areas={areas} actor={actor} nombresArea={nombresArea} ahora={ahora} />
         )}
@@ -222,7 +281,7 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
           <button type="button" onClick={onClose} className={btnSecondary}>Cancelar</button>
           <button type="submit" disabled={guardando} className={btnPrimary}>
             {guardando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-            {edicion ? 'Guardar cambios' : 'Crear usuario'}
+            {edicion ? 'Guardar nombre y rol' : 'Crear usuario'}
           </button>
         </div>
       </form>

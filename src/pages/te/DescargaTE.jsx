@@ -99,7 +99,7 @@ export default function DescargaTE({ isOpen, onClose, areas, nombresArea, catalo
         filtros: { desde: rango.desde, hasta: rango.hasta, areaId, estatus: estatusDeIncluir(incluir) },
       });
       registrarDescarga(ACCIONES_DESCARGA.resumenTE, { solicitudes: completas.length, desde: rango.desde ?? '', hasta: rango.hasta ?? '', areaId: areaId || '' });
-      toast.success(`Excel descargado: ${completas.length} ${completas.length === 1 ? 'solicitud' : 'solicitudes'}.`);
+      toast.success(`Se descargó el Excel: ${completas.length} ${completas.length === 1 ? 'solicitud' : 'solicitudes'}. Búscalo en la carpeta de descargas.`, 10000);
       onClose();
     } catch (err) {
       console.error(err);

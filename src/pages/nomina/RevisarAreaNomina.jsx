@@ -219,7 +219,7 @@ export default function RevisarAreaNomina() {
     setDescargando(true);
     try {
       await descargarFormatoAreas({ periodo, areas: [{ ...area, filas }], nombre: (x) => formato.nombre(x) });
-      toast.success(`Excel descargado: ${area.nombre}.`);
+      toast.success(`Se descargó el Excel del formato de ${area.nombre}. Búscalo en la carpeta de descargas.`, 10000);
     } catch (err) {
       console.error(err);
       toast.error(`No se pudo generar el Excel: ${err.message}`, 10000);
