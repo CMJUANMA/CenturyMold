@@ -29,7 +29,7 @@ export const AYUDAS = {
     'solicitar.transporte': 'Marca si necesita que la empresa lo lleve (llegada) o lo regrese a su casa (salida).',
     'solicitar.llegada': 'Transporte para venir a la planta.',
     'solicitar.salida.transporte': 'Transporte para regresar a su casa.',
-    'solicitar.ruta': 'Elige la ruta, la comunidad y el punto donde lo recogen. Si ya tiene ruta guardada, solo confírmala.',
+    'solicitar.ruta': 'La ruta del empleado ya viene del padrón. Cámbiala solo si hace falta (ruta, comunidad y punto de reunión); se guarda en el padrón.',
     'solicitar.justificacionRutas': 'Las rutas salen del padrón de cada empleado. Cada ruta extra tiene un costo: explica con claridad por qué no basta una sola. Sin la justificación no se puede enviar.',
     'solicitar.resumen': 'Aquí ves cuántos empleados, horas, rutas y alimentos lleva tu solicitud antes de enviarla.',
     'solicitar.guardar': 'Guarda lo que llevas para seguir después. Todavía no se envía a nadie.',

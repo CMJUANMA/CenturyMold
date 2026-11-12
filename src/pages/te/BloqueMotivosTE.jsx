@@ -44,7 +44,8 @@ export default function BloqueMotivosTE({ motivos, catalogo, onChange, problemas
           const faltaEnCatalogo = m.motivoId && !catalogo.some(c => c.id === m.motivoId);
           return (
             <div key={m.clave} data-motivo={i} className={`rounded-lg border bg-[var(--bg-surface)] p-4 ${propios.length ? 'border-[var(--status-error-text)]' : 'border-[var(--border-color)]'}`}>
-              <div className="grid gap-4 sm:grid-cols-2">
+              {/* Un solo renglón: motivo · número (P.O./TB) o descripción · detalle */}
+              <div className={`grid gap-4 ${r.requiereNumero || r.requiereComentario ? 'md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1.4fr)]' : 'md:grid-cols-[minmax(0,1.1fr)_minmax(0,1.5fr)]'}`}>
                 <Campo etiqueta={motivos.length > 1 ? `Motivo ${i + 1}` : 'Motivo'} obligatorio={i === 0}>
                   <Selector id={`te-motivo-${i}`} value={m.motivoId} onChange={e => elegir(i, e.target.value)}>
                     <option value="">Elige el motivo…</option>
@@ -70,7 +71,7 @@ export default function BloqueMotivosTE({ motivos, catalogo, onChange, problemas
                       onChange={e => cambiar(i, { comentario: e.target.value })} placeholder="Escribe el motivo" />
                   </Campo>
                 )}
-                <Campo className={r.requiereNumero || r.requiereComentario ? 'sm:col-span-2' : ''} etiqueta="Detalle (opcional)">
+                <Campo etiqueta="Detalle (opcional)">
                   <Entrada id={`te-motivo-detalle-${i}`} maxLength={MAX_DETALLE_MOTIVO} value={m.detalle}
                     onChange={e => cambiar(i, { detalle: e.target.value })} placeholder="Ej. apoyo a inventario, movimiento de máquina Krauss Maffei 750" />
                 </Campo>

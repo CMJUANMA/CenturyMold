@@ -12,7 +12,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { AlertTriangle, Loader2, Plus, Route, Save, Send, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Route, Save, Send, Trash2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useAccesos } from '../../hooks/useAccesos';
 import { useAreas } from '../../hooks/useAreas';
@@ -35,7 +35,9 @@ import { Tarjeta } from '../../components/ui/Tarjeta';
 import { rutaVigente } from '../../utils/activo';
 import { empleadosParaCapturar } from '../../utils/empleadosCaptura';
 import { fechaConDia, manana, proximoSabado, ymd } from '../../utils/fechas';
-import { useNominasConRol } from '../../hooks/useNominasConRol';
+import { useRolesDelArea } from '../../hooks/useRolesDelArea';
+import { textoConfirmarEnvio } from '../../utils/destinoEnvio';
+import { crearFormateadorNombres } from '../../utils/nombresPersona';
 import { registrarGuardador } from '../../utils/guardadoAutomatico';
 import {
   HORAS_ENTRADA_TE, HORAS_SALIDA_TE, MIN_COMENTARIO_TE, MIN_JUSTIFICACION_RUTAS, TIPOS_TE, TIPOS_TE_INFO, aplicarA, conTransporte, datosTE,
@@ -154,7 +156,6 @@ export default function EditorTE() {
   }, [empleados, puedeTelefono]);
   const cambiarTelefono = (nomina, valor) => setTels(prev => ({ ...prev, [nomina]: { padron: prev[nomina]?.padron ?? '', actual: valor } }));
   const telefonoDe = (nomina) => tels[nomina]?.actual ?? '';
-  const sinTelefono = puedeTelefono ? empleados.filter(e => e.transporte && estadoTelefono(telefonoDe(e.nomina)) !== 'valido').length : 0;
 
   // Aviso (sin bloquear) de quien ya tiene otro tiempo extra ese día
   useEffect(() => {
@@ -168,7 +169,7 @@ export default function EditorTE() {
 
   const nombreRuta = (rid) => rutas.find(r => r.id === rid)?.nombre ?? '';
   // A quién se le puede pedir tiempo extra: elegibles activos del área, nunca quien captura ni quien tiene un rol (Aut. 2, Aut. 1 o solicitante)
-  const conRol = useNominasConRol(areaActual);
+  const { conRol, aut1: aut1DelArea, aut2: aut2Planta } = useRolesDelArea(areaActual);
   const empleadosArea = useMemo(() => empleadosParaCapturar(padron, areaActual, { nominaPropia: usuario?.nomina, conRol }), [padron, areaActual, usuario?.nomina, conRol]);
   const yaAgregados = useMemo(() => new Set(empleados.map(e => e.nomina)), [empleados]);
   const resumen = useMemo(() => resumenTE(empleados), [empleados]);
@@ -226,11 +227,19 @@ export default function EditorTE() {
   }, [empleados, motivos]);
 
   // ── Edición ────────────────────────────────────────────────────────────
+  /** Horario con el que entran los empleados nuevos: el que acaba de elegir arriba o, si todos los ya agregados tienen el mismo, ese (no hay que repetirlo) */
+  const horarioParaNuevos = () => {
+    if (bulk.entrada && (bulk.salida || extension)) return { horaEntrada: bulk.entrada, horaSalida: bulk.salida };
+    const con = empleados.filter(e => e.horaEntrada && e.horaSalida);
+    if (con.length && con.every(e => e.horaEntrada === con[0].horaEntrada && e.horaSalida === con[0].horaSalida)) return { horaEntrada: con[0].horaEntrada, horaSalida: con[0].horaSalida };
+    return {};
+  };
   const agregar = (lista) => {
     const nuevos = lista.filter(e => !yaAgregados.has(String(e.nomina))).slice(0, Math.max(0, MAX_PASAJEROS - empleados.length));
     if (nuevos.length < lista.length) toast.warning(`Se agregaron ${nuevos.length}: máximo ${MAX_PASAJEROS} empleados por solicitud.`);
     const catalogos = { rutas, comunidades, puntos };
-    const filas = nuevos.map(e => empleadoDesdePadron(e, rutaVigente(e, catalogos), { tipo }));
+    const horario = horarioParaNuevos();
+    const filas = nuevos.map(e => ({ ...empleadoDesdePadron(e, rutaVigente(e, catalogos), { tipo }), ...horario }));
     setEmpleados(prev => [...prev, ...filas]);
     setSucios(prev => new Set([...prev, ...filas.map(f => f.nomina)]));
     setEliminados(prev => { const s = new Set(prev); filas.forEach(f => s.delete(f.nomina)); return s; });
@@ -256,21 +265,26 @@ export default function EditorTE() {
     setEmpleados(prev => aplicarA(prev, objetivo, cambios));
     setSucios(prev => new Set([...prev, ...(objetivo ?? empleados.map(e => e.nomina))]));
   };
-  const aplicarHorario = () => {
+  /** Elegir la hora la aplica al momento (a los marcados o, si no hay marcados, a todos): sin botón aparte. El turno extra necesita entrada y salida; la extensión, el fin de turno y la hora hasta la que se queda */
+  const elegirHorario = (campo, valor) => {
     if (extension) {
-      if (!bulk.entrada && !bulk.salida) { toast.warning('Elige cuándo termina su turno o hasta qué hora se quedan para aplicar.'); return; }
-      if (bulk.entrada && bulk.salida && !salidasPosteriores(bulk.entrada).includes(bulk.salida)) { toast.warning('Se quedan hasta una hora posterior al fin de su turno.'); return; }
-      // Cambiar el fin de turno borra la hora hasta la que se quedan (sus opciones dependen de él)
-      aplicarMasivo({ ...(bulk.entrada ? { horaEntrada: bulk.entrada, horaSalida: '' } : {}), ...(bulk.salida ? { horaSalida: bulk.salida } : {}) });
+      if (campo === 'entrada') {
+        // Cambiar el fin de turno borra la hora hasta la que se quedan (sus opciones dependen de él)
+        setBulk({ entrada: valor, salida: '' });
+        if (valor) aplicarMasivo({ horaEntrada: valor, horaSalida: '' });
+        return;
+      }
+      setBulk(b => ({ ...b, salida: valor }));
+      if (!valor) return;
+      if (bulk.entrada && !salidasPosteriores(bulk.entrada).includes(valor)) { toast.warning('Se quedan hasta una hora posterior al fin de su turno.'); return; }
+      aplicarMasivo({ horaSalida: valor });
       return;
     }
-    if (!bulk.entrada || !bulk.salida) { toast.warning('Elige la entrada y la salida para aplicar.'); return; }
-    if (bulk.entrada === bulk.salida) { toast.warning('La entrada y la salida no pueden ser iguales.'); return; }
-    aplicarMasivo({ horaEntrada: bulk.entrada, horaSalida: bulk.salida });
-  };
-  const confirmarRutasPrecargadas = () => {
-    setEmpleados(prev => prev.map(e => (e.transporte && e.necesitaConfirmar && !e.confirmada && e.rutaId && e.comunidadId && e.puntoReunionId ? { ...e, confirmada: true } : e)));
-    setSucios(prev => new Set([...prev, ...empleados.map(e => e.nomina)]));
+    const sig = { ...bulk, [campo]: valor };
+    setBulk(sig);
+    if (!sig.entrada || !sig.salida) return;
+    if (sig.entrada === sig.salida) { toast.warning('La entrada y la salida no pueden ser iguales.'); return; }
+    aplicarMasivo({ horaEntrada: sig.entrada, horaSalida: sig.salida });
   };
 
   /** Cambiar el tipo reinicia horarios y transporte de los empleados ya agregados (empiezan distinto): se pide confirmar */
@@ -368,14 +382,12 @@ export default function EditorTE() {
     setIntentoEnvio(true);
     if (errores.length) { setPanelAbierto(true); irA(pendientes[0]?.campo); return; } // el panel fijo de abajo dice qué falta y lleva a cada campo
     const estatus = estatusAlEnviar({ esAut1DeLaArea, areaParticipa: area?.participaTE !== false, esAut2 });
-    const destino = estatus === 'autorizada' ? 'Por enviar al proveedor' : estatus === 'pendiente_aut2' ? 'Autorización 2' : 'Autorización 1';
     const ok = await confirmar({
-      titulo: esDevuelta ? 'Reenviar a autorización' : 'Enviar a autorización',
-      mensaje: `${resumen.totalEmpleados} empleados · ${resumen.totalHoras} h en total · ${resumen.totalTransporte} con transporte · ${resumen.totalAlimentos} con alimentos`
-        + `${infoRutas.rutasDistintas ? ` · ${infoRutas.rutasDistintas} ${infoRutas.rutasDistintas === 1 ? 'ruta' : 'rutas'}` : ''}. `
-        + `Va a ${destino}. ${esDevuelta ? 'Vuelve a empezar su autorización.' : 'Se le asignará su folio.'} El transporte se solicitará automáticamente a RH al quedar autorizada.`
-        + (sinTelefono ? ` Aviso, no impide enviar: ${sinTelefono} con transporte ${sinTelefono === 1 ? 'no tiene' : 'no tienen'} teléfono (es opcional); el transporte no podrá llamar${sinTelefono === 1 ? 'le' : 'les'}.` : '')
-        + (esAut2 ? ' Como eres Autorización 2, al enviarla quedará autorizada.' : ''),
+      titulo: esDevuelta ? 'Reenviar la solicitud' : 'Enviar la solicitud',
+      mensaje: textoConfirmarEnvio({
+        estatus, aut1: aut1DelArea, aut2: aut2Planta, reenvio: esDevuelta, empleados: resumen.totalEmpleados, horas: resumen.totalHoras,
+        nombre: crearFormateadorNombres(padron.map(e => e.nombre)).nombre,
+      }),
       textoConfirmar: esDevuelta ? 'Reenviar' : 'Enviar',
     });
     if (!ok) return;
@@ -505,21 +517,18 @@ export default function EditorTE() {
 
           {empleados.length > 0 && (
             <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface-secondary)] p-4" role="group" aria-label="Aplicar a todos o a los seleccionados">
-              <span className="w-full text-xs font-medium text-[var(--text-secondary)]">Aplicar a {seleccion.size ? `los ${seleccion.size} seleccionados` : 'todos'}:</span>
-              <Selector aria-label={extension ? 'Fin de turno para aplicar' : 'Entrada para aplicar'} value={bulk.entrada} onChange={e => setBulk(b => ({ ...b, entrada: e.target.value }))} className="!w-auto">
+              <span className="w-full text-xs font-medium text-[var(--text-secondary)]">Aplicar a {seleccion.size ? `los ${seleccion.size} seleccionados` : 'todos'} (al elegir la hora se aplica solo):</span>
+              <Selector aria-label={extension ? 'Fin de turno para aplicar' : 'Entrada para aplicar'} value={bulk.entrada} onChange={e => elegirHorario('entrada', e.target.value)} className="!w-auto">
                 <option value="">{extension ? 'Termina su turno…' : 'Entrada…'}</option>{(extension ? HORAS_SALIDA_TE : HORAS_ENTRADA_TE).map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
               </Selector>
-              <Selector aria-label={extension ? 'Hora hasta la que se quedan, para aplicar' : 'Salida para aplicar'} value={bulk.salida} onChange={e => setBulk(b => ({ ...b, salida: e.target.value }))} className="!w-auto">
+              <Selector aria-label={extension ? 'Hora hasta la que se quedan, para aplicar' : 'Salida para aplicar'} value={bulk.salida} onChange={e => elegirHorario('salida', e.target.value)} className="!w-auto">
                 <option value="">{extension ? 'Se quedan hasta…' : 'Salida…'}</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
               </Selector>
-              <Boton tamano="sm" onClick={aplicarHorario}>Aplicar horario</Boton>
+              {!extension && bulk.entrada && !bulk.salida && <span className="self-center text-xs text-[var(--text-secondary)]">Elige también la salida: el horario se aplica solo.</span>}
               <Boton tamano="sm" onClick={() => aplicarMasivo({ alimentos: true })}>Con alimentos</Boton>
               <Boton tamano="sm" onClick={() => aplicarMasivo({ alimentos: false })}>Sin alimentos</Boton>
               <Boton tamano="sm" onClick={() => aplicarMasivo({ transporteLlegada: !extension, transporteSalida: true })}>Con transporte</Boton>
               <Boton tamano="sm" onClick={() => aplicarMasivo({ transporteLlegada: false, transporteSalida: false })}>Sin transporte</Boton>
-              {empleados.some(e => e.transporte && e.necesitaConfirmar && !e.confirmada) && (
-                <Boton tamano="sm" variante="secundario" icono={AlertTriangle} onClick={confirmarRutasPrecargadas}>Confirmar las rutas del padrón</Boton>
-              )}
               {seleccion.size > 0 && <Boton tamano="sm" variante="fantasma" onClick={() => setSeleccion(new Set())}>Quitar selección</Boton>}
               <Ayuda clave="solicitar.aplicar" className="w-full" />
             </div>

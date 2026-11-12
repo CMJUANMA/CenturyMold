@@ -104,13 +104,12 @@ export async function solicitante({ abrir, ir, BASE, CELULAR }) {
     const salida = page.locator('select').filter({ has: page.locator('option', { hasText: 'Salida…' }) }).first();
     await entrada.selectOption({ index: 1 }); await salida.selectOption({ index: 1 });
     await capturar(page, `${R}/10-horario-para-todos`, [
-      { en: entrada, n: 1 }, { en: salida, n: 2 }, { en: page.getByRole('button', { name: 'Aplicar horario' }), n: 3 },
+      { en: entrada, n: 1 }, { en: salida, n: 2 },
       { en: [page.getByRole('button', { name: 'Con alimentos' }), page.getByRole('button', { name: 'Sin alimentos' })], n: 4 },
       { en: page.getByRole('button', { name: 'Con transporte' }), n: 5 }, { en: page.getByRole('button', { name: 'Sin transporte' }) },
     ], { recorte: LADO });
-    await page.getByRole('button', { name: 'Aplicar horario' }).click(); await page.waitForTimeout(500);
+    await page.waitForTimeout(500); // el horario se aplica solo al elegir la salida
     await page.getByRole('button', { name: 'Con alimentos' }).click(); await page.waitForTimeout(500);
-    await page.getByRole('button', { name: /Confirmar las rutas del padrón/ }).click().catch(() => {}); await page.waitForTimeout(800);
   });
   await intentar('fila de un empleado', async () => {
     const fila = page.getByText('ÁLVAREZ CAMPOS JORGE').first().locator('xpath=ancestor::*[.//select][2]');

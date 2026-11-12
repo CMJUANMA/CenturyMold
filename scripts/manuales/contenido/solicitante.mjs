@@ -122,10 +122,9 @@ export default {
         { p: 'Primero usa <b>Aplicar a todos</b> para no capturar uno por uno.' },
         { pasos: [
           'Elige la <b>hora de entrada</b>.',
-          'Elige la <b>hora de salida</b>.',
-          'Toca <b>Aplicar horario</b>.',
+          'Elige la <b>hora de salida</b>: el horario se aplica solo.',
           'Toca <b>Con alimentos</b> o <b>Sin alimentos</b>.',
-          'Toca <b>Con transporte</b> o <b>Sin transporte</b>. (Y confirma las rutas con el botón <b>Confirmar las rutas del padrón</b>.)',
+          'Toca <b>Con transporte</b> o <b>Sin transporte</b>. (La ruta de cada empleado ya viene del padrón.)',
         ], img: 'solicitante/10-horario-para-todos' },
         { nota: 'Marca las casillas de algunos empleados antes de tocar un botón y el cambio se aplica <b>solo a ellos</b>. Si no marcas ninguno, se aplica a todos.' },
         { p: 'Después revisa a cada empleado. Si alguien tiene un horario distinto o no necesita transporte, cámbialo en su renglón.' },

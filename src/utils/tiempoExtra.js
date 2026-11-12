@@ -137,14 +137,14 @@ export const conTransporte = (e) => ({ ...e, transporte: llevaTransporte(e) });
  * se elige a mano (el empleado ya no tiene turno fijo en el padrón).
  */
 export function empleadoDesdePadron(emp, ruta, { tipo = TIPOS_TE.TURNO_EXTRA } = {}) {
-  const completa = !!(ruta?.rutaId && ruta?.comunidadId && ruta?.puntoReunionId);
   const extension = tipo === TIPOS_TE.EXTENSION;
   return {
     nomina: String(emp.nomina), nombre: emp.nombre ?? '', puesto: emp.puesto ?? '',
     horaEntrada: '', horaSalida: '', alimentos: false, motivoIndex: 0,
     transporteLlegada: !extension, transporteSalida: true, transporte: true,
     rutaId: ruta?.rutaId ?? '', comunidadId: ruta?.comunidadId ?? '', puntoReunionId: ruta?.puntoReunionId ?? '',
-    necesitaConfirmar: completa, confirmada: false,
+    // La ruta del padrón entra ya confirmada: no se pide confirmar; si alguien la cambia en la fila, se guarda en el padrón al guardar
+    necesitaConfirmar: false, confirmada: false,
   };
 }
 

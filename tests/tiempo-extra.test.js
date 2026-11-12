@@ -58,7 +58,7 @@ describe('empleado ↔ documento', () => {
   });
   it('del padrón: transporte marcado por defecto; ruta completa pide confirmar', () => {
     const e = empleadoDesdePadron({ nomina: 5, nombre: 'ANA', puesto: 'OP', turnoNomina: 'B' }, { rutaId: 'r1', comunidadId: 'c1', puntoReunionId: 'p1' });
-    expect(e).toMatchObject({ nomina: '5', transporte: true, necesitaConfirmar: true, confirmada: false });
+    expect(e).toMatchObject({ nomina: '5', transporte: true, necesitaConfirmar: false, confirmada: false });
     expect(e.turnoNomina).toBeUndefined();
     expect(empleadoDesdePadron({ nomina: 6, nombre: 'LUIS' }, {}).necesitaConfirmar).toBe(false);
   });
