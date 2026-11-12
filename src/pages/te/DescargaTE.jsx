@@ -21,6 +21,7 @@ import { Esqueleto } from '../../components/ui/Esqueleto';
 import { INCLUIR_DESCARGA, PERIODOS_DESCARGA, estatusDeIncluir, rangoDePeriodo } from '../../utils/tiempoExtra';
 import { leerSolicitudTE } from '../../utils/tiempoExtraDb';
 import { textoRango, ymd } from '../../utils/fechas';
+import { textoDescarga } from '../../utils/mensajesDescarga';
 
 const HOJAS = [
   ['Detalle', 'una fila por empleado y por día: horario, horas, alimentos, transporte, ruta y quién autorizó.'],
@@ -99,7 +100,7 @@ export default function DescargaTE({ isOpen, onClose, areas, nombresArea, catalo
         filtros: { desde: rango.desde, hasta: rango.hasta, areaId, estatus: estatusDeIncluir(incluir) },
       });
       registrarDescarga(ACCIONES_DESCARGA.resumenTE, { solicitudes: completas.length, desde: rango.desde ?? '', hasta: rango.hasta ?? '', areaId: areaId || '' });
-      toast.success(`Se descargó el Excel: ${completas.length} ${completas.length === 1 ? 'solicitud' : 'solicitudes'}. Búscalo en la carpeta de descargas.`, 10000);
+      toast.success(textoDescarga('', `el Excel (${completas.length} ${completas.length === 1 ? 'solicitud' : 'solicitudes'})`), 12000);
       onClose();
     } catch (err) {
       console.error(err);

@@ -17,6 +17,8 @@ import { useCatalogos } from '../hooks/useCatalogos';
 import { useToast } from '../hooks/useToast';
 import { ESTATUS_SOLICITUD } from '../utils/constantes';
 import { fechaConDia, sumarDias } from '../utils/fechas';
+import { textoDescarga } from '../utils/mensajesDescarga';
+import { RUTAS } from '../rutas';
 import { exportarSolicitudes } from '../utils/exportarSolicitudes';
 import { ACCIONES_DESCARGA, registrarDescarga } from '../utils/bitacoraDb';
 import Ayuda from './Ayuda';
@@ -46,6 +48,7 @@ export default function BotonFormatoRutas({ id = 'btn-formato-rutas' }) {
   const [abierto, setAbierto] = useState(false);
   const [exportando, setExportando] = useState(false);
   const [errorDescarga, setErrorDescarga] = useState('');
+  const [porConfirmar, setPorConfirmar] = useState(null); // { clave, n }: autorizadas de esas fechas que aún no se confirman al proveedor
   const [hecho, setHecho] = useState(null); // { archivo, solicitudes, pasajeros } tras descargar: se queda a la vista (el aviso flotante se va solo)
   const { hoy, manana } = useMemo(fechasLocales, []);
   const [tipoFecha, setTipoFecha] = useState('manana');
@@ -61,6 +64,20 @@ export default function BotonFormatoRutas({ id = 'btn-formato-rutas' }) {
   const rangoHasta = tipoFecha === 'hoy' ? hoy : tipoFecha === 'manana' ? manana : (esRango ? hasta : elegida);
   const valido = !!rangoDesde && !!rangoHasta && rangoDesde <= rangoHasta;
   const clave = `${rangoDesde}|${rangoHasta}`;
+
+  // Si no hay nada que bajar, cuántas hay por confirmar de esas fechas (autorizadas con transporte): una sola consulta por estatus, filtrada aquí
+  useEffect(() => {
+    if (!abierto || !valido || cargando || paraExportar.length > 0) return undefined;
+    let vigente = true;
+    getDocs(query(collection(db, 'tiempoExtra'), where('estatus', '==', 'autorizada')))
+      .then(s => {
+        if (!vigente) return;
+        const n = s.docs.filter(d => { const t = d.data(); return t.fechaTE >= rangoDesde && t.fechaTE <= rangoHasta && (t.resumen?.totalTransporte ?? 0) > 0; }).length;
+        setPorConfirmar({ clave, n });
+      })
+      .catch(() => { /* sin permiso para leerlas: solo no se cuenta */ });
+    return () => { vigente = false; };
+  }, [abierto, valido, cargando, paraExportar.length, clave, rangoDesde, rangoHasta]);
 
   // Solo se consulta con el panel abierto y para el rango elegido; una respuesta de un rango anterior se ignora
   useEffect(() => {
@@ -123,8 +140,8 @@ export default function BotonFormatoRutas({ id = 'btn-formato-rutas' }) {
           <p className="text-sm text-[var(--text-secondary)]">Excel para el proveedor de transporte: solo los empleados que llevan transporte.</p>
           {hecho && (
             <Aviso tono="exito" titulo="Se descargó el archivo">
-              <p><span className="font-mono">{hecho.archivo}</span> · {hecho.solicitudes} {hecho.solicitudes === 1 ? 'solicitud' : 'solicitudes'}, {hecho.pasajeros} pasajeros.</p>
-              <p className="mt-0.5 text-xs">Búscalo en la carpeta de descargas de tu navegador.</p>
+              <p>{textoDescarga(hecho.archivo)}</p>
+              <p className="mt-0.5 text-xs">{hecho.solicitudes} {hecho.solicitudes === 1 ? 'solicitud' : 'solicitudes'}, {hecho.pasajeros} pasajeros.</p>
             </Aviso>
           )}
 
@@ -168,7 +185,10 @@ export default function BotonFormatoRutas({ id = 'btn-formato-rutas' }) {
             ) : cargando ? (
               <div role="status" aria-label="Buscando solicitudes"><Esqueleto className="h-14 w-full" /></div>
             ) : paraExportar.length === 0 ? (
-              <Aviso tono="aviso">No hay solicitudes de transporte para esta fecha. ¿Ya confirmaste el tiempo extra?</Aviso>
+              <Aviso tono="aviso" titulo="No hay tiempo extra confirmado para esa fecha."
+                accion={<Boton tamano="sm" to={RUTAS.teRecepcion} onClick={() => setAbierto(false)}>Ir a Por enviar al proveedor</Boton>}>
+                {porConfirmar?.clave === clave && porConfirmar.n > 0 ? `Hay ${porConfirmar.n} por confirmar.` : 'El Excel solo lleva lo que ya se confirmó.'}
+              </Aviso>
             ) : (
               <div className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface-secondary)] p-3 text-sm text-[var(--text-main)]">
                 <p className="font-medium">{paraExportar.length} {paraExportar.length === 1 ? 'solicitud encontrada' : 'solicitudes encontradas'}</p>

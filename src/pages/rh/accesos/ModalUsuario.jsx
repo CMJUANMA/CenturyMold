@@ -138,8 +138,8 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
     if (!copiada) {
       const ok = await confirmar({
         titulo: 'Cerrar sin copiar la contraseña',
-        mensaje: 'La contraseña temporal no se puede volver a ver. ¿Ya la anotaste o la entregaste?',
-        textoConfirmar: 'Ya la entregué, cerrar', peligroso: true,
+        mensaje: 'La contraseña temporal no se volverá a mostrar. ¿Ya la copiaste o la anotaste?',
+        textoConfirmar: 'Ya la copié o la anoté, cerrar', peligroso: true,
       });
       if (!ok) return;
     }
@@ -160,14 +160,14 @@ function Contenido({ onClose, usuario = null, precarga = null, usuarios, emplead
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <Boton id="btn-copiar-password" variante="primario" icono={Copy} onClick={copiar}>Copiar contraseña</Boton>
             </div>
-            <p className="mt-3 text-sm font-semibold">Se muestra una sola vez. Entrégala en persona; no la mandes por teléfono, correo ni mensaje.</p>
+            <p className="mt-3 text-sm font-semibold">No se volverá a mostrar. Entrégala en persona; no la mandes por teléfono, correo ni mensaje.</p>
           </div>
           <p className="text-sm text-[var(--text-secondary)]">
             Usuario: <span className="font-mono font-semibold">{creada.nomina}</span>. Al entrar por primera vez, el sistema le pedirá crear una contraseña propia.
             Si va a autorizar o solicitar tiempo extra, dale su asignación con el lápiz de editar (Aut. 1, Aut. 2 o solicitante).
           </p>
           <div className="flex justify-end border-t border-[var(--border-color)] pt-3">
-            <Boton id="btn-cerrar-usuario-creado" variante="primario" onClick={cerrarCreada}>Cerrar</Boton>
+            <Boton id="btn-cerrar-usuario-creado" variante="primario" onClick={onClose}>Ya la copié o la anoté, cerrar</Boton>
           </div>
         </div>
       </Modal>

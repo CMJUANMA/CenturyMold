@@ -1,7 +1,7 @@
 // Diálogo corto de «Enviar a autorización»: a quién va, con nombre. Datos ficticios. Ejecutar con: npm run test:unit
 import { describe, expect, it } from 'vitest';
 import { crearFormateadorNombres } from '../src/utils/nombresPersona.js';
-import { personaConPuesto, textoConfirmarEnvio } from '../src/utils/destinoEnvio.js';
+import { personaConPuesto, textoConfirmarEnvio, textoEstatusEnvio } from '../src/utils/destinoEnvio.js';
 
 const formato = crearFormateadorNombres(['RANGEL OROZCO FELIPE', 'IBARRA SALAZAR ROBERTO']);
 const nombre = (n) => formato.nombre(n);
@@ -42,5 +42,19 @@ describe('textoConfirmarEnvio', () => {
   it('si no se pudo leer a quien autoriza, no inventa un nombre', () => {
     expect(textoConfirmarEnvio({ estatus: 'pendiente_aut1', nombre, empleados: 4, horas: 36.5 })).toBe('Se enviará a quien autoriza tu área. 4 empleados, 36.5 h.');
     expect(textoConfirmarEnvio({ estatus: 'pendiente_aut2', nombre, empleados: 4, horas: 36 })).toBe('Se enviará a quien autoriza al final. 4 empleados, 36 h.');
+  });
+});
+
+describe('textoEstatusEnvio (lo que se ve al terminar de enviar)', () => {
+  it('con quién está en autorización, con nombre y puesto', () => {
+    expect(textoEstatusEnvio({ estatus: 'pendiente_aut1', aut1: [felipe], nombre })).toBe('En autorización · con Felipe Rangel Orozco (jefe de producción)');
+    expect(textoEstatusEnvio({ estatus: 'pendiente_aut2', aut2: [roberto], nombre })).toBe('En autorización · con Roberto Ibarra Salazar (gerente de operaciones)');
+  });
+  it('con dos que pueden autorizar, los dos', () => {
+    expect(textoEstatusEnvio({ estatus: 'pendiente_aut1', aut1: [felipe, roberto], nombre })).toBe('En autorización · con Felipe Rangel Orozco (jefe de producción) o Roberto Ibarra Salazar (gerente de operaciones)');
+  });
+  it('sin saber quién, solo el estatus; una autorizada pasa a Recursos Humanos', () => {
+    expect(textoEstatusEnvio({ estatus: 'pendiente_aut1', nombre })).toBe('En autorización');
+    expect(textoEstatusEnvio({ estatus: 'autorizada', nombre })).toBe('Autorizada · pasa a Recursos Humanos para enviarse al proveedor');
   });
 });

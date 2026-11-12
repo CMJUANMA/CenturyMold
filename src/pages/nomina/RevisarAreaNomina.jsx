@@ -23,6 +23,7 @@ import { Esqueleto } from '../../components/ui/Esqueleto';
 import Insignia from '../../components/ui/Insignia';
 import { ACCIONES_AJUSTE_NOMINA, guardarAjuste, reabrirAjuste } from '../../utils/ajustesNominaDb';
 import { descargarFormatoAreas } from '../../utils/descargarFormatoNomina';
+import { textoDescarga } from '../../utils/mensajesDescarga';
 import {
   DIAS_CORTO, ESTADOS_AREA, MAX_MOTIVO_AJUSTE, MIN_MOTIVO_AJUSTE, TIPOS_CAMBIO, agregadosSinHoras, aplicarCambios, conHoras, conRenglonQuitado, conRenglonRestaurado,
   contarSinGuardar, estadoDeArea, etiquetaPeriodo, filasVigentes, fueAjustada, nominasRepetidas, periodoDeClave, problemaMotivo, resumenDeGuardado, sellarCambios, totalesDeFilas,
@@ -219,7 +220,7 @@ export default function RevisarAreaNomina() {
     setDescargando(true);
     try {
       await descargarFormatoAreas({ periodo, areas: [{ ...area, filas }], nombre: (x) => formato.nombre(x) });
-      toast.success(`Se descargó el Excel del formato de ${area.nombre}. Búscalo en la carpeta de descargas.`, 10000);
+      toast.success(textoDescarga('', `el Excel del formato de ${area.nombre}`), 12000);
     } catch (err) {
       console.error(err);
       toast.error(`No se pudo generar el Excel: ${err.message}`, 10000);

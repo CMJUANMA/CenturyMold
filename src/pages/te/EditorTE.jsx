@@ -36,7 +36,7 @@ import { rutaVigente } from '../../utils/activo';
 import { empleadosParaCapturar } from '../../utils/empleadosCaptura';
 import { fechaConDia, manana, proximoSabado, ymd } from '../../utils/fechas';
 import { useRolesDelArea } from '../../hooks/useRolesDelArea';
-import { textoConfirmarEnvio } from '../../utils/destinoEnvio';
+import { textoConfirmarEnvio, textoEstatusEnvio } from '../../utils/destinoEnvio';
 import { crearFormateadorNombres } from '../../utils/nombresPersona';
 import { registrarGuardador } from '../../utils/guardadoAutomatico';
 import {
@@ -402,7 +402,12 @@ export default function EditorTE() {
       const folio = await enviarSolicitud({ id, devuelta: esDevuelta, usuario, estatus, extras: extras() });
       toast.success(esDevuelta ? `Reenviada (${folio}).` : `Enviada con el folio ${folio}.`);
       await avisar.envio({ folio, estatus, areaId: areaActual, reenviada: esDevuelta });
-      navigate('/tiempo-extra/mis-solicitudes', { replace: true });
+      // A Mis solicitudes, en la pestaña donde quedó, con la nueva resaltada y su estatus a la vista («En autorización · con Felipe Rangel…»)
+      const formatoNombre = crearFormateadorNombres(padron.map(x => x.nombre)).nombre;
+      navigate('/tiempo-extra/mis-solicitudes', {
+        replace: true,
+        state: { nuevaId: id, folio, pestana: estatus === 'autorizada' ? 'autorizada' : 'autorizacion', destino: textoEstatusEnvio({ estatus, aut1: aut1DelArea, aut2: aut2Planta, nombre: formatoNombre }) },
+      });
     } catch (err) {
       console.error(err);
       // Mensaje corto y claro; el texto técnico queda escondido en «Ver detalle» (nunca una ventana larga)

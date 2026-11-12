@@ -6,8 +6,8 @@
  * La acción principal de la pantalla es "Solicitar tiempo extra"; las demás van en contorno y las destructivas con texto de error.
  * En celular la tabla se vuelve una lista de tarjetas.
  */
-import { useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { CopyPlus, Eye, FilePlus, Pencil, Trash2 } from 'lucide-react';
 import { useResumenTE } from '../../hooks/useResumenTE';
 import { useAreas } from '../../hooks/useAreas';
@@ -61,8 +61,18 @@ export default function MisSolicitudesTE() {
   const ahora = useAhora();
   const pendienteCon = usePendienteCon(propias);
   const [params] = useSearchParams();
-  // ?pestana=... llega desde las tarjetas del Inicio
-  const [pestana, setPestana] = useState(() => (PESTANAS_TE.some(p => p.id === params.get('pestana')) ? params.get('pestana') : 'borrador'));
+  // Recién enviada desde el editor: llega con { nuevaId, folio, pestana, destino } y se resalta unos segundos con su estatus a la vista
+  const estadoNavegacion = useLocation().state;
+  const recien = estadoNavegacion?.nuevaId ? estadoNavegacion : null;
+  const [resaltada, setResaltada] = useState(recien?.nuevaId ?? null);
+  useEffect(() => {
+    if (!resaltada) return undefined;
+    const t = setTimeout(() => setResaltada(null), 8000);
+    return () => clearTimeout(t);
+  }, [resaltada]);
+  // ?pestana=... llega desde las tarjetas del Inicio (o de la solicitud que se acaba de enviar)
+  const pestanaInicial = recien?.pestana ?? params.get('pestana');
+  const [pestana, setPestana] = useState(() => (PESTANAS_TE.some(p => p.id === pestanaInicial) ? pestanaInicial : 'borrador'));
   const [detalle, setDetalle] = useState(null); // { solicitud, historial, cargando }
   const [ocupadoId, setOcupadoId] = useState(null);
   const [duplicando, setDuplicando] = useState(null); // { t, fecha, ocupado }
@@ -143,6 +153,10 @@ export default function MisSolicitudesTE() {
         accion={<Boton to="/tiempo-extra/nueva" variante="primario" icono={FilePlus}>Solicitar tiempo extra</Boton>}
       />
 
+      {resaltada && recien && (
+        <Aviso tono="exito" titulo={`Enviada con el folio ${recien.folio}`} id="aviso-recien-enviada">{recien.destino}</Aviso>
+      )}
+
       {error && <Aviso tono="error" titulo="No se pudieron leer tus solicitudes">{error.message}. Revisa tu conexión y vuelve a abrir esta pantalla.</Aviso>}
 
       <div className="space-y-4">
@@ -164,14 +178,14 @@ export default function MisSolicitudesTE() {
                 </thead>
                 <tbody>
                   {lista.map(t => (
-                    <Fila key={t.id}>
+                    <Fila key={t.id} className={t.id === resaltada ? 'bg-[var(--status-success-bg)] ring-2 ring-inset ring-[var(--status-success-border)]' : ''}>
                       <Td mono={!!t.folio}>{t.folio ?? <span className="italic text-[var(--text-muted)]">Borrador</span>}<InsigniasTE t={t} className="mt-1 !flex font-sans" /></Td>
                       <Td className="whitespace-nowrap">{t.fechaTE ? formatoFecha(`${t.fechaTE}T12:00:00`) : '—'}</Td>
                       <Td>{nombres.get(t.areaId) ?? t.areaNombre ?? t.areaId}<MotivosTE t={t} className="mt-1" /></Td>
                       <Td derecha>{t.resumen?.totalEmpleados ?? 0}</Td>
                       <Td derecha mono>{t.resumen?.totalHoras ?? 0}</Td>
                       <Td derecha>{t.resumen?.totalTransporte ?? 0}</Td>
-                      <Td><BadgeEstatus t={t} modulo="te" />{esVencida(t, ahora) && <p className="mt-1 text-xs text-[var(--text-secondary)]">{TEXTO_VENCIDA}</p>}{!esVencida(t, ahora) && pendienteCon(t) && <p className="mt-1 text-xs text-[var(--text-secondary)]">{pendienteCon(t)}</p>}{t.estatus === 'procesada' && <p className="mt-1 text-xs text-[var(--text-secondary)]">{textoRecibida(t)}</p>}{t.estatus === 'cancelada' && <TextoCancelada t={t} />}</Td>
+                      <Td><BadgeEstatus t={t} modulo="te" />{t.id === resaltada && recien?.destino && <p className="mt-1 text-xs font-medium text-[var(--text-main)]">{recien.destino}</p>}{esVencida(t, ahora) && <p className="mt-1 text-xs text-[var(--text-secondary)]">{TEXTO_VENCIDA}</p>}{!esVencida(t, ahora) && pendienteCon(t) && <p className="mt-1 text-xs text-[var(--text-secondary)]">{pendienteCon(t)}</p>}{t.estatus === 'procesada' && <p className="mt-1 text-xs text-[var(--text-secondary)]">{textoRecibida(t)}</p>}{t.estatus === 'cancelada' && <TextoCancelada t={t} />}</Td>
                       <Td>
                         <div className="flex flex-wrap justify-end gap-2">
                           <Boton tamano="sm" icono={Eye} onClick={() => abrirDetalle(t)} aria-label={`Ver detalle ${t.folio ?? 'del borrador'}`}>Ver</Boton>
@@ -186,7 +200,7 @@ export default function MisSolicitudesTE() {
 
             <ul className="space-y-3 md:hidden">
               {lista.map(t => (
-                <li key={t.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-4">
+                <li key={t.id} className={`rounded-lg border p-4 ${t.id === resaltada ? 'border-[var(--status-success-border)] bg-[var(--status-success-bg)] ring-2 ring-[var(--status-success-border)]' : 'border-[var(--border-color)] bg-[var(--bg-surface)]'}`}>
                   <div className="flex items-start justify-between gap-3">
                     <p className={`text-sm font-medium text-[var(--text-main)] ${t.folio ? 'font-mono' : 'italic'}`}>{t.folio ?? 'Borrador'}</p>
                     <BadgeEstatus t={t} modulo="te" />

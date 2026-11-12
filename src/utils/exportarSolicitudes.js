@@ -7,6 +7,7 @@ import { db } from '../firebase';
 import { construirLibroProveedor } from './libroProveedor';
 import { bufferSeguro } from './excelSeguro.js';
 import { leerTelefonos } from './contactosDb';
+import { textoDescarga } from './mensajesDescarga.js';
 
 /**
  * @param {Array}  solicitudesExport  solicitudes con su arreglo `pasajeros`
@@ -56,6 +57,6 @@ export async function exportarSolicitudes(solicitudesExport, catalogos, toast, f
 
   let tot = 0;
   for (const s of solicitudesExport) tot += (s.pasajeros || []).length;
-  toast.success(`Se descargó "${fileName}" (${tot} pasajeros). Búscalo en la carpeta de descargas.`, 10000);
+  toast.success(`${textoDescarga(fileName)} (${tot} pasajeros)`, 12000);
   return tot;
 }

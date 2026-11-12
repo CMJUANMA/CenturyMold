@@ -40,6 +40,7 @@ import { ACCIONES_DESCARGA, registrarDescarga } from '../../utils/bitacoraDb';
 import { RUTAS } from '../../rutas';
 import { BotonDescargaResumenTE } from './DescargaTE';
 import DetalleTE from './DetalleTE';
+import { textoDescarga } from '../../utils/mensajesDescarga';
 
 const AUTORIZADAS = ['autorizada', 'procesada'];
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -127,7 +128,7 @@ export default function ConsultaTE() {
       const { descargarConsulta } = await import('../../utils/exportarConsultaTE');
       await descargarConsulta({ solicitudes: completas, nombresArea: nombres, catalogos: { rutas, comunidades, puntos }, nombre: (x) => formato.nombre(x) });
       registrarDescarga(ACCIONES_DESCARGA.consultaTE, { solicitudes: completas.length });
-      toast.success(`Se descargó el Excel: ${completas.length} solicitudes. Búscalo en la carpeta de descargas.`, 10000);
+      toast.success(textoDescarga('', `el Excel (${completas.length} solicitudes)`), 12000);
     } catch (err) { console.error(err); toast.error(`No se pudo generar el Excel: ${err.message}`, 10000); } finally { setExportando(null); }
   };
 

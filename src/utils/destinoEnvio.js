@@ -33,3 +33,20 @@ export function textoConfirmarEnvio({ estatus, aut1 = [], aut2 = [], nombre = (x
   const horasTexto = Number.isInteger(horas) ? horas : Math.round(horas * 100) / 100;
   return `${destino} ${empleados} ${empleados === 1 ? 'empleado' : 'empleados'}, ${horasTexto} h.${reenvio ? ' Vuelve a empezar su autorización.' : ''}`;
 }
+
+/** «Felipe Rangel Orozco (jefe de producción)» */
+const personaEnParentesis = (p, nombre) => {
+  const n = nombre(p.nombre ?? '');
+  const puesto = String(p.puesto ?? '').trim().toLowerCase();
+  return puesto ? `${n} (${puesto})` : n;
+};
+
+/**
+ * El estatus que se ve al terminar de enviar, en una línea: «En autorización · con Felipe Rangel Orozco (jefe de producción)».
+ * @param {{ estatus: string, aut1?: object[], aut2?: object[], nombre?: (n: string) => string }} d
+ */
+export function textoEstatusEnvio({ estatus, aut1 = [], aut2 = [], nombre = (x) => x }) {
+  if (estatus === 'autorizada') return 'Autorizada · pasa a Recursos Humanos para enviarse al proveedor';
+  const quienes = (estatus === 'pendiente_aut2' ? aut2 : aut1).slice(0, 3).map(p => personaEnParentesis(p, nombre));
+  return quienes.length ? `En autorización · con ${quienes.join(' o ')}` : 'En autorización';
+}

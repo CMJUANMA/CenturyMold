@@ -25,6 +25,7 @@ import {
   ESTADOS_AREA, etiquetaPeriodo, filasVigentes, moverSemana, periodoDeClave, periodoLibre, semanaDe, ultimaSemanaCompleta,
 } from '../../utils/formatoNomina';
 import { crearFormateadorNombres } from '../../utils/nombresPersona';
+import { textoDescarga } from '../../utils/mensajesDescarga';
 
 const TONO_ESTADO = { sin_revisar: 'neutro', ajustada: 'info', firmada: 'exito' };
 
@@ -53,7 +54,7 @@ export default function ReportesNomina() {
     setDescargando(modo === 'area' ? lista[0].areaId : modo);
     try {
       await descargarFormatoAreas({ periodo, areas: lista, modo, nombre });
-      toast.success((modo === 'area' ? `Se descargó el Excel de ${lista[0].nombre}.` : `Se descargó el Excel de ${lista.length} ${lista.length === 1 ? 'área' : 'áreas'} con su hoja Resumen.`) + ' Búscalo en la carpeta de descargas.', 10000);
+      toast.success(textoDescarga('', modo === 'area' ? `el Excel de ${lista[0].nombre}` : `el Excel de ${lista.length} ${lista.length === 1 ? 'área' : 'áreas'} con su hoja Resumen`), 12000);
     } catch (err) {
       console.error(err);
       toast.error(`No se pudo generar el Excel: ${err.message}`, 10000);
