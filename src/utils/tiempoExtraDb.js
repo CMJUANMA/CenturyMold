@@ -205,7 +205,7 @@ export async function guardarRutasEnPadron(cambios) {
 /**
  * Empleados que ya tienen otro tiempo extra NO cancelado en esa fecha (para avisar, sin bloquear).
  * Ve lo que el usuario puede leer: lo suyo y, si es Aut. 1 del área, lo del área. Si algo falla, no avisa (devuelve vacío).
- * @returns {Promise<Map<string, {folio: string|null, estatus: string}>>} nómina → solicitud
+ * @returns {Promise<Map<string, {folio: string|null, estatus: string, horaEntrada: string, horaSalida: string, bloques: object[]}>>} nómina → su primera solicitud (y `bloques`: todas, con horario)
  */
 export async function leerOcupados({ uid, areaId, fechaTE, esAut1DeLaArea, excluirId }) {
   const ocupados = new Map();
@@ -220,7 +220,13 @@ export async function leerOcupados({ uid, areaId, fechaTE, esAut1DeLaArea, exclu
       const t = d.data();
       if (d.id === excluirId || t.estatus === 'cancelada') continue;
       const emps = await getDocs(collection(db, 'tiempoExtra', d.id, 'empleados'));
-      emps.docs.forEach(e => { if (!ocupados.has(e.id)) ocupados.set(e.id, { folio: t.folio ?? null, estatus: t.estatus }); });
+      emps.docs.forEach(e => {
+        // Con su horario: si se encima con el de esta solicitud, es un error al enviar; si no, un aviso (ver problemasDeEnvio)
+        const { horaEntrada = '', horaSalida = '' } = e.data();
+        const bloque = { folio: t.folio ?? null, estatus: t.estatus, horaEntrada, horaSalida };
+        const previo = ocupados.get(e.id);
+        if (previo) previo.bloques.push(bloque); else ocupados.set(e.id, { ...bloque, bloques: [bloque] });
+      });
     }
   } catch (err) {
     console.error('Ocupados:', err);

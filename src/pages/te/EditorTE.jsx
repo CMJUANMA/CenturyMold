@@ -24,6 +24,7 @@ import Ayuda from '../../components/Ayuda';
 import AyudaPantalla from '../../components/AyudaPantalla';
 import Aviso from '../../components/ui/Aviso';
 import Boton from '../../components/ui/Boton';
+import EtiquetaEnvio from '../../components/ui/EtiquetaEnvio';
 import { AreaTexto, Campo, Entrada, Selector } from '../../components/ui/Campo';
 import EncabezadoPagina from '../../components/ui/EncabezadoPagina';
 import EstadoVacio from '../../components/ui/EstadoVacio';
@@ -38,7 +39,7 @@ import { useNominasConRol } from '../../hooks/useNominasConRol';
 import { registrarGuardador } from '../../utils/guardadoAutomatico';
 import {
   HORAS_ENTRADA_TE, HORAS_SALIDA_TE, MIN_COMENTARIO_TE, MIN_JUSTIFICACION_RUTAS, TIPOS_TE, TIPOS_TE_INFO, aplicarA, conTransporte, datosTE,
-  empleadoDesdePadron, estatusAlEnviar, normalizarTipo, nuevoIdBorrador, problemasDeEnvio, quienDevolvio, resumenRutas, resumenTE, salidasPosteriores, textoRutas,
+  empleadoDesdePadron, estatusAlEnviar, normalizarTipo, nuevoIdBorrador, problemasDeEnvio, quienDevolvio, resumenRutas, resumenTE, resumirPendientes, salidasPosteriores, textoFaltan, textoRutas,
 } from '../../utils/tiempoExtra';
 import { MAX_PASAJEROS } from '../../utils/solicitudes';
 import { guardarTelefonosEnPadron, leerTelefonos } from '../../utils/contactosDb';
@@ -180,6 +181,18 @@ export default function EditorTE() {
   const problemasMotivos = useMemo(() => problemasDeMotivos(motivos, catalogoMotivos), [motivos, catalogoMotivos]);
   const opcionesMotivo = useMemo(() => motivosParaGuardar(motivos, catalogoMotivos).map((m, i) => etiquetaMotivo(m) || `Motivo ${i + 1} (sin elegir)`), [motivos, catalogoMotivos]);
   const errores = problemas.filter(p => p.nivel === 'error');
+  // Lo que falta para enviar, en renglones (los problemas por empleado de un mismo tipo se juntan), cada uno con el campo al que lleva
+  const pendientes = useMemo(() => resumirPendientes(problemas), [problemas]);
+  const [panelAbierto, setPanelAbierto] = useState(false);
+  const panelVisible = pendientes.length <= 2 || panelAbierto;
+  /** Lleva a un campo (por su id): desplaza la pantalla hasta él y le pone el foco */
+  const irA = (campo) => {
+    const el = campo ? document.getElementById(campo) : null;
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const foco = el.matches('input, select, textarea, button') ? el : el.querySelector('input:not([type="checkbox"]), select, textarea, button');
+    setTimeout(() => foco?.focus({ preventScroll: true }), 250);
+  };
   const avisoDe = (nomina) => problemas.find(p => p.nivel === 'aviso' && p.nomina === nomina)?.mensaje;
   const errorDe = (nomina) => (intentoEnvio ? errores.find(p => p.nomina === nomina)?.mensaje : undefined);
   const faltaJustificacion = variasRutas && justificacionRutas.trim().length < MIN_JUSTIFICACION_RUTAS;
@@ -353,7 +366,7 @@ export default function EditorTE() {
 
   const enviarClick = async () => {
     setIntentoEnvio(true);
-    if (errores.length) { toast.error(`Faltan ${errores.length} cosas por corregir antes de enviar.`); document.getElementById('problemas-te')?.scrollIntoView({ behavior: 'smooth' }); return; }
+    if (errores.length) { setPanelAbierto(true); irA(pendientes[0]?.campo); return; } // el panel fijo de abajo dice qué falta y lleva a cada campo
     const estatus = estatusAlEnviar({ esAut1DeLaArea, areaParticipa: area?.participaTE !== false, esAut2 });
     const destino = estatus === 'autorizada' ? 'Por enviar al proveedor' : estatus === 'pendiente_aut2' ? 'Autorización 2' : 'Autorización 1';
     const ok = await confirmar({
@@ -512,6 +525,23 @@ export default function EditorTE() {
             </div>
           )}
 
+          {/* Rutas: salen del padrón de cada empleado. Cada ruta adicional cuesta, así que más de una se justifica (obligatorio para enviar) */}
+          {infoRutas.rutasDistintas > 0 && (
+            variasRutas ? (
+              <Aviso className="mb-4" tono={faltaJustificacion ? 'error' : 'aviso'} titulo={textoRutas(infoRutas.desglose)} icon={Route}>
+                {faltaJustificacion && <p className="mb-1.5"><EtiquetaEnvio tipo="obligatorio" /></p>}
+                <p>Cada empleado trae su ruta del padrón y cada ruta adicional cuesta, por eso hay que explicar por qué no basta una sola. Si algunos pueden usar la misma ruta, cámbiasela en su fila.</p>
+                <Campo className="mt-3" etiqueta="¿Por qué se necesita más de una ruta?" obligatorio ayuda={`Al menos ${MIN_JUSTIFICACION_RUTAS} caracteres (llevas ${justificacionRutas.trim().length}).`}
+                  error={intentoEnvio && faltaJustificacion ? 'Explica por qué no basta una sola ruta.' : undefined}>
+                  <AreaTexto id="te-justificacion-rutas" rows={2} value={justificacionRutas} onChange={e => setJustificacionRutas(e.target.value)} placeholder="Ej.: los empleados viven en comunidades distintas, una por cada ruta" />
+                </Campo>
+                <Ayuda clave="solicitar.justificacionRutas" />
+              </Aviso>
+            ) : (
+              <div className="mb-4 flex items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] px-5 py-3 text-sm font-medium text-[var(--text-main)]"><Route className="h-4 w-4 text-[var(--text-muted)]" aria-hidden="true" />{textoRutas(infoRutas.desglose)}</div>
+            )
+          )}
+
           {empleados.length === 0 ? (
             <div data-tour="solicitar-empleados-vacio" className="rounded-lg border border-dashed border-[var(--border-color)]">
               <EstadoVacio texto="Aún no hay empleados. Usa «Agregar empleados» para elegir a quienes harán tiempo extra." />
@@ -543,38 +573,31 @@ export default function EditorTE() {
         </section>
       </Tarjeta>
 
-      {/* Rutas distintas: cada ruta adicional cuesta, así que más de una se justifica */}
-      {infoRutas.rutasDistintas > 0 && (
-        <section aria-label="Rutas">
-          {variasRutas ? (
-            <Aviso tono="aviso" titulo={textoRutas(infoRutas.desglose)} icon={Route}>
-              <p><b className="font-semibold">Aviso: sí impide enviar hasta que lo justifiques.</b> Las rutas salen del padrón: cada empleado trae la suya registrada, no las elegiste tú. Cada ruta adicional cuesta, por eso se pide explicar por qué no basta una sola. Si algunos pueden usar la misma ruta, cámbiasela en su fila. Los autorizadores decidirán si se aprueba.</p>
-              <Campo className="mt-3" etiqueta="¿Por qué se necesita más de una ruta?" obligatorio ayuda={`Al menos ${MIN_JUSTIFICACION_RUTAS} caracteres (llevas ${justificacionRutas.trim().length}).`}
-                error={intentoEnvio && faltaJustificacion ? 'Explica por qué no basta una sola ruta.' : undefined}>
-                <AreaTexto id="te-justificacion-rutas" rows={2} value={justificacionRutas} onChange={e => setJustificacionRutas(e.target.value)} placeholder="Explica por qué no basta una sola ruta…" />
-              </Campo>
-              <Ayuda clave="solicitar.justificacionRutas" className="!text-[var(--status-warning-text)]" />
-            </Aviso>
-          ) : (
-            <div className="flex items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] px-5 py-3 text-sm font-medium text-[var(--text-main)]"><Route className="h-4 w-4 text-[var(--text-muted)]" aria-hidden="true" />{textoRutas(infoRutas.desglose)}</div>
-          )}
-        </section>
-      )}
-
-      {intentoEnvio && errores.length > 0 && (
-        <div id="problemas-te">
-          <Aviso tono="error" titulo="Antes de enviar corrige:">
-            <ul className="list-disc space-y-1 pl-5">{errores.slice(0, 12).map((p, i) => <li key={i}>{p.mensaje}</li>)}{errores.length > 12 && <li>…y {errores.length - 12} más</li>}</ul>
-          </Aviso>
-        </div>
-      )}
-
       {/* Barra fija abajo: el resumen y las acciones (la principal, Enviar, es el único botón rojo) */}
       <div data-tour="solicitar-resumen" className="[@media(min-height:600px)]:sticky bottom-0 z-20 -mx-4 border-t border-[var(--border-color)] bg-[var(--bg-surface)] px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10" aria-label="Resumen">
         {trabajo && (
           <div className="mb-3" role="status">
             <p className="flex items-center gap-2 text-xs font-medium text-[var(--text-main)]"><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />{trabajo.texto}… lote {Math.min(trabajo.hechos + 1, trabajo.total)} de {trabajo.total}</p>
             <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--bg-surface-hover)]"><div className="h-full bg-[var(--text-secondary)] transition-all duration-200" style={{ width: `${(trabajo.hechos / trabajo.total) * 100}%` }} /></div>
+          </div>
+        )}
+        {pendientes.length > 0 && (
+          <div id="faltan-te" role="region" aria-label="Lo que falta para enviar" className="mb-3 rounded-lg border border-[var(--status-error-border)] bg-[var(--status-error-bg)] px-3 py-2 text-[var(--status-error-text)]">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="flex flex-wrap items-center gap-2 text-sm font-semibold"><EtiquetaEnvio tipo="obligatorio" />{textoFaltan(pendientes.length)}</p>
+              {pendientes.length > 2 && (
+                <button type="button" onClick={() => setPanelAbierto(v => !v)} aria-expanded={panelVisible} className="cursor-pointer text-xs font-medium underline underline-offset-2 hover:opacity-80">
+                  {panelVisible ? 'Ocultar la lista' : 'Ver la lista'}
+                </button>
+              )}
+            </div>
+            {panelVisible && (
+              <ul className="mt-1.5 max-h-24 space-y-0.5 overflow-auto text-xs">
+                {pendientes.map((x, i) => (
+                  <li key={i}><button type="button" onClick={() => irA(x.campo)} className="cursor-pointer text-left underline underline-offset-2 hover:opacity-80">{x.texto}</button></li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -595,7 +618,7 @@ export default function EditorTE() {
               <Boton to="/tiempo-extra/mis-solicitudes" variante="fantasma">Salir</Boton>
               <Boton id="btn-guardar-borrador" icono={Save} onClick={guardarBorradorClick} disabled={ocupado || !areaActual}>{esDevuelta ? 'Guardar cambios' : 'Guardar borrador'}{sinGuardar ? ' •' : ''}</Boton>
             </div>
-            <Boton id="btn-enviar-autorizacion" data-tour="solicitar-enviar" variante="primario" icono={Send} onClick={enviarClick} disabled={ocupado || !areaActual}>{esDevuelta ? 'Reenviar a autorización' : 'Enviar a autorización'}</Boton>
+            <Boton id="btn-enviar-autorizacion" data-tour="solicitar-enviar" variante={pendientes.length ? 'contorno' : 'primario'} icono={Send} onClick={enviarClick} disabled={ocupado || !areaActual}>{pendientes.length ? textoFaltan(pendientes.length) : esDevuelta ? 'Reenviar a autorización' : 'Enviar a autorización'}</Boton>
           </div>
         </div>
         <Ayuda clave="solicitar.resumen" />

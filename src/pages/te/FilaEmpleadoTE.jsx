@@ -11,6 +11,7 @@
  */
 import { AlertCircle, CheckCircle2, MapPin, Moon, Trash2 } from 'lucide-react';
 import Boton from '../../components/ui/Boton';
+import EtiquetaEnvio from '../../components/ui/EtiquetaEnvio';
 import { Entrada, Selector } from '../../components/ui/Campo';
 import { CASILLA } from '../../components/ui/estilos';
 import { opcionesVigentes } from '../../utils/activo';
@@ -32,7 +33,7 @@ export default function FilaEmpleadoTE({ tour, e, fechaTE = '', tipo = TIPOS_TE.
   const estadoTel = estadoTelefono(telefono);
 
   return (
-    <div data-tour={tour} className={`relative rounded-lg border bg-[var(--bg-surface)] p-4 lg:p-3 ${error ? 'border-[var(--status-error-text)]' : 'border-[var(--border-color)]'}`}>
+    <div id={`fila-${e.nomina}`} data-tour={tour} className={`relative rounded-lg border bg-[var(--bg-surface)] p-4 lg:p-3 ${error ? 'border-[var(--status-error-text)]' : 'border-[var(--border-color)]'}`}>
       <div className={`space-y-3 ${COLUMNAS_FILA} lg:space-y-0`}>
         <label className="absolute left-1 top-1 flex h-11 w-11 cursor-pointer items-center justify-center lg:static lg:h-8 lg:w-8">
           <input type="checkbox" checked={seleccionado} onChange={() => onSeleccionar(e.nomina)} aria-label={`Seleccionar a ${e.nombre}`} className={CASILLA} />
@@ -54,7 +55,7 @@ export default function FilaEmpleadoTE({ tour, e, fechaTE = '', tipo = TIPOS_TE.
               </Selector>
             </div>
           )}
-          {aviso && <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-[var(--status-warning-text)]"><AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{aviso}</p>}
+          {aviso && <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-[var(--status-warning-text)]"><EtiquetaEnvio tipo="aviso" />{aviso}</p>}
         </div>
         <div className="grid grid-cols-6 items-end gap-3 lg:contents">
           <div className="col-span-3 lg:col-span-1">
@@ -125,8 +126,8 @@ export default function FilaEmpleadoTE({ tour, e, fechaTE = '', tipo = TIPOS_TE.
               <label htmlFor={`tel-${e.nomina}`} className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">Teléfono (para que el transporte pueda llamar)</label>
               <Entrada id={`tel-${e.nomina}`} type="tel" inputMode="tel" autoComplete="off" className={SEL} value={telefono} placeholder="10 dígitos" invalido={estadoTel === 'incompleto'}
                 onChange={ev => onTelefono(e.nomina, ev.target.value)} aria-label={`Teléfono de ${e.nombre}`} aria-describedby={estadoTel === 'valido' ? undefined : `tel-aviso-${e.nomina}`} />
-              {estadoTel === 'vacio' && <p id={`tel-aviso-${e.nomina}`} className="mt-1 text-xs text-[var(--status-warning-text)]">Sin teléfono (es opcional, no impide enviar): el transporte no podrá llamarle.</p>}
-              {estadoTel === 'incompleto' && <p id={`tel-aviso-${e.nomina}`} className="mt-1 text-xs text-[var(--status-warning-text)]">El teléfono debe tener 10 dígitos; mientras no, no se guardará. No impide enviar la solicitud.</p>}
+              {estadoTel === 'vacio' && <p id={`tel-aviso-${e.nomina}`} className="mt-1 text-xs text-[var(--status-warning-text)]"><EtiquetaEnvio tipo="aviso" className="mr-1.5" />Sin teléfono: el transporte no podrá llamarle (es opcional).</p>}
+              {estadoTel === 'incompleto' && <p id={`tel-aviso-${e.nomina}`} className="mt-1 text-xs text-[var(--status-warning-text)]"><EtiquetaEnvio tipo="aviso" className="mr-1.5" />El teléfono debe tener 10 dígitos; mientras no, no se guardará.</p>}
               {estadoTel === 'valido' && <p className="mt-1 text-xs text-[var(--text-muted)]">Se guarda en el padrón al guardar o enviar.</p>}
             </div>
           )}
@@ -145,7 +146,7 @@ export default function FilaEmpleadoTE({ tour, e, fechaTE = '', tipo = TIPOS_TE.
           )}
         </div>
       )}
-      {error && <p role="alert" className="mt-3 flex items-start gap-1.5 text-xs font-medium text-[var(--status-error-text)]"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />{error}</p>}
+      {error && <p role="alert" className="mt-3 flex flex-wrap items-start gap-x-1.5 gap-y-1 text-xs font-medium text-[var(--status-error-text)]"><EtiquetaEnvio tipo="obligatorio" />{error}</p>}
     </div>
   );
 }

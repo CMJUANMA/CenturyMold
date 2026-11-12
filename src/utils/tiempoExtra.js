@@ -233,45 +233,102 @@ export function resumenTE(empleados) {
 }
 
 /**
- * Problemas de una solicitud lista para enviar. Cada uno: { nivel: 'error'|'aviso', mensaje, nomina? }.
- * Los errores bloquean el envío; los avisos (otro tiempo extra el mismo día) no.
- * @param {object} p { fechaTE, motivos (los del editor), catalogoMotivos, comentario, empleados, hoy ('AAAA-MM-DD'), ocupados: Map nómina → { folio, estatus } }
+ * ¿Se encima el horario de dos tiempos extra del mismo día? Cada uno va de su entrada a su salida (si la salida es menor, termina al día siguiente).
+ * Una persona no puede estar dos veces a la misma hora. Solo compara tiempos extra con la MISMA fecha (la consulta de ocupados es por fecha).
+ */
+export function seTraslapan(entradaA, salidaA, entradaB, salidaB) {
+  const a = minutos(entradaA), b = minutos(entradaB);
+  if (a === null || b === null || !salidaA || !salidaB) return false;
+  const durA = Math.round(calcularHoras(entradaA, salidaA) * 60), durB = Math.round(calcularHoras(entradaB, salidaB) * 60);
+  if (durA <= 0 || durB <= 0) return false;
+  return a < b + durB && b < a + durA;
+}
+
+const unoOVarios = (n, uno, varios) => (n === 1 ? uno : varios);
+/** Texto de un grupo de problemas por empleado ("Falta completar la ruta de 3 empleados") */
+const TEXTO_GRUPO = {
+  horario: (n) => `Falta completar o corregir el horario de ${n} empleados`,
+  ruta: (n) => `Falta completar la ruta de ${n} empleados`,
+  traslape: (n) => `${n} empleados ya tienen otro tiempo extra a la misma hora`,
+  repetido: (n) => `${n} empleados están repetidos`,
+};
+
+/**
+ * Lo que falta para enviar, en renglones cortos y con el campo al que lleva cada uno: los problemas por empleado de un mismo tipo se juntan
+ * ("Falta completar la ruta de 3 empleados"); si es uno solo, se deja su mensaje con el nombre.
+ * @param {{ nivel, mensaje, campo?, grupo? }[]} problemas  (los de nivel 'error' de problemasDeEnvio)
+ * @returns {{ texto: string, campo?: string, cantidad: number }[]}
+ */
+export function resumirPendientes(problemas) {
+  const salida = [];
+  const grupos = new Map();
+  for (const x of problemas) {
+    if (x.nivel !== 'error') continue;
+    if (!x.grupo) { salida.push({ texto: x.mensaje, campo: x.campo, cantidad: 1 }); continue; }
+    if (!grupos.has(x.grupo)) { const g = { grupo: x.grupo, lista: [] }; grupos.set(x.grupo, g); salida.push(g); }
+    grupos.get(x.grupo).lista.push(x);
+  }
+  return salida.map(r => {
+    if (!r.grupo) return r;
+    const [primero] = r.lista;
+    return { texto: r.lista.length === 1 ? primero.mensaje : (TEXTO_GRUPO[r.grupo]?.(r.lista.length) ?? primero.mensaje), campo: primero.campo, cantidad: r.lista.length };
+  });
+}
+/** «Falta 1 cosa» / «Faltan 3 cosas» (el botón de enviar y el panel de lo pendiente) */
+export const textoFaltan = (n) => unoOVarios(n, 'Falta 1 cosa', `Faltan ${n} cosas`);
+
+/**
+ * Problemas de una solicitud lista para enviar. Cada uno: { nivel: 'error'|'aviso', mensaje, nomina?, campo?, grupo? }.
+ * Los errores bloquean el envío («Obligatorio para enviar»); los avisos no («Aviso, no impide enviar»). `campo` es el id del elemento al que lleva el
+ * renglón del panel de pendientes; `grupo` junta los problemas por empleado de un mismo tipo.
+ * Otro tiempo extra el mismo día: si los horarios SE ENCIMAN es un error (una persona no puede estar dos veces a la misma hora); si no, solo un aviso con el folio y su horario.
+ * @param {object} p { fechaTE, motivos (los del editor), catalogoMotivos, comentario, empleados, hoy ('AAAA-MM-DD'), ocupados: Map nómina → { folio, estatus, horaEntrada?, horaSalida?, bloques?: [{ folio, estatus, horaEntrada, horaSalida }] } }
  */
 export function problemasDeEnvio({ areaId, fechaTE, motivos = [], catalogoMotivos = [], comentario, empleados, hoy, ocupados = new Map(), tipo = TIPOS_TE.TURNO_EXTRA, justificacionRutas = '', duracionMaxima = duracionMaximaHoras }) {
   const p = [];
-  const error = (mensaje, nomina) => p.push({ nivel: 'error', mensaje, nomina });
-  if (!areaId) error('Elige el área.');
-  if (!fechaTE) error('Elige la fecha del tiempo extra.');
-  else if (fechaTE < hoy) error('La fecha debe ser hoy o futura.');
-  for (const m of problemasDeMotivos(motivos, catalogoMotivos)) error(m.mensaje);
-  if (String(comentario ?? '').trim().length < MIN_COMENTARIO_TE) error(`El comentario es obligatorio (al menos ${MIN_COMENTARIO_TE} caracteres).`);
-  if (empleados.length === 0) error('Agrega al menos un empleado.');
-  if (empleados.length > MAX_PASAJEROS) error(`Máximo ${MAX_PASAJEROS} empleados por solicitud; divídela en dos.`);
+  const error = (mensaje, nomina, campo, grupo) => p.push({ nivel: 'error', mensaje, nomina, campo, grupo });
+  if (!areaId) error('Elige el área.', undefined, 'te-area');
+  if (!fechaTE) error('Elige la fecha del tiempo extra.', undefined, 'te-fecha');
+  else if (fechaTE < hoy) error('La fecha debe ser hoy o futura.', undefined, 'te-fecha');
+  for (const m of problemasDeMotivos(motivos, catalogoMotivos)) error(m.mensaje, undefined, `te-motivo-${m.indice ?? 0}`);
+  if (String(comentario ?? '').trim().length < MIN_COMENTARIO_TE) error(`El comentario es obligatorio (al menos ${MIN_COMENTARIO_TE} caracteres).`, undefined, 'te-comentario');
+  if (empleados.length === 0) error('Agrega al menos un empleado.', undefined, 'btn-agregar-empleados');
+  if (empleados.length > MAX_PASAJEROS) error(`Máximo ${MAX_PASAJEROS} empleados por solicitud; divídela en dos.`, undefined, 'btn-agregar-empleados');
   const vistos = new Set();
   for (const e of empleados) {
-    if (vistos.has(e.nomina)) error(`${e.nombre} está repetido.`, e.nomina);
+    const fila = `fila-${e.nomina}`;
+    if (vistos.has(e.nomina)) error(`${e.nombre} está repetido.`, e.nomina, fila, 'repetido');
     vistos.add(e.nomina);
     if (tipo === TIPOS_TE.EXTENSION) {
       // La extensión empieza al terminar su turno normal y se queda hasta un bloque de salida posterior
-      if (!e.horaEntrada) error(`${e.nombre}: falta la hora en que termina su turno.`, e.nomina);
-      else if (!e.horaSalida) error(`${e.nombre}: elige hasta qué hora se queda.`, e.nomina);
-      else if (!salidasPosteriores(e.horaEntrada, duracionMaxima).some(h => minutos(h) === minutos(e.horaSalida))) error(`${e.nombre}: la salida debe ser posterior al fin de su turno.`, e.nomina);
-    } else if (!e.horaEntrada || !e.horaSalida) error(`${e.nombre}: falta el horario.`, e.nomina);
-    else if (minutos(e.horaEntrada) === minutos(e.horaSalida)) error(`${e.nombre}: La entrada y la salida no pueden ser la misma hora.`, e.nomina);
+      if (!e.horaEntrada) error(`${e.nombre}: falta la hora en que termina su turno.`, e.nomina, fila, 'horario');
+      else if (!e.horaSalida) error(`${e.nombre}: elige hasta qué hora se queda.`, e.nomina, fila, 'horario');
+      else if (!salidasPosteriores(e.horaEntrada, duracionMaxima).some(h => minutos(h) === minutos(e.horaSalida))) error(`${e.nombre}: la salida debe ser posterior al fin de su turno.`, e.nomina, fila, 'horario');
+    } else if (!e.horaEntrada || !e.horaSalida) error(`${e.nombre}: falta el horario (con 0 horas no se puede enviar).`, e.nomina, fila, 'horario');
+    else if (minutos(e.horaEntrada) === minutos(e.horaSalida)) error(`${e.nombre}: La entrada y la salida no pueden ser la misma hora.`, e.nomina, fila, 'horario');
     else if (duracionMaxima != null && calcularHoras(e.horaEntrada, e.horaSalida) > duracionMaxima) {
-      error(`${e.nombre}: el tiempo extra duraría ${calcularHoras(e.horaEntrada, e.horaSalida)} h${terminaDiaSiguiente(e.horaEntrada, e.horaSalida) ? ' (termina al día siguiente)' : ''}; el máximo es ${duracionMaxima} h.`, e.nomina);
+      error(`${e.nombre}: el tiempo extra duraría ${calcularHoras(e.horaEntrada, e.horaSalida)} h${terminaDiaSiguiente(e.horaEntrada, e.horaSalida) ? ' (termina al día siguiente)' : ''}; el máximo es ${duracionMaxima} h.`, e.nomina, fila, 'horario');
     }
     if (!transporteCompleto(e)) {
       error(e.transporte && e.rutaId && e.comunidadId && e.puntoReunionId
-        ? `${e.nombre}: confirma la ruta precargada.` : `${e.nombre}: completa ruta, comunidad y punto de reunión.`, e.nomina);
+        ? `${e.nombre}: confirma la ruta precargada.` : `${e.nombre}: completa ruta, comunidad y punto de reunión.`, e.nomina, fila, 'ruta');
     }
   }
   if (resumenRutas(empleados).rutasDistintas > 1 && String(justificacionRutas).trim().length < MIN_JUSTIFICACION_RUTAS) {
-    error(`Explica por qué se necesita más de una ruta (al menos ${MIN_JUSTIFICACION_RUTAS} caracteres).`);
+    error(`Explica por qué se necesita más de una ruta (al menos ${MIN_JUSTIFICACION_RUTAS} caracteres).`, undefined, 'te-justificacion-rutas');
   }
   for (const e of empleados) {
     const otra = ocupados.get(e.nomina);
-    if (otra) p.push({ nivel: 'aviso', mensaje: `Aviso, no impide enviar: ${e.nombre} (${e.nomina}) ya tiene otro tiempo extra ese día (${otra.folio ?? 'borrador'}).`, nomina: e.nomina });
+    if (!otra) continue;
+    const bloques = otra.bloques?.length ? otra.bloques : [otra];
+    const horario = (b) => (b.horaEntrada && b.horaSalida ? `, de ${formatoHora12(b.horaEntrada)} a ${formatoHora12(b.horaSalida)}` : '');
+    const choque = bloques.find(b => seTraslapan(e.horaEntrada, e.horaSalida, b.horaEntrada, b.horaSalida));
+    if (choque) {
+      error(`${e.nombre} ya tiene el tiempo extra ${choque.folio ?? 'borrador'} ese día${horario(choque)}, a la misma hora: una persona no puede estar dos veces a la misma hora.`, e.nomina, `fila-${e.nomina}`, 'traslape');
+    } else {
+      const b = bloques[0];
+      p.push({ nivel: 'aviso', mensaje: `Ya tiene otro tiempo extra ese día (${b.folio ?? 'borrador'}${horario(b)}), a otra hora: puedes enviar igual.`, nomina: e.nomina });
+    }
   }
   return p;
 }
