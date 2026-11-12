@@ -132,11 +132,11 @@ export default function Navbar() {
           })}
         </nav>
 
-        {/* Pie compacto: nombre en una línea, rol pequeño, y cerrar sesión al lado */}
-        <div className="flex shrink-0 items-center gap-1 border-t border-[var(--border-color)] p-2">
+        {/* Pie: quién está dentro (nombre y rol) y, debajo, «Cerrar sesión» con texto (no solo un icono: en una computadora compartida hay que verlo y entenderlo) */}
+        <div className="flex shrink-0 flex-col gap-1 border-t border-[var(--border-color)] p-2">
           <NavLink to={RUTAS.miCuenta} onClick={cerrarMenu} title="Mi cuenta"
             className={({ isActive }) =>
-              `flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 transition-colors duration-150 lg:min-h-10 ${isActive ? 'bg-[var(--bg-surface-hover)]' : 'hover:bg-[var(--bg-surface-hover)]'}`
+              `flex min-h-11 min-w-0 items-center gap-2.5 rounded-md px-2 transition-colors duration-150 lg:min-h-10 ${isActive ? 'bg-[var(--bg-surface-hover)]' : 'hover:bg-[var(--bg-surface-hover)]'}`
             }>
             <User className="h-[18px] w-[18px] shrink-0 text-[var(--text-secondary)]" aria-hidden="true" />
             <span className="min-w-0 flex-1 leading-tight">
@@ -144,9 +144,9 @@ export default function Navbar() {
               <span className="block truncate text-xs text-[var(--text-muted)]" title={descripcion}>{descripcion || 'Mi cuenta'}</span>
             </span>
           </NavLink>
-          <button type="button" id="btn-cerrar-sesion" onClick={handleCerrarSesion} title="Cerrar sesión" aria-label="Cerrar sesión"
-            className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-md text-[var(--text-secondary)] transition-colors duration-150 hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-main)] lg:h-10 lg:w-10">
-            <LogOut className="h-[18px] w-[18px]" aria-hidden="true" />
+          <button type="button" id="btn-cerrar-sesion" onClick={handleCerrarSesion} title={`Cerrar la sesión de ${usuario?.nombre ?? 'este usuario'}`}
+            className="flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-md border border-[var(--border-color)] px-3 text-sm font-medium text-[var(--text-main)] transition-colors duration-150 hover:bg-[var(--bg-surface-hover)] lg:min-h-10">
+            <LogOut className="h-[18px] w-[18px] shrink-0 text-[var(--text-secondary)]" aria-hidden="true" />Cerrar sesión
           </button>
         </div>
       </aside>
