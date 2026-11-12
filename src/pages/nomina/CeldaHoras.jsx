@@ -36,7 +36,7 @@ function CeldaHorasBase({ valor, clave, dia, f, c, etiqueta, titulo, cambiada, d
 
   return (
     <input type="text" inputMode="decimal" autoComplete="off" spellCheck={false}
-      value={escrito ?? texto(valor)} disabled={deshabilitada} data-f={f} data-c={c} aria-label={etiqueta} title={titulo}
+      value={escrito ?? texto(valor)} disabled={deshabilitada} data-f={f} data-c={c} data-clave={clave} aria-label={etiqueta} title={titulo}
       onChange={e => setEscrito(e.target.value.slice(0, 6))} onFocus={e => e.target.select()} onBlur={e => confirmar(e.target.value)} onKeyDown={teclas}
       className={`h-8 w-full cursor-text rounded-none border border-transparent px-1.5 text-right font-mono text-xs tabular-nums text-[var(--text-main)] outline-none
         hover:border-[var(--border-color)] focus:border-[var(--accent-text)] focus:bg-[var(--bg-surface)] disabled:cursor-default disabled:opacity-60 disabled:hover:border-transparent

@@ -103,7 +103,8 @@ describe('2. Al autorizar', () => {
   it('el Aut. 1 autoriza: avisa a los Aut. 2 vigentes', () => {
     const aut2 = destinatariosDe({ nivel: 2, asignaciones, puestos, ahora: AHORA });
     const a = avisoAutorizacion({ nivel: 1, folio: 'TE-2026-0012', destinatarios: aut2 });
-    expect(a.texto).toMatch(/^Autorizaste TE-2026-0012 y pasó a Autorización 2\. Para que se revise a la brevedad, recuerda avisarle a: Sergio Rojas Pina/);
+    expect(a.texto).toMatch(/^Autorizaste TE-2026-0012\. Ahora la revisa Sergio Rojas Pina/);
+    expect(a.texto).toMatch(/El sistema no avisa solo: pásale el folio/);
     expect(a.texto).toContain('Carlos Cano Mejia');
   });
   it('un Aut. 2 envía lo suyo: queda autorizada y el recordatorio dice que RH ya la tiene', () => {
@@ -117,7 +118,7 @@ describe('2. Al autorizar', () => {
   });
   it('varias a la vez: el nivel 1 avisa a Aut. 2 y el nivel 2 confirma con RH', () => {
     const aut2 = destinatariosDe({ nivel: 2, asignaciones, puestos, ahora: AHORA });
-    expect(avisoAutorizacionVarias({ nivel: 1, cantidad: 3, destinatarios: aut2 }).texto).toMatch(/^Autorizaste 3 solicitudes y pasaron a Autorización 2\..*Sergio Rojas Pina/);
+    expect(avisoAutorizacionVarias({ nivel: 1, cantidad: 3, destinatarios: aut2 }).texto).toMatch(/^Autorizaste 3 solicitudes\. Ahora las revisa .*Sergio Rojas Pina/);
     expect(avisoAutorizacionVarias({ nivel: 2, cantidad: 3 }).texto).toBe('Listo. Recursos Humanos ya tiene 3 solicitudes en \'Por enviar al proveedor\'.');
   });
 });

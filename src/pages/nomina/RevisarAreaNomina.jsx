@@ -26,7 +26,7 @@ import { descargarFormatoAreas } from '../../utils/descargarFormatoNomina';
 import { textoDescarga } from '../../utils/mensajesDescarga';
 import {
   DIAS_CORTO, ESTADOS_AREA, MAX_MOTIVO_AJUSTE, MIN_MOTIVO_AJUSTE, TIPOS_CAMBIO, agregadosSinHoras, aplicarCambios, conHoras, conRenglonQuitado, conRenglonRestaurado,
-  contarSinGuardar, estadoDeArea, etiquetaPeriodo, filasVigentes, fueAjustada, nominasRepetidas, periodoDeClave, problemaMotivo, resumenDeGuardado, sellarCambios, totalesDeFilas,
+  contarSinGuardar, estadoDeArea, etiquetaPeriodo, faltaRazonGeneral, filasVigentes, fueAjustada, nominasRepetidas, periodoDeClave, problemaMotivo, resumenDeGuardado, sellarCambios, totalesDeFilas,
 } from '../../utils/formatoNomina';
 import { crearFormateadorNombres } from '../../utils/nombresPersona';
 import CeldaHoras from './CeldaHoras';
@@ -43,11 +43,11 @@ const IZQ_NOMINA = 'left-9', IZQ_NOMBRE = 'left-[6.25rem]';
 const FIJA = 'sticky bg-[var(--bg-surface)] group-hover:bg-[var(--bg-surface-hover)]';
 
 /** Un renglón de la hoja. memo: al editar una celda solo se vuelven a dibujar los renglones que cambiaron */
-const Renglon = memo(function Renglon({ fila, f, numero, periodo, editable, nombreVisible, menu, onCambiar, onInvalida }) {
+const Renglon = memo(function Renglon({ fila, f, numero, periodo, editable, nombreVisible, menu, onCambiar, onInvalida, resaltado = false }) {
   const quitado = fila.quitado;
   const nom = nombreVisible;
   return (
-    <tr className={`group ${quitado ? 'opacity-60' : ''}`}>
+    <tr className={`group ${quitado ? 'opacity-60' : ''} ${resaltado ? '[&>td]:!bg-[var(--status-success-bg)] outline outline-2 -outline-offset-2 outline-[var(--status-success-border)]' : ''}`}>
       <td className={`${FIJA} left-0 z-10 w-9 min-w-9 border-b border-[var(--border-subtle)] px-2 text-right font-mono text-xs text-[var(--text-muted)]`}>{numero + 1}</td>
       <td className={`${FIJA} ${IZQ_NOMINA} z-10 w-16 min-w-16 border-b border-[var(--border-subtle)] px-2 font-mono text-xs`}>{fila.nomina}</td>
       <td className={`${FIJA} ${IZQ_NOMBRE} z-10 w-56 min-w-56 max-w-56 border-b border-r border-[var(--border-color)] px-2 text-xs`}>
@@ -70,7 +70,7 @@ const Renglon = memo(function Renglon({ fila, f, numero, periodo, editable, nomb
         );
       })}
       <td className={`w-16 min-w-16 border-b border-[var(--border-subtle)] px-2 text-right font-mono text-xs font-medium tabular-nums ${fila.subtotal !== fila.subtotalOriginal && !fila.agregado ? 'bg-[var(--status-info-bg)]' : ''}`}
-        title={fila.subtotal !== fila.subtotalOriginal && !fila.agregado ? `Autorizado: ${fila.subtotalOriginal} h` : undefined}>{fila.subtotal}</td>
+        title={fila.subtotal !== fila.subtotalOriginal && !fila.agregado ? `Autorizado: ${fila.subtotalOriginal} h` : undefined}>{quitado ? <span className="text-[var(--text-muted)]" title="Ya no cuenta en el total">—</span> : fila.subtotal}</td>
       <td className="w-[9.5rem] min-w-[9.5rem] max-w-[9.5rem] border-b border-[var(--border-subtle)] px-2 text-xs text-[var(--text-secondary)]">
         <span className="flex items-center gap-1" title={fila.motivo || undefined}>
           <span className="min-w-0 flex-1 truncate">{fila.motivo || '—'}</span>
@@ -132,8 +132,33 @@ export default function RevisarAreaNomina() {
   }, [base, guardados, periodo]);
   const avisoInvalida = useCallback(() => toast.warning('Horas de 0 a 24, con a lo más dos decimales (por ejemplo 8 o 0.5).', 4000), [toast]);
   const agregarCambio = (c) => setTrabajo(prev => [...(prev ?? guardados), c]);
+  // Al agregar a alguien: su renglón se resalta unos segundos y el cursor queda en su primera celda de horas (hoy quedaba en 0 h sin indicar dónde capturar)
+  const [resaltada, setResaltada] = useState(null);
+  useEffect(() => {
+    if (!resaltada) return undefined;
+    const celda = document.querySelector(`[data-hoja] input[data-clave="${CSS.escape(resaltada)}"]`);
+    celda?.scrollIntoView({ block: 'center' });
+    celda?.focus();
+    const t = setTimeout(() => setResaltada(null), 8000);
+    return () => clearTimeout(t);
+  }, [resaltada]);
 
-  const quitar = (fila) => setTrabajo(prev => conRenglonQuitado(prev ?? guardados, fila));
+  const quitar = async (fila) => {
+    // Quitar a alguien agregado en esta misma sesión es solo deshacer; quitar a alguien autorizado pide el motivo en el momento
+    if (fila.agregado) { setTrabajo(prev => conRenglonQuitado(prev ?? guardados, fila)); return; }
+    let valorInicial = '';
+    for (;;) {
+      const motivo = await confirmar({
+        titulo: 'Quitar a este empleado', mensaje: `${nombre(fila.nombre)} (${fila.nomina}) ya no saldrá en el formato de ${area?.nombre ?? 'esta área'}. Lo autorizado en la solicitud no cambia.`,
+        textoConfirmar: 'Quitar', peligroso: true, campo: { etiqueta: `Motivo (por ejemplo: no asistió; ${MIN_MOTIVO_AJUSTE} a ${MAX_MOTIVO_AJUSTE} letras)`, minLength: MIN_MOTIVO_AJUSTE, valorInicial },
+      });
+      if (!motivo) return;
+      const problema = problemaMotivo(motivo);
+      if (!problema) { setTrabajo(prev => conRenglonQuitado(prev ?? guardados, fila, motivo)); return; }
+      toast.error(problema, 6000);
+      valorInicial = motivo;
+    }
+  };
   const restaurar = (fila) => {
     const nuevo = conRenglonRestaurado(trabajo ?? guardados, fila.clave);
     const sinRepetir = nominasRepetidas(aplicarCambios(base, nuevo, periodo));
@@ -169,20 +194,25 @@ export default function RevisarAreaNomina() {
       cuenta(TIPOS_CAMBIO.MOTIVO) && `${cuenta(TIPOS_CAMBIO.MOTIVO)} de motivo`,
       cuenta('restaurar') && plural(cuenta('restaurar'), 'renglón restaurado', 'renglones restaurados'),
     ].filter(Boolean);
+    // Los empleados agregados o quitados ya traen su motivo (se pidió al hacerlo): el guardado solo pide una razón general si hay cambios de horas, reemplazos o de motivo
+    const pideRazon = faltaRazonGeneral(trabajo);
     let valorInicial = '';
     for (;;) {
       const razon = await confirmar({
         titulo: 'Guardar cambios', textoConfirmar: 'Guardar cambios',
-        mensaje: `Se guardan ${plural(resumen.total, 'cambio', 'cambios')} en ${area.nombre} (${partes.join(', ')}). Escribe el motivo del ajuste: se aplica a todos y queda en la bitácora.`,
-        campo: { etiqueta: `Motivo del ajuste (${MIN_MOTIVO_AJUSTE} a ${MAX_MOTIVO_AJUSTE} letras)`, minLength: MIN_MOTIVO_AJUSTE, valorInicial, placeholder: 'Ej. Corrección de asistencia de la semana' },
+        mensaje: pideRazon
+          ? `Se guardan ${plural(resumen.total, 'cambio', 'cambios')} en ${area.nombre} (${partes.join(', ')}). Escribe el motivo del ajuste de horas, reemplazos y motivos: queda en la bitácora${partes.some(p => /agregado|quitado/.test(p)) ? '; los empleados agregados o quitados ya traen el suyo' : ''}.`
+          : `Se guardan ${plural(resumen.total, 'cambio', 'cambios')} en ${area.nombre} (${partes.join(', ')}). Cada uno lleva el motivo que escribiste al hacerlo.`,
+        ...(pideRazon ? { campo: { etiqueta: `Motivo del ajuste (${MIN_MOTIVO_AJUSTE} a ${MAX_MOTIVO_AJUSTE} letras)`, minLength: MIN_MOTIVO_AJUSTE, valorInicial, placeholder: 'Ej. Corrección de asistencia de la semana' } } : {}),
       });
       if (!razon) return;
-      const problema = problemaMotivo(razon);
+      const razonTexto = pideRazon && typeof razon === 'string' ? razon : '';
+      const problema = pideRazon ? problemaMotivo(razonTexto) : null;
       if (!problema) {
-        const sellados = sellarCambios(trabajo, razon);
+        const sellados = sellarCambios(trabajo, razonTexto);
         const hecho = await intentar(() => guardarAjuste({
           periodo, areaId: area.areaId, cambios: sellados, filas: aplicarCambios(base, sellados, periodo), usuario, accion: ACCIONES_AJUSTE_NOMINA.ajustar,
-          antes: { cambios: guardados.length }, despues: { motivo: razon.trim(), total: resumen.total, cambios: resumen.cambios },
+          antes: { cambios: guardados.length }, despues: { motivo: (razonTexto || 'Motivo en cada cambio').trim(), total: resumen.total, cambios: resumen.cambios },
         }), `Cambios guardados (${resumen.total}).`);
         if (hecho) setTrabajo(null);
         return;
@@ -317,7 +347,7 @@ export default function RevisarAreaNomina() {
                   <tbody>
                     {visibles.map(({ fila, i }, f) => (
                       <Renglon key={fila.clave} fila={fila} f={f} numero={i} periodo={periodo} editable={editable} nombreVisible={nombre(fila.nombre)} menu={menu}
-                        onCambiar={cambiarHoras} onInvalida={avisoInvalida} />
+                        onCambiar={cambiarHoras} onInvalida={avisoInvalida} resaltado={fila.clave === resaltada} />
                     ))}
                     {visibles.length === 0 && <tr><td colSpan={13} className="px-4 py-8 text-center text-xs text-[var(--text-muted)]">Nadie coincide con «{busqueda}».</td></tr>}
                   </tbody>
@@ -359,7 +389,7 @@ export default function RevisarAreaNomina() {
 
       {dialogo?.tipo === 'agregar' && (
         <ModalAgregarEmpleado area={area} nombresAreas={nombres} empleados={empleadosElegibles} motivos={motivos} nominasEnTabla={nominasEnTabla} nombre={nombre}
-          onClose={() => setDialogo(null)} onAgregar={(c) => { agregarCambio(c); setDialogo(null); toast.info('Empleado agregado. Captura sus horas en la tabla.'); }} />
+          onClose={() => setDialogo(null)} onAgregar={(c) => { agregarCambio(c); setResaltada(c.clave); setDialogo(null); toast.info('Empleado agregado. Captura sus horas en el renglón resaltado.', 8000); }} />
       )}
       {dialogo?.tipo === 'reemplazar' && (
         <ModalReemplazar fila={dialogo.fila} nombresAreas={nombres} empleados={empleadosElegibles} nominasEnTabla={nominasEnTabla} nombre={nombre}

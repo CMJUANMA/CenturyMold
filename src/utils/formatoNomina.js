@@ -391,9 +391,10 @@ export function conHoras(base, trabajo, periodo, clave, dia, horas) {
 }
 
 /** Quita el renglón: marca como quitado un renglón autorizado; uno agregado se borra por completo junto con sus cambios */
-export function conRenglonQuitado(trabajo, fila) {
+export function conRenglonQuitado(trabajo, fila, motivoPrevio = '') {
   if (fila.agregado) return trabajo.filter(c => c.clave !== fila.clave);
-  return [...trabajo.filter(c => !(esCambioNuevo(c) && c.tipo === TIPOS_CAMBIO.QUITAR && c.clave === fila.clave)), cambioQuitar(fila, '')];
+  // El motivo se pide al quitar (motivoPrevio): al guardar se sella como motivo del cambio, sin volver a preguntarlo
+  return [...trabajo.filter(c => !(esCambioNuevo(c) && c.tipo === TIPOS_CAMBIO.QUITAR && c.clave === fila.clave)), { ...cambioQuitar(fila, ''), ...(String(motivoPrevio).trim() ? { motivoPrevio: String(motivoPrevio).trim() } : {}) }];
 }
 
 /** «Restaurar lo autorizado»: borra todos los cambios del renglón (los guardados también; se registra al guardar) */
@@ -410,7 +411,14 @@ export function nominasRepetidas(filas) {
 export const agregadosSinHoras = (filas) => filasVigentes(filas).filter(f => f.agregado && !(f.subtotal > 0));
 
 /** Pone la razón del ajuste a los cambios nuevos (la misma para todos); los ya guardados conservan la suya */
-export const sellarCambios = (trabajo, motivo) => trabajo.map(c => (esCambioNuevo(c) ? { ...c, motivo: String(motivo).trim() } : c));
+export const sellarCambios = (trabajo, motivo) => trabajo.map(c => {
+  if (!esCambioNuevo(c)) return c;
+  const { motivoPrevio, ...resto } = c; // el motivo pedido al agregar o quitar manda; el del guardado cubre lo demás (horas, reemplazos, motivo)
+  return { ...resto, motivo: String(motivoPrevio ?? '').trim() || String(motivo).trim() };
+});
+
+/** ¿Algún cambio nuevo aún no trae su propio motivo (horas, reemplazo, cambio de motivo)? Solo entonces el guardado pide una razón general */
+export const faltaRazonGeneral = (trabajo) => trabajo.some(c => esCambioNuevo(c) && !String(c.motivoPrevio ?? '').trim());
 
 const MAX_RESUMEN = 80;
 

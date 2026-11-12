@@ -11,7 +11,7 @@ import Aviso from '../../components/ui/Aviso';
 import Boton from '../../components/ui/Boton';
 import { Campo, Entrada } from '../../components/ui/Campo';
 import BloqueMotivosTE from '../te/BloqueMotivosTE';
-import { cambioAgregar, cambioMotivo, cambioReemplazar, problemaEmpleadoManual } from '../../utils/formatoNomina';
+import { MAX_MOTIVO_AJUSTE, MIN_MOTIVO_AJUSTE, cambioAgregar, cambioMotivo, cambioReemplazar, problemaEmpleadoManual, problemaMotivo } from '../../utils/formatoNomina';
 import { motivoDesdeGuardado, motivoVacio, motivosParaGuardar, problemasDeMotivos } from '../../utils/motivosTE';
 
 function Pie({ onClose, onAceptar, valido, texto }) {
@@ -44,6 +44,7 @@ export function ModalAgregarEmpleado({ area, nombresAreas, empleados, motivos, n
   const [aceptaOtraArea, setAceptaOtraArea] = useState(false);
   const [datos, setDatos] = useState({ nomina: '', nombre: '' });
   const [motivo, setMotivo] = useState(() => [motivoVacio()]);
+  const [razon, setRazon] = useState(''); // por qué se agrega: se pide aquí, no hasta guardar
 
   const enPadron = useMemo(() => new Map(empleados.map(e => [String(e.nomina), e])), [empleados]);
   const sugeridos = useMemo(() => (e) => e.areaId === area.areaId, [area.areaId]);
@@ -60,11 +61,12 @@ export function ModalAgregarEmpleado({ area, nombresAreas, empleados, motivos, n
 
   const persona = manual ? { nomina: nominaManual, nombre: datos.nombre.trim().toUpperCase(), puesto: '' } : elegido;
   const yaEsta = !manual && !!elegido && nominasEnTabla.includes(String(elegido.nomina));
-  const valido = !!persona && problemasMotivo.length === 0 && !yaEsta && (manual ? !problemaManual && !errorNomina : !deOtraArea || aceptaOtraArea);
+  const problemaRazon = problemaMotivo(razon);
+  const valido = !!persona && problemasMotivo.length === 0 && !problemaRazon && !yaEsta && (manual ? !problemaManual && !errorNomina : !deOtraArea || aceptaOtraArea);
 
   const aceptar = () => {
     if (!valido) return;
-    onAgregar(cambioAgregar(persona, motivosParaGuardar(motivo, motivos)[0], { enPadron: !manual, areaOrigen: manual ? '' : (elegido.areaId ?? '') }));
+    onAgregar({ ...cambioAgregar(persona, motivosParaGuardar(motivo, motivos)[0], { enPadron: !manual, areaOrigen: manual ? '' : (elegido.areaId ?? '') }), motivoPrevio: razon.trim() });
   };
 
   return (
@@ -108,6 +110,11 @@ export function ModalAgregarEmpleado({ area, nombresAreas, empleados, motivos, n
         )}
         {persona && (
           <BloqueMotivosTE unico motivos={motivo} catalogo={motivos} onChange={setMotivo} problemas={problemasMotivo.filter(p => p.mensaje && motivo[0]?.motivoId)} />
+        )}
+        {persona && (
+          <Campo etiqueta="Motivo del ajuste (por qué se agrega al formato)" obligatorio ayuda={`De ${MIN_MOTIVO_AJUSTE} a ${MAX_MOTIVO_AJUSTE} letras; queda en la bitácora.`} error={razon && problemaRazon ? problemaRazon : undefined}>
+            <Entrada maxLength={MAX_MOTIVO_AJUSTE} value={razon} onChange={e => setRazon(e.target.value)} placeholder="Ej. Trabajó el sábado y no venía en la solicitud" />
+          </Campo>
         )}
         {!persona && <p className="flex items-center gap-2 text-xs text-[var(--text-muted)]"><UserPlus className="h-4 w-4" aria-hidden="true" />Elige a la persona para indicar su motivo.</p>}
       </div>

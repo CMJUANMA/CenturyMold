@@ -53,11 +53,14 @@ export function sumarDias(fechaYmd, n) {
 /** Atajo «Mañana»: el día siguiente a `hoy` ('AAAA-MM-DD') */
 export const manana = (hoy = ymd()) => sumarDias(hoy, 1);
 
-/** Atajo «Próximo sábado»: el primer sábado DESPUÉS de hoy (si hoy es sábado, el de la semana siguiente; para hoy se usa la fecha a mano) */
-export function proximoSabado(hoy = ymd()) {
-  const dia = fechaLocal(hoy).getDay(); // 0 = domingo … 6 = sábado
-  return sumarDias(hoy, ((6 - dia + 7) % 7) || 7);
+/** El primer día de la semana `dia` (0 = domingo … 6 = sábado) DESPUÉS de hoy: si hoy ya es ese día, el de la semana siguiente */
+export function proximoDiaSemana(hoy = ymd(), dia = 6) {
+  return sumarDias(hoy, ((dia - fechaLocal(hoy).getDay() + 7) % 7) || 7);
 }
+/** Atajo «Próximo sábado» (para hoy está «Hoy») */
+export const proximoSabado = (hoy = ymd()) => proximoDiaSemana(hoy, 6);
+/** Atajo «Próximo domingo» */
+export const proximoDomingo = (hoy = ymd()) => proximoDiaSemana(hoy, 0);
 
 /** Lunes y domingo de la semana de `fechaYmd`, desplazada `offsetSemanas` semanas */
 export function rangoSemana(fechaYmd = ymd(), offsetSemanas = 0) {

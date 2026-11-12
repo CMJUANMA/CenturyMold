@@ -1,6 +1,6 @@
 // Atajos de fecha del editor de tiempo extra: «Mañana» y «Próximo sábado». Ejecutar con: npm run test:unit
 import { describe, expect, it } from 'vitest';
-import { manana, proximoSabado, ymd } from '../src/utils/fechas.js';
+import { manana, proximoDomingo, proximoSabado, ymd } from '../src/utils/fechas.js';
 
 describe('manana', () => {
   it('es el día siguiente, también al cambiar de mes y de año', () => {
@@ -30,5 +30,14 @@ describe('proximoSabado', () => {
       expect(new Date(a, m - 1, dd).getDay()).toBe(6);
       expect(new Date(a, m - 1, dd) > hoy).toBe(true);
     }
+  });
+});
+
+describe('proximoDomingo', () => {
+  it('el primer domingo después de hoy (12 nov 2026 es jueves)', () => {
+    expect(proximoDomingo('2026-11-12')).toBe('2026-11-15');
+    expect(proximoDomingo('2026-11-14')).toBe('2026-11-15'); // sábado
+    expect(proximoDomingo('2026-11-15')).toBe('2026-11-22'); // si hoy es domingo, el siguiente
+    expect(proximoDomingo('2026-12-28')).toBe('2027-01-03');
   });
 });

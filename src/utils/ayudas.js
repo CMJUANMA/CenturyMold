@@ -42,7 +42,7 @@ export const AYUDAS = {
     'autorizar.lista': 'Las solicitudes más antiguas salen primero. Las que tú mismo hiciste no las puedes autorizar.',
     'autorizar.revisar': 'Abre la solicitud para ver los empleados, los horarios y las rutas antes de decidir.',
     'autorizar.comentario': 'Al autorizar es opcional. Al devolver es obligatorio: explica qué debe corregir quien la pidió (mínimo 10 letras).',
-    'autorizar.autorizar': 'Aprueba la solicitud completa. Pasa al siguiente nivel o queda autorizada.',
+    'autorizar.autorizar': 'Autorizar aprueba la solicitud completa y pasa al siguiente nivel (o queda autorizada). Devolver la regresa a quien la pidió, con tu motivo.',
     'autorizar.devolver': 'La regresa a quien la pidió para que la corrija. Debes escribir el motivo.',
     'autorizar.varias': 'Marca varias solicitudes y autorízalas juntas. Antes te muestra el total de empleados y horas.',
     'autorizar.rutas': 'Cada ruta adicional representa un costo extra. Revisa la justificación antes de autorizar.',
@@ -220,10 +220,10 @@ export const AVISOS = {
   paraAvisar: ({ folio, destino, lista, accion = 'envió' }) => `Tu solicitud ${folio} se ${accion} a ${destino}. `
     + (lista ? `Para que se revise a la brevedad, recuerda avisarle a: ${lista}.` : 'Por ahora no hay una persona vigente con ese rol: avisa al área de Sistemas o, en su caso, a Recursos Humanos para que lo resuelvan.'),
   /** Autorizaste tú: la solicitud sigue su camino con otra persona (Aut. 1 → Aut. 2) */
-  autorizadaPasa: ({ folio, lista }) => `Autorizaste ${folio} y pasó a Autorización 2. `
-    + (lista ? `Para que se revise a la brevedad, recuerda avisarle a: ${lista}.` : 'Por ahora no hay un Aut. 2 vigente: avisa al área de Sistemas o, en su caso, a Recursos Humanos para que lo resuelvan.'),
-  autorizadasPasan: ({ cantidad, lista }) => `Autorizaste ${cantidad} solicitudes y pasaron a Autorización 2. `
-    + (lista ? `Para que se revisen a la brevedad, recuerda avisarle a: ${lista}.` : 'Por ahora no hay un Aut. 2 vigente: avisa al área de Sistemas o, en su caso, a Recursos Humanos para que lo resuelvan.'),
+  autorizadaPasa: ({ folio, lista }) => `Autorizaste ${folio}. `
+    + (lista ? `Ahora la revisa ${lista}. El sistema no avisa solo: pásale el folio para que la revise pronto.` : 'Por ahora no hay un Aut. 2 vigente: avisa al área de Sistemas o, en su caso, a Recursos Humanos para que lo resuelvan.'),
+  autorizadasPasan: ({ cantidad, lista }) => `Autorizaste ${cantidad} solicitudes. `
+    + (lista ? `Ahora las revisa ${lista}. El sistema no avisa solo: pásale los folios para que las revise pronto.` : 'Por ahora no hay un Aut. 2 vigente: avisa al área de Sistemas o, en su caso, a Recursos Humanos para que lo resuelvan.'),
   /** El Aut. 2 autoriza: ya está con RH */
   listaEnRH: () => 'Listo. Recursos Humanos ya la tiene en \'Por enviar al proveedor\'.',
   listasEnRH: ({ cantidad }) => `Listo. Recursos Humanos ya tiene ${cantidad} solicitudes en 'Por enviar al proveedor'.`,

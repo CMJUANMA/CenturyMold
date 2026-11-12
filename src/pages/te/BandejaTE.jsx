@@ -367,13 +367,11 @@ La nómina de ${nombreArea(t.areaId)}, semana ${n.semana}, ya está firmada; RH 
                   </div>
                 )
                 : (
-                  <div className="w-full space-y-3">
+                  <div className="sticky bottom-0 -mx-1 w-full space-y-3 border-t border-[var(--border-color)] bg-[var(--bg-surface)] px-1 pb-1 pt-3">
                     <Campo etiqueta="Comentario" ayuda={`Opcional al autorizar. Obligatorio al devolver: mínimo ${MIN_MOTIVO_DEVOLUCION} caracteres (llevas ${texto.trim().length}).`}>
                       <AreaTexto id="comentario-firma" rows={2} value={texto} onChange={e => setTexto(e.target.value)} placeholder="Comentario o motivo de la devolución…" />
                     </Campo>
-                    <Ayuda clave="autorizar.comentario" />
                     <Ayuda clave="autorizar.autorizar" className="!mt-0" />
-                    <Ayuda clave="autorizar.devolver" className="!mt-0" />
                     {(detalle.solicitud.rutasDistintas ?? 0) > 1 && <Ayuda clave="autorizar.rutas" className="!mt-0 font-semibold !text-[var(--status-warning-text)]" />}
                     <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
                       <AccionCancelarTE id="btn-cancelar-solicitud" tamano="md" t={detalle.solicitud} onHecho={() => setDetalle(null)} />

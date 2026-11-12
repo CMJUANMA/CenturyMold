@@ -34,7 +34,7 @@ import Insignia from '../../components/ui/Insignia';
 import { Tarjeta } from '../../components/ui/Tarjeta';
 import { rutaVigente } from '../../utils/activo';
 import { empleadosParaCapturar } from '../../utils/empleadosCaptura';
-import { fechaConDia, manana, proximoSabado, ymd } from '../../utils/fechas';
+import { fechaConDia, manana, proximoDomingo, proximoSabado, ymd } from '../../utils/fechas';
 import { useRolesDelArea } from '../../hooks/useRolesDelArea';
 import { textoConfirmarEnvio, textoEstatusEnvio } from '../../utils/destinoEnvio';
 import { crearFormateadorNombres } from '../../utils/nombresPersona';
@@ -91,7 +91,8 @@ export default function EditorTE() {
   const [intentoEnvio, setIntentoEnvio] = useState(false);
   const [trabajo, setTrabajo] = useState(null); // { texto, hechos, total }
   const [bulk, setBulk] = useState({ entrada: '', salida: '' });
-  const [bulkSel, setBulkSel] = useState({ entrada: '', salida: '' }); // el horario de la barra de seleccionados
+  const [bulkSel, setBulkSel] = useState({ entrada: '', salida: '' });
+  const [resumenAbierto, setResumenAbierto] = useState(false); // en celular el resumen va plegado a una línea // el horario de la barra de seleccionados
   const [tels, setTels] = useState({}); // nómina → { padron, actual }: teléfono del padrón y el que se está capturando (solo de quienes llevan transporte)
   const telsPedidos = useRef(new Set());
 
@@ -474,8 +475,10 @@ export default function EditorTE() {
                 <Entrada id="te-fecha" type="date" min={hoy} value={fechaTE} onChange={e => setFechaTE(e.target.value)} />
               </Campo>
               <div className="mt-2 flex flex-wrap items-center gap-2" role="group" aria-label="Atajos de fecha">
+                <Boton id="btn-fecha-hoy" tamano="sm" onClick={() => setFechaTE(hoy)} disabled={ocupado}>Hoy</Boton>
                 <Boton id="btn-fecha-manana" tamano="sm" onClick={() => setFechaTE(manana(hoy))} disabled={ocupado}>Mañana</Boton>
                 <Boton id="btn-fecha-sabado" tamano="sm" onClick={() => setFechaTE(proximoSabado(hoy))} disabled={ocupado}>Próximo sábado</Boton>
+                <Boton id="btn-fecha-domingo" tamano="sm" onClick={() => setFechaTE(proximoDomingo(hoy))} disabled={ocupado}>Próximo domingo</Boton>
                 {fechaTE && <span className="text-xs text-[var(--text-secondary)]" aria-live="polite">{fechaConDia(fechaTE)}</span>}
               </div>
               <Ayuda clave="solicitar.fecha" />
@@ -626,7 +629,13 @@ export default function EditorTE() {
           </div>
         )}
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
+          <div className="flex items-center justify-between gap-3 lg:hidden">
+            <p className="text-sm font-medium text-[var(--text-main)]">{resumen.totalEmpleados} {resumen.totalEmpleados === 1 ? 'empleado' : 'empleados'} · {resumen.totalHoras} h</p>
+            <button type="button" onClick={() => setResumenAbierto(v => !v)} aria-expanded={resumenAbierto} className="min-h-11 cursor-pointer px-2 text-xs font-medium text-[var(--text-secondary)] underline underline-offset-2">
+              {resumenAbierto ? 'Ocultar resumen' : 'Ver resumen'}
+            </button>
+          </div>
+          <div className={`${resumenAbierto ? 'flex' : 'hidden lg:flex'} flex-wrap items-center gap-x-5 gap-y-1 text-xs`}>
           <dl className="flex flex-wrap items-center gap-x-5 gap-y-1">
             {[['Empleados', resumen.totalEmpleados], ['Horas', resumen.totalHoras], ['Con transporte', resumen.totalTransporte], ['Con alimentos', resumen.totalAlimentos], ['Rutas', infoRutas.rutasDistintas]].map(([t, v]) => (
               <div key={t} className="flex items-baseline gap-1.5"><dt className="text-[var(--text-secondary)]">{t}</dt><dd className={`text-base font-medium tabular-nums ${t === 'Rutas' && v > 1 ? 'text-[var(--status-warning-text)]' : 'text-[var(--text-main)]'}`}>{v}</dd></div>
@@ -646,7 +655,7 @@ export default function EditorTE() {
             <Boton id="btn-enviar-autorizacion" data-tour="solicitar-enviar" variante={pendientes.length ? 'contorno' : 'primario'} icono={Send} onClick={enviarClick} disabled={ocupado || !areaActual}>{pendientes.length ? textoFaltan(pendientes.length) : esDevuelta ? 'Reenviar a autorización' : 'Enviar a autorización'}</Boton>
           </div>
         </div>
-        <Ayuda clave="solicitar.resumen" />
+        <div className={resumenAbierto ? '' : 'hidden lg:block'}><Ayuda clave="solicitar.resumen" /></div>
       </div>
 
       {selectorAbierto && <SelectorEmpleadosTE empleados={empleadosArea} yaAgregados={yaAgregados} rutas={rutas} onAgregar={agregar} onClose={() => setSelectorAbierto(false)} />}
