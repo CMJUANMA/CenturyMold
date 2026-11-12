@@ -20,6 +20,7 @@ import { normalizarEstatus } from './constantes';
 import { comparar } from './orden.js';
 import { MIN_MOTIVO_CANCELACION } from './cancelacion.js';
 import { motivoTexto } from './motivosTE.js';
+import { sumarDias } from './fechas.js';
 
 const refTE = (id) => doc(db, 'tiempoExtra', id);
 
@@ -212,8 +213,13 @@ export async function leerOcupados({ uid, areaId, fechaTE, esAut1DeLaArea, exclu
   if (!fechaTE) return ocupados;
   try {
     const col = collection(db, 'tiempoExtra');
-    const consultas = [getDocs(query(col, where('creadoPor', '==', uid), where('fechaTE', '==', fechaTE)))];
-    if (esAut1DeLaArea) consultas.push(getDocs(query(col, where('areaId', '==', areaId), where('fechaTE', '==', fechaTE), where('estatus', 'in', ESTATUS_TE_VISIBLES))));
+    // El día anterior y el siguiente también: un tiempo extra que cruza la medianoche se encima con lo del día de al lado (cada consulta es por UNA fecha: no pide índices nuevos)
+    const dias = [-1, 0, 1].map(d => ({ desfase: d, fecha: sumarDias(fechaTE, d) }));
+    const consultas = dias.flatMap(({ fecha }) => [
+      getDocs(query(col, where('creadoPor', '==', uid), where('fechaTE', '==', fecha))),
+      ...(esAut1DeLaArea ? [getDocs(query(col, where('areaId', '==', areaId), where('fechaTE', '==', fecha), where('estatus', 'in', ESTATUS_TE_VISIBLES)))] : []),
+    ]);
+    const desfaseDe = Object.fromEntries(dias.map(d => [d.fecha, d.desfase]));
     const docs = new Map();
     for (const s of await Promise.all(consultas)) s.docs.forEach(d => docs.set(d.id, d));
     for (const d of docs.values()) {
@@ -221,9 +227,9 @@ export async function leerOcupados({ uid, areaId, fechaTE, esAut1DeLaArea, exclu
       if (d.id === excluirId || t.estatus === 'cancelada') continue;
       const emps = await getDocs(collection(db, 'tiempoExtra', d.id, 'empleados'));
       emps.docs.forEach(e => {
-        // Con su horario: si se encima con el de esta solicitud, es un error al enviar; si no, un aviso (ver problemasDeEnvio)
+        // Con su horario y su día: si se encima con el de esta solicitud, es un error al enviar; si no, una nota (ver problemasDeEnvio)
         const { horaEntrada = '', horaSalida = '' } = e.data();
-        const bloque = { folio: t.folio ?? null, estatus: t.estatus, horaEntrada, horaSalida };
+        const bloque = { folio: t.folio ?? null, estatus: t.estatus, horaEntrada, horaSalida, fechaTE: t.fechaTE, desfase: desfaseDe[t.fechaTE] ?? 0 };
         const previo = ocupados.get(e.id);
         if (previo) previo.bloques.push(bloque); else ocupados.set(e.id, { ...bloque, bloques: [bloque] });
       });

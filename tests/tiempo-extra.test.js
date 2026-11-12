@@ -153,7 +153,7 @@ describe('validaciones de envío', () => {
   it('un empleado con otro tiempo extra el mismo día solo da AVISO (no bloquea)', () => {
     const p = problemasDeEnvio({ ...base, empleados: [emp('1')], ocupados: new Map([['1', { folio: 'TE-2026-0004', estatus: 'autorizada' }]]) });
     expect(p.filter(x => x.nivel === 'error')).toEqual([]);
-    expect(p.find(x => x.nivel === 'aviso').mensaje).toMatch(/TE-2026-0004/);
+    expect(p.find(x => x.nivel === 'nota').mensaje).toMatch(/TE-2026-0004/);
   });
 });
 

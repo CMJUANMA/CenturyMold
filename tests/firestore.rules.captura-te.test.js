@@ -220,8 +220,21 @@ describe('ruta en el padrón y avisos de la misma fecha', () => {
     await guardarNuevo(m, 'BR-BBBBBBBBBB', lista.slice(0, 1), { fechaTE: '2099-12-02' });
     const ocupados = await m.leerOcupados({ uid: 'solP', areaId: 'produccion', fechaTE: '2099-12-01', esAut1DeLaArea: false, excluirId: 'BR-BBBBBBBBBB' });
     expect([...ocupados.keys()].sort()).toEqual(['700', '701', '702']);
-    expect((await m.leerOcupados({ uid: 'solP', areaId: 'produccion', fechaTE: '2099-12-01', esAut1DeLaArea: false, excluirId: 'BR-AAAAAAAAAA' })).size).toBe(0);
+    // (la otra solicitud es del día siguiente: ahora también cuenta, por si cruza la medianoche; su desfase es +1)
+    const sinLaPrimera = await m.leerOcupados({ uid: 'solP', areaId: 'produccion', fechaTE: '2099-12-01', esAut1DeLaArea: false, excluirId: 'BR-AAAAAAAAAA' });
+    expect([...sinLaPrimera.keys()]).toEqual(['700']);
+    expect(sinLaPrimera.get('700').bloques[0].desfase).toBe(1);
     expect((await m.leerOcupados({ uid: 'solP', areaId: 'produccion', fechaTE: '2099-12-09', esAut1DeLaArea: false })).size).toBe(0);
+  });
+  it('también ve lo del día anterior y el siguiente (lo que cruza la medianoche), con su horario y su desfase de días', async () => {
+    const { m } = await comoUsuario('solP');
+    const lista = empleados(2);
+    await guardarNuevo(m, 'BR-AAAAAAAAAA', lista, { fechaTE: '2099-12-01' });
+    const manana = await m.leerOcupados({ uid: 'solP', areaId: 'produccion', fechaTE: '2099-12-02', esAut1DeLaArea: false });
+    expect(manana.get('700').bloques[0]).toMatchObject({ fechaTE: '2099-12-01', desfase: -1, horaEntrada: '7:00', horaSalida: '16:00' });
+    const ayer = await m.leerOcupados({ uid: 'solP', areaId: 'produccion', fechaTE: '2099-11-30', esAut1DeLaArea: false });
+    expect(ayer.get('700').bloques[0]).toMatchObject({ fechaTE: '2099-12-01', desfase: 1 });
+    expect((await m.leerOcupados({ uid: 'solP', areaId: 'produccion', fechaTE: '2099-12-05', esAut1DeLaArea: false })).size).toBe(0);
   });
   it('el Aut. 1 del área también ve lo que capturaron otros del área', async () => {
     const { m } = await comoUsuario('solP');

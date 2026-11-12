@@ -234,11 +234,12 @@ export function resumenTE(empleados) {
 
 /**
  * ¿Se encima el horario de dos tiempos extra del mismo día? Cada uno va de su entrada a su salida (si la salida es menor, termina al día siguiente).
- * Una persona no puede estar dos veces a la misma hora. Solo compara tiempos extra con la MISMA fecha (la consulta de ocupados es por fecha).
+ * Una persona no puede estar dos veces a la misma hora. `desfaseDiasB`: días de diferencia entre la fecha de B y la de A (el día anterior o el siguiente cuentan: lo que cruza la medianoche).
  */
-export function seTraslapan(entradaA, salidaA, entradaB, salidaB) {
-  const a = minutos(entradaA), b = minutos(entradaB);
-  if (a === null || b === null || !salidaA || !salidaB) return false;
+export function seTraslapan(entradaA, salidaA, entradaB, salidaB, desfaseDiasB = 0) {
+  const a = minutos(entradaA), b0 = minutos(entradaB);
+  if (a === null || b0 === null || !salidaA || !salidaB) return false;
+  const b = b0 + 1440 * desfaseDiasB; // B puede ser del día anterior (-1) o del siguiente (+1): se compara con fecha y hora reales
   const durA = Math.round(calcularHoras(entradaA, salidaA) * 60), durB = Math.round(calcularHoras(entradaB, salidaB) * 60);
   if (durA <= 0 || durB <= 0) return false;
   return a < b + durB && b < a + durA;
@@ -247,10 +248,10 @@ export function seTraslapan(entradaA, salidaA, entradaB, salidaB) {
 const unoOVarios = (n, uno, varios) => (n === 1 ? uno : varios);
 /** Texto de un grupo de problemas por empleado ("Falta completar la ruta de 3 empleados") */
 const TEXTO_GRUPO = {
-  horario: (n) => `Falta completar o corregir el horario de ${n} empleados`,
-  ruta: (n) => `Falta completar la ruta de ${n} empleados`,
-  traslape: (n) => `${n} empleados ya tienen otro tiempo extra a la misma hora`,
-  repetido: (n) => `${n} empleados están repetidos`,
+  horario: (n) => `Horario de ${n} empleados`,
+  ruta: (n) => `Ruta de ${n} empleados`,
+  traslape: (n) => `${n} empleados con horario que se encima con otro tiempo extra`,
+  repetido: (n) => `${n} empleados repetidos`,
 };
 
 /**
@@ -264,24 +265,24 @@ export function resumirPendientes(problemas) {
   const grupos = new Map();
   for (const x of problemas) {
     if (x.nivel !== 'error') continue;
-    if (!x.grupo) { salida.push({ texto: x.mensaje, campo: x.campo, cantidad: 1 }); continue; }
+    if (!x.grupo) { salida.push({ texto: x.mensajePanel ?? x.mensaje, campo: x.campo, cantidad: 1 }); continue; }
     if (!grupos.has(x.grupo)) { const g = { grupo: x.grupo, lista: [] }; grupos.set(x.grupo, g); salida.push(g); }
     grupos.get(x.grupo).lista.push(x);
   }
   return salida.map(r => {
     if (!r.grupo) return r;
     const [primero] = r.lista;
-    return { texto: r.lista.length === 1 ? primero.mensaje : (TEXTO_GRUPO[r.grupo]?.(r.lista.length) ?? primero.mensaje), campo: primero.campo, cantidad: r.lista.length };
+    return { texto: r.lista.length === 1 ? (primero.mensajePanel ?? primero.mensaje) : (TEXTO_GRUPO[r.grupo]?.(r.lista.length) ?? primero.mensaje), campo: primero.campo, cantidad: r.lista.length };
   });
 }
 /** «Falta 1 cosa» / «Faltan 3 cosas» (el botón de enviar y el panel de lo pendiente) */
 export const textoFaltan = (n) => unoOVarios(n, 'Falta 1 cosa', `Faltan ${n} cosas`);
 
 /**
- * Problemas de una solicitud lista para enviar. Cada uno: { nivel: 'error'|'aviso', mensaje, nomina?, campo?, grupo? }.
+ * Problemas de una solicitud lista para enviar. Cada uno: { nivel: 'error'|'nota', mensaje, nomina?, campo?, grupo? }.
  * Los errores bloquean el envío («Obligatorio para enviar»); los avisos no («Aviso, no impide enviar»). `campo` es el id del elemento al que lleva el
  * renglón del panel de pendientes; `grupo` junta los problemas por empleado de un mismo tipo.
- * Otro tiempo extra el mismo día: si los horarios SE ENCIMAN es un error (una persona no puede estar dos veces a la misma hora); si no, solo un aviso con el folio y su horario.
+ * Otro tiempo extra el día anterior, el mismo día o el siguiente (con fecha y hora reales): si los horarios SE ENCIMAN es un error (una persona no puede estar dos veces a la misma hora); si no, solo una nota con el folio y su horario (nivel 'nota').
  * @param {object} p { fechaTE, motivos (los del editor), catalogoMotivos, comentario, empleados, hoy ('AAAA-MM-DD'), ocupados: Map nómina → { folio, estatus, horaEntrada?, horaSalida?, bloques?: [{ folio, estatus, horaEntrada, horaSalida }] } }
  */
 export function problemasDeEnvio({ areaId, fechaTE, motivos = [], catalogoMotivos = [], comentario, empleados, hoy, ocupados = new Map(), tipo = TIPOS_TE.TURNO_EXTRA, justificacionRutas = '', duracionMaxima = duracionMaximaHoras }) {
@@ -321,13 +322,19 @@ export function problemasDeEnvio({ areaId, fechaTE, motivos = [], catalogoMotivo
     const otra = ocupados.get(e.nomina);
     if (!otra) continue;
     const bloques = otra.bloques?.length ? otra.bloques : [otra];
-    const horario = (b) => (b.horaEntrada && b.horaSalida ? `, de ${formatoHora12(b.horaEntrada)} a ${formatoHora12(b.horaSalida)}` : '');
-    const choque = bloques.find(b => seTraslapan(e.horaEntrada, e.horaSalida, b.horaEntrada, b.horaSalida));
+    const horario = (b) => (b.horaEntrada && b.horaSalida ? ` de ${formatoHora12(b.horaEntrada)} a ${formatoHora12(b.horaSalida)}` : '');
+    const cuando = (b) => ((b.desfase ?? 0) < 0 ? ' el día anterior' : (b.desfase ?? 0) > 0 ? ' el día siguiente' : ' ese día');
+    // Un borrador propio sin enviar no bloquea (puede ser uno viejo): solo se anota
+    const choque = bloques.find(b => b.estatus !== 'borrador' && seTraslapan(e.horaEntrada, e.horaSalida, b.horaEntrada, b.horaSalida, b.desfase ?? 0));
     if (choque) {
-      error(`${e.nombre} ya tiene el tiempo extra ${choque.folio ?? 'borrador'} ese día${horario(choque)}, a la misma hora: una persona no puede estar dos veces a la misma hora.`, e.nomina, `fila-${e.nomina}`, 'traslape');
-    } else {
-      const b = bloques[0];
-      p.push({ nivel: 'aviso', mensaje: `Ya tiene otro tiempo extra ese día (${b.folio ?? 'borrador'}${horario(b)}), a otra hora: puedes enviar igual.`, nomina: e.nomina });
+      const que = `ya tiene ${choque.folio ?? 'otra solicitud'}${horario(choque)}${cuando(choque)}`;
+      p.push({ nivel: 'error', mensaje: `${que.charAt(0).toUpperCase()}${que.slice(1)}. Cambia el horario o quítalo.`, mensajePanel: `${e.nombre}: ${que}; cambia el horario o quítalo.`, nomina: e.nomina, campo: `fila-${e.nomina}`, grupo: 'traslape' });
+    }
+    // Lo demás que ya tiene ese día (sin encimarse) es solo información, sin etiqueta de aviso
+    const otros = bloques.filter(b => b !== choque);
+    if (otros.length) {
+      const partes = otros.map(b => `${b.folio ?? 'borrador'}${horario(b)}${(b.desfase ?? 0) === 0 ? '' : ` (${cuando(b).trim()})`}`);
+      p.push({ nivel: 'nota', mensaje: `También tiene ${partes.join(' · ')}.`, nomina: e.nomina });
     }
   }
   return p;

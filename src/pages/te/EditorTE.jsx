@@ -91,6 +91,7 @@ export default function EditorTE() {
   const [intentoEnvio, setIntentoEnvio] = useState(false);
   const [trabajo, setTrabajo] = useState(null); // { texto, hechos, total }
   const [bulk, setBulk] = useState({ entrada: '', salida: '' });
+  const [bulkSel, setBulkSel] = useState({ entrada: '', salida: '' }); // el horario de la barra de seleccionados
   const [tels, setTels] = useState({}); // nómina → { padron, actual }: teléfono del padrón y el que se está capturando (solo de quienes llevan transporte)
   const telsPedidos = useRef(new Set());
 
@@ -184,8 +185,6 @@ export default function EditorTE() {
   const errores = problemas.filter(p => p.nivel === 'error');
   // Lo que falta para enviar, en renglones (los problemas por empleado de un mismo tipo se juntan), cada uno con el campo al que lleva
   const pendientes = useMemo(() => resumirPendientes(problemas), [problemas]);
-  const [panelAbierto, setPanelAbierto] = useState(false);
-  const panelVisible = pendientes.length <= 2 || panelAbierto;
   /** Lleva a un campo (por su id): desplaza la pantalla hasta él y le pone el foco */
   const irA = (campo) => {
     const el = campo ? document.getElementById(campo) : null;
@@ -194,8 +193,9 @@ export default function EditorTE() {
     const foco = el.matches('input, select, textarea, button') ? el : el.querySelector('input:not([type="checkbox"]), select, textarea, button');
     setTimeout(() => foco?.focus({ preventScroll: true }), 250);
   };
-  const avisoDe = (nomina) => problemas.find(p => p.nivel === 'aviso' && p.nomina === nomina)?.mensaje;
-  const errorDe = (nomina) => (intentoEnvio ? errores.find(p => p.nomina === nomina)?.mensaje : undefined);
+  const notaDe = (nomina) => problemas.find(p => p.nivel === 'nota' && p.nomina === nomina)?.mensaje;
+  // El choque de horario se ve en cuanto aparece (no hay que esperar a intentar enviar); lo demás, después del primer intento
+  const errorDe = (nomina) => errores.find(p => p.nomina === nomina && (intentoEnvio || p.grupo === 'traslape'))?.mensaje;
   const faltaJustificacion = variasRutas && justificacionRutas.trim().length < MIN_JUSTIFICACION_RUTAS;
 
   const ocupado = !!trabajo;
@@ -260,32 +260,34 @@ export default function EditorTE() {
     if (enServidor.current.has(nomina)) setEliminados(prev => new Set(prev).add(nomina));
   };
   const alternarSeleccion = (nomina) => setSeleccion(prev => { const s = new Set(prev); if (s.has(nomina)) s.delete(nomina); else s.add(nomina); return s; });
-  const aplicarMasivo = (cambios) => {
-    const objetivo = seleccion.size ? seleccion : null;
+  /** Aplica a los empleados cuya nómina está en `objetivo` (un Set) o, sin objetivo, a TODOS. Los controles de arriba siempre van a todos; la barra de seleccionados, a los marcados */
+  const aplicarMasivo = (cambios, objetivo = null) => {
     setEmpleados(prev => aplicarA(prev, objetivo, cambios));
     setSucios(prev => new Set([...prev, ...(objetivo ?? empleados.map(e => e.nomina))]));
   };
   /** Elegir la hora la aplica al momento (a los marcados o, si no hay marcados, a todos): sin botón aparte. El turno extra necesita entrada y salida; la extensión, el fin de turno y la hora hasta la que se queda */
-  const elegirHorario = (campo, valor) => {
+  const horarioEn = (actual, poner, objetivo) => (campo, valor) => {
     if (extension) {
       if (campo === 'entrada') {
         // Cambiar el fin de turno borra la hora hasta la que se quedan (sus opciones dependen de él)
-        setBulk({ entrada: valor, salida: '' });
-        if (valor) aplicarMasivo({ horaEntrada: valor, horaSalida: '' });
+        poner({ entrada: valor, salida: '' });
+        if (valor) aplicarMasivo({ horaEntrada: valor, horaSalida: '' }, objetivo);
         return;
       }
-      setBulk(b => ({ ...b, salida: valor }));
+      poner(b => ({ ...b, salida: valor }));
       if (!valor) return;
-      if (bulk.entrada && !salidasPosteriores(bulk.entrada).includes(valor)) { toast.warning('Se quedan hasta una hora posterior al fin de su turno.'); return; }
-      aplicarMasivo({ horaSalida: valor });
+      if (actual.entrada && !salidasPosteriores(actual.entrada).includes(valor)) { toast.warning('Se quedan hasta una hora posterior al fin de su turno.'); return; }
+      aplicarMasivo({ horaSalida: valor }, objetivo);
       return;
     }
-    const sig = { ...bulk, [campo]: valor };
-    setBulk(sig);
+    const sig = { ...actual, [campo]: valor };
+    poner(sig);
     if (!sig.entrada || !sig.salida) return;
     if (sig.entrada === sig.salida) { toast.warning('La entrada y la salida no pueden ser iguales.'); return; }
-    aplicarMasivo({ horaEntrada: sig.entrada, horaSalida: sig.salida });
+    aplicarMasivo({ horaEntrada: sig.entrada, horaSalida: sig.salida }, objetivo);
   };
+  const elegirHorario = horarioEn(bulk, setBulk, null); // los selectores de arriba: a todos
+  const elegirHorarioSeleccion = horarioEn(bulkSel, setBulkSel, seleccion); // la barra de seleccionados: solo a los marcados
 
   /** Cambiar el tipo reinicia horarios y transporte de los empleados ya agregados (empiezan distinto): se pide confirmar */
   const cambiarTipo = async (nuevo) => {
@@ -380,7 +382,7 @@ export default function EditorTE() {
 
   const enviarClick = async () => {
     setIntentoEnvio(true);
-    if (errores.length) { setPanelAbierto(true); irA(pendientes[0]?.campo); return; } // el panel fijo de abajo dice qué falta y lleva a cada campo
+    if (errores.length) { irA(pendientes[0]?.campo); return; } // el panel fijo de abajo dice qué falta y lleva a cada campo
     const estatus = estatusAlEnviar({ esAut1DeLaArea, areaParticipa: area?.participaTE !== false, esAut2 });
     const ok = await confirmar({
       titulo: esDevuelta ? 'Reenviar la solicitud' : 'Enviar la solicitud',
@@ -517,7 +519,7 @@ export default function EditorTE() {
 
           {empleados.length > 0 && (
             <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface-secondary)] p-4" role="group" aria-label="Aplicar a todos o a los seleccionados">
-              <span className="w-full text-xs font-medium text-[var(--text-secondary)]">Aplicar a {seleccion.size ? `los ${seleccion.size} seleccionados` : 'todos'} (al elegir la hora se aplica solo):</span>
+              <span className="w-full text-xs font-medium text-[var(--text-secondary)]">Aplicar a TODOS los empleados (al elegir la hora se aplica sola):</span>
               <Selector aria-label={extension ? 'Fin de turno para aplicar' : 'Entrada para aplicar'} value={bulk.entrada} onChange={e => elegirHorario('entrada', e.target.value)} className="!w-auto">
                 <option value="">{extension ? 'Termina su turno…' : 'Entrada…'}</option>{(extension ? HORAS_SALIDA_TE : HORAS_ENTRADA_TE).map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
               </Selector>
@@ -529,7 +531,6 @@ export default function EditorTE() {
               <Boton tamano="sm" onClick={() => aplicarMasivo({ alimentos: false })}>Sin alimentos</Boton>
               <Boton tamano="sm" onClick={() => aplicarMasivo({ transporteLlegada: !extension, transporteSalida: true })}>Con transporte</Boton>
               <Boton tamano="sm" onClick={() => aplicarMasivo({ transporteLlegada: false, transporteSalida: false })}>Sin transporte</Boton>
-              {seleccion.size > 0 && <Boton tamano="sm" variante="fantasma" onClick={() => setSeleccion(new Set())}>Quitar selección</Boton>}
               <Ayuda clave="solicitar.aplicar" className="w-full" />
             </div>
           )}
@@ -549,6 +550,25 @@ export default function EditorTE() {
             ) : (
               <div className="mb-4 flex items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] px-5 py-3 text-sm font-medium text-[var(--text-main)]"><Route className="h-4 w-4 text-[var(--text-muted)]" aria-hidden="true" />{textoRutas(infoRutas.desglose)}</div>
             )
+          )}
+
+          {seleccion.size > 0 && (
+            <div id="barra-seleccionados" role="group" aria-label="Acciones para los empleados seleccionados"
+              className="sticky top-2 z-30 mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-3 shadow-md">
+              <span className="text-sm font-semibold text-[var(--text-main)]">{seleccion.size} {seleccion.size === 1 ? 'seleccionado' : 'seleccionados'}:</span>
+              {opcionesMotivo.length > 1 && (
+                <Selector aria-label="Asignar motivo a los seleccionados" value="" onChange={e => { if (e.target.value !== '') asignarMotivo(Number(e.target.value), 'seleccionados'); }} className="!w-auto max-w-72">
+                  <option value="">Asignar motivo…</option>{opcionesMotivo.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                </Selector>
+              )}
+              <Selector aria-label={extension ? 'Fin de turno de los seleccionados' : 'Entrada de los seleccionados'} value={bulkSel.entrada} onChange={e => elegirHorarioSeleccion('entrada', e.target.value)} className="!w-auto">
+                <option value="">{extension ? 'Cambiar horario: termina su turno…' : 'Cambiar horario: entrada…'}</option>{(extension ? HORAS_SALIDA_TE : HORAS_ENTRADA_TE).map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
+              </Selector>
+              <Selector aria-label={extension ? 'Hora hasta la que se quedan los seleccionados' : 'Salida de los seleccionados'} value={bulkSel.salida} onChange={e => elegirHorarioSeleccion('salida', e.target.value)} className="!w-auto">
+                <option value="">{extension ? 'se quedan hasta…' : 'salida…'}</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
+              </Selector>
+              <Boton tamano="sm" variante="fantasma" onClick={() => { setSeleccion(new Set()); setBulkSel({ entrada: '', salida: '' }); }}>Quitar selección</Boton>
+            </div>
           )}
 
           {empleados.length === 0 ? (
@@ -574,7 +594,7 @@ export default function EditorTE() {
               {empleados.map((e, i) => (
                 <FilaEmpleadoTE key={e.nomina} fechaTE={fechaTE} tour={i === 0 ? 'solicitar-empleado-fila' : undefined} e={e} tipo={tipo} opcionesMotivo={opcionesMotivo} rutas={rutas} comunidades={comunidades} puntos={puntos} seleccionado={seleccion.has(e.nomina)}
                   telefono={telefonoDe(e.nomina)} puedeTelefono={puedeTelefono} onTelefono={cambiarTelefono}
-                  aviso={avisoDe(e.nomina)} error={errorDe(e.nomina)} onSeleccionar={alternarSeleccion} onCambio={cambiar} onQuitar={quitar} />
+                  nota={notaDe(e.nomina)} error={errorDe(e.nomina)} onSeleccionar={alternarSeleccion} onCambio={cambiar} onQuitar={quitar} />
               ))}
               <Ayuda clave="solicitar.ruta" />
             </div>
@@ -592,21 +612,12 @@ export default function EditorTE() {
         )}
         {pendientes.length > 0 && (
           <div id="faltan-te" role="region" aria-label="Lo que falta para enviar" className="mb-3 rounded-lg border border-[var(--status-error-border)] bg-[var(--status-error-bg)] px-3 py-2 text-[var(--status-error-text)]">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="flex flex-wrap items-center gap-2 text-sm font-semibold"><EtiquetaEnvio tipo="obligatorio" />{textoFaltan(pendientes.length)}</p>
-              {pendientes.length > 2 && (
-                <button type="button" onClick={() => setPanelAbierto(v => !v)} aria-expanded={panelVisible} className="cursor-pointer text-xs font-medium underline underline-offset-2 hover:opacity-80">
-                  {panelVisible ? 'Ocultar la lista' : 'Ver la lista'}
-                </button>
-              )}
-            </div>
-            {panelVisible && (
-              <ul className="mt-1.5 max-h-24 space-y-0.5 overflow-auto text-xs">
-                {pendientes.map((x, i) => (
-                  <li key={i}><button type="button" onClick={() => irA(x.campo)} className="cursor-pointer text-left underline underline-offset-2 hover:opacity-80">{x.texto}</button></li>
-                ))}
-              </ul>
-            )}
+            <p className="flex flex-wrap items-center gap-2 text-sm font-semibold"><EtiquetaEnvio tipo="obligatorio" />{textoFaltan(pendientes.length)}</p>
+            <ul className="mt-1.5 max-h-28 space-y-0.5 overflow-auto text-xs">
+              {pendientes.map((x, i) => (
+                <li key={i}><button type="button" onClick={() => irA(x.campo)} className="cursor-pointer text-left underline underline-offset-2 hover:opacity-80">{x.texto}</button></li>
+              ))}
+            </ul>
           </div>
         )}
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

@@ -41,7 +41,7 @@ describe('resumirPendientes', () => {
   it('junta los problemas por empleado del mismo tipo y deja los demás con su mensaje', () => {
     const lista = [1, 2, 3, 4].map(n => emp(String(n), { horaEntrada: '', horaSalida: '' }));
     const r = resumirPendientes(problemasDeEnvio({ ...base, comentario: '', empleados: lista }));
-    expect(r.map(x => x.texto)).toEqual([expect.stringMatching(/comentario/i), 'Falta completar o corregir el horario de 4 empleados']);
+    expect(r.map(x => x.texto)).toEqual([expect.stringMatching(/comentario/i), 'Horario de 4 empleados']);
     expect(r[1]).toMatchObject({ campo: 'fila-1', cantidad: 4 });
   });
   it('un solo empleado conserva su mensaje con el nombre', () => {
@@ -51,7 +51,7 @@ describe('resumirPendientes', () => {
   it('rutas y horarios van en renglones distintos; los avisos no cuentan', () => {
     const lista = [emp('1', { horaSalida: '' }), emp('2', { rutaId: '' }), emp('3', { rutaId: '' })];
     const r = resumirPendientes(problemasDeEnvio({ ...base, empleados: lista, ocupados: new Map([['1', { folio: 'TE-2099-0001', estatus: 'autorizada', horaEntrada: '17:00', horaSalida: '19:00' }]]) }));
-    expect(r.map(x => x.texto)).toEqual(['EMPLEADO 1: falta el horario (con 0 horas no se puede enviar).', 'Falta completar la ruta de 2 empleados']);
+    expect(r.map(x => x.texto)).toEqual(['EMPLEADO 1: falta el horario (con 0 horas no se puede enviar).', 'Ruta de 2 empleados']);
   });
   it('sin problemas no hay nada pendiente', () => { expect(resumirPendientes(problemasDeEnvio(base))).toEqual([]); });
 });
@@ -74,31 +74,61 @@ describe('seTraslapan', () => {
   });
 });
 
-describe('otro tiempo extra el mismo día', () => {
-  const otro = (extra = {}) => new Map([['1', { folio: 'TE-2099-0012', estatus: 'autorizada', horaEntrada: '14:00', horaSalida: '18:00', ...extra }]]);
-  it('si los horarios se encima, es un ERROR (obligatorio para enviar), con el folio y el horario del otro', () => {
+describe('otro tiempo extra del día anterior, el mismo día o el siguiente', () => {
+  const otro = (extra = {}) => new Map([['1', { folio: 'TE-2099-0012', estatus: 'autorizada', horaEntrada: '14:00', horaSalida: '18:00', desfase: 0, ...extra }]]);
+  it('si los horarios se encima, es un ERROR (obligatorio para enviar) en la fila, con folio y horario del otro y qué hacer', () => {
     const p = problemasDeEnvio({ ...base, ocupados: otro() });
     const e = p.find(x => x.nivel === 'error');
     expect(e).toMatchObject({ nomina: '1', grupo: 'traslape', campo: 'fila-1' });
-    expect(e.mensaje).toMatch(/TE-2099-0012/);
-    expect(e.mensaje).toMatch(/2:00 p\. ?m\./);
-    expect(p.some(x => x.nivel === 'aviso')).toBe(false);
+    expect(e.mensaje).toMatch(/^Ya tiene TE-2099-0012 de 2:00 p. ?m. a 6:00 p. ?m. ese día. Cambia el horario o quítalo.$/);
+    expect(e.mensajePanel).toMatch(/^EMPLEADO 1: ya tiene TE-2099-0012/);
+    expect(p.some(x => x.nivel === 'nota')).toBe(false);
   });
-  it('si no se encima, es solo un AVISO informativo con el folio y el horario del otro', () => {
+  it('si no se encima, es solo una NOTA gris, sin etiqueta de aviso: «También tiene…»', () => {
     const p = problemasDeEnvio({ ...base, ocupados: otro({ horaEntrada: '17:00', horaSalida: '19:00' }) });
     expect(p.filter(x => x.nivel === 'error')).toEqual([]);
-    const a = p.find(x => x.nivel === 'aviso');
-    expect(a.mensaje).toMatch(/TE-2099-0012/);
-    expect(a.mensaje).toMatch(/puedes enviar igual/);
+    expect(p.some(x => x.nivel === 'aviso')).toBe(false);
+    const n = p.find(x => x.nivel === 'nota');
+    expect(n.mensaje).toMatch(/^También tiene TE-2099-0012 de 5:00 p. ?m. a 7:00 p. ?m..$/);
   });
-  it('con varias solicitudes del mismo día, basta que una se encime', () => {
-    const bloques = [{ folio: 'TE-2099-0001', horaEntrada: '17:00', horaSalida: '19:00' }, { folio: 'TE-2099-0002', horaEntrada: '9:00', horaSalida: '12:00' }];
+  it('lo que cruza la medianoche: la del día anterior que termina de madrugada se encima con la de las 12 a las 8', () => {
+    const ayer = otro({ horaEntrada: '19:00', horaSalida: '7:00', desfase: -1 }); // ayer 7 p. m. → hoy 7 a. m.
+    const madrugada = problemasDeEnvio({ ...base, empleados: [emp('1', { horaEntrada: '0:00', horaSalida: '8:00' })], ocupados: ayer });
+    expect(madrugada.find(x => x.nivel === 'error').mensaje).toMatch(/ el día anterior./);
+    const tarde = problemasDeEnvio({ ...base, empleados: [emp('1', { horaEntrada: '7:00', horaSalida: '16:00' })], ocupados: ayer });
+    expect(tarde.filter(x => x.nivel === 'error')).toEqual([]);
+    expect(tarde.find(x => x.nivel === 'nota').mensaje).toMatch(/(el día anterior)/);
+  });
+  it('la del día siguiente que empieza cuando la mía (que cruza la medianoche) aún no termina', () => {
+    const manana = otro({ horaEntrada: '0:00', horaSalida: '6:00', desfase: 1 });
+    const mia = problemasDeEnvio({ ...base, empleados: [emp('1', { horaEntrada: '19:00', horaSalida: '7:00' })], ocupados: manana });
+    expect(mia.find(x => x.nivel === 'error').mensaje).toMatch(/ el día siguiente./);
+    const corta = problemasDeEnvio({ ...base, empleados: [emp('1', { horaEntrada: '16:00', horaSalida: '0:00' })], ocupados: manana });
+    expect(corta.filter(x => x.nivel === 'error')).toEqual([]);
+  });
+  it('con varias solicitudes, el choque es un error y las demás quedan como nota', () => {
+    const bloques = [{ folio: 'TE-2099-0001', horaEntrada: '17:00', horaSalida: '19:00', desfase: 0 }, { folio: 'TE-2099-0002', horaEntrada: '9:00', horaSalida: '12:00', desfase: 0 }];
     const p = problemasDeEnvio({ ...base, ocupados: new Map([['1', { ...bloques[0], bloques }]]) });
     expect(p.find(x => x.nivel === 'error').mensaje).toMatch(/TE-2099-0002/);
+    expect(p.find(x => x.nivel === 'nota').mensaje).toMatch(/TE-2099-0001/);
   });
-  it('sin horario guardado en el otro, solo avisa (no se puede comparar)', () => {
+  it('un borrador propio sin enviar no bloquea: solo se anota', () => {
+    const p = problemasDeEnvio({ ...base, ocupados: otro({ estatus: 'borrador', folio: null }) });
+    expect(p.filter(x => x.nivel === 'error')).toEqual([]);
+    expect(p.find(x => x.nivel === 'nota').mensaje).toMatch(/borrador/);
+  });
+  it('sin horario guardado en el otro, solo se anota (no se puede comparar)', () => {
     const p = problemasDeEnvio({ ...base, ocupados: new Map([['1', { folio: 'TE-2099-0003', estatus: 'autorizada' }]]) });
     expect(p.filter(x => x.nivel === 'error')).toEqual([]);
-    expect(p.find(x => x.nivel === 'aviso').mensaje).toMatch(/TE-2099-0003/);
+    expect(p.find(x => x.nivel === 'nota').mensaje).toBe('También tiene TE-2099-0003.');
+  });
+});
+
+describe('seTraslapan entre días', () => {
+  it('con el desfase de días reales', () => {
+    expect(seTraslapan('0:00', '8:00', '19:00', '7:00', -1)).toBe(true);
+    expect(seTraslapan('7:00', '16:00', '19:00', '7:00', -1)).toBe(false);
+    expect(seTraslapan('19:00', '7:00', '0:00', '6:00', 1)).toBe(true);
+    expect(seTraslapan('16:00', '0:00', '0:00', '6:00', 1)).toBe(false);
   });
 });
