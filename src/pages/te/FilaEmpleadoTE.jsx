@@ -22,7 +22,7 @@ import { HORAS_ENTRADA_TE, HORAS_SALIDA_TE, TIPOS_TE, calcularHoras, salidasPost
 // Selectores de la fila: 44 px en celular y 36 px en escritorio, donde la fila es compacta
 const SEL = 'md:!min-h-9 !py-1.5';
 const etiqueta = 'mb-1 block text-xs font-medium text-[var(--text-muted)] lg:hidden';
-export const COLUMNAS_FILA = 'lg:grid lg:grid-cols-[2rem_minmax(0,2.2fr)_7rem_7rem_4rem_6rem_8rem_2.5rem] lg:items-center lg:gap-3';
+export const COLUMNAS_FILA = 'lg:grid lg:grid-cols-[2rem_minmax(0,2fr)_8.25rem_8.25rem_4rem_6rem_8rem_2.5rem] lg:items-center lg:gap-3';
 
 export default function FilaEmpleadoTE({ tour, e, fechaTE = '', tipo = TIPOS_TE.TURNO_EXTRA, opcionesMotivo = [], rutas, comunidades, puntos, seleccionado, aviso, error, telefono = '', puedeTelefono = false, onTelefono, onSeleccionar, onCambio, onQuitar }) {
   const extension = tipo === TIPOS_TE.EXTENSION;

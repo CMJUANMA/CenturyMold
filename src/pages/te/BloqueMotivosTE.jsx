@@ -71,7 +71,7 @@ export default function BloqueMotivosTE({ motivos, catalogo, onChange, problemas
                       onChange={e => cambiar(i, { comentario: e.target.value })} placeholder="Escribe el motivo" />
                   </Campo>
                 )}
-                <Campo etiqueta="Detalle (opcional)">
+                <Campo etiqueta="Detalle del motivo (opcional)" ayuda="Una frase corta de este motivo; el comentario general va abajo.">
                   <Entrada id={`te-motivo-detalle-${i}`} maxLength={MAX_DETALLE_MOTIVO} value={m.detalle}
                     onChange={e => cambiar(i, { detalle: e.target.value })} placeholder="Ej. apoyo a inventario, movimiento de máquina Krauss Maffei 750" />
                 </Campo>

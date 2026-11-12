@@ -372,7 +372,7 @@ export default function EditorTE() {
     setTrabajo({ texto: 'Guardando borrador', hechos: 0, total: 1 });
     try {
       await guardar();
-      toast.success('Borrador guardado. Puedes salir y continuar después.', 10000, { accion: { texto: 'Ir a Mis solicitudes', onClick: () => navigate('/tiempo-extra/mis-solicitudes') } });
+      toast.success('Borrador guardado. Puedes salir y continuar después; el folio se asigna al enviarlo.', 10000, { accion: { texto: 'Ir a Mis solicitudes', onClick: () => navigate('/tiempo-extra/mis-solicitudes') } });
       if (!idParam) navigate(`/tiempo-extra/${id}/editar`, { replace: true });
     } catch (err) { console.error(err); toast.error('No se pudo guardar el borrador. Intenta de nuevo o avisa a Sistemas.', 10000, err.message); }
     finally { setTrabajo(null); }
@@ -499,7 +499,7 @@ export default function EditorTE() {
           </fieldset>
 
           <div className="mt-6">
-            <Campo etiqueta="Comentario" obligatorio ayuda={`Al menos ${MIN_COMENTARIO_TE} caracteres (llevas ${comentario.trim().length}).`}>
+            <Campo etiqueta="Comentario general" obligatorio ayuda={`Explica para qué se necesita; lo leen quienes autorizan. Al menos ${MIN_COMENTARIO_TE} caracteres (llevas ${comentario.trim().length}).`}>
               <AreaTexto id="te-comentario" rows={3} value={comentario} onChange={e => setComentario(e.target.value)} placeholder="¿Por qué se necesita el tiempo extra?" />
             </Campo>
             <Ayuda clave="solicitar.comentario" />

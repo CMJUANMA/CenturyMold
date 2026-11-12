@@ -18,6 +18,7 @@ import { contarMisSolicitudes, proximosAutorizados, semanaPorArea, ultimasDelAre
 import { formatoFecha } from '../utils/asignaciones';
 import AyudaPantalla from '../components/AyudaPantalla';
 import BadgeEstatus from '../components/BadgeEstatus';
+import { empleadosParaCapturar } from '../utils/empleadosCaptura';
 import Aviso from '../components/ui/Aviso';
 import Boton from '../components/ui/Boton';
 import EncabezadoPagina from '../components/ui/EncabezadoPagina';
@@ -64,7 +65,8 @@ export default function InicioRol() {
   const [ahora] = useState(() => new Date());
   const mias = contarMisSolicitudes(resumen.propias, ahora);
   const proximos = proximosAutorizados(resumen.propias, ahora);
-  const empleadosDeMiArea = empleadosElegibles.filter(e => misAreas.includes(e.areaId)).length;
+  // Igual que la lista de «Agregar empleados»: sin quien está dentro (no se pide tiempo extra a sí mismo)
+  const empleadosDeMiArea = misAreas.reduce((n, a) => n + empleadosParaCapturar(empleadosElegibles, a, { nominaPropia: usuario?.nomina }).length, 0);
   const empleadosDePlanta = empleadosElegibles.length;
   const nombreArea = (id) => nombres.get(id) ?? id;
 
@@ -106,7 +108,7 @@ export default function InicioRol() {
             {misAreas.length === 1 ? `Mi área · ${nombreArea(misAreas[0])}` : `Mis áreas · ${misAreas.map(nombreArea).join(', ')}`}
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <Indicador etiqueta="Personal de mi área" valor={empleadosDeMiArea} to={rutaListaPersonal(misAreas.length === 1 ? misAreas[0] : '')} verMas="Ver lista" cargando={cargandoEmp} icono={Users} ayuda="elegibles para tiempo extra en tu área" />
+            <Indicador etiqueta="Personal de mi área" valor={empleadosDeMiArea} to={rutaListaPersonal(misAreas.length === 1 ? misAreas[0] : '')} verMas="Ver lista" cargando={cargandoEmp} icono={Users} ayuda="a quienes puedes pedirles tiempo extra en tu área" />
             <Indicador etiqueta="En borrador" valor={mias.borrador} to={rutaMisSolicitudes('borrador')} ayuda="Aún no las envías" />
             <Indicador etiqueta="En autorización" valor={mias.enAutorizacion} to={rutaMisSolicitudes('autorizacion')} icono={Clock} ayuda="Esperando firmas" />
             <Indicador etiqueta="Devueltas" valor={mias.devueltas} to={rutaMisSolicitudes('devuelta')} atencion={mias.devueltas > 0} icono={AlertTriangle}

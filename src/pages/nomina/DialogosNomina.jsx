@@ -88,8 +88,8 @@ export function ModalAgregarEmpleado({ area, nombresAreas, empleados, motivos, n
                 {aceptaOtraArea ? `Se agregará a ${area.nombre} aunque pertenece a ${areaDe(elegido)}.` : `¿Agregarlo a ${area.nombre}?`}
               </Aviso>
             )}
-            <button type="button" onClick={() => { setManual(true); setElegido(null); }} className="cursor-pointer text-xs font-medium text-[var(--accent-text)] underline">
-              No aparece en el padrón: capturar nómina y nombre a mano
+            <button type="button" onClick={() => { setManual(true); setElegido(null); }} className="cursor-pointer text-xs font-medium text-[var(--text-secondary)] underline underline-offset-2 hover:text-[var(--text-main)]">
+              ¿No está en la lista? Capturar nómina y nombre a mano
             </button>
           </div>
         ) : (

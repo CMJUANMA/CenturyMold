@@ -109,7 +109,7 @@ export default function RecepcionTE() {
   const recibirFecha = async ({ fecha, items }) => {
     const conTransporte = items.filter(t => (t.resumen?.totalTransporte ?? 0) > 0).length;
     const ok = await confirmar({
-      titulo: `Confirmar ${items.length} ${items.length === 1 ? 'solicitud' : 'solicitudes'} del ${fechaLarga(fecha)}`,
+      titulo: `Confirmar ${items.length} ${items.length === 1 ? 'solicitud' : 'solicitudes'} ${fecha === 'todas' ? 'de todas las fechas' : `del ${fechaLarga(fecha)}`}`,
       mensaje: `${suma(items, 'totalEmpleados')} empleados · ${suma(items, 'totalHoras')} horas · ${suma(items, 'totalTransporte')} con transporte (${conTransporte} ${conTransporte === 1 ? 'solicitud genera' : 'solicitudes generan'} transporte).\nCada una se confirma por separado y se crea su solicitud de transporte.`,
       textoConfirmar: `Confirmar ${items.length}`,
     });
@@ -117,7 +117,7 @@ export default function RecepcionTE() {
     setTrabajando(fecha); ocupadoRef.current = true;
     const r = await recibirVarias({ ids: items.map(t => t.id), usuario });
     const folio = (id) => items.find(t => t.id === id)?.folio ?? id;
-    setResultado({ ok: r.ok.map(x => ({ folio: folio(x.id), fecha, pasajeros: x.pasajeros, fechas: x.fechas })), fallidas: r.fallidas.map(f => ({ folio: folio(f.id), motivo: f.motivo })) });
+    setResultado({ ok: r.ok.map(x => ({ folio: folio(x.id), fecha: items.find(t => t.id === x.id)?.fechaTE ?? fecha, pasajeros: x.pasajeros, fechas: x.fechas })), fallidas: r.fallidas.map(f => ({ folio: folio(f.id), motivo: f.motivo })) });
     setTrabajando(null); setTimeout(() => { ocupadoRef.current = false; }, 1500);
   };
 
@@ -202,6 +202,14 @@ export default function RecepcionTE() {
         </section>
       )}
 
+      {vigentes.length > 1 && (
+        <div className="flex justify-end">
+          <Boton id="btn-confirmar-todas-las-fechas" icono={CheckCircle2} estado={trabajando === 'todas' ? 'cargando' : undefined} disabled={!!trabajando}
+            onClick={() => recibirFecha({ fecha: 'todas', items: vigentes.flatMap(v => v.items) })}>
+            Confirmar todas las fechas ({vigentes.reduce((n, v) => n + v.items.length, 0)})
+          </Boton>
+        </div>
+      )}
       {vigentes.length > 0 && <Ayuda clave="recepcion.fecha" className="-mt-4" />}
       {vigentes.map(({ fecha, items }, indice) => (
         <section key={fecha} aria-label={`Fecha ${fechaLarga(fecha)}`} className="space-y-4">

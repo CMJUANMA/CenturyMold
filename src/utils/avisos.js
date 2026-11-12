@@ -70,8 +70,9 @@ export function avisoAutorizacion({ nivel, folio, destinatarios = [], opciones }
 
 /** Después de autorizar varias a la vez */
 export function avisoAutorizacionVarias({ nivel, cantidad, destinatarios = [], opciones }) {
-  if (nivel === 1) return aviso('exito', AVISOS.titulos.autorizada, AVISOS.autorizadasPasan({ cantidad, lista: AVISOS.unir(nombresDe(destinatarios, opciones)) }));
-  return aviso('exito', AVISOS.titulos.autorizada, AVISOS.listasEnRH({ cantidad }));
+  const titulo = cantidad === 1 ? AVISOS.titulos.autorizada : AVISOS.titulos.autorizadas;
+  if (nivel === 1) return aviso('exito', titulo, AVISOS.autorizadasPasan({ cantidad, lista: AVISOS.unir(nombresDe(destinatarios, opciones)) }));
+  return aviso('exito', titulo, AVISOS.listasEnRH({ cantidad }));
 }
 
 /** Después de DEVOLVER: hay que avisarle a quien la solicitó. `solicitante` ya viene en formato de nombre de pila */

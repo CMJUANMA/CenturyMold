@@ -343,7 +343,7 @@ export default function RevisarAreaNomina() {
           <span className="text-[var(--text-secondary)]"><b className="font-medium text-[var(--text-main)]">{totales.empleados}</b> empleados</span>
           <span className="text-[var(--text-secondary)]"><b className="font-medium text-[var(--text-main)]">{totales.horas}</b> h en total</span>
           {busqueda && <span className="text-xs text-[var(--text-muted)]">Mostrando {visibles.length} de {filas.length}</span>}
-          {sinGuardar > 0 && <span className="font-medium text-[var(--status-info-text)]" id="texto-sin-guardar">{sinGuardar} {sinGuardar === 1 ? 'cambio' : 'cambios'} sin guardar</span>}
+          {sinGuardar > 0 && <span className="font-medium text-[var(--status-info-text)]" id="texto-sin-guardar">{sinGuardar} {sinGuardar === 1 ? 'cambio' : 'cambios'} sin guardar: guárdalos (te pedirá el motivo del ajuste) para poder firmar o descargar</span>}
         </div>
         <div className="flex flex-wrap gap-2">
           {sinGuardar > 0 && <Boton icono={X} onClick={descartar} disabled={trabajando} id="btn-descartar-cambios">Descartar</Boton>}

@@ -103,6 +103,7 @@ export default function ReportesNomina() {
           {modo === 'semana' && semana.clave !== ultimaSemanaCompleta(hoy).clave && <Boton tamano="sm" variante="fantasma" onClick={() => setSemana(ultimaSemanaCompleta(hoy))}>Última semana completa</Boton>}
         </div>
         {enCurso && <p className="text-xs text-[var(--status-warning-text)]">Este periodo aún no termina: lo autorizado todavía puede cambiar.</p>}
+        {modo === 'semana' && semana.clave === ultimaSemanaCompleta(hoy).clave && <p className="text-xs text-[var(--text-secondary)]">Es la última semana completa. Para la semana en curso usa la flecha «Semana siguiente».</p>}
       </section>
 
       {error && (
@@ -119,7 +120,7 @@ export default function ReportesNomina() {
       {pendientes.total > 0 && (
         <Aviso tono="aviso" titulo={`Hay ${pendientes.total} ${pendientes.total === 1 ? 'solicitud' : 'solicitudes'} de este periodo sin autorizar`}
           accion={<Boton tamano="sm" to={RUTAS.teConsulta}>Verlas en Tiempo extra</Boton>}>
-          No entran en el formato mientras Aut. 2 no las autorice: {pendientes.porArea.map(g => {
+          No entran en el formato mientras Aut. 2 no las autorice. Puedes firmar la semana sin ellas. {pendientes.porArea.map(g => {
             const partes = [g.pendientes > 0 && `${g.pendientes} pendiente${g.pendientes === 1 ? '' : 's'}`, g.devueltas > 0 && `${g.devueltas} devuelta${g.devueltas === 1 ? '' : 's'}`].filter(Boolean);
             return `${g.nombre} (${partes.join(', ')})`;
           }).join(' · ')}.
