@@ -3,13 +3,15 @@
 // Uso: node scripts/manuales/generar.mjs [solicitante …]   (sin rol: todos los que tienen contenido en scripts/manuales/contenido/)
 import { chromium } from 'playwright';
 import { PDFDocument, PDFName, PDFDict, PDFArray, PDFString, PDFHexString, PDFRef } from 'pdf-lib';
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 export const VERSION = '1.0';
 export const URL_PORTAL = 'https://centurymold-qro.web.app';
 const SALIDA = 'docs/manuales';
 const FUENTES = `${SALIDA}/fuentes`;
+// La sección «Ayuda» de la aplicación descarga los PDF de aquí (se publican con el hosting)
+const PUBLICO = 'public/manuales';
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const hoy = new Date();
@@ -216,6 +218,8 @@ export async function generarManual(m, browser) {
   salida.setAuthor('Century Mold');
   writeFileSync(`${SALIDA}/manual-${m.archivo}.pdf`, await salida.save());
   const total = (await PDFDocument.load(cuerpoPdf)).getPageCount();
+  mkdirSync(PUBLICO, { recursive: true });
+  for (const f of [`manual-${m.archivo}.pdf`, `guia-rapida-${m.archivo}.pdf`]) if (existsSync(`${SALIDA}/${f}`)) copyFileSync(`${SALIDA}/${f}`, `${PUBLICO}/${f}`);
   return { paginasCuerpo: total, paginas };
 }
 

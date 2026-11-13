@@ -108,6 +108,7 @@ export function sugiereRolRH(usuario, asignacionesVigentes) {
 export const RUTAS_PROTEGIDAS = [
   { id: 'inicio', ruta: RUTAS.inicio, puede: 'todos' },
   { id: 'miCuenta', ruta: RUTAS.miCuenta, puede: 'todos' },
+  { id: 'ayuda', ruta: RUTAS.ayuda, puede: 'todos' },
 
   { id: 'teNueva', ruta: RUTAS.teNueva, puede: 'solicitar' },
   { id: 'teEditar', ruta: RUTAS.teEditar, puede: 'solicitar' },
@@ -195,6 +196,7 @@ const rhONomina = (a) => a.esRH || a.esNomina;
 export const MATRIZ = [
   // ── Pantallas
   { grupo: 'Inicio y cuenta', tipo: 'pantalla', id: 'inicio', nombre: 'Inicio (RH y admin: indicadores; los demás: su panel por rol)', ruta: RUTAS.inicio, quien: por('todos'), menu: 'ambos' },
+  { grupo: 'Inicio y cuenta', tipo: 'pantalla', id: 'ayuda', nombre: 'Ayuda (el manual de cada rol que tienes y su guía rápida, con «Descargar PDF»)', ruta: RUTAS.ayuda, quien: por('todos'), menu: null, nota: 'Se entra por el pie del menú' },
   { grupo: 'Inicio y cuenta', tipo: 'pantalla', id: 'miCuenta', nombre: 'Mi cuenta (datos, ayudas, letra, tema, contraseña)', ruta: RUTAS.miCuenta, quien: por('todos'), menu: null, nota: 'Se entra por el pie del menú' },
 
   { grupo: 'Tiempo extra', tipo: 'pantalla', id: 'teNueva', nombre: 'Solicitar tiempo extra', ruta: RUTAS.teNueva, quien: por('solicitar'), menu: 'ambos' },

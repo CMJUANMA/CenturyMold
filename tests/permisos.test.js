@@ -14,25 +14,25 @@ const rutasDelMenu = (perfil) => menuDePerfil(perfil).filter(i => !i.section).ma
 
 // Lo que cada columna debe ver, escrito A MANO (no sale de la matriz): si alguien cambia un permiso, esta prueba lo avisa.
 const ESPERADO = {
-  admin: ['inicio', 'capturarArea', 'firmarNivel1', 'autorizarFueraDeTiempo', 'autorizarLoPropio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'formatoRutasPagina', 'transporteCatalogos',
+  admin: ['inicio', 'capturarArea', 'firmarNivel1', 'autorizarFueraDeTiempo', 'autorizarLoPropio', 'miCuenta', 'ayuda', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'formatoRutasPagina', 'transporteCatalogos',
     'padron', 'estructura', 'listaPersonal', 'accesos', 'accesosUsuarios', 'accesosAsignaciones', 'organigrama', 'herramientas', 'vistaPrevia', 'respaldoCompleto', 'guiaEstilo',
     'capturarSinTE', 'firmarNivel2', 'confirmarRH', 'devolverRH', 'cancelarRH', 'formatoRutas', 'exportarConsulta', 'descargarPadron', 'editarPadron', 'editarEstructura', 'estructuraInicial',
     'reportesNomina', 'nominaRevisar', 'ajustarNomina', 'reabrirNomina', 'descargarFormatoNomina',
     'nuevoUsuario', 'editarUsuario', 'darRolRH', 'darRolNomina', 'darRolAdmin', 'restablecerPassword', 'asignarAut1', 'asignarAut2', 'historialPersona', 'cargaAsignaciones', 'cambiarPassword'],
-  rh: ['inicio', 'miCuenta', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'formatoRutasPagina', 'transporteCatalogos',
+  rh: ['inicio', 'miCuenta', 'ayuda', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'formatoRutasPagina', 'transporteCatalogos',
     'padron', 'estructura', 'listaPersonal', 'accesos', 'accesosUsuarios', 'accesosAsignaciones', 'organigrama',
     'capturarSinTE', 'firmarNivel2', 'confirmarRH', 'devolverRH', 'cancelarRH', 'formatoRutas', 'exportarConsulta', 'descargarPadron', 'editarPadron', 'editarEstructura',
     'reportesNomina', 'nominaRevisar', 'ajustarNomina', 'reabrirNomina', 'descargarFormatoNomina',
     'nuevoUsuario', 'editarUsuario', 'darRolRH', 'darRolNomina', 'restablecerPassword', 'asignarAut1', 'historialPersona', 'cambiarPassword'],
   // Nóminas: ve (toda la planta, transporte, personal en solo lectura) y confirma lo que va al proveedor; no autoriza, edita ni administra
-  nomina: ['inicio', 'miCuenta', 'listaPersonal', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'formatoRutasPagina', 'padron', 'estructura',
+  nomina: ['inicio', 'miCuenta', 'ayuda', 'listaPersonal', 'teConsulta', 'teRecepcion', 'transporteSolicitudes', 'formatoRutasPagina', 'padron', 'estructura',
     'confirmarRH', 'formatoRutas', 'exportarConsulta', 'descargarPadron', 'reportesNomina', 'nominaRevisar', 'ajustarNomina', 'descargarFormatoNomina', 'cambiarPassword'],
-  aut2: ['inicio', 'miCuenta', 'listaPersonal', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'accesos', 'accesosUsuarios', 'accesosAsignaciones', 'organigrama',
+  aut2: ['inicio', 'miCuenta', 'ayuda', 'listaPersonal', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'teConsulta', 'accesos', 'accesosUsuarios', 'accesosAsignaciones', 'organigrama',
     'capturarSinTE', 'autorizarLoPropio', 'firmarNivel2', 'autorizarFueraDeTiempo', 'exportarConsulta', 'nuevoUsuario', 'editarUsuario', 'darRolRH', 'darRolNomina', 'restablecerPassword', 'asignarAut1',
     'historialPersona', 'cambiarPassword'],
-  aut1: ['inicio', 'miCuenta', 'listaPersonal', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'accesos', 'organigrama', 'capturarArea', 'firmarNivel1', 'cambiarPassword'],
-  solicitante: ['inicio', 'miCuenta', 'listaPersonal', 'teNueva', 'teMisSolicitudes', 'capturarArea', 'cambiarPassword'],
-  sinRol: ['inicio', 'miCuenta', 'cambiarPassword'],
+  aut1: ['inicio', 'miCuenta', 'ayuda', 'listaPersonal', 'teNueva', 'teMisSolicitudes', 'teAutorizar', 'accesos', 'organigrama', 'capturarArea', 'firmarNivel1', 'cambiarPassword'],
+  solicitante: ['inicio', 'miCuenta', 'ayuda', 'listaPersonal', 'teNueva', 'teMisSolicitudes', 'capturarArea', 'cambiarPassword'],
+  sinRol: ['inicio', 'miCuenta', 'ayuda', 'cambiarPassword'],
 };
 
 describe('matriz: lo que ve cada rol', () => {

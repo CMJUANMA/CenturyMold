@@ -35,6 +35,7 @@ import NuevaSolicitud from './pages/NuevaSolicitud';
 import MisSolicitudes from './pages/MisSolicitudes';
 import EditarSolicitud from './pages/EditarSolicitud';
 import MiCuenta from './pages/MiCuenta';
+import Ayuda from './pages/Ayuda';
 import CambiarPassword from './pages/CambiarPassword';
 // Las pantallas de RH se descargan solo cuando se visitan (no pesan en el bundle inicial)
 const RhSolicitudes = lazy(() => import('./pages/rh/RhSolicitudes'));
@@ -52,6 +53,7 @@ import { RecordatoriosProvider } from './context/RecordatoriosContext';
 const PANTALLAS = {
   inicio: <Home />,
   miCuenta: <MiCuenta />,
+  ayuda: <Ayuda />,
   teNueva: <EditorTE />,
   teEditar: <EditorTE />,
   teMisSolicitudes: <MisSolicitudesTE />,

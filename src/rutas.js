@@ -7,6 +7,7 @@ export const RUTAS = {
   login: '/login',
   cambiarPassword: '/cambiar-password',
   miCuenta: '/mi-cuenta',
+  ayuda: '/ayuda',
   herramientas: '/herramientas',
   guiaEstilo: '/herramientas/guia-de-estilo',
 

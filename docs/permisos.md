@@ -40,6 +40,7 @@ La tabla se **genera** desde `src/utils/permisos.js` (`npm run docs:permisos`); 
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | **Inicio y cuenta** ||||||||
 | Pantalla: Inicio (RH y admin: indicadores; los demás: su panel por rol) | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Pantalla: Ayuda (el manual de cada rol que tienes y su guía rápida, con «Descargar PDF») _(Se entra por el pie del menú)_ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Pantalla: Mi cuenta (datos, ayudas, letra, tema, contraseña) _(Se entra por el pie del menú)_ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Botón: Cambiar su propia contraseña y sus preferencias | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
 | **Tiempo extra** ||||||||

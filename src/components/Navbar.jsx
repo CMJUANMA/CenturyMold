@@ -9,7 +9,7 @@
  */
 import { useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { User, LogOut, Menu, X } from 'lucide-react';
+import { BookOpen, User, LogOut, Menu, X } from 'lucide-react';
 import { ICONOS, IconoInicio } from './iconosMenu';
 import { useBloqueoScroll } from '../hooks/useBloqueoScroll';
 import Logo from './Logo';
@@ -143,6 +143,10 @@ export default function Navbar() {
               <span className="block truncate text-sm font-medium text-[var(--text-main)]">{usuario?.nombre ?? 'Usuario'}</span>
               <span className="block truncate text-xs text-[var(--text-muted)]" title={descripcion}>{descripcion || 'Mi cuenta'}</span>
             </span>
+          </NavLink>
+          <NavLink to={RUTAS.ayuda} onClick={cerrarMenu} id="enlace-ayuda"
+            className={({ isActive }) => `flex min-h-11 items-center gap-2.5 rounded-md px-2 text-sm font-medium transition-colors duration-150 lg:min-h-10 ${isActive ? 'bg-[var(--bg-surface-hover)] text-[var(--text-main)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-main)]'}`}>
+            <BookOpen className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />Ayuda y manuales
           </NavLink>
           <button type="button" id="btn-cerrar-sesion" onClick={handleCerrarSesion} title={`Cerrar la sesión de ${usuario?.nombre ?? 'este usuario'}`}
             className="flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-md border border-[var(--border-color)] px-3 text-sm font-medium text-[var(--text-main)] transition-colors duration-150 hover:bg-[var(--bg-surface-hover)] lg:min-h-10">
