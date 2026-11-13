@@ -10,5 +10,5 @@ Con `npm run manuales -- --sin-capturas` solo se regeneran los PDF.
 
 - `manual-<rol>.pdf` · el manual (portada, índice, cuerpo) · `guia-rapida-<rol>.pdf` · una hoja para pegar junto a la computadora.
 - `capturas/<rol>/` · las capturas anotadas · `fuentes/` · el HTML de cada manual.
-- Roles hechos: **Solicitante**. Faltan: Autorizador 1, Autorizador 2, Recursos Humanos y Nóminas.
+- Roles hechos: **Solicitante**, **Autorizador 1**, **Autorizador 2**, **Recursos Humanos** y **Nóminas** (manual + guía rápida de una hoja cada uno). Los PDF se copian a `public/manuales/` y la pantalla Ayuda los ofrece según los roles de cada persona. Para regenerar: `npm run capturas:build`, emuladores + `node scripts/manuales/datos-demo.mjs`, `node scripts/manuales/capturas.mjs <rol>` y `npm run manuales -- <rol>`.
 - `node scripts/manuales/vista-previa.mjs docs/manuales/manual-<rol>.pdf` guarda una imagen de cada página en `.tmp/manuales-vista/` para revisarlas.

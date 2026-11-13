@@ -5,6 +5,10 @@ import { chromium } from 'playwright';
 import { pathToFileURL } from 'node:url';
 import { PASSWORD, USUARIOS } from './datos-demo-usuarios.mjs';
 import { solicitante, solicitanteCelular } from './roles/solicitante.mjs';
+import { autorizador1 } from './roles/autorizador-1.mjs';
+import { autorizador2 } from './roles/autorizador-2.mjs';
+import { rh } from './roles/rh.mjs';
+import { nominas } from './roles/nominas.mjs';
 
 export const BASE = process.env.BASE ?? 'http://localhost:4174';
 export const ESCRITORIO = { width: 1366, height: 820 };
@@ -28,7 +32,7 @@ export async function entrar(page, clave) {
 }
 export const ir = async (page, ruta, ms = 2000) => { await page.goto(BASE + ruta); await page.waitForTimeout(ms); };
 
-const roles = { solicitante, 'solicitante-celular': solicitanteCelular };
+const roles = { solicitante, 'solicitante-celular': solicitanteCelular, 'autorizador-1': autorizador1, 'autorizador-2': autorizador2, rh, nominas };
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const pedidos = process.argv.slice(2).filter(a => !a.startsWith('--'));
   for (const r of (pedidos.length ? pedidos : Object.keys(roles))) { console.log('Capturas de', r); await roles[r]({ abrir, entrar, ir, BASE, CELULAR }); }

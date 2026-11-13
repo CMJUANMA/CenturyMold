@@ -1,0 +1,82 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Manual de Autorizador 2</title><style>
+  :root { --rojo: #d61110; --texto: #111214; --suave: #4B5058; --borde: #D9DCE0; --fondo: #F6F7F9; }
+  * { box-sizing: border-box; }
+  html { font-family: "Segoe UI", Arial, Helvetica, sans-serif; color: var(--texto); font-size: 10pt; line-height: 1.4; }
+  body { margin: 0; }
+  h1, h2, h3 { line-height: 1.2; margin: 0; }
+  h2 { font-size: 17pt; color: var(--texto); border-bottom: 3px solid var(--rojo); padding-bottom: 4px; margin: 0 0 12px; break-after: avoid; }
+  h3 { font-size: 12pt; margin: 12px 0 5px; color: var(--rojo); break-after: avoid; }
+  section { margin: 0 0 14px; }
+  section.nueva-pagina { break-before: page; }
+  p { margin: 0 0 8px; }
+  ul.lista { margin: 4px 0 10px 18px; padding: 0; } ul.lista li { margin: 2px 0; }
+  .portada { height: 245mm; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 0 12mm; }
+  .portada img { width: 105mm; margin-bottom: 30mm; }
+  .portada .sub { font-size: 12pt; color: var(--suave); letter-spacing: .08em; text-transform: uppercase; }
+  .portada h1 { font-size: 28pt; margin: 6px 0 4px; }
+  .portada .rol { font-size: 24pt; font-weight: 700; color: var(--rojo); margin-bottom: 14mm; }
+  .portada .enlace { font-size: 13pt; margin-bottom: 4mm; }
+  .portada .meta { font-size: 11pt; color: var(--suave); }
+  .portada .quien { max-width: 120mm; margin-top: 14mm; font-size: 11pt; color: var(--suave); }
+  .indice h2 { margin-bottom: 14px; }
+  .indice ol { list-style: none; padding: 0; margin: 0; }
+  .indice li { display: flex; align-items: baseline; gap: 6px; padding: 5px 0; border-bottom: 1px dotted var(--borde); font-size: 11.5pt; }
+  .indice li a { color: var(--texto); text-decoration: none; }
+  .indice li .pag { margin-left: auto; font-weight: 700; color: var(--rojo); }
+  .indice li .num { color: var(--rojo); font-weight: 700; min-width: 20px; }
+  .bloque { break-inside: avoid; margin: 6px 0 10px; }
+  .bloque.largo { break-inside: auto; }
+  figure { margin: 0 0 8px; text-align: center; }
+  figure img { width: 100%; border: 1px solid var(--borde); border-radius: 4px; display: block; }
+  figure.chico img { width: 62%; margin: 0 auto; }
+  .lado { display: flex; gap: 12px; align-items: flex-start; }
+  .lado figure { flex: 0 0 58%; margin: 0; } .lado.chico figure { flex-basis: 46%; }
+  .lado > div { flex: 1; font-size: 9.6pt; line-height: 1.38; } .lado ol.pasos { margin-top: 0; } .lado ol.pasos li { padding-left: 28px; padding-bottom: 4px; }
+  .lado ol.pasos li::before { width: 20px; height: 20px; line-height: 20px; font-size: 9pt; }
+  .fila-celular { display: flex; gap: 12px; align-items: flex-start; }
+  .fila-celular figure { flex: 0 0 5.2cm; margin: 0; } .fila-celular figure img { width: 100%; }
+  ol.pasos { list-style: none; counter-reset: paso; margin: 6px 0 4px; padding: 0; }
+  ol.pasos li { counter-increment: paso; position: relative; padding: 0 0 5px 32px; min-height: 24px; }
+  ol.pasos li::before { content: counter(paso); position: absolute; left: 0; top: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--rojo); color: #fff; font-weight: 700; font-size: 10pt; text-align: center; line-height: 22px; }
+  .nota, .aviso { border-radius: 6px; padding: 8px 12px; margin: 8px 0 12px; border: 1px solid; break-inside: avoid; }
+  .nota { background: #E8F0F8; border-color: #C9DAEC; color: #1d4670; } .nota::before { content: "Consejo · "; font-weight: 700; }
+  .aviso { background: #FBF3E1; border-color: #EBDDB8; color: #6e4700; } .aviso::before { content: "Cuidado · "; font-weight: 700; }
+  table.estatus { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+  table.estatus th { text-align: left; background: var(--fondo); padding: 6px 8px; border: 1px solid var(--borde); }
+  table.estatus td { padding: 7px 8px; border: 1px solid var(--borde); vertical-align: top; }
+  table.estatus tr { break-inside: avoid; }
+  .pastilla { display: inline-block; padding: 2px 9px; border-radius: 999px; border: 1px solid; font-weight: 600; font-size: 9pt; white-space: nowrap; }
+  .pastilla.info { background: #E8F0F8; color: #2A5A8C; border-color: #C9DAEC; } .pastilla.warning { background: #FBF3E1; color: #8A5A00; border-color: #EBDDB8; }
+  .pastilla.success { background: #E8F3EC; color: #1F6B3A; border-color: #CBE3D3; } .pastilla.error { background: #FBEFED; color: #A3281F; border-color: #F0CFCB; }
+  .pastilla.gris { background: #EEF0F2; color: #4B5058; border-color: #D9DCE0; }
+  .pregunta { break-inside: avoid; margin: 0 0 10px; } .pregunta b.q { display: block; color: var(--texto); }
+</style></head><body><div class="indice"><h2>Índice</h2><ol><li><span class="num">1</span><a href="#antes">Antes de empezar</a><span class="pag">2</span></li><li><span class="num">2</span><a href="#primeros-pasos">Primeros pasos</a><span class="pag">2</span></li><li><span class="num">3</span><a href="#autorizar">Revisar y autorizar</a><span class="pag">3</span></li><li><span class="num">4</span><a href="#devolver">Devolver una solicitud</a><span class="pag">5</span></li><li><span class="num">5</span><a href="#fuera-de-tiempo">Autorizar lo que ya venció (fuera de tiempo)</a><span class="pag">5</span></li><li><span class="num">6</span><a href="#consultar">Consultar todas las solicitudes</a><span class="pag">7</span></li><li><span class="num">7</span><a href="#asignaciones">Dar permisos a otras personas</a><span class="pag">7</span></li><li><span class="num">8</span><a href="#preguntas">Preguntas frecuentes</a><span class="pag">8</span></li></ol></div><section id="antes" class="nueva-pagina"><h2>1. Antes de empezar</h2><p>El <b>Portal de procesos</b> es el sistema de Century Mold para pedir tiempo extra y transporte. Tú das la <b>segunda y última firma</b> de toda la planta y eres quien puede <b>autorizar lo que ya venció</b>.</p>
+<p>Así camina una solicitud:</p>
+<ul class="lista"><li><b>Quien la pide</b> la captura y la envía.</li><li><b>El jefe de su área</b> (Autorización 1) la autoriza o la devuelve.</li><li><b>Tú</b> (Autorización 2) das la segunda firma.</li><li><b>Recursos Humanos</b> la confirma y pide el transporte al proveedor.</li></ul>
+<div class="nota">El sistema <b>no manda correos ni mensajes</b>. Después de firmar o devolver, avisa tú a la persona que sigue.</div>
+<div class="aviso">No puedes autorizar lo que tú mismo capturaste en el nivel de revisión. Lo que tú capturas queda autorizado al enviarlo, con tu firma.</div></section>
+<section id="primeros-pasos" ><h2>2. Primeros pasos</h2><h3>Entrar al portal</h3>
+<p>Abre <b>https://centurymold-qro.web.app</b> en tu navegador (Chrome, Edge o el de tu celular).</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/01-entrar.png" alt=""></figure><div><ol class="pasos"><li>Escribe tu <b>número de nómina</b>.</li><li>Escribe tu <b>contraseña</b>. El ojito sirve para ver lo que escribes.</li><li>Toca <b>Iniciar sesión</b>.</li><li>Si no la recuerdas, toca <b>¿Olvidaste tu contraseña?</b>.</li></ol></div></div>
+<p>Las contraseñas solo se restablecen <b>en persona</b>, con Sistemas o Recursos Humanos y tu identificación.</p>
+<h3>Tu pantalla de inicio</h3>
+<div class="bloque lado "><figure class=""><img src="../capturas/autorizador-2/01-inicio.png" alt=""></figure><div><ol class="pasos"><li>En el menú, <b>Por autorizar</b> te dice cuántas solicitudes esperan tu firma.</li><li>El inicio resume lo pendiente y lo que viene en los próximos días.</li></ol></div></div>
+<div class="nota">En el pie del menú están <b>Ayuda y manuales</b> (este manual y su guía rápida en PDF) y <b>Cerrar sesión</b>.</div></section>
+<section id="autorizar" ><h2>3. Revisar y autorizar</h2><p>En <b>Por autorizar</b> ves las solicitudes que ya firmó el jefe de área y esperan tu firma, de todas las áreas. Puedes filtrar por área o por fecha.</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/autorizador-2/02-bandeja.png" alt=""></figure><div><ol class="pasos"><li>La pestaña <b>Por autorizar</b> muestra lo que espera tu firma.</li><li>Toca <b>Revisar</b> para abrir una solicitud.</li><li>Con <b>Todas</b> marcas todas las casillas.</li><li>Con <b>Autorizar seleccionadas</b> firmas varias juntas.</li></ol></div></div>
+<p>La solicitud abierta trae la fecha, los motivos, cada empleado con su horario y su ruta, quién firmó antes y el historial. Si usa más de una ruta, lee la justificación: cada ruta extra cuesta.</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/autorizador-2/03-detalle.png" alt=""></figure><div><ol class="pasos"><li>Escribe un <b>comentario</b> si quieres (al autorizar es opcional).</li><li>Toca <b>Devolver</b> si hay algo que corregir.</li><li>Toca <b>Autorizar</b>: la solicitud queda lista para Recursos Humanos.</li></ol></div></div>
+<div class="bloque lado chico"><figure class=""><img src="../capturas/autorizador-2/04-autorizada.png" alt=""></figure><div><ol class="pasos"><li>El aviso confirma la firma. Recursos Humanos ya la ve en <b>Por enviar al proveedor</b>.</li></ol></div></div></section>
+<section id="devolver" ><h2>4. Devolver una solicitud</h2><div class="bloque lado "><figure class=""><img src="../capturas/autorizador-2/05-devolver.png" alt=""></figure><div><ol class="pasos"><li>Abre la solicitud con <b>Revisar</b>.</li><li>Escribe qué debe corregir en <b>Comentario</b> (obligatorio, mínimo 10 letras).</li><li>Toca <b>Devolver</b>.</li></ol></div></div>
+<div class="nota">Al devolverla, regresa a quien la pidió y <b>vuelve a empezar desde el nivel 1</b> cuando la reenvíe. Avísale a esa persona: el portal no lo hace.</div></section>
+<section id="fuera-de-tiempo" ><h2>5. Autorizar lo que ya venció (fuera de tiempo)</h2><p>Una solicitud <b>vence</b> cuando pasa el día del tiempo extra sin terminar de autorizarse. Ya nadie la firma de la forma normal; <b>solo tú</b> (Autorización 2) puedes autorizarla fuera de tiempo, si de verdad se trabajó.</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/autorizador-2/06-vencidas.png" alt=""></figure><div><ol class="pasos"><li>Entra a la pestaña <b>Vencidas</b> y toca <b>Revisar</b> en la solicitud.</li></ol></div></div>
+<div class="bloque lado "><figure class=""><img src="../capturas/autorizador-2/07-fuera-de-tiempo.png" alt=""></figure><div><ol class="pasos"><li>Toca <b>Autorizar fuera de tiempo</b>.</li></ol></div></div>
+<div class="bloque lado "><figure class=""><img src="../capturas/autorizador-2/08-fuera-de-tiempo-motivo.png" alt=""></figure><div><ol class="pasos"><li>Escribe el <b>motivo</b> (de 10 a 500 letras): por qué se autoriza ahora.</li><li>Toca el botón para confirmar.</li></ol></div></div>
+<div class="aviso">Queda registrado con tu nombre, la fecha y tu motivo. Si venía del nivel 1 sin la firma del jefe de área, queda anotado que la autorizó Autorización 2. Si Nóminas ya firmó esa semana, el portal te avisa: puede requerir un ajuste en el formato.</div></section>
+<section id="consultar" ><h2>6. Consultar todas las solicitudes</h2><div class="bloque lado "><figure class=""><img src="../capturas/autorizador-2/09-consulta.png" alt=""></figure><div><ol class="pasos"><li>En el menú, <b>Tiempo extra</b> muestra todas las solicitudes de la planta, con filtros por área, estatus, fechas, turno y motivo, y permite descargar el resumen en Excel.</li></ol></div></div>
+<div class="nota">Es de solo lectura: para autorizar o devolver, usa <b>Por autorizar</b>.</div></section>
+<section id="asignaciones" ><h2>7. Dar permisos a otras personas</h2><p>Como Autorización 2 puedes dar y quitar el rol de <b>Autorizador 1</b> y de <b>solicitante</b> en un área. No puedes dar Autorización 2 ni administrar a Recursos Humanos.</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/autorizador-2/10-asignaciones.png" alt=""></figure><div><ol class="pasos"><li>Entra a <b>Personal › Usuarios y accesos › Asignaciones</b>. Ahí ves quién tiene qué rol y hasta cuándo, y puedes asignar o revocar.</li></ol></div></div>
+<div class="nota">Cada asignación tiene fecha de inicio y, si quieres, de fin (por ejemplo, para una suplencia). Todo queda en la bitácora.</div></section>
+<section id="preguntas" ><h2>8. Preguntas frecuentes</h2><div class="pregunta"><b class="q">No veo una solicitud que debería estar.</b>Solo llegan a ti las que ya firmó el jefe de área. Si aún está en el nivel 1, mira en <b>Tiempo extra</b> (consulta) quién la tiene.</div><div class="pregunta"><b class="q">Autoricé por error.</b>No se deshace. Pide a Recursos Humanos que la devuelva o la cancele con un motivo, antes de que se confirme al proveedor.</div><div class="pregunta"><b class="q">¿Qué pasa si autorizo fuera de tiempo y la semana ya está firmada en Nóminas?</b>El portal te lo avisa. La solicitud queda autorizada, pero su tiempo extra no entra solo al formato ya firmado: Nóminas o Recursos Humanos tienen que ajustarlo.</div><div class="pregunta"><b class="q">Se cerró mi sesión.</b>Por seguridad se cierra a los 30 minutos sin usar. Entra de nuevo; lo ya firmado no se pierde.</div></section></body></html>

@@ -14,7 +14,7 @@ export default {
       ['Empieza', 'Toca <b>Solicitar tiempo extra</b>.'],
       ['Datos', 'Elige la <b>fecha</b> (hoy o después) y el <b>motivo</b>. Escribe un <b>comentario</b> (mínimo 10 letras).'],
       ['Empleados', 'Toca <b>Agregar empleados</b>, marca a quienes van y toca <b>Agregar</b>.'],
-      ['Horario', 'Elige <b>entrada</b> y <b>salida</b>, y toca <b>Aplicar horario</b>. Marca <b>alimentos</b> y <b>transporte</b>.'],
+      ['Horario', 'Elige <b>entrada</b> y <b>salida</b>: el horario se aplica solo al elegirlo. Marca <b>alimentos</b> y <b>transporte</b>.'],
       ['Revisa', 'Mira el resumen de abajo: empleados, horas, transporte y rutas.'],
       ['Envía', 'Toca <b>Enviar a autorización</b> y confirma. Si no terminas, toca <b>Guardar borrador</b>.'],
       ['Sigue', 'En <b>Mis solicitudes</b> ves en qué paso va. Si está <b>Devuelta</b>, toca <b>Corregir y reenviar</b>.'],

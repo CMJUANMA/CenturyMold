@@ -1,0 +1,90 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Manual de Nóminas</title><style>
+  :root { --rojo: #d61110; --texto: #111214; --suave: #4B5058; --borde: #D9DCE0; --fondo: #F6F7F9; }
+  * { box-sizing: border-box; }
+  html { font-family: "Segoe UI", Arial, Helvetica, sans-serif; color: var(--texto); font-size: 10pt; line-height: 1.4; }
+  body { margin: 0; }
+  h1, h2, h3 { line-height: 1.2; margin: 0; }
+  h2 { font-size: 17pt; color: var(--texto); border-bottom: 3px solid var(--rojo); padding-bottom: 4px; margin: 0 0 12px; break-after: avoid; }
+  h3 { font-size: 12pt; margin: 12px 0 5px; color: var(--rojo); break-after: avoid; }
+  section { margin: 0 0 14px; }
+  section.nueva-pagina { break-before: page; }
+  p { margin: 0 0 8px; }
+  ul.lista { margin: 4px 0 10px 18px; padding: 0; } ul.lista li { margin: 2px 0; }
+  .portada { height: 245mm; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 0 12mm; }
+  .portada img { width: 105mm; margin-bottom: 30mm; }
+  .portada .sub { font-size: 12pt; color: var(--suave); letter-spacing: .08em; text-transform: uppercase; }
+  .portada h1 { font-size: 28pt; margin: 6px 0 4px; }
+  .portada .rol { font-size: 24pt; font-weight: 700; color: var(--rojo); margin-bottom: 14mm; }
+  .portada .enlace { font-size: 13pt; margin-bottom: 4mm; }
+  .portada .meta { font-size: 11pt; color: var(--suave); }
+  .portada .quien { max-width: 120mm; margin-top: 14mm; font-size: 11pt; color: var(--suave); }
+  .indice h2 { margin-bottom: 14px; }
+  .indice ol { list-style: none; padding: 0; margin: 0; }
+  .indice li { display: flex; align-items: baseline; gap: 6px; padding: 5px 0; border-bottom: 1px dotted var(--borde); font-size: 11.5pt; }
+  .indice li a { color: var(--texto); text-decoration: none; }
+  .indice li .pag { margin-left: auto; font-weight: 700; color: var(--rojo); }
+  .indice li .num { color: var(--rojo); font-weight: 700; min-width: 20px; }
+  .bloque { break-inside: avoid; margin: 6px 0 10px; }
+  .bloque.largo { break-inside: auto; }
+  figure { margin: 0 0 8px; text-align: center; }
+  figure img { width: 100%; border: 1px solid var(--borde); border-radius: 4px; display: block; }
+  figure.chico img { width: 62%; margin: 0 auto; }
+  .lado { display: flex; gap: 12px; align-items: flex-start; }
+  .lado figure { flex: 0 0 58%; margin: 0; } .lado.chico figure { flex-basis: 46%; }
+  .lado > div { flex: 1; font-size: 9.6pt; line-height: 1.38; } .lado ol.pasos { margin-top: 0; } .lado ol.pasos li { padding-left: 28px; padding-bottom: 4px; }
+  .lado ol.pasos li::before { width: 20px; height: 20px; line-height: 20px; font-size: 9pt; }
+  .fila-celular { display: flex; gap: 12px; align-items: flex-start; }
+  .fila-celular figure { flex: 0 0 5.2cm; margin: 0; } .fila-celular figure img { width: 100%; }
+  ol.pasos { list-style: none; counter-reset: paso; margin: 6px 0 4px; padding: 0; }
+  ol.pasos li { counter-increment: paso; position: relative; padding: 0 0 5px 32px; min-height: 24px; }
+  ol.pasos li::before { content: counter(paso); position: absolute; left: 0; top: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--rojo); color: #fff; font-weight: 700; font-size: 10pt; text-align: center; line-height: 22px; }
+  .nota, .aviso { border-radius: 6px; padding: 8px 12px; margin: 8px 0 12px; border: 1px solid; break-inside: avoid; }
+  .nota { background: #E8F0F8; border-color: #C9DAEC; color: #1d4670; } .nota::before { content: "Consejo · "; font-weight: 700; }
+  .aviso { background: #FBF3E1; border-color: #EBDDB8; color: #6e4700; } .aviso::before { content: "Cuidado · "; font-weight: 700; }
+  table.estatus { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+  table.estatus th { text-align: left; background: var(--fondo); padding: 6px 8px; border: 1px solid var(--borde); }
+  table.estatus td { padding: 7px 8px; border: 1px solid var(--borde); vertical-align: top; }
+  table.estatus tr { break-inside: avoid; }
+  .pastilla { display: inline-block; padding: 2px 9px; border-radius: 999px; border: 1px solid; font-weight: 600; font-size: 9pt; white-space: nowrap; }
+  .pastilla.info { background: #E8F0F8; color: #2A5A8C; border-color: #C9DAEC; } .pastilla.warning { background: #FBF3E1; color: #8A5A00; border-color: #EBDDB8; }
+  .pastilla.success { background: #E8F3EC; color: #1F6B3A; border-color: #CBE3D3; } .pastilla.error { background: #FBEFED; color: #A3281F; border-color: #F0CFCB; }
+  .pastilla.gris { background: #EEF0F2; color: #4B5058; border-color: #D9DCE0; }
+  .pregunta { break-inside: avoid; margin: 0 0 10px; } .pregunta b.q { display: block; color: var(--texto); }
+</style></head><body><div class="indice"><h2>Índice</h2><ol><li><span class="num">1</span><a href="#antes">Antes de empezar</a><span class="pag">2</span></li><li><span class="num">2</span><a href="#primeros-pasos">Primeros pasos</a><span class="pag">2</span></li><li><span class="num">3</span><a href="#semana">Elegir la semana</a><span class="pag">3</span></li><li><span class="num">4</span><a href="#revisar">Revisar y corregir un área</a><span class="pag">3</span></li><li><span class="num">5</span><a href="#quitar-agregar">Quitar, agregar o reemplazar</a><span class="pag">4</span></li><li><span class="num">6</span><a href="#guardar-firmar">Guardar, firmar y descargar</a><span class="pag">6</span></li><li><span class="num">7</span><a href="#consultar">Consultar el tiempo extra de la planta</a><span class="pag">8</span></li><li><span class="num">8</span><a href="#preguntas">Preguntas frecuentes</a><span class="pag">8</span></li></ol></div><section id="antes" class="nueva-pagina"><h2>1. Antes de empezar</h2><p>El <b>Portal de procesos</b> es el sistema de Century Mold para pedir tiempo extra y transporte. <b>Nóminas</b> usa lo que ya quedó autorizado para armar, cada semana y por área, el <b>formato de autorización de tiempo extra</b> que se firma y se manda a pago.</p>
+<ul class="lista"><li>El formato muestra, por empleado, las <b>horas de cada día</b> de la semana, su motivo y su P.O. o TB.</li><li>Sale de las solicitudes <b>autorizadas</b>. Tú lo revisas y, si hace falta, lo corriges.</li><li>Cuando está bien, lo <b>firmas</b> (queda bloqueado) y lo descargas en Excel.</li></ul>
+<div class="nota">Tus cambios son <b>ajustes del formato</b>: no modifican las solicitudes. Cada cambio lleva su motivo y queda en la bitácora.</div>
+<div class="aviso">Nóminas no autoriza, devuelve ni cancela solicitudes. Solo ve el tiempo extra de toda la planta, confirma lo que va al proveedor y trabaja el formato.</div></section>
+<section id="primeros-pasos" ><h2>2. Primeros pasos</h2><h3>Entrar al portal</h3>
+<p>Abre <b>https://centurymold-qro.web.app</b> en tu navegador (Chrome, Edge o el de tu celular).</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/solicitante/01-entrar.png" alt=""></figure><div><ol class="pasos"><li>Escribe tu <b>número de nómina</b>.</li><li>Escribe tu <b>contraseña</b>. El ojito sirve para ver lo que escribes.</li><li>Toca <b>Iniciar sesión</b>.</li><li>Si no la recuerdas, toca <b>¿Olvidaste tu contraseña?</b>. Solo se restablece en persona con Sistemas o Recursos Humanos.</li></ol></div></div>
+<h3>Tu pantalla de inicio</h3>
+<div class="bloque lado "><figure class=""><img src="../capturas/nominas/01-inicio.png" alt=""></figure><div><ol class="pasos"><li>En el menú, bajo <b>Reportes de nómina</b>, está <b>Formato de tiempo extra</b>: tu pantalla principal.</li><li>El inicio resume el tiempo extra de la planta.</li></ol></div></div>
+<div class="nota">En el pie del menú están <b>Ayuda y manuales</b> (este manual y su guía rápida en PDF) y <b>Cerrar sesión</b>.</div></section>
+<section id="semana" ><h2>3. Elegir la semana</h2><p>Al entrar a <b>Formato de tiempo extra</b> se abre la <b>última semana completa</b>. Cada área con tiempo extra aparece con su estado: <b>Sin revisar</b>, <b>Ajustada</b> o <b>Firmada</b>.</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/nominas/02-semana.png" alt=""></figure><div><ol class="pasos"><li>Las flechas cambian de semana. Para la semana en curso, toca <b>Semana siguiente</b>.</li><li><b>Revisar</b> abre la hoja de esa área.</li><li><b>Descargar todas</b> baja el Excel de todas las áreas con tiempo extra, con una hoja de resumen.</li></ol></div></div>
+<div class="nota">Arriba de las áreas, el portal te avisa si hay solicitudes de esa semana <b>sin autorizar</b> (no entran al formato; puedes firmar sin ellas) o <b>vencidas</b> (no cuentan; si alguien trabajó de todos modos, agrégalo a mano).</div></section>
+<section id="revisar" ><h2>4. Revisar y corregir un área</h2><p>La hoja se parece a Excel: una fila por empleado y una columna por día. Todo lo que ves viene de lo autorizado.</p>
+<div class="bloque lado "><figure class=""><img src="../capturas/nominas/03-revisar-area.png" alt=""></figure><div><ol class="pasos"><li>Cada columna es un día de la semana, con su fecha.</li><li>Cada celda trae las horas autorizadas de ese empleado ese día. Se escribe directo (acepta medios y cuartos: 0.5, 7.25).</li><li><b>Agregar empleado</b> mete a alguien que no venía en las solicitudes.</li><li><b>Descargar</b> baja el Excel del área.</li></ol></div></div>
+<h3>Corregir horas</h3>
+<div class="bloque lado "><figure class=""><img src="../capturas/nominas/04-horas.png" alt=""></figure><div><ol class="pasos"><li>Escribe las horas en la celda y pulsa Tab, Enter o una flecha. La celda cambiada se pinta de otro color.</li><li>Arriba o abajo ves cuántos <b>cambios sin guardar</b> llevas.</li><li>Toca <b>Guardar cambios</b> cuando termines.</li></ol></div></div>
+<div class="nota">Para volver a lo autorizado en un renglón, usa el menú ⋯ de la fila › <b>Restaurar lo autorizado</b>.</div></section>
+<section id="quitar-agregar" ><h2>5. Quitar, agregar o reemplazar</h2><h3>Quitar a alguien que no asistió</h3>
+<div class="bloque lado chico"><figure class=""><img src="../capturas/nominas/05-menu-renglon.png" alt=""></figure><div><ol class="pasos"><li>En el menú ⋯ de la fila, toca <b>Quitar (no asistió)</b>.</li></ol></div></div>
+<div class="bloque lado chico"><figure class=""><img src="../capturas/nominas/06-quitar-motivo.png" alt=""></figure><div><ol class="pasos"><li>Escribe el <b>motivo</b> (por ejemplo, «No asistió»). Se pide en el momento.</li><li>Toca <b>Quitar</b>.</li></ol></div></div>
+<p>La fila queda tachada y ya no cuenta en el total. Con <b>Restaurar lo autorizado</b> puedes regresarla.</p>
+<h3>Agregar a alguien que no venía</h3>
+<div class="bloque lado "><figure class=""><img src="../capturas/nominas/07-agregar.png" alt=""></figure><div><ol class="pasos"><li>Toca <b>Agregar empleado</b> y busca a la persona por nómina o nombre.</li><li>Elige el <b>motivo</b> del tiempo extra y escribe el <b>motivo del ajuste</b> (por qué se agrega).</li><li>Toca <b>Agregar al formato</b>.</li></ol></div></div>
+<div class="bloque lado chico"><figure class=""><img src="../capturas/nominas/08-agregado.png" alt=""></figure><div><ol class="pasos"><li>La fila nueva se resalta unos segundos y el cursor queda en su primera celda de horas: <b>captura sus horas</b>.</li></ol></div></div>
+<div class="aviso">Un empleado agregado <b>no crea solicitudes</b>: solo entra al formato de esa área. Si no está en el padrón, puedes capturarlo a mano; queda marcado como «fuera del padrón».</div>
+<p>También puedes <b>reemplazar</b> a alguien por otra persona (sus horas pasan a quien elijas) o <b>cambiar el motivo y el P.O./TB</b> de un renglón, desde el mismo menú ⋯.</p></section>
+<section id="guardar-firmar" ><h2>6. Guardar, firmar y descargar</h2><h3>Guardar</h3>
+<div class="bloque lado "><figure class=""><img src="../capturas/nominas/09-guardar.png" alt=""></figure><div><ol class="pasos"><li>Toca <b>Guardar cambios</b>.</li><li>Si hay cambios de horas, reemplazos o de motivo, escribe el <b>motivo del ajuste</b> (de 3 a 120 letras): se aplica a todos y queda en la bitácora. Lo que agregaste o quitaste ya trae el suyo.</li><li>Confirma.</li></ol></div></div>
+<div class="aviso">Con cambios sin guardar, <b>Marcar como firmada</b> y <b>Descargar</b> están apagados: guarda primero.</div>
+<h3>Firmar</h3>
+<div class="bloque lado "><figure class=""><img src="../capturas/nominas/10-firmar.png" alt=""></figure><div><ol class="pasos"><li><b>Marcar como firmada</b> cierra el área: queda bloqueada.</li><li><b>Descargar</b> baja el Excel con lo ya guardado.</li></ol></div></div>
+<div class="bloque lado chico"><figure class=""><img src="../capturas/nominas/11-firmar-confirmar.png" alt=""></figure><div><ol class="pasos"><li>Confirma la firma.</li></ol></div></div>
+<div class="bloque lado "><figure class=""><img src="../capturas/nominas/12-firmada.png" alt=""></figure><div><ol class="pasos"><li>El aviso dice que el área ya está firmada. Desde ese momento <b>nadie la cambia</b>: solo Recursos Humanos puede reabrirla.</li></ol></div></div>
+<div class="nota">Al descargar, el portal te dice qué archivo bajó. Ábrelo desde el ícono de descargas del navegador o en la carpeta Descargas de tu computadora.</div></section>
+<section id="consultar" ><h2>7. Consultar el tiempo extra de la planta</h2><div class="bloque lado "><figure class=""><img src="../capturas/nominas/13-tiempo-extra.png" alt=""></figure><div><ol class="pasos"><li><b>Tiempo extra</b> muestra todas las solicitudes (sin los borradores) con filtros por área, estatus, fechas, turno y motivo, y deja descargar el resumen en Excel. Es de solo lectura.</li></ol></div></div>
+<p>También ves <b>Solicitudes de transporte</b> y el <b>Formato de rutas</b> (solo ver y descargar), <b>Personal</b> (con teléfono) y <b>Por enviar al proveedor</b>, donde puedes confirmar lo autorizado.</p></section>
+<section id="preguntas" ><h2>8. Preguntas frecuentes</h2><div class="pregunta"><b class="q">Mi semana sale vacía.</b>Al entrar se abre la última semana completa. Para la semana en curso toca la flecha «Semana siguiente». Si aun así no hay nada, no hay tiempo extra autorizado esa semana.</div><div class="pregunta"><b class="q">Faltan solicitudes en el formato.</b>Solo entra lo autorizado. Mira el aviso de arriba: pendientes y devueltas no cuentan hasta que se autoricen; las vencidas no cuentan nunca (agrega a mano a quien sí trabajó).</div><div class="pregunta"><b class="q">Firmé un área y quedó mal.</b>Pide a Recursos Humanos que la reabra; luego corriges y vuelves a firmar.</div><div class="pregunta"><b class="q">No puedo firmar ni descargar.</b>Tienes cambios sin guardar. Toca Guardar cambios primero.</div><div class="pregunta"><b class="q">Se cerró mi sesión.</b>Por seguridad se cierra a los 30 minutos sin usar. Tus cambios sin guardar se pierden: guarda seguido.</div></section></body></html>
