@@ -29,6 +29,7 @@ const ESTATUS = [
   { etiqueta: 'Cancelada', tono: 'gris', significa: 'Se canceló. Ya no se puede usar.', haz: 'Si la necesitas, crea una nueva.' },
 ];
 
+import { ESTATUS_ROL } from './estatus-roles.mjs';
 const CSS = `
   :root { --rojo: #d61110; --texto: #111214; --suave: #4B5058; --borde: #D9DCE0; --fondo: #F6F7F9; }
   * { box-sizing: border-box; }
@@ -71,6 +72,7 @@ const CSS = `
   ol.pasos li::before { content: counter(paso); position: absolute; left: 0; top: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--rojo); color: #fff; font-weight: 700; font-size: 10pt; text-align: center; line-height: 22px; }
   .nota, .aviso { border-radius: 6px; padding: 8px 12px; margin: 8px 0 12px; border: 1px solid; break-inside: avoid; }
   .nota { background: #E8F0F8; border-color: #C9DAEC; color: #1d4670; } .nota::before { content: "Consejo · "; font-weight: 700; }
+  .no-puedes { border-radius: 6px; padding: 8px 14px; margin: 10px 0 12px; border: 2px solid var(--rojo); background: #FDECEC; color: #6b0f0f; break-inside: avoid; } .no-puedes b.tit { display: block; color: var(--rojo); margin-bottom: 3px; } .no-puedes ul { margin: 2px 0 0 16px; padding: 0; }
   .aviso { background: #FBF3E1; border-color: #EBDDB8; color: #6e4700; } .aviso::before { content: "Cuidado · "; font-weight: 700; }
   table.estatus { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
   table.estatus th { text-align: left; background: var(--fondo); padding: 6px 8px; border: 1px solid var(--borde); }
@@ -93,12 +95,13 @@ function bloque(b) {
   if (b.h) return `<h3>${b.h}</h3>`;
   if (b.p) return `<p>${b.p}</p>`;
   if (b.nota) return `<div class="nota">${b.nota}</div>`;
+  if (b.no) return `<div class="no-puedes"><b class="tit">Lo que NO puedes hacer</b><ul>${b.no.map(t => `<li>${t}</li>`).join('')}</ul></div>`;
   if (b.aviso) return `<div class="aviso">${b.aviso}</div>`;
   if (b.lista) return `<ul class="lista">${b.lista.map(t => `<li>${t}</li>`).join('')}</ul>`;
   if (b.preguntas) return b.preguntas.map(([q, a]) => `<div class="pregunta"><b class="q">${q}</b>${a}</div>`).join('');
   if (b.tabla === 'estatus') {
     return `<table class="estatus"><thead><tr><th>Estatus</th><th>Qué significa</th><th>Qué haces tú</th></tr></thead><tbody>${
-      ESTATUS.map(e => `<tr><td><span class="pastilla ${e.tono}">${e.etiqueta}</span></td><td>${e.significa}</td><td>${e.haz}</td></tr>`).join('')}</tbody></table>`;
+      ESTATUS.map(e => ({ ...e, ...(ESTATUS_ROL[b.rol]?.[e.etiqueta] ?? {}) })).map(e => `<tr><td><span class="pastilla ${e.tono}">${e.etiqueta}</span></td><td>${e.significa}</td><td>${e.haz}</td></tr>`).join('')}</tbody></table>`;
   }
   if (b.pasos && b.img && b.ancho === 'celular') return `<div class="bloque fila-celular">${figura(b.img)}<div>${pasos(b.pasos)}</div></div>`;
   if (b.pasos && b.img) return `<div class="bloque lado ${b.ancho === 'chico' ? 'chico' : ''}">${figura(b.img)}<div>${pasos(b.pasos)}</div></div>`;

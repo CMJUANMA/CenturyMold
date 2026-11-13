@@ -122,6 +122,8 @@ const asignacion = (nomina, rol, areaId) => guardar(`asignaciones/${nomina}_${ro
 await asignacion('8010', 'aut2', null);
 await asignacion('8020', 'aut1', 'moldes'); await asignacion('8021', 'aut1', 'produccion');
 await asignacion('8030', 'solicitante', 'moldes'); await asignacion('8031', 'solicitante', 'produccion');
+// Con asignación vigente pero SIN usuario todavía (las candidatas de «Crear usuarios en lote»)
+await asignacion('8044', 'solicitante', 'moldes'); await asignacion('8051', 'solicitante', 'produccion'); await asignacion('8060', 'solicitante', 'almacen');
 
 // Solicitudes de tiempo extra en todos los estados
 const MOT = {
@@ -156,6 +158,18 @@ async function solicitud({ id, estatus, areaId = 'moldes', creador = 'solicitant
   if (estatus === 'procesada') { doc.recibidaPor = { nomina: '8001', nombre: USUARIOS.rh[1], fecha: dia(-1) }; doc.fechaRecepcion = dia(-1); }
   await guardar(`tiempoExtra/${docId}`, doc);
   for (const e of lista) await guardar(`tiempoExtra/${docId}/empleados/${e.nomina}`, empleadoADoc(e));
+  // Historial (lo que se ve al final del detalle): quién hizo qué y cuándo
+  const mov = [];
+  if (!borrador) mov.push(['creada', creador === 'aut2' ? '8010' : nominaCreador, -4, '']);
+  if (doc.aut1) mov.push(['autorizada_1', '8020', -3, '']);
+  if (doc.aut2 && creador !== 'aut2') mov.push(['autorizada_2', '8010', -2, '']);
+  if (creador === 'aut2' && estatus === 'autorizada') mov.splice(0, mov.length, ['enviada_autorizada', '8010', -2, 'Capturada y autorizada por Aut. 2']);
+  if (estatus === 'procesada') mov.push(['recibida_rh', '8001', -1, '']);
+  if (estatus === 'devuelta') mov.push(['devuelta', '8020', -1, extra.devolucion?.motivo ?? '']);
+  if (estatus === 'cancelada') mov.push(['cancelada', '8030', -6, extra.motivoCancelacion ?? '']);
+  for (const [i, [accion, nom, off, coment]] of mov.entries()) {
+    await guardar(`tiempoExtra/${docId}/historial/h${i + 1}`, { accion, porNomina: nom, porNombre: empleado[nom]?.nombre ?? USUARIOS.aut2[1], comentario: coment, fecha: dia(off) });
+  }
   return docId;
 }
 
@@ -176,6 +190,15 @@ await solicitud({ estatus: 'pendiente_aut1', offset: 2, tipo: 'extension', motiv
 await solicitud({ estatus: 'pendiente_aut1', areaId: 'produccion', creador: 'solicitanteProd', offset: 1, motivos: [MOT.vacante], comentario: 'Falta de personal en la línea 2', empleados: [['8050', '7:00', '16:00'], ['8051', '7:00', '16:00'], ['8052', '7:00', '16:00']] });
 await solicitud({ estatus: 'pendiente_aut2', areaId: 'produccion', creador: 'solicitanteProd', offset: 2, motivos: [MOT.embarques], comentario: 'Embarque especial', empleados: [['8050', '7:00', '16:00'], ['8053', '7:00', '16:00']] });
 await solicitud({ estatus: 'autorizada', areaId: 'produccion', creador: 'solicitanteProd', offset: 3, motivos: [MOT.po], comentario: 'Pedido urgente con cargo a P.O.', empleados: [['8051', '16:00', '0:00'], ['8052', '16:00', '0:00']] });
+// Más solicitudes en nivel 2 (para autorizar varias a la vez en los manuales)
+await solicitud({ estatus: 'pendiente_aut2', areaId: 'produccion', creador: 'solicitanteProd', offset: 4, motivos: [MOT.vacante], comentario: 'Cobertura de turno por vacaciones', empleados: [['8050', '7:00', '16:00'], ['8052', '7:00', '16:00']] });
+await solicitud({ estatus: 'pendiente_aut2', areaId: 'almacen', creador: 'solicitanteProd', offset: 5, motivos: [MOT.inventario], comentario: 'Inventario general del almacén', empleados: [['8060', '7:00', '16:00', true, false], ['8061', '7:00', '16:00', true, false]] });
+await solicitud({ estatus: 'pendiente_aut2', areaId: 'produccion', creador: 'solicitanteProd', offset: 6, motivos: [MOT.embarques], comentario: 'Embarque del sábado', empleados: [['8051', '7:00', '16:00'], ['8053', '7:00', '16:00']] });
+// De la Aut. 2 (la persona del manual de Autorización 2): lo que captura queda autorizado al enviarlo
+await solicitud({ estatus: 'autorizada', areaId: 'administrativo', creador: 'aut2', offset: 3, motivos: [MOT.inventario], comentario: 'Cierre administrativo de mes', empleados: [['8001', '7:00', '16:00', true, false], ['8002', '7:00', '16:00', true, false]], extra: { aut2: firma('8010', dia(-2), 'Capturada y autorizada por Aut. 2') } });
+await solicitud({ estatus: 'borrador', areaId: 'administrativo', creador: 'aut2', offset: 6, motivos: [MOT.inventario], comentario: 'Apoyo en cierre de nómina', empleados: [['8001', '7:00', '16:00', true, false]] });
+// Teléfonos de ejemplo (inventados) en empleadosContacto: solo RH y Nóminas los ven
+for (const [i, n] of Object.keys(empleado).entries()) await guardar(`empleadosContacto/${n}`, { telefono: `442555${String(1000 + i * 7).slice(-4)}` });
 await guardar(`contadores/te-${hoy.getFullYear()}`, { ultimo: numero });
 
 console.log(`Datos de ejemplo cargados en el emulador. Contraseña de todos: ${PASSWORD}\n` + Object.values(USUARIOS).map(([n, nombre, rol]) => `  ${n}  ${nombre}  (${rol})`).join('\n'));
