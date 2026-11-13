@@ -111,7 +111,7 @@ export default {
     {
       id: 'asignaciones', titulo: 'Dar permisos a otras personas',
       bloques: [
-        { p: 'Como Autorización 2 puedes dar y quitar el rol de <b>Autorizador 1</b> y de <b>solicitante</b> en un área. No puedes dar Autorización 2 ni administrar a Recursos Humanos.' },
+        { p: 'Como Autorización 2 puedes dar y quitar el rol de <b>Autorizador 1</b> y de <b>solicitante</b> en un área; crear usuarios, restablecer contraseñas (de usuarios y de Nóminas) y dar o quitar el rol del sistema <b>Recursos Humanos</b> y <b>Nóminas</b>. No puedes dar Autorización 2 ni Administrador, ni restablecer la contraseña de un RH.' },
         { pasos: ['Entra a <b>Personal › Usuarios y accesos › Asignaciones</b>. Ahí ves quién tiene qué rol y hasta cuándo, y puedes asignar o revocar.'], img: 'autorizador-2/10-asignaciones' },
         { nota: 'Cada asignación tiene fecha de inicio y, si quieres, de fin (por ejemplo, para una suplencia). Todo queda en la bitácora.' },
       ],

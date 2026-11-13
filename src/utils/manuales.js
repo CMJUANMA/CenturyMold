@@ -5,7 +5,7 @@
 
 /** Orden en el que se muestran. `archivo` es el nombre base de los PDF: manual-<archivo>.pdf y guia-rapida-<archivo>.pdf */
 export const MANUALES = [
-  { archivo: 'solicitante', rol: 'Solicitante', para: 'Para quien pide el tiempo extra de su área.', tiene: (a) => (a.areasSolicitante?.length ?? 0) > 0 },
+  { archivo: 'solicitante', rol: 'Solicitante', para: 'Para quien captura tiempo extra: cómo se arma y se envía una solicitud.', tiene: (a) => (a.areasSolicitante?.length ?? 0) > 0 || (a.areasAut1?.length ?? 0) > 0 || !!a.esAut2 || !!a.esRH },
   { archivo: 'autorizador-1', rol: 'Autorizador 1', para: 'Para el jefe de un área: revisa y autoriza (o devuelve) lo que pide su gente.', tiene: (a) => (a.areasAut1?.length ?? 0) > 0 },
   { archivo: 'autorizador-2', rol: 'Autorizador 2', para: 'Para quien da la segunda firma de toda la planta y autoriza lo que ya venció.', tiene: (a) => !!a.esAut2 },
   { archivo: 'rh', rol: 'Recursos Humanos', para: 'Para quien confirma el tiempo extra, pide el transporte y administra usuarios y accesos.', tiene: (a) => !!a.esRH },

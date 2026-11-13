@@ -33,7 +33,7 @@ export default {
           'Cuando está bien, lo <b>firmas</b> (queda bloqueado) y lo descargas en Excel.',
         ] },
         { nota: 'Tus cambios son <b>ajustes del formato</b>: no modifican las solicitudes. Cada cambio lleva su motivo y queda en la bitácora.' },
-        { aviso: 'Nóminas no autoriza, devuelve ni cancela solicitudes. Solo ve el tiempo extra de toda la planta, confirma lo que va al proveedor y trabaja el formato.' },
+        { aviso: 'Nóminas no autoriza, devuelve ni cancela solicitudes, ni administra usuarios. Nadie se da a sí mismo el rol de Nóminas. Solo ve el tiempo extra de toda la planta, confirma lo que va al proveedor y trabaja el formato.' },
       ],
     },
     {

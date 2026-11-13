@@ -7,14 +7,15 @@ const archivos = (a) => manualesDeUsuario(a).map(m => m.archivo);
 describe('manualesDeUsuario', () => {
   it('cada rol trae su manual', () => {
     expect(archivos({ areasSolicitante: ['moldes'] })).toEqual(['solicitante']);
-    expect(archivos({ areasAut1: ['moldes'] })).toEqual(['autorizador-1']);
-    expect(archivos({ esAut2: true })).toEqual(['autorizador-2']);
-    expect(archivos({ esRH: true })).toEqual(['rh']);
+    // quien puede capturar tiempo extra (Aut. 1, Aut. 2, RH) ve también el manual del solicitante, donde está cómo se captura
+    expect(archivos({ areasAut1: ['moldes'] })).toEqual(['solicitante', 'autorizador-1']);
+    expect(archivos({ esAut2: true })).toEqual(['solicitante', 'autorizador-2']);
+    expect(archivos({ esRH: true })).toEqual(['solicitante', 'rh']);
     expect(archivos({ esNomina: true })).toEqual(['nominas']);
   });
   it('quien tiene varios roles ve el manual de cada uno, en orden', () => {
     expect(archivos({ areasSolicitante: ['moldes'], areasAut1: ['moldes'], esAut2: true })).toEqual(['solicitante', 'autorizador-1', 'autorizador-2']);
-    expect(archivos({ esRH: true, esAut2: true })).toEqual(['autorizador-2', 'rh']);
+    expect(archivos({ esRH: true, esAut2: true })).toEqual(['solicitante', 'autorizador-2', 'rh']);
   });
   it('el administrador tiene todos los permisos: ve los cinco', () => {
     expect(archivos({ esAdmin: true })).toEqual(MANUALES.map(m => m.archivo));
