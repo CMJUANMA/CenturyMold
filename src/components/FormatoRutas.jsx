@@ -65,20 +65,6 @@ export default function BotonFormatoRutas({ id = 'btn-formato-rutas' }) {
   const valido = !!rangoDesde && !!rangoHasta && rangoDesde <= rangoHasta;
   const clave = `${rangoDesde}|${rangoHasta}`;
 
-  // Si no hay nada que bajar, cuántas hay por confirmar de esas fechas (autorizadas con transporte): una sola consulta por estatus, filtrada aquí
-  useEffect(() => {
-    if (!abierto || !valido || cargando || paraExportar.length > 0) return undefined;
-    let vigente = true;
-    getDocs(query(collection(db, 'tiempoExtra'), where('estatus', '==', 'autorizada')))
-      .then(s => {
-        if (!vigente) return;
-        const n = s.docs.filter(d => { const t = d.data(); return t.fechaTE >= rangoDesde && t.fechaTE <= rangoHasta && (t.resumen?.totalTransporte ?? 0) > 0; }).length;
-        setPorConfirmar({ clave, n });
-      })
-      .catch(() => { /* sin permiso para leerlas: solo no se cuenta */ });
-    return () => { vigente = false; };
-  }, [abierto, valido, cargando, paraExportar.length, clave, rangoDesde, rangoHasta]);
-
   // Solo se consulta con el panel abierto y para el rango elegido; una respuesta de un rango anterior se ignora
   useEffect(() => {
     if (!abierto || !valido) return;
@@ -101,6 +87,20 @@ export default function BotonFormatoRutas({ id = 'btn-formato-rutas' }) {
     if (s.estatus === ESTATUS_SOLICITUD.PENDIENTE) return conPendientes && pendientes;
     return false;
   });
+  // Si no hay nada que bajar, cuántas hay por confirmar de esas fechas (autorizadas con transporte): una sola consulta por estatus, filtrada aquí
+  useEffect(() => {
+    if (!abierto || !valido || cargando || paraExportar.length > 0) return undefined;
+    let vigente = true;
+    getDocs(query(collection(db, 'tiempoExtra'), where('estatus', '==', 'autorizada')))
+      .then(s => {
+        if (!vigente) return;
+        const n = s.docs.filter(d => { const t = d.data(); return t.fechaTE >= rangoDesde && t.fechaTE <= rangoHasta && (t.resumen?.totalTransporte ?? 0) > 0; }).length;
+        setPorConfirmar({ clave, n });
+      })
+      .catch(() => { /* sin permiso para leerlas: solo no se cuenta */ });
+    return () => { vigente = false; };
+  }, [abierto, valido, cargando, paraExportar.length, clave, rangoDesde, rangoHasta]);
+
   const totalPasajeros = paraExportar.reduce((a, s) => a + Object.entries(viajesPorDia(s)).filter(([f]) => f >= rangoDesde && f <= rangoHasta).reduce((n, [, v]) => n + v, 0), 0);
 
   // Los pasajeros se leen solo al exportar (en tandas para no saturar la red)
