@@ -23,10 +23,14 @@ export function minutosDeHoraTexto(hora) {
 
 const dosDigitos = (n) => String(n).padStart(2, '0');
 
-/** "16:00" → "4:00 p. m.", "0:00" → "12:00 a. m."; lo que no es una hora ("YA EN PLANTA", "") se devuelve igual */
-export function formatoHora12(hora) {
+/**
+ * "16:00" → "4:00 p. m.", "0:00" → "12:00 a. m."; lo que no es una hora ("YA EN PLANTA", "") se devuelve igual.
+ * Con `medianoche: true` la 0:00 dice «12:00 a. m. (medianoche)» (para quien lee la pantalla; los Excel no lo piden).
+ */
+export function formatoHora12(hora, { medianoche = false } = {}) {
   const min = minutosDeHoraTexto(hora);
   if (min === null) return String(hora ?? '');
+  if (medianoche && min === 0) return '12:00 a. m. (medianoche)';
   const h = Math.floor(min / 60);
   return `${h % 12 === 0 ? 12 : h % 12}:${dosDigitos(min % 60)} ${h < 12 ? 'a. m.' : 'p. m.'}`;
 }
@@ -47,7 +51,10 @@ export function horaParaProveedor(hora, formato = FORMATO_HORA_PROVEEDOR) {
 }
 
 /** Cambia cada hora que aparezca dentro de un texto ("7:00 → 16:00" → "7:00 a. m. → 4:00 p. m."); el resto del texto queda igual */
-export const horasEnTexto12 = (texto) => String(texto ?? '').replace(/\b\d{1,2}:\d{2}(?:\s*[AP]M)?(?!\w)/gi, (h) => formatoHora12(h));
+export const horasEnTexto12 = (texto, opciones) => String(texto ?? '').replace(/\b\d{1,2}:\d{2}(?:\s*[AP]M)?(?!\w)/gi, (h) => formatoHora12(h, opciones));
+
+/** La hora como la lee una persona en pantalla (selectores, listas y detalle): la medianoche dice «(medianoche)» */
+export const horaLegible = (hora) => formatoHora12(hora, { medianoche: true });
 
 /** "7:00 a. m. → 4:00 p. m." (o "Sin horario") de un empleado con horaEntrada y horaSalida */
-export const etiquetaBloque12 = (e) => (e?.horaEntrada && e?.horaSalida ? `${formatoHora12(e.horaEntrada)} → ${formatoHora12(e.horaSalida)}` : 'Sin horario');
+export const etiquetaBloque12 = (e, opciones) => (e?.horaEntrada && e?.horaSalida ? `${formatoHora12(e.horaEntrada, opciones)} → ${formatoHora12(e.horaSalida, opciones)}` : 'Sin horario');

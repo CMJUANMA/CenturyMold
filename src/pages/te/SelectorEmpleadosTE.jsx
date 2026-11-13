@@ -9,13 +9,14 @@ import { CheckCircle2, Search } from 'lucide-react';
 import Modal from '../../components/Modal';
 import Ayuda from '../../components/Ayuda';
 import Boton from '../../components/ui/Boton';
+import EtiquetaEnvio from '../../components/ui/EtiquetaEnvio';
 import { Entrada, Selector } from '../../components/ui/Campo';
 import { CASILLA } from '../../components/ui/estilos';
 import Insignia from '../../components/ui/Insignia';
 
 const sinAcentos = (t) => String(t ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-export default function SelectorEmpleadosTE({ empleados, yaAgregados, rutas = [], onAgregar, onClose }) {
+export default function SelectorEmpleadosTE({ empleados, yaAgregados, rutas = [], rutasYaUsadas = [], onAgregar, onClose }) {
   const [busqueda, setBusqueda] = useState('');
   const [puesto, setPuesto] = useState('');
   const [ruta, setRuta] = useState(''); // '' = todas · 'sin' = sin ruta en el padrón · id de ruta
@@ -47,10 +48,18 @@ export default function SelectorEmpleadosTE({ empleados, yaAgregados, rutas = []
     return s;
   });
   const elegidos = empleados.filter(e => marcados.has(String(e.nomina)) && !yaAgregados.has(String(e.nomina)));
+  // Las rutas que usaría la solicitud con lo ya agregado y lo que está marcado: si son más de una, se avisa YA (no hasta el final)
+  const rutasConEstos = [...new Set([...rutasYaUsadas, ...elegidos.map(e => e.rutaId).filter(Boolean)])];
 
   return (
     <Modal isOpen onClose={onClose} title="Agregar empleados" maxWidth="max-w-3xl">
       <div className="space-y-4">
+        {rutasConEstos.length > 1 && (
+          <div role="status" className="flex flex-wrap items-start gap-2 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-xs text-[var(--status-warning-text)]">
+            <EtiquetaEnvio tipo="obligatorio" />
+            <span>Con esta selección la solicitud usaría <b>{rutasConEstos.length} rutas</b> ({rutasConEstos.map(id => nombreRuta(id) || id).join(', ')}). Cada ruta adicional cuesta: tendrás que explicar por qué antes de enviar.</span>
+          </div>
+        )}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="relative sm:col-span-2 lg:col-span-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" aria-hidden="true" />

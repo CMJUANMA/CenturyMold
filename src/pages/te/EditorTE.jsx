@@ -46,7 +46,7 @@ import {
 import { MAX_PASAJEROS } from '../../utils/solicitudes';
 import { guardarTelefonosEnPadron, leerTelefonos } from '../../utils/contactosDb';
 import { estadoTelefono, soloDigitosTelefono } from '../../utils/telefono';
-import { formatoHora12, horasEnTexto12 } from '../../utils/horas';
+import { horaLegible, horasEnTexto12 } from '../../utils/horas';
 import {
   cancelarSolicitud, eliminarBorrador, enviarSolicitud, guardarBorrador, guardarRutasEnPadron, leerOcupados, leerSolicitudTE,
 } from '../../utils/tiempoExtraDb';
@@ -54,6 +54,7 @@ import { etiquetaMotivo, motivoDesdeGuardado, motivoVacio, motivosDeTE, motivosP
 import BloqueMotivosTE from './BloqueMotivosTE';
 import FilaEmpleadoTE, { COLUMNAS_FILA } from './FilaEmpleadoTE';
 import SelectorEmpleadosTE from './SelectorEmpleadosTE';
+import ModalAplicaMotivo from './ModalAplicaMotivo';
 
 /** Para saber si cambió algo en los motivos sin comparar listas: una línea con lo que escribió la persona */
 const firmaMotivos = (lista) => lista.map(m => [m.motivoId, m.numero, m.comentario, m.detalle].join('\u0002')).join('\u0003');
@@ -92,6 +93,7 @@ export default function EditorTE() {
   const [trabajo, setTrabajo] = useState(null); // { texto, hechos, total }
   const [bulk, setBulk] = useState({ entrada: '', salida: '' });
   const [bulkSel, setBulkSel] = useState({ entrada: '', salida: '' });
+  const [aplicaA, setAplicaA] = useState(null); // { indice }: el motivo recién agregado pregunta a quiénes aplica
   const [resumenAbierto, setResumenAbierto] = useState(false); // en celular el resumen va plegado a una línea // el horario de la barra de seleccionados
   const [tels, setTels] = useState({}); // nómina → { padron, actual }: teléfono del padrón y el que se está capturando (solo de quienes llevan transporte)
   const telsPedidos = useRef(new Set());
@@ -174,6 +176,7 @@ export default function EditorTE() {
   const { conRol, aut1: aut1DelArea, aut2: aut2Planta } = useRolesDelArea(areaActual);
   const empleadosArea = useMemo(() => empleadosParaCapturar(padron, areaActual, { nominaPropia: usuario?.nomina, conRol }), [padron, areaActual, usuario?.nomina, conRol]);
   const yaAgregados = useMemo(() => new Set(empleados.map(e => e.nomina)), [empleados]);
+  const rutasUsadas = useMemo(() => [...new Set(empleados.filter(e => e.transporte && e.rutaId).map(e => e.rutaId))], [empleados]);
   const resumen = useMemo(() => resumenTE(empleados), [empleados]);
   const infoRutas = useMemo(() => resumenRutas(empleados, (rid) => rutas.find(r => r.id === rid)?.nombre ?? ''), [empleados, rutas]);
   const variasRutas = infoRutas.rutasDistintas > 1;
@@ -204,6 +207,8 @@ export default function EditorTE() {
 
   /** Cambia los motivos; si se quitó uno (`quitado` = su posición), los empleados que lo tenían pasan al primero y los siguientes se recorren */
   const cambiarMotivos = (lista, quitado) => {
+    // Se agregó un motivo y ya hay empleados: se pregunta a quiénes aplica (casillas), para no asignarlo fila por fila
+    if (quitado === undefined && lista.length > motivos.length && empleados.length > 0) setAplicaA({ indice: lista.length - 1 });
     setMotivos(lista);
     if (quitado === undefined) return;
     const afectados = empleados.filter(e => reajustarIndice(e.motivoIndex, quitado) !== (e.motivoIndex ?? 0)).map(e => e.nomina);
@@ -212,8 +217,8 @@ export default function EditorTE() {
     setSucios(prev => new Set([...prev, ...afectados]));
   };
   /** «Asignar a todos» / «Asignar a seleccionados» desde la tarjeta de cada motivo: cada empleado lleva UN motivo (su `motivoIndex`) */
-  const asignarMotivo = (indice, modo) => {
-    const objetivo = modo === 'seleccionados' ? seleccion : null;
+  const asignarMotivo = (indice, modo, conjunto = null) => {
+    const objetivo = modo === 'marcados' ? conjunto : modo === 'seleccionados' ? seleccion : null;
     if (modo === 'seleccionados' && seleccion.size === 0) { toast.warning('Primero marca las casillas de los empleados (en la lista de abajo) a los que les toca este motivo.'); return; }
     const nominas = objetivo ? [...objetivo] : empleados.map(e => e.nomina);
     setEmpleados(prev => aplicarA(prev, objetivo, { motivoIndex: indice }));
@@ -241,6 +246,10 @@ export default function EditorTE() {
     const catalogos = { rutas, comunidades, puntos };
     const horario = horarioParaNuevos();
     const filas = nuevos.map(e => ({ ...empleadoDesdePadron(e, rutaVigente(e, catalogos), { tipo }), ...horario }));
+    // En cuanto la solicitud pasa a usar más de una ruta, se avisa (no hasta el final): hay que justificarlo
+    const antes = resumenRutas(empleados, nombreRuta).rutasDistintas;
+    const despues = resumenRutas([...empleados, ...filas], nombreRuta).rutasDistintas;
+    if (despues > 1 && antes <= 1) toast.warning(`Con estos empleados la solicitud usa ${despues} rutas. Cada ruta adicional cuesta: explica por qué en el recuadro de las rutas.`, 9000, { accion: { texto: 'Ir al recuadro', onClick: () => irA('te-justificacion-rutas') } });
     setEmpleados(prev => [...prev, ...filas]);
     setSucios(prev => new Set([...prev, ...filas.map(f => f.nomina)]));
     setEliminados(prev => { const s = new Set(prev); filas.forEach(f => s.delete(f.nomina)); return s; });
@@ -489,7 +498,7 @@ export default function EditorTE() {
             <Aviso tono="info" className="mt-6" titulo="Esta solicitud se capturó antes del catálogo de motivos">Tenía el motivo «{motivoAnterior}». Elige abajo el motivo del catálogo.</Aviso>
           )}
           <BloqueMotivosTE data-tour="solicitar-motivos" motivos={motivos} catalogo={catalogoMotivos} onChange={cambiarMotivos} problemas={intentoEnvio ? problemasMotivos : []} deshabilitado={ocupado}
-            asignacion={{ empleados: empleados.length, seleccionados: seleccion.size, cuentas: cuentaPorMotivo, onAsignar: asignarMotivo }} />
+            asignacion={{ empleados: empleados.length, seleccionados: seleccion.size, cuentas: cuentaPorMotivo, onAsignar: asignarMotivo, onElegir: (i) => setAplicaA({ indice: i }) }} />
 
           <fieldset className="mt-6">
             <legend className="mb-2 text-xs font-medium text-[var(--text-secondary)]">Tipo de tiempo extra</legend>
@@ -529,10 +538,10 @@ export default function EditorTE() {
             <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface-secondary)] p-4" role="group" aria-label="Aplicar a todos o a los seleccionados">
               <span className="w-full text-xs font-medium text-[var(--text-secondary)]">Aplicar a TODOS los empleados (al elegir la hora se aplica sola):</span>
               <Selector aria-label={extension ? 'Fin de turno para aplicar' : 'Entrada para aplicar'} value={bulk.entrada} onChange={e => elegirHorario('entrada', e.target.value)} className="!w-auto">
-                <option value="">{extension ? 'Termina su turno…' : 'Entrada…'}</option>{(extension ? HORAS_SALIDA_TE : HORAS_ENTRADA_TE).map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
+                <option value="">{extension ? 'Termina su turno…' : 'Entrada…'}</option>{(extension ? HORAS_SALIDA_TE : HORAS_ENTRADA_TE).map(h => <option key={h} value={h}>{horaLegible(h)}</option>)}
               </Selector>
               <Selector aria-label={extension ? 'Hora hasta la que se quedan, para aplicar' : 'Salida para aplicar'} value={bulk.salida} onChange={e => elegirHorario('salida', e.target.value)} className="!w-auto">
-                <option value="">{extension ? 'Se quedan hasta…' : 'Salida…'}</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
+                <option value="">{extension ? 'Se quedan hasta…' : 'Salida…'}</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{horaLegible(h)}</option>)}
               </Selector>
               {!extension && bulk.entrada && !bulk.salida && <span className="self-center text-xs text-[var(--text-secondary)]">Elige también la salida: el horario se aplica solo.</span>}
               <Boton tamano="sm" onClick={() => aplicarMasivo({ alimentos: true })}>Con alimentos</Boton>
@@ -570,10 +579,10 @@ export default function EditorTE() {
                 </Selector>
               )}
               <Selector aria-label={extension ? 'Fin de turno de los seleccionados' : 'Entrada de los seleccionados'} value={bulkSel.entrada} onChange={e => elegirHorarioSeleccion('entrada', e.target.value)} className="!w-auto">
-                <option value="">{extension ? 'Cambiar horario: termina su turno…' : 'Cambiar horario: entrada…'}</option>{(extension ? HORAS_SALIDA_TE : HORAS_ENTRADA_TE).map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
+                <option value="">{extension ? 'Cambiar horario: termina su turno…' : 'Cambiar horario: entrada…'}</option>{(extension ? HORAS_SALIDA_TE : HORAS_ENTRADA_TE).map(h => <option key={h} value={h}>{horaLegible(h)}</option>)}
               </Selector>
               <Selector aria-label={extension ? 'Hora hasta la que se quedan los seleccionados' : 'Salida de los seleccionados'} value={bulkSel.salida} onChange={e => elegirHorarioSeleccion('salida', e.target.value)} className="!w-auto">
-                <option value="">{extension ? 'se quedan hasta…' : 'salida…'}</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
+                <option value="">{extension ? 'se quedan hasta…' : 'salida…'}</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{horaLegible(h)}</option>)}
               </Selector>
               <Boton tamano="sm" variante="fantasma" onClick={() => { setSeleccion(new Set()); setBulkSel({ entrada: '', salida: '' }); }}>Quitar selección</Boton>
             </div>
@@ -623,7 +632,16 @@ export default function EditorTE() {
             <p className="flex flex-wrap items-center gap-2 text-sm font-semibold"><EtiquetaEnvio tipo="obligatorio" />{textoFaltan(pendientes.length)}</p>
             <ul className="mt-1.5 max-h-28 space-y-0.5 overflow-auto text-xs">
               {pendientes.map((x, i) => (
-                <li key={i}><button type="button" onClick={() => irA(x.campo)} className="cursor-pointer text-left underline underline-offset-2 hover:opacity-80">{x.texto}</button></li>
+                <li key={i}>
+                  {x.piezas ? (
+                    // Horario encimado: cada empleado es un enlace a su fila
+                    <span>{x.piezas.map((z, k) => (z.nomina
+                      ? <button key={k} type="button" onClick={() => irA(z.campo)} className="cursor-pointer font-mono underline underline-offset-2 hover:opacity-80" aria-label={`Ir a la fila de ${z.nomina}`}>{z.nomina}</button>
+                      : <span key={k}>{z.t}</span>))}</span>
+                  ) : (
+                    <button type="button" onClick={() => irA(x.campo)} className="cursor-pointer text-left underline underline-offset-2 hover:opacity-80">{x.texto}</button>
+                  )}
+                </li>
               ))}
             </ul>
           </div>
@@ -642,7 +660,7 @@ export default function EditorTE() {
             ))}
           </dl>
             <div className="flex flex-wrap gap-1.5" role="group" aria-label="Empleados por horario">
-              {Object.entries(resumen.porBloque).map(([b, n]) => <Insignia key={b} tono="neutro" sinIcono>{horasEnTexto12(b)}: {n}</Insignia>)}
+              {Object.entries(resumen.porBloque).map(([b, n]) => <Insignia key={b} tono="neutro" sinIcono>{horasEnTexto12(b, { medianoche: true })}: {n}</Insignia>)}
             </div>
           </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
@@ -658,7 +676,11 @@ export default function EditorTE() {
         <div className={resumenAbierto ? '' : 'hidden lg:block'}><Ayuda clave="solicitar.resumen" /></div>
       </div>
 
-      {selectorAbierto && <SelectorEmpleadosTE empleados={empleadosArea} yaAgregados={yaAgregados} rutas={rutas} onAgregar={agregar} onClose={() => setSelectorAbierto(false)} />}
+      {selectorAbierto && <SelectorEmpleadosTE empleados={empleadosArea} yaAgregados={yaAgregados} rutas={rutas} rutasYaUsadas={rutasUsadas} onAgregar={agregar} onClose={() => setSelectorAbierto(false)} />}
+      {aplicaA && (
+        <ModalAplicaMotivo indice={aplicaA.indice} empleados={empleados} etiquetas={opcionesMotivo} onClose={() => setAplicaA(null)}
+          onAplicar={(nominas) => { asignarMotivo(aplicaA.indice, 'marcados', new Set(nominas)); setAplicaA(null); }} />
+      )}
     </div>
   );
 }

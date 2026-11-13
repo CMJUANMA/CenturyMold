@@ -16,13 +16,13 @@ import { Entrada, Selector } from '../../components/ui/Campo';
 import { CASILLA } from '../../components/ui/estilos';
 import { opcionesVigentes } from '../../utils/activo';
 import { estadoTelefono } from '../../utils/telefono';
-import { formatoHora12 } from '../../utils/horas';
+import { horaLegible } from '../../utils/horas';
 import { HORAS_ENTRADA_TE, HORAS_SALIDA_TE, TIPOS_TE, calcularHoras, salidasPosteriores, textoTermina } from '../../utils/tiempoExtra';
 
 // Selectores de la fila: 44 px en celular y 36 px en escritorio, donde la fila es compacta
 const SEL = 'md:!min-h-9 !py-1.5';
 const etiqueta = 'mb-1 block text-xs font-medium text-[var(--text-muted)] lg:hidden';
-export const COLUMNAS_FILA = 'lg:grid lg:grid-cols-[2rem_minmax(0,2fr)_8.25rem_8.25rem_4rem_6rem_8rem_2.5rem] lg:items-center lg:gap-3';
+export const COLUMNAS_FILA = 'lg:grid lg:grid-cols-[2rem_minmax(0,1.6fr)_11.5rem_11.5rem_3.5rem_6rem_7rem_2.5rem] lg:items-center lg:gap-3';
 
 export default function FilaEmpleadoTE({ tour, e, fechaTE = '', tipo = TIPOS_TE.TURNO_EXTRA, opcionesMotivo = [], rutas, comunidades, puntos, seleccionado, nota, error, telefono = '', puedeTelefono = false, onTelefono, onSeleccionar, onCambio, onQuitar }) {
   const extension = tipo === TIPOS_TE.EXTENSION;
@@ -43,7 +43,7 @@ export default function FilaEmpleadoTE({ tour, e, fechaTE = '', tipo = TIPOS_TE.
           <p className="truncate text-xs text-[var(--text-secondary)]">
             <span className="font-mono">{e.nomina}</span>{e.puesto ? ` · ${e.puesto}` : ''}
           </p>
-          {textoTermina(fechaTE, e.horaEntrada, e.horaSalida, { soloSiCruza: true }) && (
+          {textoTermina(fechaTE, e.horaEntrada, e.horaSalida, { soloSiCruza: true, medianoche: true }) && (
             <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-[var(--status-info-text)]"><Moon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{textoTermina(fechaTE, e.horaEntrada, e.horaSalida)}</p>
           )}
           {nota && <p className="mt-1 text-xs text-[var(--text-muted)]">{nota}</p>}
@@ -54,14 +54,14 @@ export default function FilaEmpleadoTE({ tour, e, fechaTE = '', tipo = TIPOS_TE.
               <>
                 <label className={etiqueta} htmlFor={`ent-${e.nomina}`}>Termina su turno</label>
                 <Selector id={`ent-${e.nomina}`} className={SEL} value={e.horaEntrada} onChange={ev => cambiar({ horaEntrada: ev.target.value, horaSalida: '' })} aria-label={`Fin de turno de ${e.nombre}`}>
-                  <option value="">Fin de turno…</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
+                  <option value="">Fin de turno…</option>{HORAS_SALIDA_TE.map(h => <option key={h} value={h}>{horaLegible(h)}</option>)}
                 </Selector>
               </>
             ) : (
               <>
                 <label className={etiqueta} htmlFor={`ent-${e.nomina}`}>Entrada</label>
                 <Selector id={`ent-${e.nomina}`} className={SEL} value={e.horaEntrada} onChange={ev => cambiar({ horaEntrada: ev.target.value })} aria-label={`Entrada de ${e.nombre}`}>
-                  <option value="">—</option>{HORAS_ENTRADA_TE.map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
+                  <option value="">—</option>{HORAS_ENTRADA_TE.map(h => <option key={h} value={h}>{horaLegible(h)}</option>)}
                 </Selector>
               </>
             )}
@@ -70,7 +70,7 @@ export default function FilaEmpleadoTE({ tour, e, fechaTE = '', tipo = TIPOS_TE.
             <label className={etiqueta} htmlFor={`sal-${e.nomina}`}>{extension ? 'Se queda hasta' : 'Salida'}</label>
             <Selector id={`sal-${e.nomina}`} className={SEL} value={e.horaSalida} onChange={ev => cambiar({ horaSalida: ev.target.value })} aria-label={`${extension ? 'Hora hasta la que se queda' : 'Salida de'} ${e.nombre}`}
               disabled={extension && posteriores.length === 0}>
-              <option value="">—</option>{(extension ? posteriores : HORAS_SALIDA_TE).map(h => <option key={h} value={h}>{formatoHora12(h)}</option>)}
+              <option value="">—</option>{(extension ? posteriores : HORAS_SALIDA_TE).map(h => <option key={h} value={h}>{horaLegible(h)}</option>)}
             </Selector>
           </div>
           <div className="col-span-2 lg:col-span-1">

@@ -1,6 +1,6 @@
 // Cómo se muestran las horas: 12 h con a. m./p. m. en la app y 24 h con dos dígitos en el Excel del proveedor (src/utils/horas.js)
 import { describe, expect, it } from 'vitest';
-import { FORMATO_HORA_PROVEEDOR, etiquetaBloque12, formatoHora12, formatoHora24, horaParaProveedor, horasEnTexto12, minutosDeHoraTexto } from '../src/utils/horas.js';
+import { FORMATO_HORA_PROVEEDOR, etiquetaBloque12, formatoHora12, formatoHora24, horaLegible, horaParaProveedor, horasEnTexto12, minutosDeHoraTexto } from '../src/utils/horas.js';
 
 describe('horas en 12 h (la app)', () => {
   it('los bloques de las rutas', () => {
@@ -50,5 +50,23 @@ describe('horas del Excel del proveedor', () => {
   });
   it('con la constante en "12h" vuelve al formato de rutas (4:00PM)', () => {
     expect(['7:00', '16:00', '0:00', '12:00PM'].map(h => horaParaProveedor(h, '12h'))).toEqual(['7:00AM', '4:00PM', '12:00AM', '12:00PM']);
+  });
+});
+
+describe('la medianoche se lee «(medianoche)» en pantalla y no cambia en los Excel', () => {
+  it('horaLegible: solo la 0:00 lleva la aclaración', () => {
+    expect(['0:00', '00:00', '12:00AM', '7:00', '16:00', '12:00 p. m.'].map(horaLegible)).toEqual(['12:00 a. m. (medianoche)', '12:00 a. m. (medianoche)', '12:00 a. m. (medianoche)', '7:00 a. m.', '4:00 p. m.', '12:00 p. m.']);
+  });
+  it('formatoHora12 sin opciones queda igual que siempre (lo usan las exportaciones de RH)', () => {
+    expect(formatoHora12('0:00')).toBe('12:00 a. m.');
+  });
+  it('en textos y en el horario de un empleado, con la opción', () => {
+    expect(horasEnTexto12('16:00 → 0:00', { medianoche: true })).toBe('4:00 p. m. → 12:00 a. m. (medianoche)');
+    expect(horasEnTexto12('16:00 → 0:00')).toBe('4:00 p. m. → 12:00 a. m.');
+    expect(etiquetaBloque12({ horaEntrada: '16:00', horaSalida: '0:00' }, { medianoche: true })).toBe('4:00 p. m. → 12:00 a. m. (medianoche)');
+  });
+  it('el Excel del proveedor no cambia: 24 h («00:00»)', () => {
+    expect(horaParaProveedor('0:00')).toBe('00:00');
+    expect(horaParaProveedor('12:00AM', '12h')).toBe('12:00AM');
   });
 });

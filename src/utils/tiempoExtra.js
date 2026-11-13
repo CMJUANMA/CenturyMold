@@ -55,11 +55,11 @@ export const fechaDeFin = (fechaTE, entrada, salida) => (terminaDiaSiguiente(ent
  * "Termina: miércoles 22 oct, 7:00 a. m. (día siguiente)" ('' si falta la fecha o una hora). Con `soloSiCruza` solo lo dice si termina otro día;
  * `prefijo: false` quita el "Termina: " (para las celdas de un Excel).
  */
-export function textoTermina(fechaTE, entrada, salida, { soloSiCruza = false, prefijo = true } = {}) {
+export function textoTermina(fechaTE, entrada, salida, { soloSiCruza = false, prefijo = true, medianoche = false } = {}) {
   if (!fechaTE || minutos(entrada) === null || minutos(salida) === null) return '';
   const cruza = terminaDiaSiguiente(entrada, salida);
   if (soloSiCruza && !cruza) return '';
-  return `${prefijo ? 'Termina: ' : ''}${fechaCorta(fechaDeFin(fechaTE, entrada, salida))}, ${formatoHora12(salida)}${cruza ? ' (día siguiente)' : ''}`;
+  return `${prefijo ? 'Termina: ' : ''}${fechaCorta(fechaDeFin(fechaTE, entrada, salida))}, ${formatoHora12(salida, { medianoche })}${cruza ? ' (día siguiente)' : ''}`;
 }
 
 /**
@@ -271,6 +271,18 @@ export function resumirPendientes(problemas) {
   }
   return salida.map(r => {
     if (!r.grupo) return r;
+    if (r.grupo === 'traslape') {
+      // «Horario encimado: 8050 y 8053 con TE-2026-0012», con un enlace a la fila de cada uno
+      const folios = [...new Set(r.lista.map(x => x.folio))];
+      const union = (i, n) => (i === 0 ? '' : i === n - 1 ? ' y ' : ', ');
+      const piezas = [{ t: 'Horario encimado: ' }];
+      r.lista.forEach((x, i) => {
+        piezas.push({ t: union(i, r.lista.length) }, { nomina: x.nomina, campo: x.campo });
+        if (folios.length > 1) piezas.push({ t: ` con ${x.folio}` });
+      });
+      if (folios.length === 1) piezas.push({ t: ` con ${folios[0]}` });
+      return { texto: piezas.map(x => x.t ?? x.nomina).join(''), piezas, campo: r.lista[0].campo, cantidad: r.lista.length };
+    }
     const [primero] = r.lista;
     return { texto: r.lista.length === 1 ? (primero.mensajePanel ?? primero.mensaje) : (TEXTO_GRUPO[r.grupo]?.(r.lista.length) ?? primero.mensaje), campo: primero.campo, cantidad: r.lista.length };
   });
@@ -322,19 +334,22 @@ export function problemasDeEnvio({ areaId, fechaTE, motivos = [], catalogoMotivo
     const otra = ocupados.get(e.nomina);
     if (!otra) continue;
     const bloques = otra.bloques?.length ? otra.bloques : [otra];
-    const horario = (b) => (b.horaEntrada && b.horaSalida ? ` de ${formatoHora12(b.horaEntrada)} a ${formatoHora12(b.horaSalida)}` : '');
+    const horario = (b) => (b.horaEntrada && b.horaSalida ? ` de ${formatoHora12(b.horaEntrada, { medianoche: true })} a ${formatoHora12(b.horaSalida, { medianoche: true })}` : '');
     const cuando = (b) => ((b.desfase ?? 0) < 0 ? ' el día anterior' : (b.desfase ?? 0) > 0 ? ' el día siguiente' : ' ese día');
+    const dia = (b) => ((b.desfase ?? 0) < 0 ? 'ayer' : (b.desfase ?? 0) > 0 ? 'mañana' : 'el mismo día');
     // Un borrador propio sin enviar no bloquea (puede ser uno viejo): solo se anota
     const choque = bloques.find(b => b.estatus !== 'borrador' && seTraslapan(e.horaEntrada, e.horaSalida, b.horaEntrada, b.horaSalida, b.desfase ?? 0));
     if (choque) {
       const que = `ya tiene ${choque.folio ?? 'otra solicitud'}${horario(choque)}${cuando(choque)}`;
-      p.push({ nivel: 'error', mensaje: `${que.charAt(0).toUpperCase()}${que.slice(1)}. Cambia el horario o quítalo.`, mensajePanel: `${e.nombre}: ${que}; cambia el horario o quítalo.`, nomina: e.nomina, campo: `fila-${e.nomina}`, grupo: 'traslape' });
+      p.push({
+        nivel: 'error', mensaje: `${que.charAt(0).toUpperCase()}${que.slice(1)}. Cambia el horario o quítalo.`, mensajePanel: `${e.nombre}: ${que}; cambia el horario o quítalo.`,
+        nomina: e.nomina, campo: `fila-${e.nomina}`, grupo: 'traslape', folio: choque.folio ?? 'borrador',
+      });
     }
-    // Lo demás que ya tiene ese día (sin encimarse) es solo información, sin etiqueta de aviso
-    const otros = bloques.filter(b => b !== choque);
-    if (otros.length) {
-      const partes = otros.map(b => `${b.folio ?? 'borrador'}${horario(b)}${(b.desfase ?? 0) === 0 ? '' : ` (${cuando(b).trim()})`}`);
-      p.push({ nivel: 'nota', mensaje: `También tiene ${partes.join(' · ')}.`, nomina: e.nomina });
+    // Todo lo que ya tiene alrededor de ese día, con el día y marcando la que choca (si es la única, el error de arriba ya lo dice)
+    if (bloques.length > (choque ? 1 : 0)) {
+      const partes = bloques.map(b => `${b.folio ?? 'borrador'} (${dia(b)}${horario(b) ? `,${horario(b)}` : ''}${b === choque ? '; CHOCA con este horario' : ''})`);
+      p.push({ nivel: 'nota', mensaje: `También tiene: ${partes.join(' · ')}.`, nomina: e.nomina });
     }
   }
   return p;
