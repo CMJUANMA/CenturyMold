@@ -10,6 +10,8 @@ export const MANUALES = [
   { archivo: 'autorizador-2', rol: 'Autorizador 2', para: 'Para quien da la segunda firma de toda la planta y autoriza lo que ya venció.', tiene: (a) => !!a.esAut2 },
   { archivo: 'rh', rol: 'Recursos Humanos', para: 'Para quien confirma el tiempo extra, pide el transporte y administra usuarios y accesos.', tiene: (a) => !!a.esRH },
   { archivo: 'nominas', rol: 'Nóminas', para: 'Para quien prepara, ajusta y firma el formato de tiempo extra de cada semana.', tiene: (a) => !!a.esNomina },
+  // Solo para el administrador (los demás roles no lo ven): lo que únicamente él hace y qué revisar si algo falla
+  { archivo: 'administrador', rol: 'Administrador', para: 'Para el administrador: respaldos, herramientas, roles de más nivel y preparar el arranque en producción.', tiene: () => false },
 ];
 
 export const rutaManual = (archivo) => `/manuales/manual-${archivo}.pdf`;

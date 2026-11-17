@@ -17,9 +17,13 @@ describe('manualesDeUsuario', () => {
     expect(archivos({ areasSolicitante: ['moldes'], areasAut1: ['moldes'], esAut2: true })).toEqual(['solicitante', 'autorizador-1', 'autorizador-2']);
     expect(archivos({ esRH: true, esAut2: true })).toEqual(['solicitante', 'autorizador-2', 'rh']);
   });
-  it('el administrador tiene todos los permisos: ve los cinco', () => {
+  it('el administrador tiene todos los permisos: ve los seis, incluido el suyo', () => {
     expect(archivos({ esAdmin: true })).toEqual(MANUALES.map(m => m.archivo));
-    expect(MANUALES).toHaveLength(5);
+    expect(MANUALES).toHaveLength(6);
+    expect(archivos({ esAdmin: true })).toContain('administrador');
+  });
+  it('el manual del administrador no lo ve nadie más (ni RH ni Aut. 2)', () => {
+    expect(archivos({ esRH: true, esAut2: true, esNomina: true, areasAut1: ['moldes'], areasSolicitante: ['moldes'] })).not.toContain('administrador');
   });
   it('sin ningún rol no hay manual (la pantalla lo explica)', () => {
     expect(manualesDeUsuario({})).toEqual([]);

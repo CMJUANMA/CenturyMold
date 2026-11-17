@@ -41,3 +41,5 @@ export const ESTATUS_ROL = {
     'Cancelada': { significa: 'Se canceló (con un motivo). Ya no se puede usar.', haz: 'Nada.' },
   },
 };
+// El administrador puede hacer lo de cualquier rol: la misma tabla de Recursos Humanos (que es quien más hace sobre cada estatus)
+ESTATUS_ROL.administrador = ESTATUS_ROL.rh;
