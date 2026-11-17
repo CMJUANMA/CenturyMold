@@ -32,11 +32,11 @@ export async function autorizador2({ abrir, ir, BASE }) {
   });
   await ir(page, '/mi-cuenta', 2500);
   await intentar('mi cuenta', async () => {
-    await page.setViewportSize({ width: 1600, height: 1250 }); await page.waitForTimeout(600);
+    await page.setViewportSize({ width: 1600, height: 1800 }); await page.waitForTimeout(600);
     await capturar(page, `${R}/03-mi-cuenta`, [
-      { en: page.getByText('Mostrar ayudas', { exact: true }), n: 1 }, { en: page.getByText('Tamaño de letra', { exact: true }), n: 2 },
-      { en: page.getByText('Tema', { exact: true }), n: 3 }, { en: page.getByRole('button', { name: /Cambiar mi contraseña/ }), n: 4 },
-    ], { recorte: { ...LADO, height: 1250 } });
+      { en: page.getByText('Mostrar ayudas', { exact: true }), n: 1, sinCaja: true }, { en: page.getByText('Tamaño de letra', { exact: true }), n: 2, sinCaja: true },
+      { en: page.getByText('Tema', { exact: true }), n: 3, sinCaja: true }, { en: page.getByRole('button', { name: /Cambiar mi contraseña/ }), n: 4 },
+    ], { recorte: { ...LADO, height: 1480 } });
     await page.setViewportSize({ width: 1600, height: 900 });
   });
 
@@ -200,7 +200,7 @@ export async function autorizador2({ abrir, ir, BASE }) {
   await intentar('lote', async () => {
     await page.getByRole('button', { name: /Crear usuarios en lote/ }).click(); await page.waitForTimeout(1000);
     await capturar(page, `${R}/29-lote`, [
-      { en: cuadro().getByRole('button', { name: /Agregar otros empleados/ }), n: 1 }, { en: cuadro().getByRole('button', { name: /Crear d+ cuenta/ }), n: 2 },
+      { en: cuadro().getByRole('button', { name: /Agregar otros empleados/ }), n: 1 }, { en: cuadro().getByRole('button', { name: /Crear [0-9]+ cuenta/ }), n: 2 },
     ], { recorte: LOTE });
     await cuadro().getByRole('button', { name: /Agregar otros empleados/ }).click(); await page.waitForTimeout(800);
     await capturar(page, `${R}/30-lote-buscar`, [{ en: cuadro().getByPlaceholder(/Buscar en el padrón/), n: 1 }, { en: cuadro().getByRole('button', { name: 'Listo' }), n: 2 }], { recorte: LOTE });
@@ -264,7 +264,7 @@ export async function autorizador2({ abrir, ir, BASE }) {
   await ir(page, '/personal/lista', 2500);
   await intentar('lista de personal', async () => {
     await capturar(page, `${R}/41-lista-personal`, [
-      { en: page.getByText('Todas las áreas').first(), n: 1 }, { en: page.locator('th').first(), n: 2 },
+      { en: page.locator('select').first(), n: 1 }, { en: page.locator('th').first(), n: 2 },
     ], { recorte: LADO });
   });
   await browser.close();
