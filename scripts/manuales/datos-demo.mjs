@@ -190,6 +190,9 @@ await solicitud({ estatus: 'pendiente_aut1', offset: 2, tipo: 'extension', motiv
 await solicitud({ estatus: 'pendiente_aut1', areaId: 'produccion', creador: 'solicitanteProd', offset: 1, motivos: [MOT.vacante], comentario: 'Falta de personal en la línea 2', empleados: [['8050', '7:00', '16:00'], ['8051', '7:00', '16:00'], ['8052', '7:00', '16:00']] });
 await solicitud({ estatus: 'pendiente_aut2', areaId: 'produccion', creador: 'solicitanteProd', offset: 2, motivos: [MOT.embarques], comentario: 'Embarque especial', empleados: [['8050', '7:00', '16:00'], ['8053', '7:00', '16:00']] });
 await solicitud({ estatus: 'autorizada', areaId: 'produccion', creador: 'solicitanteProd', offset: 3, motivos: [MOT.po], comentario: 'Pedido urgente con cargo a P.O.', empleados: [['8051', '16:00', '0:00'], ['8052', '16:00', '0:00']] });
+// Más solicitudes del nivel 1 de Moldes (para autorizar varias a la vez en el manual del Autorizador 1)
+await solicitud({ estatus: 'pendiente_aut1', offset: 3, motivos: [MOT.inventario], comentario: 'Inventario de moldes del sábado', empleados: [['8040', '7:00', '16:00'], ['8041', '7:00', '16:00'], ['8046', '7:00', '16:00']] });
+await solicitud({ estatus: 'pendiente_aut1', offset: 4, motivos: [MOT.embarques], comentario: 'Embarque de moldes para exportación', empleados: [['8042', '7:00', '16:00'], ['8043', '7:00', '16:00']] });
 // Autorizada fuera de tiempo, con la fecha ya pasada y sin enviar al proveedor (aparece en «Fecha pasada – transporte no enviado» de RH)
 await solicitud({ estatus: 'autorizada', areaId: 'moldes', offset: -3, motivos: [MOT.vacante], comentario: 'Cobertura que se trabajó y se autorizó después', empleados: [['8042', '7:00', '16:00'], ['8043', '7:00', '16:00']],
   extra: { autorizadaFueraDeTiempo: true, fueraDeTiempo: { nomina: '8010', nombre: USUARIOS.aut2[1], fecha: dia(-1), motivo: 'Sí se trabajó; no se alcanzó a firmar a tiempo', estatusAnterior: 'pendiente_aut1' } } });

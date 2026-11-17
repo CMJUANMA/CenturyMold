@@ -1,5 +1,15 @@
 // «Qué significa cada estatus» visto desde cada rol: lo que cambia es la columna «Qué haces tú» (y a veces el significado). Las etiquetas son las de la aplicación.
 export const ESTATUS_ROL = {
+  'autorizador-1': {
+    'Borrador': { significa: 'Alguien la guardó y todavía no la envía. Solo la ve quien la armó.', haz: 'Nada. No la ves hasta que se envíe.' },
+    'En autorización (nivel 1)': { significa: 'Espera tu firma.', haz: 'Está en <b>Por autorizar</b>: <b>Autorizar</b> o <b>Devolver</b>.' },
+    'En autorización (nivel 2)': { significa: 'Ya la firmaste; espera la segunda firma (Autorización 2).', haz: 'Nada. La ves en el <b>Historial de mi área</b>. Si urge, avisa a Autorización 2.' },
+    'Devuelta': { significa: 'Alguien pidió que se corrija; regresó a quien la capturó.', haz: 'Nada. Avisa a quien la capturó. Al reenviarla vuelve a tu bandeja.' },
+    'Autorizada': { significa: 'Tiene tu firma y la de Autorización 2. Recursos Humanos la confirmará.', haz: 'Nada. Si fue un error, pide a Recursos Humanos que la devuelva o la cancele antes de confirmarla.' },
+    'Confirmada por RH': { significa: 'Recursos Humanos ya la confirmó y pidió el transporte.', haz: 'Nada.' },
+    'Vencida': { significa: 'Pasó el día del tiempo extra sin terminar de autorizarse.', haz: 'Nada: ya no la puedes firmar ni devolver. Solo Autorización 2 puede autorizarla fuera de tiempo; quien la pidió puede duplicarla con otra fecha.' },
+    'Cancelada': { significa: 'Se canceló (con un motivo). Ya no se puede usar.', haz: 'Nada.' },
+  },
   nominas: {
     'Borrador': { significa: 'Alguien la guardó y todavía no la envía. Solo la ve quien la armó.', haz: 'Nada. No la ves.' },
     'En autorización (nivel 1)': { significa: 'Espera la firma del jefe de su área.', haz: 'Nada. <b>No entra</b> al formato de nómina. La ves en <b>Tiempo extra</b>.' },
