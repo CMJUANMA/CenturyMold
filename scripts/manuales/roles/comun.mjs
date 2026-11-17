@@ -4,7 +4,7 @@ import { PASSWORD, USUARIOS } from '../datos-demo-usuarios.mjs';
 export const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 export const enDias = (n) => ymd(new Date(Date.now() + n * 86400000));
 /** Un paso que falla no detiene el resto: se anota y sigue (el manual se revisa con las capturas que sí salieron) */
-export const intentar = async (nombre, fn) => { try { await fn(); } catch (e) { console.log(`  ✗ ${nombre}: ${String(e.message).split('\n')[0]}`); } };
+export const intentar = async (nombre, fn) => { try { await fn(); } catch (e) { console.log(`  ✗ ${nombre}: ${String(e.message).split('\n').filter(x => x.trim()).slice(0, 3).join(' ¦ ').slice(0, 300)}`); } };
 
 // Recortes (px de la ventana de 1366 × 820): se quita el menú lateral para que lo importante salga más grande
 export const LADO = { x: 288, y: 0, width: 1078, height: 820 };
@@ -37,4 +37,12 @@ export function claveSemana(fecha = new Date()) {
   const inicioAnio = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   const semana = Math.ceil(((d - inicioAnio) / 86400000 + 1) / 7);
   return `${d.getUTCFullYear()}-${String(semana).padStart(2, '0')}`;
+}
+
+/** Recorte ajustado al último cuadro de diálogo abierto (con un margen), para que cada cuadro salga del tamaño que tiene */
+export async function alrededorDelCuadro(page, margen = 28) {
+  const b = await page.locator('[role=dialog]').last().boundingBox();
+  const v = page.viewportSize();
+  const x = Math.max(0, Math.floor(b.x - margen)), y = Math.max(0, Math.floor(b.y - margen));
+  return { x, y, width: Math.min(v.width - x, Math.ceil(b.width + margen * 2)), height: Math.min(v.height - y, Math.ceil(b.height + margen * 2)) };
 }

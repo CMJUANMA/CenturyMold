@@ -58,7 +58,7 @@ const dia = (n) => new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + n
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 // Usuarios: tema claro (se imprime mejor), sin recorridos guiados encima de las capturas
-const TODOS_LOS_RECORRIDOS = ['solicitar', 'autorizar', 'recepcion', 'nomina', 'consulta', 'inicio', 'usuarios'];
+const TODOS_LOS_RECORRIDOS = ['solicitar', 'autorizar', 'recepcion', 'nomina', 'consulta', 'inicio', 'usuarios', 'inicioNomina', 'inicioRol', 'reportesNomina', 'organigrama', 'asignaciones', 'padron', 'turnos', 'formatoRutas', 'misSolicitudes'];
 const uids = {};
 for (const [clave, [nomina, nombre, rol]] of Object.entries(USUARIOS)) {
   uids[clave] = await cuenta(nomina);
