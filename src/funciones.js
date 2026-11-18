@@ -5,8 +5,11 @@
  *                     "Transporte (consulta)" y todo lo que solo sirve a ese flujo (aprobar / rechazar / revertir, "Todas las
  *                     pendientes", filtro de origen, contadores de novedades). Hoy el transporte se pide DENTRO del tiempo extra.
  *                     Para reactivarlo en el piloto: ponerlo en true. No hace falta tocar nada más.
+ *
+ *   recorridos        Recorrido guiado (globos que señalan la pantalla): se lanza solo la primera vez, "Ver el recorrido" en el "?" y
+ *                     "Volver a ver los recorridos" en Mi cuenta. Apagado para el piloto; ponerlo en true lo reactiva sin tocar nada más.
  */
-export const FUNCIONES = { transporteSuelto: false };
+export const FUNCIONES = { transporteSuelto: false, recorridos: false };
 
 /**
  * Duración máxima de un tiempo extra, en horas (de la hora de inicio a la de fin, aunque cruce la medianoche). null = sin límite (hoy no hay).

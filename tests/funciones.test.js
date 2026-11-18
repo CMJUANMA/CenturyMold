@@ -81,3 +81,18 @@ describe('ningún enlace directo a las pantallas ocultas', () => {
     expect(fuera).not.toMatch(/path:\s*(RUTAS_TRANSPORTE_SUELTO|RUTA_EDITAR_TRANSPORTE)/);
   });
 });
+
+describe('interruptor recorridos', () => {
+  it('en el código entregado está apagado', () => {
+    expect(FUNCIONES.recorridos).toBe(false);
+    expect(funcionActiva('recorridos')).toBe(false);
+    expect(funcionActiva('recorridos', { recorridos: true })).toBe(true);
+  });
+
+  it('AyudaPantalla y Mi cuenta solo muestran recorridos detrás del interruptor', () => {
+    const ayuda = readFileSync('src/components/AyudaPantalla.jsx', 'utf8');
+    const panel = readFileSync('src/components/PreferenciasPanel.jsx', 'utf8');
+    expect(ayuda).toContain("funcionActiva('recorridos') ? recorridoDe(id) : []");
+    expect(panel).toContain("funcionActiva('recorridos') && <section");
+  });
+});

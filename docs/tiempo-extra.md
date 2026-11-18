@@ -369,7 +369,7 @@ Pruebas: `tests/medianoche-te.test.js` (los cinco casos en horas, validación, t
 - **Teléfono para el transporte**: en la captura, cada empleado con transporte muestra su teléfono del padrón (`empleadosContacto`), se puede capturar o corregir y se guarda en el padrón al guardar o enviar; sin teléfono es solo un aviso. Solo lo ven RH y el solicitante del área (ver `docs/seguridad.md`, S-25). No se guarda en la solicitud de tiempo extra ni en sus empleados; el detalle de la solicitud de transporte (RH) y la columna `TELÉFONO` del Excel del proveedor lo leen del padrón.
 - **Turnos de nómina** (solo de referencia, ya no alimentan la captura; `turnosNomina/{A|B|C}`: entrada y salida en los bloques 7:00, 16:00, 19:00 y 0:00): RH los captura en *Estructura > Turnos*; empiezan vacíos. Los lee cualquier usuario activo; los escribe RH/admin.
 - **Mi cuenta** (`/mi-cuenta`, todos; junta lo que eran Perfil y Configuración): datos, contraseña, ayudas sí/no, tamaño de letra (Normal/Grande) y tema (Claro/Oscuro/Automático), guardados en `usuarios/{uid}.preferencias` (las reglas dejan a cada usuario cambiar solo ese campo de su propio documento).
-  Con las ayudas activas: texto corto bajo los campos, "?" junto a los títulos (explicación de 3 o 4 pasos) y recorrido guiado la primera vez en *Solicitar tiempo extra* y *Por autorizar* (`preferencias.recorridosVistos`; se puede repetir desde el "?").
+  Con las ayudas activas: texto corto bajo los campos, "?" junto a los títulos (explicación de 3 o 4 pasos) (el recorrido guiado existe pero está apagado: `FUNCIONES.recorridos` en `src/funciones.js`).
   **Todos los textos de ayuda están en `src/utils/ayudas.js`.**
 
 ### Contador de folios

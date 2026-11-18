@@ -93,7 +93,7 @@ export default {
         { h: 'Mi cuenta' },
         { p: 'Tu nombre, abajo en el menú, abre <b>Mi cuenta</b>.' },
         { pasos: [
-          '<b>Mostrar ayudas</b>: los textos de ayuda y los recorridos guiados.',
+          '<b>Mostrar ayudas</b>: los textos de ayuda y el «?» junto a los títulos.',
           '<b>Tamaño de letra</b>: Normal o Grande.',
           '<b>Tema</b>: Claro, Oscuro o Automático (igual que tu equipo).',
           '<b>Cambiar mi contraseña</b>.',

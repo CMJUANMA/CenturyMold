@@ -10,13 +10,14 @@ import Recorrido from './Recorrido';
 import Boton from './ui/Boton';
 import { usePreferencias } from '../hooks/usePreferencias';
 import { ayudaDePantalla, recorridoDe } from '../utils/ayudas';
+import { funcionActiva } from '../funciones';
 
 export default function AyudaPantalla({ id, listo = true }) {
   const { preferencias, marcarRecorridoVisto } = usePreferencias();
   const [abierta, setAbierta] = useState(false);
   const [recorrido, setRecorrido] = useState(false);
   const ayuda = ayudaDePantalla(id);
-  const pasos = recorridoDe(id);
+  const pasos = funcionActiva('recorridos') ? recorridoDe(id) : []; // función apagada: ni solo ni a petición
   const primeraVez = preferencias.ayudas && pasos.length > 0 && !preferencias.recorridosVistos.includes(id);
 
   // Primera vez: arranca cuando la pantalla ya tiene sus partes (listo)

@@ -10,6 +10,7 @@ import Boton from './ui/Boton';
 import { useToast } from '../hooks/useToast';
 import { usePreferencias } from '../hooks/usePreferencias';
 import { useTheme } from '../context/ThemeContext';
+import { funcionActiva } from '../funciones';
 
 function Opcion({ activa, onClick, icono: Icono, titulo, detalle }) {
   return (
@@ -53,12 +54,12 @@ export default function PreferenciasPanel() {
     <div className="space-y-5">
       <p className="text-sm text-[var(--text-secondary)]" aria-live="polite">Elige cómo quieres ver el sistema. Los cambios se guardan solos{guardando ? ' (guardando…)' : ''}.</p>
 
-      <Seccion titulo="Mostrar ayudas" ayuda="Explicaciones cortas debajo de los campos, el signo de interrogación (?) junto a los títulos y el recorrido guiado.">
+      <Seccion titulo="Mostrar ayudas" ayuda={funcionActiva('recorridos') ? 'Explicaciones cortas debajo de los campos, el signo de interrogación (?) junto a los títulos y el recorrido guiado.' : 'Explicaciones cortas debajo de los campos y el signo de interrogación (?) junto a los títulos.'}>
         <Opcion activa={preferencias.ayudas} icono={CircleHelp} titulo="Sí, mostrar ayudas" detalle="Recomendado si estás empezando" onClick={() => cambiar({ ayudas: true })} />
         <Opcion activa={!preferencias.ayudas} icono={CircleHelp} titulo="No, pantalla limpia" detalle="Sin textos de ayuda" onClick={() => cambiar({ ayudas: false })} />
       </Seccion>
 
-      <section className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5">
+      {funcionActiva('recorridos') && <section className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] p-5">
         <h2 className="text-lg font-semibold text-[var(--text-main)]">Recorridos guiados</h2>
         <p className="mt-0.5 text-sm text-[var(--text-secondary)]">Los globos que señalan cada parte de la pantalla la primera vez que la abres. Si ya los viste y quieres repasarlos, vuelven a salir.</p>
         <div className="mt-4">
@@ -69,7 +70,7 @@ export default function PreferenciasPanel() {
           {preferencias.recorridosVistos.length === 0 && <p className="mt-2 text-xs text-[var(--text-muted)]">Todavía no has visto ninguno: saldrán solos.</p>}
           {!preferencias.ayudas && <p className="mt-2 text-xs text-[var(--text-muted)]">Las ayudas están apagadas: actívalas arriba para ver los recorridos.</p>}
         </div>
-      </section>
+      </section>}
 
       <Seccion titulo="Tamaño de letra" ayuda="Si te cuesta leer, elige Grande: todo el sistema se ve más grande.">
         <Opcion activa={preferencias.tamanoLetra === 'normal'} icono={Type} titulo="Normal" onClick={() => cambiar({ tamanoLetra: 'normal' })} />
