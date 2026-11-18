@@ -46,6 +46,9 @@ const EMP_COLS_INFO = [
   { letra: 'D', nombre: 'CLAVE PARADA', obligatorio: false, ejemplo: 'SN01' },
   { letra: 'E', nombre: 'TELÉFONO',     obligatorio: false, ejemplo: '4421234567' },
   { letra: 'F', nombre: 'ELEGIBLE TE',  obligatorio: false, ejemplo: 'SI' },
+  { letra: 'G', nombre: 'RUTA',         obligatorio: false, ejemplo: 'RUTA NORTE' },
+  { letra: 'H', nombre: 'COMUNIDAD',    obligatorio: false, ejemplo: 'COLONIA SAN PEDRO' },
+  { letra: 'I', nombre: 'PUNTO',        obligatorio: false, ejemplo: 'PARQUE CENTRAL' },
 ];
 const NOMINA_COLS_INFO = [
   { campo: 'numero_i', destino: 'Nómina (texto)' },
@@ -386,7 +389,7 @@ export default function ModalImportacion({ tipo, onClose, onImportado }) {
       let leidas; let meta = null;
       if (esDir) leidas = await leerDirectorio(buffer);
       else {
-        const r = await leerEmpleadosArchivo(buffer, puntosMap, { hoja });
+        const r = await leerEmpleadosArchivo(buffer, puntosMap, { hoja, rutas: base.rutas, comunidades: base.comunidades });
         if (r.meta.requiereHoja) { // varias hojas con los encabezados de nómina: que RH elija
           setFilas([]); setPaso('inicio'); setMetaArchivo(null);
           setEleccionHoja({ candidatas: r.meta.candidatas, seleccionada: r.meta.candidatas[0] });

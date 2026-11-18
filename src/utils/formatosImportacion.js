@@ -38,9 +38,15 @@ const COLUMNAS_EMP = [
     desc: 'Telefono del empleado, 10 digitos (para que el transporte pueda llamar). Si se deja vacio, no se borra el que ya tenga.', ej: '4421234567' },
   { h: 'ELEGIBLE TE',  ancho: 14, formato: 'texto', opcional: true,
     desc: 'SI o NO: si la persona puede capturarse en tiempo extra. Si se deja vacio, no cambia el valor actual.', ej: 'SI' },
+  { h: 'RUTA',         ancho: 22, formato: 'texto', opcional: true,
+    desc: 'Nombre de la ruta de transporte del empleado, tal como esta en el directorio. Va junto con COMUNIDAD y PUNTO.', ej: 'RUTA NORTE' },
+  { h: 'COMUNIDAD',    ancho: 26, formato: 'texto', opcional: true,
+    desc: 'Nombre de la comunidad o colonia, tal como esta en el directorio (dentro de esa ruta).', ej: 'COLONIA SAN PEDRO' },
+  { h: 'PUNTO',        ancho: 28, formato: 'texto', opcional: true,
+    desc: 'Nombre del punto de reunion, tal como esta en el directorio (dentro de esa comunidad).', ej: 'PARQUE CENTRAL' },
 ];
 /** Columnas del formato de empleados que pueden faltar en archivos anteriores (las últimas) */
-const EMP_OPCIONALES_FINALES = 2;
+const EMP_OPCIONALES_FINALES = 5;
 
 export const DIR_HEADERS = COLUMNAS_DIR.map(c => c.h);
 export const EMP_HEADERS = COLUMNAS_EMP.map(c => c.h);
@@ -51,9 +57,9 @@ const EJEMPLO_DIR = [
   ['RUTA SUR',   'COLONIA VISTA HERMOSA', 'PLAZA COMERCIAL',     'SU01'],
 ];
 const EJEMPLO_EMP = [
-  [12345, 'GARCIA LOPEZ JUAN',      'PRODUCTION OPERATOR', 'SN01', '4421234567', 'SI'],
-  [67890, 'MARTINEZ RUIZ ANA',      'SUPERVISORA DE CALIDAD', 'SU01', '4427654321', 'NO'],
-  [11111, 'RODRIGUEZ PEREZ CARLOS', 'ALMACENISTA',            '', '', ''],
+  [12345, 'GARCIA LOPEZ JUAN',      'PRODUCTION OPERATOR', 'SN01', '4421234567', 'SI', '', '', ''],
+  [67890, 'MARTINEZ RUIZ ANA',      'SUPERVISORA DE CALIDAD', '', '4427654321', 'NO', 'RUTA SUR', 'COLONIA VISTA HERMOSA', 'PLAZA COMERCIAL'],
+  [11111, 'RODRIGUEZ PEREZ CARLOS', 'ALMACENISTA',            '', '', '', '', '', ''],
 ];
 
 const FILAS_PREFORMATEADAS = 500;
@@ -310,10 +316,11 @@ export function construirFormatoEmpleados(puestosExistentes = []) {
     reglas: [
       `Capture los datos en la hoja "${HOJA_EMP}" a partir de la fila 2.`,
       'No modifique, mueva ni renombre los encabezados de la fila 1. No agregue ni elimine columnas.',
-      'NOMINA, NOMBRE y PUESTO son obligatorios. CLAVE PARADA, TELÉFONO y ELEGIBLE TE son opcionales.',
+      'NOMINA, NOMBRE y PUESTO son obligatorios. CLAVE PARADA, TELÉFONO, ELEGIBLE TE, RUTA, COMUNIDAD y PUNTO son opcionales.',
       'NOMINA debe contener solo digitos y no repetirse en el archivo.',
       'PUESTO: use un puesto del catalogo (o un alias ya confirmado). Los que no se reconozcan se resuelven en la vista previa antes de confirmar.',
       'CLAVE PARADA debe existir en el directorio de transporte. Si se deja vacia, la ruta se pedira al solicitar transporte.',
+      'RUTA, COMUNIDAD y PUNTO: otra forma de asignar la ruta por nomina, con los nombres tal como estan en el directorio. Se llenan las tres (si va CLAVE PARADA, manda la clave). Si no coinciden con el directorio, la fila se importa sin cambiar su ruta y se avisa.',
       'TELÉFONO: 10 digitos (se aceptan espacios y guiones). Si se deja vacio, no se borra el telefono que el empleado ya tenga.',
       'ELEGIBLE TE: SI para el personal que se captura en tiempo extra; NO para supervisores, jefes y administrativos. Si se deja vacia, no cambia el valor actual (un empleado nuevo queda como SI).',
       'Si la nomina ya existe en el sistema, el empleado se actualiza; no se crean duplicados.',
@@ -567,6 +574,27 @@ function filasReporteNomina({ ws, filaEnc, cols }) {
   return filas;
 }
 
+/**
+ * Busca el punto de reunión del directorio por los nombres de RUTA, COMUNIDAD y PUNTO (sin acentos ni mayúsculas).
+ * `catalogo`: { rutas, comunidades, puntos } (documentos con id y nombre). Sin rutas ni comunidades cargadas se usan los ids que genera la
+ * importación del directorio (el nombre en minúsculas con guiones).
+ * @returns {{ punto: object } | { aviso: string }}
+ */
+export function resolverParadaPorNombre({ ruta, comunidad, punto }, { rutas = [], comunidades = [], puntos = [] } = {}) {
+  if (!ruta || !comunidad || !punto) return { aviso: 'RUTA, COMUNIDAD y PUNTO van juntos: llena las tres; se conserva la ruta actual' };
+  const igual = (a, b) => slugify(a) === slugify(b);
+  const vigentes = (lista) => lista.filter(x => esActivo(x));
+  const rutaId = (vigentes(rutas).find(r => igual(r.nombre, ruta)) ?? rutas.find(r => igual(r.nombre, ruta)))?.id ?? (rutas.length ? null : slugify(ruta));
+  if (!rutaId) return { aviso: `RUTA "${ruta}" no existe en el directorio; se conserva la ruta actual` };
+  const comunidadId = comunidades.find(c => c.rutaId === rutaId && igual(c.nombre, comunidad))?.id ?? (comunidades.length ? null : `${rutaId}__${slugify(comunidad)}`);
+  if (!comunidadId) return { aviso: `COMUNIDAD "${comunidad}" no existe en la ruta "${ruta}"; se conserva la ruta actual` };
+  const candidatos = puntos.filter(p => p.comunidadId === comunidadId && igual(p.nombre, punto));
+  const encontrado = candidatos.find(p => esActivo(p)) ?? candidatos[0];
+  if (!encontrado) return { aviso: `PUNTO "${punto}" no existe en la comunidad "${comunidad}"; se conserva la ruta actual` };
+  if (!esActivo(encontrado)) return { aviso: `PUNTO "${punto}" esta inactivo; se conserva la ruta actual` };
+  return { punto: encontrado };
+}
+
 export async function leerDirectorio(buffer) {
   const clavesSeen = new Map();
   return (await leerHojaDatos(buffer, HOJA_DIR, DIR_HEADERS)).map(({ filaExcel, valores }) => {
@@ -598,7 +626,7 @@ export async function leerDirectorio(buffer) {
  * indicar `hoja` (si no, devuelve `meta.requiereHoja` y ninguna fila). `usarPrimera` toma la primera candidata.
  * @returns {{ filas: object[], meta: { formato, hoja, hojas: string[], candidatas: string[], requiereHoja: boolean, filasHoja?: number } }}
  */
-export async function leerEmpleadosArchivo(buffer, puntosReunionMap, { hoja, usarPrimera = false } = {}) {
+export async function leerEmpleadosArchivo(buffer, puntosReunionMap, { hoja, usarPrimera = false, rutas = [], comunidades = [] } = {}) {
   const wb = await cargarLibro(buffer);
   const hojas = wb.worksheets.map(w => w.name);
   const reportes = buscarReportesNomina(wb);
@@ -625,10 +653,11 @@ export async function leerEmpleadosArchivo(buffer, puntosReunionMap, { hoja, usa
     : filasDeHoja(wb, HOJA_EMP, EMP_HEADERS, EMP_OPCIONALES_FINALES).map(({ filaExcel, valores }) => ({
       filaExcel, nomina: norm(valores[0]), nombre: norm(valores[1]),
       puesto: normalizarPuesto(valores[2]), claveParada: norm(valores[3]), telefonoCrudo: valores[4], elegibleCrudo: valores[5], extra: null, puestoCrudo: valores[2],
+      rutaCruda: norm(valores[6]), comunidadCruda: norm(valores[7]), puntoCrudo: norm(valores[8]),
     }));
 
   const nominasSeen = new Map();
-  const filasTmp = crudas.map(({ filaExcel, nomina, nombre, puesto, claveParada, telefonoCrudo, elegibleCrudo, extra, puestoCrudo }) => {
+  const filasTmp = crudas.map(({ filaExcel, nomina, nombre, puesto, claveParada, telefonoCrudo, elegibleCrudo, extra, puestoCrudo, rutaCruda = '', comunidadCruda = '', puntoCrudo = '' }) => {
     const telefono = soloDigitosTelefono(telefonoCrudo);
     const datos = { NOMINA: nomina, NOMBRE: nombre, PUESTO: puesto, 'CLAVE PARADA': claveParada, TELEFONO: estadoTelefono(telefono) === 'valido' ? telefono : '' };
     // ELEGIBLE TE: true / false; null (vacía) = no cambia; una celda que no se entiende tampoco cambia nada y se avisa
@@ -651,6 +680,10 @@ export async function leerEmpleadosArchivo(buffer, puntosReunionMap, { hoja, usa
       else if (!puntosReunionMap.has(claveParada)) advertencias.push(`CLAVE PARADA "${claveParada}" no existe; se conserva la ruta actual`);
       else if (!esActivo(puntosReunionMap.get(claveParada))) advertencias.push(`CLAVE PARADA "${claveParada}" esta inactiva; se conserva la ruta actual`);
       else paradaInfo = puntosReunionMap.get(claveParada);
+    } else if (rutaCruda || comunidadCruda || puntoCrudo) {
+      // Sin clave: la ruta se busca por los nombres de RUTA, COMUNIDAD y PUNTO
+      const r = resolverParadaPorNombre({ ruta: rutaCruda, comunidad: comunidadCruda, punto: puntoCrudo }, { rutas, comunidades, puntos: [...(puntosReunionMap?.values() ?? [])] });
+      if (r.aviso) advertencias.push(r.aviso); else paradaInfo = { clave: r.punto.clave ?? r.punto.id, ...r.punto };
     }
     return { filaExcel, formato, extra, datos, paradaInfo, puestoVacio: !puesto, puestoCrudo: String(puestoCrudo ?? ''), errores, advertencias };
   });

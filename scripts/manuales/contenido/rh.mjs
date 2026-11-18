@@ -353,7 +353,7 @@ export default {
         { h: 'Importar empleados desde Excel' },
         { pasos: [
           'Elige el modo: <b>Agregar y actualizar</b> (crea los nuevos y actualiza los existentes; no da de baja a nadie) o <b>Sincronizar con la lista completa</b> (además propone dar de baja a quien no venga en el archivo).',
-          '<b>Descargar formato en blanco</b> trae el archivo de ejemplo. Columnas: NOMINA, NOMBRE y PUESTO (obligatorias); CLAVE PARADA, TELÉFONO y ELEGIBLE TE (opcionales). También acepta el reporte de nómina.',
+          '<b>Descargar formato en blanco</b> trae el archivo de ejemplo. Columnas: NOMINA, NOMBRE y PUESTO (obligatorias); CLAVE PARADA, TELÉFONO, ELEGIBLE TE, RUTA, COMUNIDAD y PUNTO (opcionales; la ruta se asigna por clave o por los tres nombres tal como están en el directorio). También acepta el reporte de nómina.',
           '<b>Seleccionar archivo (.xlsx)</b>. Antes de guardar, ves una <b>vista previa</b>: nuevos, sin cambios, con cambios, reactivados y bajas.',
         ], img: 'rh/38-importar' },
         { nota: 'Una celda vacía <b>nunca borra</b> un dato que el empleado ya tiene. Las bajas son siempre lógicas: nada se borra.' },

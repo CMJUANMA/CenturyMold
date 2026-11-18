@@ -48,8 +48,8 @@ describe('importación de Personal: columna ELEGIBLE TE', () => {
   const plan = (filas, empleados = []) => compararEmpleados(filas, empleados, { catalogo: PUESTOS_INICIALES, areas: AREAS_INICIALES });
   const filas = async (valores, encabezados = EMP_HEADERS) => leerEmpleados(await libro([{ nombre: 'Empleados', filas: [encabezados, ...valores] }]), new Map());
 
-  it('la plantilla trae ELEGIBLE TE como última columna opcional y un archivo sin ella se sigue leyendo', async () => {
-    expect(EMP_HEADERS.at(-1)).toBe('ELEGIBLE TE');
+  it('la plantilla trae ELEGIBLE TE como columna opcional y un archivo sin ella se sigue leyendo', async () => {
+    expect(EMP_HEADERS).toContain('ELEGIBLE TE');
     const f = await filas([[7219, 'PEREZ JUAN', 'PRODUCTION OPERATOR', '']], EMP_HEADERS.slice(0, 4));
     expect(f[0].estado).not.toBe('error');
     expect(f[0].datos['ELEGIBLE TE']).toBe(null);
