@@ -126,8 +126,7 @@ export default function PrepararProduccion() {
           {admins.viejas.length > 0 && <Fila><Td mono>—</Td><Td>Administradores: versiones viejas</Td><Td mono>{admins.viejas.map(v => v.correo).join(' · ')}</Td></Fila>}
         </tbody>
       </Tabla>
-      <Boton tamano="sm" icono={Copy} onClick={() => copiar(lista.flatMap(c => c.correos).concat(admins.viejas.map(v => v.correo)).join('
-'))}>Copiar los correos</Boton>
+      <Boton tamano="sm" icono={Copy} onClick={() => copiar(lista.flatMap(c => c.correos).concat(admins.viejas.map(v => v.correo)).join('\n'))}>Copiar los correos</Boton>
       <div className="rounded-md border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-3 text-xs text-[var(--text-secondary)]">
         <p><b>NO borres</b> la cuenta vigente de ningún administrador: {admins.vigentes.map(v => v.correo).join(' · ') || '—'}.</p>
         <p className="mt-2"><b>Cómo borrarlas de una vez:</b> consola de Firebase › Authentication › Users. Sube «Rows per page» al máximo. Marca la casilla de la fila de títulos (selecciona toda la página), quita la marca a las cuentas de administrador de arriba y pulsa «Delete accounts». Repite por cada página. Al terminar solo deben quedar las cuentas de administrador. Si una versión anterior ya no existe, sáltala.</p>
