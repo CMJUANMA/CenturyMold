@@ -24,8 +24,12 @@ export const cerrarVentana = () => deleteDoc(doc(db, 'limpiezaProduccion', 'vent
  * al final se reescribe el único renglón de bitácora (después de borrar la bitácora anterior) y se cierra la ventana.
  * @param {{ colecciones: object, usuariosABorrar: { uid: string, nomina: string }[], inventario: object, cuentasAuth: object[], actor: { uid: string, nombre: string }, onProgreso?: (hechas: number, total: number) => void }} p
  */
-export async function ejecutarLimpieza({ colecciones, usuariosABorrar, inventario, cuentasAuth, actor, onProgreso, catalogosTransporte = false }) {
+export async function ejecutarLimpieza({ colecciones: leidas, usuariosABorrar, inventario, cuentasAuth, actor, onProgreso, catalogosTransporte = false }) {
   // Se borran el perfil Y el accesos/{nómina} de cada usuario (así, al crearlo de nuevo, empieza en la versión 1); las asignaciones no se tocan
+  let colecciones = leidas;
+  // La bitácora se vuelve a leer: el renglón de la descarga del respaldo se escribió DESPUÉS de leerla y también debe borrarse (queda solo el de la limpieza)
+  const bitacoraActual = (await getDocs(collection(db, 'bitacora'))).docs.map(d => ({ id: d.id, data: {}, sub: null }));
+  colecciones = { ...colecciones, bitacora: bitacoraActual };
   const rutas = rutasABorrar(colecciones, usuariosABorrar.map(u => u.uid), { nominasAccesos: usuariosABorrar.map(u => u.nomina), catalogosTransporte });
   // Primero se vacía la ruta, comunidad y punto de cada empleado (nada más del padrón se toca) y luego se borran los catálogos
   const vaciar = Object.fromEntries(CAMPOS_TRANSPORTE_EMPLEADO.map(c => [c, '']));
