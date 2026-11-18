@@ -5,7 +5,9 @@
  * conteos y folios, más los usuarios que parecen de prueba para que el admin marque cuáles borrar y la lista exacta de cuentas de Authentication
  * que tendrá que borrar en la consola de Firebase (sin Cloud Functions no se puede desde la app).
  * FASE 2: solo tras escribir BORRAR. Borra en lotes con progreso, reinicia el folio (TE-<año>-0001), deja un solo renglón en la bitácora y muestra
- * una lista de verificación. Nunca toca padrón, áreas, puestos, turnos, motivos, catálogos, usuarios no marcados, asignaciones ni accesos.
+ * una lista de verificación. Opciones: «Borrar todos los usuarios excepto los administradores» (perfil y accesos/{nómina}; las asignaciones NO, van por nómina)
+ * y «Borrar también los catálogos de transporte de prueba» (rutas, comunidades, puntos y la ruta de cada empleado). Nunca toca padrón (salvo esa ruta),
+ * áreas, puestos, turnos, motivos, asignaciones ni administradores.
  */
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -24,7 +26,7 @@ import { esVigente } from '../../utils/asignaciones';
 import { esElegibleActivo } from '../../utils/elegibles';
 import { construirRespaldo, nombreRespaldoCompleto } from '../../utils/respaldoCompleto';
 import { descargarArchivoJson, leerColeccionesParaRespaldo } from '../../utils/respaldoDb';
-import { PALABRA_BORRAR, armarInventario, cuentasAuthABorrar, puedeMarcarse } from '../../utils/limpiezaProduccion';
+import { PALABRA_BORRAR, armarInventario, cuentasAuthABorrar, cuentasAuthDeAdmins, puedeMarcarse, usuariosNoAdmin } from '../../utils/limpiezaProduccion';
 import { abrirVentana, cerrarVentana, ejecutarLimpieza, leerVerificacion } from '../../utils/limpiezaProduccionDb';
 
 const ETIQUETAS = [
@@ -48,7 +50,10 @@ export default function PrepararProduccion() {
   const [palabra, setPalabra] = useState('');
   const [verificacion, setVerificacion] = useState(null);
   const [quedan, setQuedan] = useState(null);
-  const [cuentasFinales, setCuentasFinales] = useState([]);
+  const [cuentasFinales, setCuentasFinales] = useState({ lista: [], admins: { vigentes: [], viejas: [] } });
+  const [todosNoAdmin, setTodosNoAdmin] = useState(false);
+  const [catalogos, setCatalogos] = useState(false);
+  const [resumen, setResumen] = useState(null);
 
   const esAdmin = usuario?.rol === 'admin';
   // Si la pantalla se cierra a la mitad de la fase 1, la ventana de limpieza caduca sola (máx. 2 horas, según las reglas)
@@ -57,6 +62,8 @@ export default function PrepararProduccion() {
   const accesos = useMemo(() => new Map((datos?.colecciones.accesos ?? []).map(a => [a.id, a.data])), [datos]);
   const usuariosMarcados = useMemo(() => (datos ? datos.inventario.usuarios.filter(u => marcados.has(u.uid)) : []), [datos, marcados]);
   const cuentas = useMemo(() => cuentasAuthABorrar(usuariosMarcados, accesos), [usuariosMarcados, accesos]);
+  // Administradores (se conservan): su cuenta vigente y las versiones viejas que dejó «Restablecer contraseña»
+  const cuentasAdmins = useMemo(() => cuentasAuthDeAdmins((datos?.inventario.usuarios ?? []).filter(u => u.rol === 'admin' || u.esYo), accesos), [datos, accesos]);
   if (!esAdmin) return null;
   const actor = { uid: usuario.uid, nombre: usuario.nombre ?? '', nomina: usuario.nomina ?? '' };
 
@@ -69,7 +76,7 @@ export default function PrepararProduccion() {
       descargarArchivoJson(respaldo, nombreRespaldoCompleto());
       registrarDescarga(ACCIONES_DESCARGA.respaldoCompleto, { conteo: respaldo.conteo, origen: 'preparar_produccion' });
       setDatos({ colecciones, inventario: armarInventario(colecciones, { uid: usuario.uid, nomina: usuario.nomina }) });
-      setMarcados(new Set()); setPalabra('');
+      setMarcados(new Set()); setPalabra(''); setTodosNoAdmin(false); setCatalogos(false);
       setFase('inventario');
       toast.success('Respaldo descargado. Guárdalo antes de borrar nada.');
     } catch (err) {
@@ -85,9 +92,13 @@ export default function PrepararProduccion() {
     try {
       const r = await ejecutarLimpieza({
         colecciones: datos.colecciones, usuariosABorrar: usuariosMarcados, inventario: datos.inventario, cuentasAuth: cuentas, actor,
-        onProgreso: (hechas, total) => setAvance({ hechas, total }),
+        onProgreso: (hechas, total) => setAvance({ hechas, total }), catalogosTransporte: catalogos,
       });
-      setQuedan(r.quedan); setCuentasFinales(cuentas);
+      setQuedan(r.quedan); setCuentasFinales({ lista: cuentas, admins: cuentasAdmins });
+      setResumen({
+        usuarios: usuariosMarcados.length, accesos: usuariosMarcados.length, catalogos,
+        ...(catalogos ? { rutas: inv.transporte.rutas, comunidades: inv.transporte.comunidades, puntos: inv.transporte.puntosReunion, empleados: inv.transporte.empleadosConRuta } : {}),
+      });
       setVerificacion(await leerVerificacion());
       setFase('listo');
       toast.success('Limpieza terminada.');
@@ -99,18 +110,28 @@ export default function PrepararProduccion() {
   };
 
   const copiar = (texto) => navigator.clipboard?.writeText(texto).then(() => toast.success('Copiado.')).catch(() => {});
+  const alternarTodos = (activar) => {
+    setTodosNoAdmin(activar);
+    setMarcados(activar ? new Set(usuariosNoAdmin(inv.usuarios).map(u => u.uid)) : new Set());
+  };
   const alternar = (uid) => setMarcados(prev => { const s = new Set(prev); if (s.has(uid)) s.delete(uid); else s.add(uid); return s; });
-  const listaCuentas = (lista) => lista.flatMap(c => c.correos).join('\n');
   const inv = datos?.inventario;
 
-  const tablaCuentas = (lista) => (lista.length === 0 ? <p className="text-sm text-[var(--text-muted)]">Ninguna: no marcaste usuarios.</p> : (
+  const tablaCuentas = (lista, admins = { vigentes: [], viejas: [] }) => (lista.length === 0 && admins.viejas.length === 0 ? <p className="text-sm text-[var(--text-muted)]">Ninguna: no marcaste usuarios.</p> : (
     <div className="space-y-2">
       <Tabla etiqueta="Cuentas de Authentication por borrar">
         <thead><tr><Th>Nómina</Th><Th>Nombre</Th><Th>Cuentas (correo interno)</Th></tr></thead>
-        <tbody>{lista.map(c => <Fila key={c.nomina}><Td mono>{c.nomina}</Td><Td>{c.nombre}</Td><Td mono>{c.correos.join(' · ')}</Td></Fila>)}</tbody>
+        <tbody>
+          {lista.map(c => <Fila key={c.nomina}><Td mono>{c.nomina}</Td><Td>{c.nombre}</Td><Td mono>{c.correos.join(' · ')}</Td></Fila>)}
+          {admins.viejas.length > 0 && <Fila><Td mono>—</Td><Td>Administradores: versiones viejas</Td><Td mono>{admins.viejas.map(v => v.correo).join(' · ')}</Td></Fila>}
+        </tbody>
       </Tabla>
-      <Boton tamano="sm" icono={Copy} onClick={() => copiar(listaCuentas(lista))}>Copiar los correos</Boton>
-      <p className="text-xs text-[var(--text-muted)]">Bórralas en la consola de Firebase › Authentication (busca cada correo). Si una versión anterior ya no existe, sáltala.</p>
+      <Boton tamano="sm" icono={Copy} onClick={() => copiar(lista.flatMap(c => c.correos).concat(admins.viejas.map(v => v.correo)).join('
+'))}>Copiar los correos</Boton>
+      <div className="rounded-md border border-[var(--border-color)] bg-[var(--bg-surface-secondary)] p-3 text-xs text-[var(--text-secondary)]">
+        <p><b>NO borres</b> la cuenta vigente de ningún administrador: {admins.vigentes.map(v => v.correo).join(' · ') || '—'}.</p>
+        <p className="mt-2"><b>Cómo borrarlas de una vez:</b> consola de Firebase › Authentication › Users. Sube «Rows per page» al máximo. Marca la casilla de la fila de títulos (selecciona toda la página), quita la marca a las cuentas de administrador de arriba y pulsa «Delete accounts». Repite por cada página. Al terminar solo deben quedar las cuentas de administrador. Si una versión anterior ya no existe, sáltala.</p>
+      </div>
     </div>
   ));
 
@@ -119,7 +140,7 @@ export default function PrepararProduccion() {
       <div className="space-y-5" id="preparar-produccion">
         <p className="text-sm text-[var(--text-secondary)]">
           Borra los datos de prueba antes de arrancar. <b className="font-medium text-[var(--text-main)]">Paso 1</b> (no borra nada): descarga un respaldo completo y muestra lo que se borraría.{' '}
-          <b className="font-medium text-[var(--text-main)]">Paso 2</b>: solo si escribes {PALABRA_BORRAR}. No se tocan el padrón, las áreas, los puestos, los turnos, los motivos, los catálogos, los usuarios que no marques, las asignaciones ni los accesos.
+          <b className="font-medium text-[var(--text-main)]">Paso 2</b>: solo si escribes {PALABRA_BORRAR}. No se tocan el padrón, las áreas, los puestos, los turnos, los motivos, las asignaciones ni los administradores (los catálogos de transporte y los usuarios solo si los marcas).
         </p>
         {error && <Aviso tono="error">{error}</Aviso>}
 
@@ -158,13 +179,17 @@ export default function PrepararProduccion() {
 
             <section aria-label="Usuarios de prueba" className="space-y-2">
               <h3 className="text-sm font-semibold text-[var(--text-main)]">Usuarios: marca los de prueba que se borrarán</h3>
-              <p className="text-xs text-[var(--text-secondary)]">Aparecen primero los que parecen de prueba (su nómina no está en el padrón). Solo se borra su perfil; sus asignaciones y accesos no se tocan (revócalas en Asignaciones si hace falta). Tú no puedes marcarte.</p>
+              <p className="text-xs text-[var(--text-secondary)]">Aparecen primero los que parecen de prueba (su nómina no está en el padrón). Se borra su perfil y su registro de acceso; sus asignaciones no se tocan (van por nómina: cuando crees el usuario de nuevo siguen funcionando). Tú no puedes marcarte.</p>
+              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-[var(--text-main)]">
+                <input id="chk-todos-no-admin" type="checkbox" checked={todosNoAdmin} disabled={fase === 'borrando'} onChange={e => alternarTodos(e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
+                Borrar todos los usuarios excepto los administradores ({usuariosNoAdmin(inv.usuarios).length})
+              </label>
               <Tabla etiqueta="Usuarios" alto="max-h-80">
                 <thead><tr><Th>Borrar</Th><Th>Nómina</Th><Th>Nombre</Th><Th>Rol</Th><Th>Notas</Th></tr></thead>
                 <tbody>
                   {inv.usuarios.map(u => (
                     <Fila key={u.uid}>
-                      <Td><input type="checkbox" aria-label={`Borrar el usuario ${u.nombre}`} checked={marcados.has(u.uid)} disabled={!puedeMarcarse(u) || fase === 'borrando'} onChange={() => alternar(u.uid)} className="h-4 w-4 accent-[var(--accent)]" /></Td>
+                      <Td><input type="checkbox" aria-label={`Borrar el usuario ${u.nombre}`} checked={marcados.has(u.uid)} disabled={!puedeMarcarse(u) || fase === 'borrando' || todosNoAdmin} onChange={() => alternar(u.uid)} className="h-4 w-4 accent-[var(--accent)]" /></Td>
                       <Td mono>{u.nomina}</Td><Td>{u.nombre}</Td><Td>{u.rol}</Td>
                       <Td>
                         <span className="inline-flex flex-wrap gap-1">
@@ -180,15 +205,27 @@ export default function PrepararProduccion() {
               </Tabla>
             </section>
 
+            <section aria-label="Catálogos de transporte" className="space-y-2">
+              <h3 className="text-sm font-semibold text-[var(--text-main)]">Catálogos de transporte de prueba</h3>
+              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-[var(--text-main)]">
+                <input id="chk-catalogos-transporte" type="checkbox" checked={catalogos} disabled={fase === 'borrando'} onChange={e => setCatalogos(e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
+                Borrar también los catálogos de transporte de prueba
+              </label>
+              <p className="text-xs text-[var(--text-secondary)]">
+                Borra {inv.transporte.rutas} rutas, {inv.transporte.comunidades} comunidades y {inv.transporte.puntosReunion} puntos de reunión, y deja en blanco la ruta, la comunidad y el punto de {inv.transporte.empleadosConRuta} empleados.
+                No toca su nómina, nombre, puesto, área, teléfono ni si son elegibles para tiempo extra. Después se cargan los reales en Catálogos › Importar directorio.
+              </p>
+            </section>
+
             <section aria-label="Cuentas de Authentication" className="space-y-2">
               <h3 className="text-sm font-semibold text-[var(--text-main)]">Cuentas de Authentication que tendrás que borrar en la consola</h3>
-              {tablaCuentas(cuentas)}
+              {tablaCuentas(cuentas, cuentasAdmins)}
             </section>
 
             <section aria-label="Confirmar" className="space-y-3 rounded-md border border-[var(--status-error-border)] p-4">
               <h3 className="text-sm font-semibold text-[var(--status-error-text)]">Paso 2: borrar</h3>
               <p className="text-sm text-[var(--text-secondary)]">
-                Se borra lo de la tabla de arriba y {usuariosMarcados.length} usuarios; el próximo folio será TE-{anio}-0001. No se puede deshacer (salvo con el respaldo).
+                Se borra lo de la tabla de arriba, {usuariosMarcados.length} usuarios (con su registro de acceso){catalogos ? ' y los catálogos de transporte' : ''}; el próximo folio será TE-{anio}-0001. No se puede deshacer (salvo con el respaldo).
               </p>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                 <Campo etiqueta={`Escribe ${PALABRA_BORRAR} para confirmar`} className="sm:w-64">
@@ -211,10 +248,18 @@ export default function PrepararProduccion() {
         {fase === 'listo' && verificacion && (
           <div className="space-y-5" aria-label="Lista de verificación">
             <Aviso tono="exito">Limpieza terminada. Queda un solo renglón en la bitácora: «Limpieza para producción».</Aviso>
+            {resumen && (
+              <ul aria-label="Resumen de lo borrado" className="list-disc space-y-1 pl-5 text-sm text-[var(--text-main)]">
+                <li>Usuarios borrados: {resumen.usuarios} · registros de acceso borrados: {resumen.accesos} (las asignaciones se conservaron)</li>
+                {resumen.catalogos
+                  ? <li>Catálogos de transporte borrados: {resumen.rutas} rutas, {resumen.comunidades} comunidades, {resumen.puntos} puntos de reunión · ruta vaciada en {resumen.empleados} empleados</li>
+                  : <li>Catálogos de transporte: no se tocaron</li>}
+              </ul>
+            )}
             <Verificacion v={verificacion} quedan={quedan} />
             <section className="space-y-2">
               <h3 className="text-sm font-semibold text-[var(--text-main)]">Pendiente en la consola: borrar estas cuentas de Authentication</h3>
-              {tablaCuentas(cuentasFinales)}
+              {tablaCuentas(cuentasFinales.lista, cuentasFinales.admins)}
             </section>
             <Boton onClick={() => { setFase('inicio'); setDatos(null); setVerificacion(null); }}>Cerrar</Boton>
           </div>

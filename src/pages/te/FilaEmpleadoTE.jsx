@@ -31,6 +31,7 @@ export default function FilaEmpleadoTE({ tour, e, fechaTE = '', tipo = TIPOS_TE.
   const cambiar = (parche) => onCambio(e.nomina, parche);
   const posteriores = extension ? salidasPosteriores(e.horaEntrada) : [];
   const estadoTel = estadoTelefono(telefono);
+  const sinCatalogoDeRutas = opcionesVigentes(rutas ?? [], e.rutaId).length === 0;
 
   return (
     <div id={`fila-${e.nomina}`} data-tour={tour} className={`relative rounded-lg border bg-[var(--bg-surface)] p-4 lg:p-3 ${error ? 'border-[var(--status-error-text)]' : 'border-[var(--border-color)]'}`}>
@@ -143,7 +144,9 @@ export default function FilaEmpleadoTE({ tour, e, fechaTE = '', tipo = TIPOS_TE.
           )}
           {e.confirmada && e.rutaId && <p className="flex items-center gap-1.5 text-xs font-medium text-[var(--status-success-text)]"><CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />Ruta confirmada.</p>}
           {!pedirConfirmar && !e.necesitaConfirmar && (!e.rutaId || !e.comunidadId || !e.puntoReunionId) && (
-            <p className="text-xs text-[var(--text-secondary)]">Elige ruta, comunidad y punto; se guardarán en el padrón del empleado.</p>
+            sinCatalogoDeRutas
+              ? <p role="status" className="text-xs font-medium text-[var(--status-warning-text)]">Todavía no hay rutas en el catálogo, así que no se puede elegir una. Pide a Recursos Humanos que las cargue; mientras tanto quita el transporte de este empleado o deja la solicitud como borrador.</p>
+              : <p className="text-xs text-[var(--text-secondary)]">{e.rutaId ? 'Falta completar la ruta: elige' : 'Este empleado no tiene ruta guardada: elige'} ruta, comunidad y punto del catálogo; se guardarán en el padrón del empleado.</p>
           )}
         </div>
       )}

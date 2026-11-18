@@ -137,7 +137,8 @@ service cloud.firestore {
         && request.resource.data.version is int && request.resource.data.uid is string
         && (resource == null ? request.resource.data.version in [1, 2] : request.resource.data.version == resource.data.version + 1)
         && accesoDelPerfilNuevo(nomina, request.resource.data.uid);
-      allow delete: if false;
+      // Borrar: solo «Preparar para producción» (admin con la ventana de limpieza vigente): así un usuario borrado vuelve a nacer en la versión 1
+      allow delete: if ventanaLimpieza();
       function accesoDelPerfilNuevo(nomina, uidNuevo) {
         let nuevo = /databases/$(database)/documents/usuarios/$(uidNuevo);
         return !exists(nuevo) && existsAfter(nuevo) && getAfter(nuevo).data.nomina == nomina;

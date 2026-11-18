@@ -127,7 +127,7 @@ describe('con la ventana abierta: la limpieza completa', () => {
 
     // Lo que NO se toca
     for (const r of [['empleados', '100'], ['empleadosContacto', '100'], ['areas', 'produccion'], ['puestos', 'op'], ['turnosNomina', 'A'], ['motivosTE', 'm1'], ['rutas', 'norte'],
-      ['asignaciones', '100_aut1_produccion'], ['accesos', '90001'], ['usuarios', 'real'], ['usuarios', 'adm'], ['usuarios', 'solP']]) {
+      ['asignaciones', '100_aut1_produccion'], ['usuarios', 'real'], ['usuarios', 'adm'], ['usuarios', 'solP']]) {
       expect((await getDoc(doc(db, ...r))).exists(), r.join('/')).toBe(true);
     }
     expect((await getDoc(doc(db, 'usuarios', 'prueba'))).exists()).toBe(false);
@@ -146,7 +146,7 @@ describe('con la ventana abierta: la limpieza completa', () => {
   it('aun con la ventana, el admin no puede borrar asignaciones, áreas, puestos, turnos ni motivos (la herramienta tampoco lo intenta)', async () => {
     await abrir();
     const db = dbDe('adm');
-    for (const r of [['asignaciones', '100_aut1_produccion'], ['areas', 'produccion'], ['puestos', 'op'], ['turnosNomina', 'A'], ['motivosTE', 'm1'], ['accesos', '90001']]) {
+    for (const r of [['asignaciones', '100_aut1_produccion'], ['areas', 'produccion'], ['puestos', 'op'], ['turnosNomina', 'A'], ['motivosTE', 'm1']]) {
       await assertFails(deleteDoc(doc(db, ...r)));
     }
   });

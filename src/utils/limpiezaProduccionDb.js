@@ -7,7 +7,7 @@
 import { Timestamp, collection, deleteDoc, doc, getCountFromServer, getDocs, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ejecutarEnLotes, opBitacora } from './estructuraDb';
-import { rutasABorrar } from './limpiezaProduccion';
+import { CAMPOS_TRANSPORTE_EMPLEADO, empleadosConTransporte, rutasABorrar } from './limpiezaProduccion';
 
 const MINUTOS_VENTANA = 90;
 const LOTE_BORRADO = 400;
@@ -24,16 +24,21 @@ export const cerrarVentana = () => deleteDoc(doc(db, 'limpiezaProduccion', 'vent
  * al final se reescribe el único renglón de bitácora (después de borrar la bitácora anterior) y se cierra la ventana.
  * @param {{ colecciones: object, usuariosABorrar: { uid: string, nomina: string }[], inventario: object, cuentasAuth: object[], actor: { uid: string, nombre: string }, onProgreso?: (hechas: number, total: number) => void }} p
  */
-export async function ejecutarLimpieza({ colecciones, usuariosABorrar, inventario, cuentasAuth, actor, onProgreso }) {
-  const rutas = rutasABorrar(colecciones, usuariosABorrar.map(u => u.uid));
-  const ops = rutas.map(ruta => (b) => b.delete(doc(db, ...ruta)));
+export async function ejecutarLimpieza({ colecciones, usuariosABorrar, inventario, cuentasAuth, actor, onProgreso, catalogosTransporte = false }) {
+  // Se borran el perfil Y el accesos/{nómina} de cada usuario (así, al crearlo de nuevo, empieza en la versión 1); las asignaciones no se tocan
+  const rutas = rutasABorrar(colecciones, usuariosABorrar.map(u => u.uid), { nominasAccesos: usuariosABorrar.map(u => u.nomina), catalogosTransporte });
+  // Primero se vacía la ruta, comunidad y punto de cada empleado (nada más del padrón se toca) y luego se borran los catálogos
+  const vaciar = Object.fromEntries(CAMPOS_TRANSPORTE_EMPLEADO.map(c => [c, '']));
+  const opsEmpleados = catalogosTransporte ? empleadosConTransporte(colecciones).map(e => (b) => b.update(doc(db, 'empleados', e.id), vaciar)) : [];
+  const ops = [...opsEmpleados, ...rutas.map(ruta => (b) => b.delete(doc(db, ...ruta)))];
   await ejecutarEnLotes(ops, onProgreso, LOTE_BORRADO);
   // Comprobación antes de cerrar la ventana: ya no debe quedar ninguna solicitud (borradores incluidos)
   const quedan = (await getCountFromServer(collection(db, 'tiempoExtra'))).data().count + (await getCountFromServer(collection(db, 'solicitudes'))).data().count;
   await ejecutarEnLotes([opBitacora({
     accion: 'limpieza_produccion', entidad: 'sistema', antes: null,
     despues: {
-      conteo: inventario.conteo, usuariosBorrados: usuariosABorrar.map(u => u.nomina),
+      conteo: inventario.conteo, usuariosBorrados: usuariosABorrar.map(u => u.nomina), accesosBorrados: usuariosABorrar.length,
+      catalogosTransporte: catalogosTransporte ? { ...inventario.transporte } : null,
       cuentasAuthPendientes: cuentasAuth.flatMap(c => c.correos), solicitudesRestantes: quedan,
       reinicioFolio: `TE-${new Date().getFullYear()}-0001`,
     },

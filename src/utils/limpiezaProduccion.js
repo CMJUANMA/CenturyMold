@@ -3,7 +3,9 @@
  *
  * Qué se borra (fase 2, solo tras escribir BORRAR): solicitudes de tiempo extra (con sus empleados e historial, borradores incluidos), solicitudes de
  * transporte (con sus pasajeros), ajustes de nómina, bitácora, contadores del folio y los usuarios de prueba que el admin marque.
- * Qué NO se toca nunca: empleados (padrón), teléfonos, áreas, puestos, turnos, motivos, rutas/comunidades/puntos, usuarios no marcados, asignaciones y accesos.
+ * Opcional: «todos los usuarios excepto los administradores» (su perfil y su accesos/{nómina}; las asignaciones NO, van por nómina y son la
+ * configuración real) y los catálogos de transporte de prueba (rutas, comunidades y puntos, y la ruta/comunidad/punto de cada empleado).
+ * Qué NO se toca nunca: nómina, nombre, puesto, área, teléfono y elegible TE del padrón, áreas, puestos, turnos, motivos, asignaciones y administradores.
  */
 import { correoDeAcceso, versionDe } from './accesos.js';
 
@@ -14,6 +16,10 @@ export const PALABRA_BORRAR = 'BORRAR';
 export const COLECCIONES_A_BORRAR = ['tiempoExtra', 'solicitudes', 'ajustesNomina', 'bitacora', 'contadores'];
 /** Colecciones que la limpieza no toca (se muestran como «se conservan») */
 export const COLECCIONES_PROTEGIDAS = ['empleados', 'areas', 'puestos', 'turnosNomina', 'motivosTE', 'rutas', 'comunidades', 'puntosReunion', 'asignaciones', 'accesos'];
+/** Catálogos de transporte que se borran solo si se marca «Borrar también los catálogos de transporte de prueba» */
+export const COLECCIONES_TRANSPORTE = ['rutas', 'comunidades', 'puntosReunion'];
+/** Campos del padrón que se vacían junto con los catálogos de transporte (nada más del empleado se toca) */
+export const CAMPOS_TRANSPORTE_EMPLEADO = ['rutaId', 'comunidadId', 'puntoReunionId'];
 
 /**
  * Inventario de lo que se borraría, a partir de lo que ya se leyó para el respaldo.
@@ -51,6 +57,11 @@ export function armarInventario(colecciones, yo = {}) {
       bitacora: lista('bitacora').length,
       contadores: lista('contadores').length,
     },
+    // Lo que borra la opción de catálogos de transporte (no entra en «se borraría» a menos que se marque)
+    transporte: {
+      rutas: lista('rutas').length, comunidades: lista('comunidades').length, puntosReunion: lista('puntosReunion').length,
+      empleadosConRuta: empleadosConTransporte(colecciones).length,
+    },
     protegidos: Object.fromEntries(COLECCIONES_PROTEGIDAS.map(n => [n, lista(n).length])),
     folios: {
       tiempoExtra: te.map(d => ({ id: d.id, folio: d.data?.folio ?? '(borrador)', estatus: d.data?.estatus ?? '', area: d.data?.areaNombre ?? '', fecha: d.data?.fechaTE ?? '' }))
@@ -74,6 +85,27 @@ export function cuentasAuthABorrar(usuariosMarcados, accesos = new Map()) {
   });
 }
 
+/** Usuarios que borra «todos excepto los administradores» (nunca quien hace la limpieza) */
+export const usuariosNoAdmin = (usuarios) => usuarios.filter(u => u.rol !== 'admin' && !u.esYo);
+
+/**
+ * Cuentas de Authentication de los administradores. `vigentes`: las que se conservan (una por admin, la versión de su accesos).
+ * `viejas`: versiones anteriores que dejó «Restablecer contraseña» (ya no sirven; se pueden borrar con el resto).
+ */
+export function cuentasAuthDeAdmins(admins, accesos = new Map()) {
+  const vigentes = []; const viejas = [];
+  for (const u of admins) {
+    const version = versionDe(accesos.get(String(u.nomina)));
+    vigentes.push({ nomina: u.nomina, nombre: u.nombre, correo: correoDeAcceso(u.nomina, version) });
+    for (let v = 1; v < version; v++) viejas.push({ nomina: u.nomina, nombre: u.nombre, correo: correoDeAcceso(u.nomina, v) });
+  }
+  return { vigentes, viejas };
+}
+
+/** Empleados del padrón con ruta, comunidad o punto guardados (los que la limpieza de catálogos deja en blanco) */
+export const empleadosConTransporte = (colecciones) =>
+  (colecciones.empleados ?? []).filter(e => CAMPOS_TRANSPORTE_EMPLEADO.some(c => String(e.data?.[c] ?? '') !== ''));
+
 /** Un usuario no se puede marcar si es quien hace la limpieza */
 export const puedeMarcarse = (u) => !u.esYo;
 
@@ -81,7 +113,7 @@ export const puedeMarcarse = (u) => !u.esYo;
  * Pasos de borrado en el orden en que deben ejecutarse: primero las subcolecciones (sus reglas leen al padre), luego los padres, luego el resto.
  * @returns {{ ruta: string[] }[]} cada `ruta` es el camino de un documento ([colección, id] o [colección, id, subcolección, id])
  */
-export function rutasABorrar(colecciones, uidsUsuarios = []) {
+export function rutasABorrar(colecciones, uidsUsuarios = [], { nominasAccesos = [], catalogosTransporte = false } = {}) {
   const rutas = [];
   for (const [col, subs] of [['tiempoExtra', ['empleados', 'historial']], ['solicitudes', ['pasajeros']]]) {
     for (const d of colecciones[col] ?? []) for (const s of subs) for (const x of d.sub?.[s] ?? []) rutas.push([col, d.id, s, x.id]);
@@ -89,6 +121,8 @@ export function rutasABorrar(colecciones, uidsUsuarios = []) {
   for (const col of ['tiempoExtra', 'solicitudes', 'ajustesNomina', 'bitacora', 'contadores']) {
     for (const d of colecciones[col] ?? []) rutas.push([col, d.id]);
   }
+  if (catalogosTransporte) for (const col of ['puntosReunion', 'comunidades', 'rutas']) for (const d of colecciones[col] ?? []) rutas.push([col, d.id]);
   for (const uid of uidsUsuarios) rutas.push(['usuarios', uid]);
+  for (const n of nominasAccesos) rutas.push(['accesos', String(n)]);
   return rutas;
 }
