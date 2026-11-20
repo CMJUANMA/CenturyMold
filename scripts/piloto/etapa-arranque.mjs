@@ -114,7 +114,7 @@ export async function etapaArranque({ nueva, contexto }) {
   // ── Directorio de rutas y ruta de Almacén por importación ───────────────────────────────────
   await paso('El administrador entra de nuevo', async () => { igual(await entrar(page, ADMIN.nomina, PASSWORD_ADMIN), 'inicio', 'adónde lo manda el login'); }, p);
 
-  await paso('Sin rutas en el catálogo, la app funciona: el catálogo está vacío y al capturar con transporte avisa con claridad', async () => {
+  await paso('Sin rutas en el catálogo la app sigue funcionando: el catálogo vacío lo dice (el aviso al capturar sin ruta se comprueba en la etapa 2 con 6006)', async () => {
     await ir(page, '/transporte/catalogos', 1800);
     verificar(await page.getByText('No hay rutas').count(), 'El catálogo de rutas debería mostrar «No hay rutas».');
     contexto.sinRutasVerificado = true;

@@ -21,7 +21,7 @@ export const lanzar = (cmd) => { const h = spawn(cmd, { shell: true, stdio: 'ign
 export const correr = (cmd) => { const r = spawnSync(cmd, { shell: true, stdio: 'inherit' }); if (r.status !== 0) throw new Error(`Falló el comando: ${cmd}`); };
 export const apagarTodo = () => { for (const h of hijos) { try { spawnSync(`taskkill /pid ${h.pid} /T /F`, { shell: true, stdio: 'ignore' }); } catch { /* ya terminó */ } } };
 
-export async function prepararEntorno({ sinBuild }) {
+export async function prepararEntorno({ sinBuild, reusar = false }) {
   if (!(await arriba('http://127.0.0.1:8080'))) {
     console.log('Iniciando los emuladores (Auth y Firestore)…');
     lanzar(`npx firebase emulators:start --only auth,firestore --project ${PROYECTO}`);
@@ -29,6 +29,7 @@ export async function prepararEntorno({ sinBuild }) {
     if (!(await arriba('http://127.0.0.1:8080'))) throw new Error('Los emuladores no arrancaron (¿Java instalado? ¿puertos 8080 y 9099 libres?).');
   } else console.log('Usando los emuladores que ya estaban corriendo (si cambiaste firestore.rules, reinícialos).');
   if (!sinBuild) { console.log('Compilando la app en modo emulador…'); correr('npm run capturas:build'); }
+  if (reusar && await arriba(`http://localhost:${PUERTO_APP}`)) return;
   if (await arriba(`http://localhost:${PUERTO_APP}`)) throw new Error(`Ya hay algo en el puerto ${PUERTO_APP}: ciérralo para que la prueba use su propia copia compilada.`);
   lanzar(`npx vite preview --outDir .tmp/dist-emulador --port ${PUERTO_APP} --strictPort`);
   for (let i = 0; i < 30 && !(await arriba(`http://localhost:${PUERTO_APP}`)); i++) await esperar(1000);

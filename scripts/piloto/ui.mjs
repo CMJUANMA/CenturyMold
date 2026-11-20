@@ -94,3 +94,19 @@ export async function escribirExcel(ruta, hoja, filas) {
 
 /** Hoy a cierta hora local escrito como lo muestran los selectores de hora de la app (7:00 a. m.) */
 export const texto = async (loc) => (await loc.innerText()).replace(/\s+/g, ' ').trim();
+
+/** Clave ISO de la semana de una fecha AAAA-MM-DD ("2026-47"), como la usa la pantalla de Nóminas */
+export function claveSemanaDe(ymd) {
+  const [a, m, d] = ymd.split('-').map(Number);
+  const f = new Date(Date.UTC(a, m - 1, d));
+  const dia = f.getUTCDay() || 7;
+  f.setUTCDate(f.getUTCDate() + 4 - dia);
+  const inicio = new Date(Date.UTC(f.getUTCFullYear(), 0, 1));
+  return `${f.getUTCFullYear()}-${String(Math.ceil(((f - inicio) / 86400000 + 1) / 7)).padStart(2, '0')}`;
+}
+
+export function sumarDiasYmd(ymd, n) {
+  const [a, m, d] = ymd.split('-').map(Number);
+  const f = new Date(Date.UTC(a, m - 1, d + n));
+  return `${f.getUTCFullYear()}-${String(f.getUTCMonth() + 1).padStart(2, '0')}-${String(f.getUTCDate()).padStart(2, '0')}`;
+}
